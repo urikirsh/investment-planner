@@ -182,8 +182,8 @@ class MainWindow(QMainWindow):
         return btns
 
     def _build_main_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
+        main_screen_widget = QWidget()
+        layout = QVBoxLayout(main_screen_widget)
 
         title = QLabel("Main")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
         self.cash_amount_edit.textChanged.connect(self._refresh_total_label)
         self.cash_reserve_edit.textChanged.connect(self._refresh_total_label)
 
-        return w
+        return main_screen_widget
 
     def _add_asset_group(self):
         gid = _new_id("grp")
