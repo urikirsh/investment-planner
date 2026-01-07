@@ -54,6 +54,20 @@ class WizardStep:
     planned_delta_money: D  # positive buy, negative sell
 
 
+def _set_group_tree_item(gitem: QTreeWidgetItem,
+                         name: str, target_pct: int,
+                         preferred_instrument_id: str,
+                         id_str: str) -> None:
+    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+    gitem.setText(0, "Group")
+    gitem.setText(1, name)
+    gitem.setText(2, "")  # total value (unused for groups)
+    gitem.setText(3, str(target_pct))
+    gitem.setText(4, preferred_instrument_id)
+    gitem.setText(5, "")  # Investable (unused for groups)
+    gitem.setText(6, id_str)
+
+
 class MainWindow(QMainWindow):
     """
     3-screen flow:
@@ -211,10 +225,10 @@ class MainWindow(QMainWindow):
 
         gitem.setText(0, "Group")
         gitem.setText(1, "New Asset Group")
-        gitem.setText(2, "")  # amount not used for group
+        gitem.setText(2, "")   # total value (not used for groups)
         gitem.setText(3, "0")  # target pct
-        gitem.setText(4, "")  # preferred instrument id (filled later)
-        gitem.setText(5, "")  # investable not used for group
+        gitem.setText(4, "")   # preferred instrument id (filled later)
+        gitem.setText(5, "")   # investable (not used for groups)
         gitem.setText(6, gid)
 
         self.tree.expandAll()
@@ -238,10 +252,10 @@ class MainWindow(QMainWindow):
 
         item.setText(0, "Instrument")
         item.setText(1, "New Instrument")
-        item.setText(2, "1")  # total value (must be positive by validation)
-        item.setText(3, "")   # target not used
-        item.setText(4, "")   # preferred not used
-        item.setText(5, "true")
+        item.setText(2, "1")    # total value (must be positive by validation)
+        item.setText(3, "")     # target pct, not used
+        item.setText(4, "")     # preferred instrument id, not used
+        item.setText(5, "true") # investable
         item.setText(6, iid)
 
         self.tree.expandAll()
@@ -311,14 +325,7 @@ class MainWindow(QMainWindow):
 
             for g in p.asset_groups:
                 gitem = QTreeWidgetItem(self.tree)
-                gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-                gitem.setText(0, "Group")
-                gitem.setText(1, g.name)
-                gitem.setText(2, "")
-                gitem.setText(3, str(g.target_pct))
-                gitem.setText(4, g.preferred_instrument_id)
-                gitem.setText(5, "")
-                gitem.setText(6, g.id)
+                _set_group_tree_item(gitem, g.name, g.target_pct, g.preferred_instrument_id, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
                     item = QTreeWidgetItem(gitem)
@@ -326,22 +333,19 @@ class MainWindow(QMainWindow):
                     item.setText(0, "Instrument")
                     item.setText(1, ins["name"])
                     item.setText(2, ins["amount"])
-                    item.setText(3, "")
-                    item.setText(4, "")
+                    item.setText(3, "")  # target pct (not used for instruments)
+                    item.setText(4, "")  # preferred instrument (not used for instruments)
                     item.setText(5, "true" if ins["investable"] else "false")
                     item.setText(6, ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
                 bucket = QTreeWidgetItem(self.tree)
-                bucket.setFlags(bucket.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-                bucket.setText(0, "Group")
-                bucket.setText(1, "Non-investable (excluded from strategy)")
-                bucket.setText(2, "")
-                bucket.setText(3, "0")
-                bucket.setText(4, "")
-                bucket.setText(5, "")
-                bucket.setText(6, "non_investable_bucket")
+                _set_group_tree_item(bucket,
+                                     "Non-investable (excluded from strategy)",
+                                     "0",
+                                     "",
+                                     "non_investable_bucket")
 
                 for ins in non_investable:
                     item = QTreeWidgetItem(bucket)
@@ -349,9 +353,9 @@ class MainWindow(QMainWindow):
                     item.setText(0, "Instrument")
                     item.setText(1, ins["name"])
                     item.setText(2, ins["amount"])
-                    item.setText(3, "")
-                    item.setText(4, "")
-                    item.setText(5, "false")
+                    item.setText(3, "")      # target pct
+                    item.setText(4, "")      # preferred instrument
+                    item.setText(5, "false") # investable - false
                     item.setText(6, ins["id"])
 
             self.tree.expandAll()
