@@ -158,23 +158,7 @@ class MainWindow(QMainWindow):
         totals_layout.addStretch(1)
         return totals
 
-    def _build_main_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-
-        title = QLabel("Main")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-        layout.addWidget(self._generate_cash_box())
-
-        self._init_group_and_instruments_tree()
-        layout.addWidget(self.tree, 1)
-
-        layout.addWidget(self._generate_controls_widget())
-
-        layout.addWidget(self._generate_total_portfolio_value_widget())
-
-        # Bottom buttons
+    def _generate_bottom_buttons_widget(self) -> QWidget:
         btns = QWidget()
         btns_layout = QHBoxLayout(btns)
 
@@ -195,7 +179,23 @@ class MainWindow(QMainWindow):
         btns_layout.addWidget(update_btn)
 
         btns_layout.addStretch(1)
-        layout.addWidget(btns)
+        return btns
+
+    def _build_main_screen(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+
+        title = QLabel("Main")
+        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        layout.addWidget(title)
+        layout.addWidget(self._generate_cash_box())
+
+        self._init_group_and_instruments_tree()
+        layout.addWidget(self.tree, 1)
+
+        layout.addWidget(self._generate_controls_widget())
+        layout.addWidget(self._generate_total_portfolio_value_widget())
+        layout.addWidget(self._generate_bottom_buttons_widget())
 
         # Live total refresh
         self.tree.itemChanged.connect(self._refresh_total_label)
