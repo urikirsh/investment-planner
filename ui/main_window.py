@@ -150,6 +150,14 @@ class MainWindow(QMainWindow):
         controls_layout.addStretch(1)
         return controls
 
+    def _generate_total_portfolio_value_widget(self) -> QWidget:
+        totals = QWidget()
+        totals_layout = QHBoxLayout(totals)
+        self.total_label = QLabel("Total portfolio value: —")
+        totals_layout.addWidget(self.total_label)
+        totals_layout.addStretch(1)
+        return totals
+
     def _build_main_screen(self) -> QWidget:
         w = QWidget()
         layout = QVBoxLayout(w)
@@ -161,16 +169,10 @@ class MainWindow(QMainWindow):
 
         self._init_group_and_instruments_tree()
         layout.addWidget(self.tree, 1)
-        
+
         layout.addWidget(self._generate_controls_widget())
 
-        # Total portfolio label
-        totals = QWidget()
-        totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio: —")
-        totals_layout.addWidget(self.total_label)
-        totals_layout.addStretch(1)
-        layout.addWidget(totals)
+        layout.addWidget(self._generate_total_portfolio_value_widget())
 
         # Bottom buttons
         btns = QWidget()
