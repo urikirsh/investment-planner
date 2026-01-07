@@ -109,15 +109,7 @@ class MainWindow(QMainWindow):
         cash_layout.addStretch(1)
         return cash_box
 
-    def _build_main_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-
-        title = QLabel("Main")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-        layout.addWidget(self._generate_cash_box())
-
+    def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
         self.tree = QTreeWidget()
         self.tree.setColumnCount(7)
@@ -129,7 +121,7 @@ class MainWindow(QMainWindow):
                 "Target % (group)",
                 "Preferred Instrument (group)",
                 "Investable (instrument)",
-                "ID (hidden-ish)",
+                "ID",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -137,6 +129,17 @@ class MainWindow(QMainWindow):
         self.tree.setDefaultDropAction(Qt.MoveAction)
         self.tree.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.SelectedClicked)
         self.tree.setIndentation(22)
+
+    def _build_main_screen(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+
+        title = QLabel("Main")
+        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        layout.addWidget(title)
+        layout.addWidget(self._generate_cash_box())
+
+        self._init_group_and_instruments_tree()
         layout.addWidget(self.tree, 1)
 
         # Controls row: add/remove
