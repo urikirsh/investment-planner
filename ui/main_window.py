@@ -91,6 +91,24 @@ class MainWindow(QMainWindow):
     # Screen 1 (Main)
     # -------------------------
 
+    def _generate_cash_box(self) -> QWidget:
+        # Cash block (fixed)
+        cash_box = QWidget()
+        cash_layout = QHBoxLayout(cash_box)
+
+        cash_layout.addWidget(QLabel("Cash value:"))
+        self.cash_amount_edit = QLineEdit()
+        self.cash_amount_edit.setPlaceholderText("e.g. 1000")
+        cash_layout.addWidget(self.cash_amount_edit)
+
+        cash_layout.addWidget(QLabel("Minimal cash reserve:"))
+        self.cash_reserve_edit = QLineEdit()
+        self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
+        cash_layout.addWidget(self.cash_reserve_edit)
+
+        cash_layout.addStretch(1)
+        return cash_box
+
     def _build_main_screen(self) -> QWidget:
         w = QWidget()
         layout = QVBoxLayout(w)
@@ -98,22 +116,7 @@ class MainWindow(QMainWindow):
         title = QLabel("Main")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
-
-        # Cash block (fixed)
-        cash_box = QWidget()
-        cash_layout = QHBoxLayout(cash_box)
-        cash_layout.addWidget(QLabel("Cash amount:"))
-        self.cash_amount_edit = QLineEdit()
-        self.cash_amount_edit.setPlaceholderText("e.g. 1000")
-        cash_layout.addWidget(self.cash_amount_edit)
-
-        cash_layout.addWidget(QLabel("Cash reserve:"))
-        self.cash_reserve_edit = QLineEdit()
-        self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
-        cash_layout.addWidget(self.cash_reserve_edit)
-
-        cash_layout.addStretch(1)
-        layout.addWidget(cash_box)
+        layout.addWidget(self._generate_cash_box())
 
         # Tree: Groups as top-level, instruments as children
         self.tree = QTreeWidget()
