@@ -130,18 +130,7 @@ class MainWindow(QMainWindow):
         self.tree.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.SelectedClicked)
         self.tree.setIndentation(22)
 
-    def _build_main_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-
-        title = QLabel("Main")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-        layout.addWidget(self._generate_cash_box())
-
-        self._init_group_and_instruments_tree()
-        layout.addWidget(self.tree, 1)
-
+    def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
         controls = QWidget()
         controls_layout = QHBoxLayout(controls)
@@ -159,7 +148,21 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(delete_row)
 
         controls_layout.addStretch(1)
-        layout.addWidget(controls)
+        return controls
+
+    def _build_main_screen(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+
+        title = QLabel("Main")
+        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        layout.addWidget(title)
+        layout.addWidget(self._generate_cash_box())
+
+        self._init_group_and_instruments_tree()
+        layout.addWidget(self.tree, 1)
+        
+        layout.addWidget(self._generate_controls_widget())
 
         # Total portfolio label
         totals = QWidget()
