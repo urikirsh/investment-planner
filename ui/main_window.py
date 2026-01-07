@@ -55,7 +55,8 @@ class WizardStep:
 
 
 def _set_group_tree_item(gitem: QTreeWidgetItem,
-                         name: str, target_pct: int,
+                         name: str,
+                         target_pct: int,
                          preferred_instrument_id: str,
                          id_str: str) -> None:
     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
@@ -66,6 +67,17 @@ def _set_group_tree_item(gitem: QTreeWidgetItem,
     gitem.setText(4, preferred_instrument_id)
     gitem.setText(5, "")  # Investable (unused for groups)
     gitem.setText(6, id_str)
+
+def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str) -> None:
+    item = QTreeWidgetItem(gitem)
+    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+    item.setText(0, "Instrument")
+    item.setText(1, name)
+    item.setText(2, value)
+    item.setText(3, "")  # target pct (not used for instruments)
+    item.setText(4, "")  # preferred instrument (not used for instruments)
+    item.setText(5, "true" if investable else "false")
+    item.setText(6, id_str)
 
 
 class MainWindow(QMainWindow):
@@ -328,35 +340,19 @@ class MainWindow(QMainWindow):
                 _set_group_tree_item(gitem, g.name, g.target_pct, g.preferred_instrument_id, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    item = QTreeWidgetItem(gitem)
-                    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-                    item.setText(0, "Instrument")
-                    item.setText(1, ins["name"])
-                    item.setText(2, ins["amount"])
-                    item.setText(3, "")  # target pct (not used for instruments)
-                    item.setText(4, "")  # preferred instrument (not used for instruments)
-                    item.setText(5, "true" if ins["investable"] else "false")
-                    item.setText(6, ins["id"])
+                    _add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
                 bucket = QTreeWidgetItem(self.tree)
                 _set_group_tree_item(bucket,
                                      "Non-investable (excluded from strategy)",
-                                     "0",
+                                     0,
                                      "",
                                      "non_investable_bucket")
 
                 for ins in non_investable:
-                    item = QTreeWidgetItem(bucket)
-                    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-                    item.setText(0, "Instrument")
-                    item.setText(1, ins["name"])
-                    item.setText(2, ins["amount"])
-                    item.setText(3, "")      # target pct
-                    item.setText(4, "")      # preferred instrument
-                    item.setText(5, "false") # investable - false
-                    item.setText(6, ins["id"])
+                    _add_instrument_item_to_group(bucket, ins["name"], ins["amount"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
