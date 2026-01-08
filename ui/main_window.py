@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtGui import QFont, QColor, QBrush
+from PySide6.QtGui import QColor, QBrush
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
 from investment_planner.validation import validate_portfolio
@@ -55,6 +55,12 @@ def _get_item_id(item: QTreeWidgetItem) -> str:
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
+COL_NAME = 0
+COL_TOT_VALUE = 1
+COL_TARGET_PCT = 2
+COL_PREFERRED_INSTR = 3
+COL_INVESTABLE = 4
+
 def _style_group_row(item: QTreeWidgetItem) -> None:
 
     background = QBrush(QColor("#f0f0f0"))
@@ -68,14 +74,14 @@ def _style_group_row(item: QTreeWidgetItem) -> None:
 def _set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
-                         preferred_instrument_id: str,
+                         preferred_instrument_id: str = "",
                          id_str: str = "") -> None:
     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-    gitem.setText(0, name)
-    gitem.setText(1, "")  # total value (unused for groups)
-    gitem.setText(2, str(target_pct))
-    gitem.setText(3, preferred_instrument_id)
-    gitem.setText(4, "")  # Investable (unused for groups)
+    gitem.setText(COL_NAME, name)
+    gitem.setText(COL_TOT_VALUE, "")  # total value (unused for groups)
+    gitem.setText(COL_TARGET_PCT, str(target_pct))
+    gitem.setText(COL_PREFERRED_INSTR, preferred_instrument_id)
+    gitem.setText(COL_INVESTABLE, "")
 
     gid = id_str.strip() or _new_id("grp")
     _set_item_meta(gitem, "group", gid)
@@ -86,11 +92,11 @@ def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str,
         -> None:
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-    item.setText(0, name)
-    item.setText(1, value)
-    item.setText(2, "")  # target pct (not used for instruments)
-    item.setText(3, "")  # preferred instrument (not used for instruments)
-    item.setText(4, "true" if investable else "false")
+    item.setText(COL_NAME, name)
+    item.setText(COL_TOT_VALUE, value)
+    item.setText(COL_TARGET_PCT, "")
+    item.setText(COL_PREFERRED_INSTR, "")
+    item.setText(COL_INVESTABLE, "true" if investable else "false")
 
     iid = id_str.strip() or _new_id("ins")
     _set_item_meta(item, "instrument", iid)
@@ -255,17 +261,10 @@ class MainWindow(QMainWindow):
         return main_screen_widget
 
     def _add_asset_group(self):
-        gid = _new_id("grp")
+        # gid = _new_id("grp")
         gitem = QTreeWidgetItem(self.tree)
-        gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
-        gitem.setText(0, "New Asset Group")
-        gitem.setText(1, "")   # total value (not used for groups)
-        gitem.setText(2, "0")  # target pct
-        gitem.setText(3, "")   # preferred instrument id (filled later)
-        gitem.setText(4, "")   # investable (not used for groups)
-
-        _set_item_meta(gitem, "group", gid)
+        _set_group_tree_item(gitem, "New Asset Group", 0)
 
         self.tree.expandAll()
         self._refresh_total_label()
@@ -283,17 +282,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Add instrument", "Select a valid group first.")
             return
 
-        iid = _new_id("ins")
         item = QTreeWidgetItem(parent)
-        item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-
-        item.setText(0, "New Instrument")
-        item.setText(1, "1")    # total value (must be positive by validation)
-        item.setText(2, "")     # target pct, not used
-        item.setText(3, "")     # preferred instrument id, not used
-        item.setText(4, "true") # investable
-
-        _set_item_meta(item, "instrument", iid)
+        _add_instrument_item_to_group(item, "New Instrument", "1", True, "ins")
 
         self.tree.expandAll()
         self._refresh_total_label()
