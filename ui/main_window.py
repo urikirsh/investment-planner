@@ -308,7 +308,7 @@ class MainWindow(QMainWindow):
         main_screen_widget = QWidget()
         layout = QVBoxLayout(main_screen_widget)
 
-        title = QLabel("Main")
+        title = QLabel("Insert data here")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
         layout.addWidget(self._generate_cash_box())
