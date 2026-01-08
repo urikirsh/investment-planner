@@ -80,7 +80,7 @@ def _style_group_row(item: QTreeWidgetItem) -> None:
 
 def _apply_row_alignment(item: QTreeWidgetItem) -> None:
     # Numbers right-aligned
-    if _get_item_kind(item) in (RowKind.GROUP.name, RowKind.GROUP.NON_INVESTABLE_BUCKET):
+    if _get_item_kind(item) != RowKind.INSTRUMENT.name:
         # Computed total amounts are centered
         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
     else:
@@ -124,7 +124,7 @@ def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str,
     item.setText(Col.INVESTABLE.value, "true" if investable else "false")
 
     iid = id_str.strip() or _new_id("ins")
-    _set_item_meta(item, "instrument", iid)
+    _set_item_meta(item, RowKind.INSTRUMENT.name, iid)
 
     _apply_row_alignment(item)
 
@@ -198,7 +198,7 @@ class MainWindow(QMainWindow):
             for i in range(self.tree.topLevelItemCount()):
                 parent = self.tree.topLevelItem(i)
                 kind = _get_item_kind(parent)
-                if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
+                if kind != RowKind.INSTRUMENT.name:
                     continue
 
                 total = D("0")
@@ -223,7 +223,7 @@ class MainWindow(QMainWindow):
         # - instrument: Target/Preferred unused
         self._suppress_item_changed = True
         try:
-            if kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
+            if kind != RowKind.INSTRUMENT.name:
                 if column == Col.TOT_VALUE.value:
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
@@ -464,7 +464,7 @@ class MainWindow(QMainWindow):
                                      "Non-investable (excluded from strategy)",
                                      0,
                                      "",
-                                     "non_investable_bucket")
+                                     RowKind.NON_INVESTABLE_BUCKET.name)
 
                 for ins in non_investable:
                     _add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["amount"], False, ins["id"])
@@ -509,7 +509,7 @@ class MainWindow(QMainWindow):
             gitem = self.tree.topLevelItem(i)
 
             kind = _get_item_kind(gitem)
-            if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
+            if kind == RowKind.INSTRUMENT.name:
                 continue
 
             gid = _get_item_id(gitem) or _new_id("grp")
@@ -540,7 +540,7 @@ class MainWindow(QMainWindow):
                 iid = _get_item_id(ins)
                 if not iid:
                     iid = _new_id("ins")
-                    _set_item_meta(ins, "instrument", iid)
+                    _set_item_meta(ins, RowKind.INSTRUMENT.name, iid)
 
                 iname = ins.text(Col.NAME.value).strip()
                 tot_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
