@@ -54,6 +54,32 @@ class WizardStep:
     planned_delta_money: D  # positive buy, negative sell
 
 
+def _set_group_tree_item(gitem: QTreeWidgetItem,
+                         name: str,
+                         target_pct: int,
+                         preferred_instrument_id: str,
+                         id_str: str) -> None:
+    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+    gitem.setText(0, "Group")
+    gitem.setText(1, name)
+    gitem.setText(2, "")  # total value (unused for groups)
+    gitem.setText(3, str(target_pct))
+    gitem.setText(4, preferred_instrument_id)
+    gitem.setText(5, "")  # Investable (unused for groups)
+    gitem.setText(6, id_str)
+
+def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str) -> None:
+    item = QTreeWidgetItem(gitem)
+    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+    item.setText(0, "Instrument")
+    item.setText(1, name)
+    item.setText(2, value)
+    item.setText(3, "")  # target pct (not used for instruments)
+    item.setText(4, "")  # preferred instrument (not used for instruments)
+    item.setText(5, "true" if investable else "false")
+    item.setText(6, id_str)
+
+
 class MainWindow(QMainWindow):
     """
     3-screen flow:
@@ -91,30 +117,25 @@ class MainWindow(QMainWindow):
     # Screen 1 (Main)
     # -------------------------
 
-    def _build_main_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-
-        title = QLabel("Main")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-
+    def _generate_cash_box(self) -> QWidget:
         # Cash block (fixed)
         cash_box = QWidget()
         cash_layout = QHBoxLayout(cash_box)
-        cash_layout.addWidget(QLabel("Cash amount:"))
+
+        cash_layout.addWidget(QLabel("Cash value:"))
         self.cash_amount_edit = QLineEdit()
         self.cash_amount_edit.setPlaceholderText("e.g. 1000")
         cash_layout.addWidget(self.cash_amount_edit)
 
-        cash_layout.addWidget(QLabel("Cash reserve:"))
+        cash_layout.addWidget(QLabel("Minimal cash reserve:"))
         self.cash_reserve_edit = QLineEdit()
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
         cash_layout.addWidget(self.cash_reserve_edit)
 
         cash_layout.addStretch(1)
-        layout.addWidget(cash_box)
+        return cash_box
 
+    def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
         self.tree = QTreeWidget()
         self.tree.setColumnCount(7)
@@ -126,7 +147,7 @@ class MainWindow(QMainWindow):
                 "Target % (group)",
                 "Preferred Instrument (group)",
                 "Investable (instrument)",
-                "ID (hidden-ish)",
+                "ID",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -134,8 +155,8 @@ class MainWindow(QMainWindow):
         self.tree.setDefaultDropAction(Qt.MoveAction)
         self.tree.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.SelectedClicked)
         self.tree.setIndentation(22)
-        layout.addWidget(self.tree, 1)
 
+    def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
         controls = QWidget()
         controls_layout = QHBoxLayout(controls)
@@ -153,17 +174,17 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(delete_row)
 
         controls_layout.addStretch(1)
-        layout.addWidget(controls)
+        return controls
 
-        # Total portfolio label
+    def _generate_total_portfolio_value_widget(self) -> QWidget:
         totals = QWidget()
         totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio: —")
+        self.total_label = QLabel("Total portfolio value: —")
         totals_layout.addWidget(self.total_label)
         totals_layout.addStretch(1)
-        layout.addWidget(totals)
+        return totals
 
-        # Bottom buttons
+    def _generate_bottom_buttons_widget(self) -> QWidget:
         btns = QWidget()
         btns_layout = QHBoxLayout(btns)
 
@@ -184,14 +205,30 @@ class MainWindow(QMainWindow):
         btns_layout.addWidget(update_btn)
 
         btns_layout.addStretch(1)
-        layout.addWidget(btns)
+        return btns
+
+    def _build_main_screen(self) -> QWidget:
+        main_screen_widget = QWidget()
+        layout = QVBoxLayout(main_screen_widget)
+
+        title = QLabel("Main")
+        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        layout.addWidget(title)
+        layout.addWidget(self._generate_cash_box())
+
+        self._init_group_and_instruments_tree()
+        layout.addWidget(self.tree, 1)
+
+        layout.addWidget(self._generate_controls_widget())
+        layout.addWidget(self._generate_total_portfolio_value_widget())
+        layout.addWidget(self._generate_bottom_buttons_widget())
 
         # Live total refresh
         self.tree.itemChanged.connect(self._refresh_total_label)
         self.cash_amount_edit.textChanged.connect(self._refresh_total_label)
         self.cash_reserve_edit.textChanged.connect(self._refresh_total_label)
 
-        return w
+        return main_screen_widget
 
     def _add_asset_group(self):
         gid = _new_id("grp")
@@ -200,10 +237,10 @@ class MainWindow(QMainWindow):
 
         gitem.setText(0, "Group")
         gitem.setText(1, "New Asset Group")
-        gitem.setText(2, "")  # amount not used for group
+        gitem.setText(2, "")   # total value (not used for groups)
         gitem.setText(3, "0")  # target pct
-        gitem.setText(4, "")  # preferred instrument id (filled later)
-        gitem.setText(5, "")  # investable not used for group
+        gitem.setText(4, "")   # preferred instrument id (filled later)
+        gitem.setText(5, "")   # investable (not used for groups)
         gitem.setText(6, gid)
 
         self.tree.expandAll()
@@ -227,10 +264,10 @@ class MainWindow(QMainWindow):
 
         item.setText(0, "Instrument")
         item.setText(1, "New Instrument")
-        item.setText(2, "1")  # total value (must be positive by validation)
-        item.setText(3, "")   # target not used
-        item.setText(4, "")   # preferred not used
-        item.setText(5, "true")
+        item.setText(2, "1")    # total value (must be positive by validation)
+        item.setText(3, "")     # target pct, not used
+        item.setText(4, "")     # preferred instrument id, not used
+        item.setText(5, "true") # investable
         item.setText(6, iid)
 
         self.tree.expandAll()
@@ -300,48 +337,22 @@ class MainWindow(QMainWindow):
 
             for g in p.asset_groups:
                 gitem = QTreeWidgetItem(self.tree)
-                gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-                gitem.setText(0, "Group")
-                gitem.setText(1, g.name)
-                gitem.setText(2, "")
-                gitem.setText(3, str(g.target_pct))
-                gitem.setText(4, g.preferred_instrument_id)
-                gitem.setText(5, "")
-                gitem.setText(6, g.id)
+                _set_group_tree_item(gitem, g.name, g.target_pct, g.preferred_instrument_id, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    item = QTreeWidgetItem(gitem)
-                    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-                    item.setText(0, "Instrument")
-                    item.setText(1, ins["name"])
-                    item.setText(2, ins["amount"])
-                    item.setText(3, "")
-                    item.setText(4, "")
-                    item.setText(5, "true" if ins["investable"] else "false")
-                    item.setText(6, ins["id"])
+                    _add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
                 bucket = QTreeWidgetItem(self.tree)
-                bucket.setFlags(bucket.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-                bucket.setText(0, "Group")
-                bucket.setText(1, "Non-investable (excluded from strategy)")
-                bucket.setText(2, "")
-                bucket.setText(3, "0")
-                bucket.setText(4, "")
-                bucket.setText(5, "")
-                bucket.setText(6, "non_investable_bucket")
+                _set_group_tree_item(bucket,
+                                     "Non-investable (excluded from strategy)",
+                                     0,
+                                     "",
+                                     "non_investable_bucket")
 
                 for ins in non_investable:
-                    item = QTreeWidgetItem(bucket)
-                    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-                    item.setText(0, "Instrument")
-                    item.setText(1, ins["name"])
-                    item.setText(2, ins["amount"])
-                    item.setText(3, "")
-                    item.setText(4, "")
-                    item.setText(5, "false")
-                    item.setText(6, ins["id"])
+                    _add_instrument_item_to_group(bucket, ins["name"], ins["amount"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
