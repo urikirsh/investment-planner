@@ -591,7 +591,14 @@ class MainWindow(QMainWindow):
 
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
-            preferred_instrument = gitem.text(Col.PREFERRED_INSTR.value).strip()
+
+            combo = self._get_preferred_combo(gitem)
+            if combo is None:
+                raise ValueError(f"Group '{gitem}' is missing preferred instrument selector")
+
+            preferred_id = combo.currentData()
+            if not preferred_id:
+                raise ValueError(f"Group '{gitem}' must have a preferred instrument selected")
 
             is_non_investable_bucket = (
                         kind == RowKind.NON_INVESTABLE_BUCKET.name)  # Special bucket treated as not-a-group in JSON strategy
@@ -602,7 +609,7 @@ class MainWindow(QMainWindow):
                         "id": gid,
                         "name": gname,
                         "targetPercentage": target_pct,
-                        "preferredInstrumentId": preferred_instrument,
+                        "preferredInstrumentId": preferred_id,
                     }
                 )
 
