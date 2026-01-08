@@ -394,19 +394,19 @@ class MainWindow(QMainWindow):
 
             gid = gitem.text(6).strip() or _new_id("grp")
             gname = gitem.text(1).strip()
-            target = gitem.text(3).strip() or "0"
-            preferred = gitem.text(4).strip()
+            target_pct = gitem.text(3).strip() or "0"
+            preferred_instrument = gitem.text(4).strip()
 
             # Special bucket treated as not-a-group in JSON strategy
-            is_bucket = gid == "non_investable_bucket"
+            is_non_investable_bucket = gid == "non_investable_bucket"
 
-            if not is_bucket:
+            if not is_non_investable_bucket:
                 groups.append(
                     {
                         "id": gid,
                         "name": gname,
-                        "targetPercentage": target,
-                        "preferredInstrumentId": preferred,
+                        "targetPercentage": target_pct,
+                        "preferredInstrumentId": preferred_instrument,
                     }
                 )
 
@@ -422,7 +422,7 @@ class MainWindow(QMainWindow):
                 investable_txt = (ins.text(5).strip().lower() or "false")
                 investable = investable_txt in ("true", "1", "yes", "y")
 
-                if is_bucket:
+                if is_non_investable_bucket:
                     investable = False
                     group_id = None
                 else:
