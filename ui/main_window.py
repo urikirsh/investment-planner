@@ -30,102 +30,106 @@ from investment_planner.validation import validate_portfolio
 from investment_planner.planning import compute_invest_budget, plan_invest_no_sell, plan_rebalance
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
-from ui.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col, WizardStep
+from ui.ui_types import RowKind, Col, WizardStep
+from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, style_group_row, \
+    apply_row_alignment, set_group_tree_item, add_instrument_item_to_group, parse_amount_cell
 
 D = Decimal
 
-def _d_from_text(txt: str, field: str) -> D:
-    try:
-        return D(txt.strip())
-    except (InvalidOperation, ValueError):
-        raise ValueError(f"{field} must be a number, got: {txt!r}")
-
-def _set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
-    item.setData(0, ROLE_KIND, kind)
-    item.setData(0, ROLE_ID, _id)
-
-def _get_item_kind(item: QTreeWidgetItem) -> str:
-    return item.data(0, ROLE_KIND) or ""
-
-def _get_item_id(item: QTreeWidgetItem) -> str:
-    return item.data(0, ROLE_ID) or ""
-
-def _new_id(prefix: str) -> str:
-    return f"{prefix}_{uuid.uuid4().hex[:8]}"
-
-def _style_group_row(item: QTreeWidgetItem) -> None:
-
-    background = QBrush(QColor("#f0f0f0"))
-    for col in range(item.columnCount()):
-        font = item.font(col)
-        font.setBold(True)
-        item.setFont(col, font)
-
-        item.setBackground(col, background)
-
-def _apply_row_alignment(item: QTreeWidgetItem) -> None:
-    # Numbers right-aligned
-    if _get_item_kind(item) != RowKind.INSTRUMENT.name:
-        # Computed total amounts are centered
-        item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
-    else:
-        item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignRight | Qt.AlignVCenter)
-    item.setTextAlignment(Col.TARGET_PCT.value, Qt.AlignCenter | Qt.AlignVCenter)
-
-    # Text left-aligned
-    item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
-    item.setTextAlignment(Col.PREFERRED_INSTR.value, Qt.AlignLeft | Qt.AlignVCenter)
-    item.setTextAlignment(Col.INVESTABLE.value, Qt.AlignLeft | Qt.AlignVCenter)
-
-
-def _set_group_tree_item(tree: QTreeWidget,
-                         gitem: QTreeWidgetItem,
-                         name: str,
-                         target_pct: int,
-                         preferred_instrument_id: str = "",
-                         id_str: str = "") -> None:
-    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-    gitem.setText(Col.NAME.value, name)
-    gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
-    gitem.setText(Col.TARGET_PCT.value, str(target_pct))
-
-    combo = QComboBox()
-    tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
-
-    gitem.setText(Col.INVESTABLE.value, "")
-
-    gid = id_str.strip() or _new_id("grp")
-    _set_item_meta(gitem, RowKind.GROUP.name, gid)
-
-    _apply_row_alignment(gitem)
-    _style_group_row(gitem)
-
-
-def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
-        -> None:
-    item = QTreeWidgetItem(gitem)
-    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-    item.setText(Col.NAME.value, name)
-    item.setText(Col.TOT_VALUE.value, value)
-    item.setText(Col.TARGET_PCT.value, "")
-    item.setText(Col.PREFERRED_INSTR.value, "")
-    item.setText(Col.INVESTABLE.value, "true" if investable else "false")
-
-    iid = id_str.strip() or _new_id("ins")
-    _set_item_meta(item, RowKind.INSTRUMENT.name, iid)
-
-    _apply_row_alignment(item)
-
-
-def _parse_amount_cell(txt: str) -> D:
-    txt = (txt or "").strip()
-    if not txt:
-        return D("0")
-    try:
-        return D(txt)
-    except (InvalidOperation, ValueError):
-        # If user typed garbage, treat as 0 for sums, validation will catch later
-        return D("0")
+# D = Decimal
+#
+# def _d_from_text(txt: str, field: str) -> D:
+#     try:
+#         return D(txt.strip())
+#     except (InvalidOperation, ValueError):
+#         raise ValueError(f"{field} must be a number, got: {txt!r}")
+#
+# def _set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
+#     item.setData(0, ROLE_KIND, kind)
+#     item.setData(0, ROLE_ID, _id)
+#
+# def _get_item_kind(item: QTreeWidgetItem) -> str:
+#     return item.data(0, ROLE_KIND) or ""
+#
+# def _get_item_id(item: QTreeWidgetItem) -> str:
+#     return item.data(0, ROLE_ID) or ""
+#
+# def _new_id(prefix: str) -> str:
+#     return f"{prefix}_{uuid.uuid4().hex[:8]}"
+#
+# def _style_group_row(item: QTreeWidgetItem) -> None:
+#
+#     background = QBrush(QColor("#f0f0f0"))
+#     for col in range(item.columnCount()):
+#         font = item.font(col)
+#         font.setBold(True)
+#         item.setFont(col, font)
+#
+#         item.setBackground(col, background)
+#
+# def _apply_row_alignment(item: QTreeWidgetItem) -> None:
+#     # Numbers right-aligned
+#     if _get_item_kind(item) != RowKind.INSTRUMENT.name:
+#         # Computed total amounts are centered
+#         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
+#     else:
+#         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignRight | Qt.AlignVCenter)
+#     item.setTextAlignment(Col.TARGET_PCT.value, Qt.AlignCenter | Qt.AlignVCenter)
+#
+#     # Text left-aligned
+#     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
+#     item.setTextAlignment(Col.PREFERRED_INSTR.value, Qt.AlignLeft | Qt.AlignVCenter)
+#     item.setTextAlignment(Col.INVESTABLE.value, Qt.AlignLeft | Qt.AlignVCenter)
+#
+#
+# def _set_group_tree_item(tree: QTreeWidget,
+#                          gitem: QTreeWidgetItem,
+#                          name: str,
+#                          target_pct: int,
+#                          preferred_instrument_id: str = "",
+#                          id_str: str = "") -> None:
+#     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+#     gitem.setText(Col.NAME.value, name)
+#     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
+#     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
+#
+#     combo = QComboBox()
+#     tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
+#
+#     gitem.setText(Col.INVESTABLE.value, "")
+#
+#     gid = id_str.strip() or _new_id("grp")
+#     _set_item_meta(gitem, RowKind.GROUP.name, gid)
+#
+#     _apply_row_alignment(gitem)
+#     _style_group_row(gitem)
+#
+#
+# def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
+#         -> None:
+#     item = QTreeWidgetItem(gitem)
+#     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+#     item.setText(Col.NAME.value, name)
+#     item.setText(Col.TOT_VALUE.value, value)
+#     item.setText(Col.TARGET_PCT.value, "")
+#     item.setText(Col.PREFERRED_INSTR.value, "")
+#     item.setText(Col.INVESTABLE.value, "true" if investable else "false")
+#
+#     iid = id_str.strip() or _new_id("ins")
+#     _set_item_meta(item, RowKind.INSTRUMENT.name, iid)
+#
+#     _apply_row_alignment(item)
+#
+#
+# def _parse_amount_cell(txt: str) -> D:
+#     txt = (txt or "").strip()
+#     if not txt:
+#         return D("0")
+#     try:
+#         return D(txt)
+#     except (InvalidOperation, ValueError):
+#         # If user typed garbage, treat as 0 for sums, validation will catch later
+#         return D("0")
 
 
 class MainWindow(QMainWindow):
@@ -176,16 +180,16 @@ class MainWindow(QMainWindow):
         try:
             for i in range(self.tree.topLevelItemCount()):
                 parent = self.tree.topLevelItem(i)
-                kind = _get_item_kind(parent)
+                kind = get_item_kind(parent)
                 if kind == RowKind.INSTRUMENT.name:
                     continue
 
                 total = D("0")
                 for j in range(parent.childCount()):
                     child = parent.child(j)
-                    if _get_item_kind(child) != RowKind.INSTRUMENT.name:
+                    if get_item_kind(child) != RowKind.INSTRUMENT.name:
                         continue
-                    total += _parse_amount_cell(child.text(Col.TOT_VALUE.value))
+                    total += parse_amount_cell(child.text(Col.TOT_VALUE.value))
 
                 parent.setText(Col.TOT_VALUE.value, str(total))
         finally:
@@ -204,7 +208,7 @@ class MainWindow(QMainWindow):
         try:
             for i in range(self.tree.topLevelItemCount()):
                 group_item = self.tree.topLevelItem(i)
-                kind = _get_item_kind(group_item)
+                kind = get_item_kind(group_item)
                 if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                     continue
 
@@ -220,9 +224,9 @@ class MainWindow(QMainWindow):
                 instruments: list[tuple[str, str]] = []  # (id, name)
                 for j in range(group_item.childCount()):
                     child = group_item.child(j)
-                    if _get_item_kind(child) != RowKind.INSTRUMENT.name:
+                    if get_item_kind(child) != RowKind.INSTRUMENT.name:
                         continue
-                    ins_id = _get_item_id(child)
+                    ins_id = get_item_id(child)
                     ins_name = child.text(Col.NAME.value).strip()
                     if ins_id and ins_name:
                         instruments.append((ins_id, ins_name))
@@ -266,7 +270,7 @@ class MainWindow(QMainWindow):
         if self._suppress_item_changed:
             return
 
-        kind = _get_item_kind(item)
+        kind = get_item_kind(item)
 
         # Prevent editing computed/group-only fields:
         # - group/bucket: Total value is computed, Investable is unused
@@ -417,7 +421,7 @@ class MainWindow(QMainWindow):
         # gid = _new_id("grp")
         gitem = QTreeWidgetItem(self.tree)
 
-        _set_group_tree_item(self.tree, gitem, "New Asset Group", 0)
+        set_group_tree_item(self.tree, gitem, "New Asset Group", 0)
 
         self.tree.expandAll()
         self._refresh_data()
@@ -431,7 +435,7 @@ class MainWindow(QMainWindow):
         # If instrument selected, use its parent group
         parent = sel.parent() or sel
 
-        _add_instrument_item_to_group(parent, "New Instrument", "1", True, "ins")
+        add_instrument_item_to_group(parent, "New Instrument", "1", True, "ins")
 
         self.tree.expandAll()
         self._refresh_data()
@@ -499,15 +503,15 @@ class MainWindow(QMainWindow):
 
             for g in p.asset_groups:
                 gitem = QTreeWidgetItem(self.tree)
-                _set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.preferred_instrument_id, g.id)
+                set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.preferred_instrument_id, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    _add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
+                    add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
                 non_investable_bucket = QTreeWidgetItem(self.tree)
-                _set_group_tree_item(self.tree,
+                set_group_tree_item(self.tree,
                                      non_investable_bucket,
                                      "Non-investable (excluded from strategy)",
                                      0,
@@ -515,7 +519,7 @@ class MainWindow(QMainWindow):
                                      RowKind.NON_INVESTABLE_BUCKET.name)
 
                 for ins in non_investable:
-                    _add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["amount"], False, ins["id"])
+                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["amount"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
@@ -559,11 +563,11 @@ class MainWindow(QMainWindow):
         for i in range(top_count):
             gitem = self.tree.topLevelItem(i)
 
-            kind = _get_item_kind(gitem)
+            kind = get_item_kind(gitem)
             if kind == RowKind.INSTRUMENT.name:
                 continue
 
-            gid = _get_item_id(gitem) or _new_id("grp")
+            gid = get_item_id(gitem) or new_id("grp")
 
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
@@ -595,10 +599,10 @@ class MainWindow(QMainWindow):
                 if ins.parent() is None:  # not an instrument
                     continue
 
-                iid = _get_item_id(ins)
+                iid = get_item_id(ins)
                 if not iid:
-                    iid = _new_id("ins")
-                    _set_item_meta(ins, RowKind.INSTRUMENT.name, iid)
+                    iid = new_id("ins")
+                    set_item_meta(ins, RowKind.INSTRUMENT.name, iid)
 
                 iname = ins.text(Col.NAME.value).strip()
                 tot_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
@@ -820,7 +824,7 @@ class MainWindow(QMainWindow):
     def _wizard_calculate(self):
         try:
             s = self.current_plan_steps[self.current_step_index]
-            price = _d_from_text(self.price_edit.text(), "price")
+            price = d_from_text(self.price_edit.text(), "price")
 
             planned = abs(s.planned_delta_money)
             calc = calculate_buy_units(
