@@ -59,7 +59,7 @@ def _new_id(prefix: str) -> str:
 class RowKind(Enum):
     GROUP = auto()
     INSTRUMENT = auto()
-    BUCKET = auto()
+    NON_INVESTABLE_BUCKET = auto()
 
 class Col(Enum):
     NAME = 0
@@ -80,7 +80,7 @@ def _style_group_row(item: QTreeWidgetItem) -> None:
 
 def _apply_row_alignment(item: QTreeWidgetItem) -> None:
     # Numbers right-aligned
-    if _get_item_kind(item) in (RowKind.GROUP.name, RowKind.GROUP.BUCKET):
+    if _get_item_kind(item) in (RowKind.GROUP.name, RowKind.GROUP.NON_INVESTABLE_BUCKET):
         # Computed total amounts are centered
         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
     else:
@@ -191,14 +191,14 @@ class MainWindow(QMainWindow):
 
     def _recalc_parent_amounts(self):
         """
-        For every top-level item (group or bucket), set its Amount = sum(child Amounts).
+        For every top-level item (group or non-investable bucket), set its Amount = sum(child Amounts).
         """
         self._suppress_item_changed = True
         try:
             for i in range(self.tree.topLevelItemCount()):
                 parent = self.tree.topLevelItem(i)
                 kind = _get_item_kind(parent)
-                if kind not in (RowKind.GROUP.name, RowKind.BUCKET.name):
+                if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                     continue
 
                 total = D("0")
@@ -223,7 +223,7 @@ class MainWindow(QMainWindow):
         # - instrument: Target/Preferred unused
         self._suppress_item_changed = True
         try:
-            if kind in (RowKind.GROUP.name, RowKind.BUCKET.name):
+            if kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                 if column == Col.TOT_VALUE.value:
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
@@ -459,15 +459,15 @@ class MainWindow(QMainWindow):
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
-                bucket = QTreeWidgetItem(self.tree)
-                _set_group_tree_item(bucket,
+                non_investable_bucket = QTreeWidgetItem(self.tree)
+                _set_group_tree_item(non_investable_bucket,
                                      "Non-investable (excluded from strategy)",
                                      0,
                                      "",
                                      "non_investable_bucket")
 
                 for ins in non_investable:
-                    _add_instrument_item_to_group(bucket, ins["name"], ins["amount"], False, ins["id"])
+                    _add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["amount"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
@@ -509,16 +509,17 @@ class MainWindow(QMainWindow):
             gitem = self.tree.topLevelItem(i)
 
             kind = _get_item_kind(gitem)
-            if kind not in (RowKind.GROUP.name, RowKind.BUCKET.name):
+            if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                 continue
 
             gid = _get_item_id(gitem) or _new_id("grp")
-            is_non_investable_bucket = (kind == RowKind.BUCKET.name) # Special bucket treated as not-a-group in JSON strategy
 
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
             preferred_instrument = gitem.text(Col.PREFERRED_INSTR.value).strip()
 
+            is_non_investable_bucket = (
+                        kind == RowKind.NON_INVESTABLE_BUCKET.name)  # Special bucket treated as not-a-group in JSON strategy
 
             if not is_non_investable_bucket:
                 groups.append(
