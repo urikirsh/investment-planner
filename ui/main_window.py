@@ -32,16 +32,59 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 
 D = Decimal
 
-
 def _d_from_text(txt: str, field: str) -> D:
     try:
         return D(txt.strip())
     except (InvalidOperation, ValueError):
         raise ValueError(f"{field} must be a number, got: {txt!r}")
 
+ROLE_KIND = Qt.UserRole + 1     # "group" / "instrument" / "bucket"
+ROLE_ID = Qt.UserRole + 2       # the internal id string
+
+def _set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
+    item.setData(0, ROLE_KIND, kind)
+    item.setData(0, ROLE_ID, _id)
+
+def _get_item_kind(item: QTreeWidgetItem) -> str:
+    return item.data(0, ROLE_KIND) or ""
+
+def _get_item_id(item: QTreeWidgetItem) -> str:
+    return item.data(0, ROLE_ID) or ""
 
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
+
+
+def _set_group_tree_item(gitem: QTreeWidgetItem,
+                         name: str,
+                         target_pct: int,
+                         preferred_instrument_id: str,
+                         id_str: str = "") -> None:
+    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+    gitem.setText(0, "Group")
+    gitem.setText(1, name)
+    gitem.setText(2, "")  # total value (unused for groups)
+    gitem.setText(3, str(target_pct))
+    gitem.setText(4, preferred_instrument_id)
+    gitem.setText(5, "")  # Investable (unused for groups)
+
+    gid = id_str.strip() or _new_id("grp")
+    _set_item_meta(gitem, "group", gid)
+
+
+def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
+        -> None:
+    item = QTreeWidgetItem(gitem)
+    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+    item.setText(0, "Instrument")
+    item.setText(1, name)
+    item.setText(2, value)
+    item.setText(3, "")  # target pct (not used for instruments)
+    item.setText(4, "")  # preferred instrument (not used for instruments)
+    item.setText(5, "true" if investable else "false")
+
+    iid = id_str.strip() or _new_id("ins")
+    _set_item_meta(item, "instrument", iid)
 
 
 @dataclass
@@ -52,32 +95,6 @@ class WizardStep:
     preferred_instrument_id: str
     preferred_instrument_name: str
     planned_delta_money: D  # positive buy, negative sell
-
-
-def _set_group_tree_item(gitem: QTreeWidgetItem,
-                         name: str,
-                         target_pct: int,
-                         preferred_instrument_id: str,
-                         id_str: str) -> None:
-    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-    gitem.setText(0, "Group")
-    gitem.setText(1, name)
-    gitem.setText(2, "")  # total value (unused for groups)
-    gitem.setText(3, str(target_pct))
-    gitem.setText(4, preferred_instrument_id)
-    gitem.setText(5, "")  # Investable (unused for groups)
-    gitem.setText(6, id_str)
-
-def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str) -> None:
-    item = QTreeWidgetItem(gitem)
-    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-    item.setText(0, "Instrument")
-    item.setText(1, name)
-    item.setText(2, value)
-    item.setText(3, "")  # target pct (not used for instruments)
-    item.setText(4, "")  # preferred instrument (not used for instruments)
-    item.setText(5, "true" if investable else "false")
-    item.setText(6, id_str)
 
 
 class MainWindow(QMainWindow):
@@ -138,7 +155,7 @@ class MainWindow(QMainWindow):
     def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(7)
+        self.tree.setColumnCount(6)
         self.tree.setHeaderLabels(
             [
                 "Type",
@@ -147,13 +164,12 @@ class MainWindow(QMainWindow):
                 "Target % (group)",
                 "Preferred Instrument (group)",
                 "Investable (instrument)",
-                "ID",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tree.setDragDropMode(QAbstractItemView.InternalMove)
         self.tree.setDefaultDropAction(Qt.MoveAction)
-        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.SelectedClicked)
+        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.tree.setIndentation(22)
 
     def _generate_controls_widget(self) -> QWidget:
@@ -241,7 +257,8 @@ class MainWindow(QMainWindow):
         gitem.setText(3, "0")  # target pct
         gitem.setText(4, "")   # preferred instrument id (filled later)
         gitem.setText(5, "")   # investable (not used for groups)
-        gitem.setText(6, gid)
+
+        _set_item_meta(gitem, "group", gid)
 
         self.tree.expandAll()
         self._refresh_total_label()
@@ -268,7 +285,8 @@ class MainWindow(QMainWindow):
         item.setText(3, "")     # target pct, not used
         item.setText(4, "")     # preferred instrument id, not used
         item.setText(5, "true") # investable
-        item.setText(6, iid)
+
+        _set_item_meta(item, "instrument", iid)
 
         self.tree.expandAll()
         self._refresh_total_label()
@@ -389,24 +407,26 @@ class MainWindow(QMainWindow):
         top_count = self.tree.topLevelItemCount()
         for i in range(top_count):
             gitem = self.tree.topLevelItem(i)
-            if gitem.text(0) != "Group":
+
+            kind = _get_item_kind(gitem)
+            if kind not in ("group", "bucket"):
                 continue
 
-            gid = gitem.text(6).strip() or _new_id("grp")
+            gid = _get_item_id(gitem) or _new_id("grp")
+            is_non_investable_bucket = (kind == "bucket") # Special bucket treated as not-a-group in JSON strategy
+
             gname = gitem.text(1).strip()
-            target = gitem.text(3).strip() or "0"
-            preferred = gitem.text(4).strip()
+            target_pct = gitem.text(3).strip() or "0"
+            preferred_instrument = gitem.text(4).strip()
 
-            # Special bucket treated as not-a-group in JSON strategy
-            is_bucket = gid == "non_investable_bucket"
 
-            if not is_bucket:
+            if not is_non_investable_bucket:
                 groups.append(
                     {
                         "id": gid,
                         "name": gname,
-                        "targetPercentage": target,
-                        "preferredInstrumentId": preferred,
+                        "targetPercentage": target_pct,
+                        "preferredInstrumentId": preferred_instrument,
                     }
                 )
 
@@ -416,13 +436,17 @@ class MainWindow(QMainWindow):
                 if ins.text(0) != "Instrument":
                     continue
 
-                iid = ins.text(6).strip() or _new_id("ins")
+                iid = _get_item_id(ins)
+                if not iid:
+                    iid = _new_id("ins")
+                    _set_item_meta(ins, "instrument", iid)
+
                 iname = ins.text(1).strip()
                 amount = ins.text(2).strip() or "0"
                 investable_txt = (ins.text(5).strip().lower() or "false")
                 investable = investable_txt in ("true", "1", "yes", "y")
 
-                if is_bucket:
+                if is_non_investable_bucket:
                     investable = False
                     group_id = None
                 else:
