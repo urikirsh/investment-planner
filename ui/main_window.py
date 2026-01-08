@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
-    QWidget,
+    QWidget, QHeaderView,
 )
 from PySide6.QtGui import QColor, QBrush
 
@@ -252,6 +252,19 @@ class MainWindow(QMainWindow):
         self.tree.setDefaultDropAction(Qt.MoveAction)
         self.tree.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.tree.setIndentation(22)
+
+        # Set column widths and drag behaviors
+        header = self.tree.header()
+
+        header.setSectionResizeMode(COL_NAME, QHeaderView.Stretch)
+
+        header.setSectionResizeMode(COL_TOT_VALUE, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(COL_TARGET_PCT, QHeaderView.Fixed)
+        header.setSectionResizeMode(COL_PREFERRED_INSTR, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(COL_INVESTABLE, QHeaderView.Fixed)
+
+        self.tree.setColumnWidth(COL_TARGET_PCT, 70)
+        self.tree.setColumnWidth(COL_INVESTABLE, 50)
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
