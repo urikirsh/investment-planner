@@ -70,6 +70,8 @@ class MainWindow(QMainWindow):
         self._suppress_item_changed = False
         self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
 
+        self._refresh_data()
+
     # -------------------------
     # Screen 1 (Main)
     # -------------------------
@@ -365,7 +367,7 @@ class MainWindow(QMainWindow):
         else:
             # Minimal default portfolio
             data = {
-                "cash": {"amount": "12000", "reserve": "2000"},
+                "cash": {"amount": "12000", "min_reserve": "2000"},
                 "groups": [
                     {"id": "sp500", "name": "S&P 500", "targetPercentage": "100", "preferredInstrumentId": "spx_a"}
                 ],
@@ -383,8 +385,8 @@ class MainWindow(QMainWindow):
         self.tree.blockSignals(True)
         try:
             self.tree.clear()
-            self.cash_amount_edit.setText(str(p.cash.amount))
-            self.cash_reserve_edit.setText(str(p.cash.reserve))
+            self.cash_amount_edit.setText(str(p.cash.value))
+            self.cash_reserve_edit.setText(str(p.cash.min_reserve))
 
             # group -> list instruments (keep input order as stored)
             ins_by_group: Dict[str, List[Dict[str, Any]]] = {}
@@ -394,7 +396,7 @@ class MainWindow(QMainWindow):
                 row = {
                     "id": ins.id,
                     "name": ins.name,
-                    "amount": str(ins.amount),
+                    "amount": str(ins.value),
                     "investable": ins.investable,
                     "groupId": ins.asset_group_id,
                 }
@@ -435,10 +437,10 @@ class MainWindow(QMainWindow):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
             # Total portfolio = cash + all instruments amounts
-            cash_amt = D(str(data["cash"]["amount"]))
+            cash_amt = D(str(data["cash"]["value"]))
             total = cash_amt
             for ins in data.get("instruments", []):
-                total += D(str(ins["amount"]))
+                total += D(str(ins["value"]))
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
             self.total_label.setText("Total portfolio: —")
@@ -520,13 +522,13 @@ class MainWindow(QMainWindow):
                     {
                         "id": iid,
                         "name": iname,
-                        "amount": tot_value,
+                        "value": tot_value,
                         "investable": investable,
                         **({"groupId": group_id} if group_id is not None else {}),
                     }
                 )
 
-        return {"cash": {"amount": cash_amount, "reserve": cash_reserve}, "groups": groups, "instruments": instruments}
+        return {"cash": {"value": cash_amount, "min_reserve": cash_reserve}, "groups": groups, "instruments": instruments}
 
     def _save_from_main_ui(self) -> None:
         data = self._build_data_from_main_ui(allow_partial=False)
@@ -556,7 +558,7 @@ class MainWindow(QMainWindow):
 
             budget = compute_invest_budget(p)
             if budget <= 0:
-                QMessageBox.information(self, "No budget", "No investable cash (cash.amount - cash.reserve <= 0).")
+                QMessageBox.information(self, "No budget", "No investable cash")
                 return
 
             if mode == "invest":
@@ -629,7 +631,7 @@ class MainWindow(QMainWindow):
 
     def _populate_summary(self, p, steps: List[WizardStep], mode: str):
         budget = compute_invest_budget(p)
-        lines = [f"Mode: {mode}", f"Invest budget (cash - reserve): {budget}", ""]
+        lines = [f"Mode: {mode}", f"Invest budget (cash - minimal reserve): {budget}", ""]
         if not steps:
             lines.append("No actions required.")
         else:

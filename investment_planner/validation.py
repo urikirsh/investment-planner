@@ -10,12 +10,12 @@ D = Decimal
 
 def validate_portfolio(p: Portfolio) -> None:
     # Cash validation (you requested: positive)
-    if p.cash.amount <= 0:
-        raise ValueError("cash.amount must be positive")
-    if p.cash.reserve <= 0:
+    if p.cash.value <= 0:
+        raise ValueError("cash.value must be positive")
+    if p.cash.min_reserve <= 0:
         raise ValueError("cash.reserve must be positive")
-    if p.cash.reserve > p.cash.amount:
-        raise ValueError("cash.reserve must be <= cash.amount")
+    if p.cash.min_reserve > p.cash.value:
+        raise ValueError("cash.reserve must be <= cash.value")
 
     # Asset groups validation
     if not p.asset_groups:
@@ -57,8 +57,8 @@ def validate_portfolio(p: Portfolio) -> None:
     group_id_set = set(group_ids)
 
     for ins in p.instruments:
-        if ins.amount <= 0:
-            raise ValueError(f"Instrument '{ins.name}' amount must be positive")
+        if ins.value <= 0:
+            raise ValueError(f"Instrument '{ins.name}' value must be positive")
 
         if ins.investable:
             # investable instruments must belong to a group

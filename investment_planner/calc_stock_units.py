@@ -64,33 +64,33 @@ def commit_buy(
 ) -> Portfolio:
     """
     Apply a buy to the portfolio:
-    - decrease cash.amount by spent
-    - increase instrument.amount by spent
+    - decrease cash.value by spent
+    - increase instrument.value by spent
     If spent < min_trade_ils, does nothing (returns p unchanged).
     """
     if spent <= 0:
         return p
     if spent < min_trade_ils:
         return p
-    if spent > p.cash.amount:
-        raise ValueError(f"Not enough cash to spend {spent} (cash.amount={p.cash.amount})")
+    if spent > p.cash.value:
+        raise ValueError(f"Not enough cash to spend {spent} (cash.value={p.cash.value})")
 
     idx = _find_instrument_index(p, instrument_id)
     ins = p.instruments[idx]
     if not ins.investable:
         raise ValueError(f"Cannot buy non-investable instrument: {ins.name}")
 
-    new_cash_amount = p.cash.amount - spent
+    new_cash_value = p.cash.value - spent
     # keep reserve unchanged
     new_instruments = list(p.instruments)
     new_instruments[idx] = Instrument(
         id=ins.id,
         name=ins.name,
-        amount=ins.amount + spent,
+        value=ins.value + spent,
         investable=ins.investable,
         asset_group_id=ins.asset_group_id,
     )
-    return Portfolio(cash=Cash(amount=new_cash_amount, reserve=p.cash.reserve),
+    return Portfolio(cash=Cash(value=new_cash_value, min_reserve=p.cash.min_reserve),
                      asset_groups=p.asset_groups,
                      instruments=new_instruments)
 
@@ -104,8 +104,8 @@ def commit_sell(
 ) -> Portfolio:
     """
     Apply a sell to the portfolio:
-    - increase cash.amount by proceeds
-    - decrease instrument.amount by proceeds
+    - increase cash.value by proceeds
+    - decrease instrument.value by proceeds
     If proceeds < min_trade_ils, does nothing.
     """
     if proceeds <= 0:
@@ -117,18 +117,18 @@ def commit_sell(
     ins = p.instruments[idx]
     if not ins.investable:
         raise ValueError(f"Cannot sell non-investable instrument: {ins.name}")
-    if proceeds > ins.amount:
-        raise ValueError(f"Cannot sell {proceeds} from '{ins.name}' (amount={ins.amount})")
+    if proceeds > ins.value:
+        raise ValueError(f"Cannot sell {proceeds} from '{ins.name}' (value={ins.value})")
 
-    new_cash_amount = p.cash.amount + proceeds
+    new_cash_amount = p.cash.value + proceeds
     new_instruments = list(p.instruments)
     new_instruments[idx] = Instrument(
         id=ins.id,
         name=ins.name,
-        amount=ins.amount - proceeds,
+        value=ins.value - proceeds,
         investable=ins.investable,
         asset_group_id=ins.asset_group_id,
     )
-    return Portfolio(cash=Cash(amount=new_cash_amount, reserve=p.cash.reserve),
+    return Portfolio(cash=Cash(value=new_cash_amount, min_reserve=p.cash.min_reserve),
                      asset_groups=p.asset_groups,
                      instruments=new_instruments)
