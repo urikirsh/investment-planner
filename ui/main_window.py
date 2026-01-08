@@ -78,7 +78,7 @@ def _set_group_tree_item(gitem: QTreeWidgetItem,
                          id_str: str = "") -> None:
     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
     gitem.setText(COL_NAME, name)
-    gitem.setText(COL_TOT_VALUE, "")  # total value (unused for groups)
+    gitem.setText(COL_TOT_VALUE, "0")  # will be recalculated anyway
     gitem.setText(COL_TARGET_PCT, str(target_pct))
     gitem.setText(COL_PREFERRED_INSTR, preferred_instrument_id)
     gitem.setText(COL_INVESTABLE, "")
@@ -101,6 +101,16 @@ def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str,
     iid = id_str.strip() or _new_id("ins")
     _set_item_meta(item, "instrument", iid)
 
+
+def _parse_amount_cell(txt: str) -> D:
+    txt = (txt or "").strip()
+    if not txt:
+        return D("0")
+    try:
+        return D(txt)
+    except (InvalidOperation, ValueError):
+        # If user typed garbage, treat as 0 for sums, validation will catch later
+        return D("0")
 
 @dataclass
 class WizardStep:
@@ -145,9 +155,66 @@ class MainWindow(QMainWindow):
 
         self._load_or_init()
 
+        self._suppress_item_changed = False
+        self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
+
     # -------------------------
     # Screen 1 (Main)
     # -------------------------
+
+    def _recalc_parent_amounts(self):
+        """
+        For every top-level item (group or bucket), set its Amount = sum(child Amounts).
+        """
+        self._suppress_item_changed = True
+        try:
+            for i in range(self.tree.topLevelItemCount()):
+                parent = self.tree.topLevelItem(i)
+                kind = _get_item_kind(parent)
+                if kind not in ("group", "bucket"):
+                    continue
+
+                total = D("0")
+                for j in range(parent.childCount()):
+                    child = parent.child(j)
+                    if _get_item_kind(child) != "instrument":
+                        continue
+                    total += _parse_amount_cell(child.text(COL_TOT_VALUE))
+
+                parent.setText(COL_TOT_VALUE, str(total))
+        finally:
+            self._suppress_item_changed = False
+
+    def _on_item_changed_guard_and_recalc(self, item, column: int):
+        if self._suppress_item_changed:
+            return
+
+        kind = _get_item_kind(item)
+
+        # Prevent editing computed/group-only fields:
+        # - group/bucket: Total value is computed, Investable is unused
+        # - instrument: Target/Preferred unused
+        self._suppress_item_changed = True
+        try:
+            if kind in ("group", "bucket"):
+                if column == COL_TOT_VALUE:
+                    # revert by recomputing (will overwrite whatever user typed)
+                    pass
+                if column == COL_INVESTABLE:
+                    item.setText(COL_INVESTABLE, "")
+
+            if kind == "instrument":
+                if column == COL_TARGET_PCT:
+                    item.setText(COL_TARGET_PCT, "")
+                if column == COL_PREFERRED_INSTR:
+                    item.setText(COL_PREFERRED_INSTR, "")
+
+        finally:
+            self._suppress_item_changed = False
+
+        # Always recalc totals after any edit
+        self._recalc_parent_amounts()
+        self._refresh_total_label()
 
     def _generate_cash_box(self) -> QWidget:
         # Cash block (fixed)
@@ -378,6 +445,9 @@ class MainWindow(QMainWindow):
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
             self.total_label.setText("Total portfolio: —")
+
+        self._recalc_parent_amounts()
+
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
             -> Dict[str, Any]:
