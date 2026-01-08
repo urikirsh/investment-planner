@@ -32,6 +32,8 @@ from investment_planner.validation import validate_portfolio
 from investment_planner.planning import compute_invest_budget, plan_invest_no_sell, plan_rebalance
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
+from ui.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col, WizardStep
+
 D = Decimal
 
 def _d_from_text(txt: str, field: str) -> D:
@@ -40,8 +42,8 @@ def _d_from_text(txt: str, field: str) -> D:
     except (InvalidOperation, ValueError):
         raise ValueError(f"{field} must be a number, got: {txt!r}")
 
-ROLE_KIND = Qt.UserRole + 1     # RowKind
-ROLE_ID = Qt.UserRole + 2       # the internal id string
+# ROLE_KIND = Qt.UserRole + 1     # RowKind
+# ROLE_ID = Qt.UserRole + 2       # the internal id string
 
 def _set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
     item.setData(0, ROLE_KIND, kind)
@@ -56,17 +58,17 @@ def _get_item_id(item: QTreeWidgetItem) -> str:
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
-class RowKind(Enum):
-    GROUP = auto()
-    INSTRUMENT = auto()
-    NON_INVESTABLE_BUCKET = auto()
+# class RowKind(Enum):
+#     GROUP = auto()
+#     INSTRUMENT = auto()
+#     NON_INVESTABLE_BUCKET = auto()
 
-class Col(Enum):
-    NAME = 0
-    TOT_VALUE = 1
-    TARGET_PCT = 2
-    PREFERRED_INSTR = 3
-    INVESTABLE = 4
+# class Col(Enum):
+#     NAME = 0
+#     TOT_VALUE = 1
+#     TARGET_PCT = 2
+#     PREFERRED_INSTR = 3
+#     INVESTABLE = 4
 
 def _style_group_row(item: QTreeWidgetItem) -> None:
 
@@ -139,14 +141,14 @@ def _parse_amount_cell(txt: str) -> D:
         # If user typed garbage, treat as 0 for sums, validation will catch later
         return D("0")
 
-@dataclass
-class WizardStep:
-    # One step per asset group, executed via preferred instrument
-    asset_group_id: str
-    asset_group_name: str
-    preferred_instrument_id: str
-    preferred_instrument_name: str
-    planned_delta_money: D  # positive buy, negative sell
+# @dataclass
+# class WizardStep:
+#     # One step per asset group, executed via preferred instrument
+#     asset_group_id: str
+#     asset_group_name: str
+#     preferred_instrument_id: str
+#     preferred_instrument_name: str
+#     planned_delta_money: D  # positive buy, negative sell
 
 
 class MainWindow(QMainWindow):
