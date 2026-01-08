@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List
-import uuid
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -23,7 +22,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget, QHeaderView, QComboBox,
 )
-from PySide6.QtGui import QColor, QBrush
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
 from investment_planner.validation import validate_portfolio
@@ -31,106 +29,10 @@ from investment_planner.planning import compute_invest_budget, plan_invest_no_se
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
 from ui.ui_types import RowKind, Col, WizardStep
-from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, style_group_row, \
-    apply_row_alignment, set_group_tree_item, add_instrument_item_to_group, parse_amount_cell
+from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
+    set_group_tree_item, add_instrument_item_to_group, parse_amount_cell
 
 D = Decimal
-
-# D = Decimal
-#
-# def _d_from_text(txt: str, field: str) -> D:
-#     try:
-#         return D(txt.strip())
-#     except (InvalidOperation, ValueError):
-#         raise ValueError(f"{field} must be a number, got: {txt!r}")
-#
-# def _set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
-#     item.setData(0, ROLE_KIND, kind)
-#     item.setData(0, ROLE_ID, _id)
-#
-# def _get_item_kind(item: QTreeWidgetItem) -> str:
-#     return item.data(0, ROLE_KIND) or ""
-#
-# def _get_item_id(item: QTreeWidgetItem) -> str:
-#     return item.data(0, ROLE_ID) or ""
-#
-# def _new_id(prefix: str) -> str:
-#     return f"{prefix}_{uuid.uuid4().hex[:8]}"
-#
-# def _style_group_row(item: QTreeWidgetItem) -> None:
-#
-#     background = QBrush(QColor("#f0f0f0"))
-#     for col in range(item.columnCount()):
-#         font = item.font(col)
-#         font.setBold(True)
-#         item.setFont(col, font)
-#
-#         item.setBackground(col, background)
-#
-# def _apply_row_alignment(item: QTreeWidgetItem) -> None:
-#     # Numbers right-aligned
-#     if _get_item_kind(item) != RowKind.INSTRUMENT.name:
-#         # Computed total amounts are centered
-#         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
-#     else:
-#         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignRight | Qt.AlignVCenter)
-#     item.setTextAlignment(Col.TARGET_PCT.value, Qt.AlignCenter | Qt.AlignVCenter)
-#
-#     # Text left-aligned
-#     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
-#     item.setTextAlignment(Col.PREFERRED_INSTR.value, Qt.AlignLeft | Qt.AlignVCenter)
-#     item.setTextAlignment(Col.INVESTABLE.value, Qt.AlignLeft | Qt.AlignVCenter)
-#
-#
-# def _set_group_tree_item(tree: QTreeWidget,
-#                          gitem: QTreeWidgetItem,
-#                          name: str,
-#                          target_pct: int,
-#                          preferred_instrument_id: str = "",
-#                          id_str: str = "") -> None:
-#     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-#     gitem.setText(Col.NAME.value, name)
-#     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
-#     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
-#
-#     combo = QComboBox()
-#     tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
-#
-#     gitem.setText(Col.INVESTABLE.value, "")
-#
-#     gid = id_str.strip() or _new_id("grp")
-#     _set_item_meta(gitem, RowKind.GROUP.name, gid)
-#
-#     _apply_row_alignment(gitem)
-#     _style_group_row(gitem)
-#
-#
-# def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
-#         -> None:
-#     item = QTreeWidgetItem(gitem)
-#     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-#     item.setText(Col.NAME.value, name)
-#     item.setText(Col.TOT_VALUE.value, value)
-#     item.setText(Col.TARGET_PCT.value, "")
-#     item.setText(Col.PREFERRED_INSTR.value, "")
-#     item.setText(Col.INVESTABLE.value, "true" if investable else "false")
-#
-#     iid = id_str.strip() or _new_id("ins")
-#     _set_item_meta(item, RowKind.INSTRUMENT.name, iid)
-#
-#     _apply_row_alignment(item)
-#
-#
-# def _parse_amount_cell(txt: str) -> D:
-#     txt = (txt or "").strip()
-#     if not txt:
-#         return D("0")
-#     try:
-#         return D(txt)
-#     except (InvalidOperation, ValueError):
-#         # If user typed garbage, treat as 0 for sums, validation will catch later
-#         return D("0")
-
 
 class MainWindow(QMainWindow):
     """
