@@ -68,12 +68,6 @@ class Col(Enum):
     PREFERRED_INSTR = 3
     INVESTABLE = 4
 
-# COL_NAME = 0
-# COL_TOT_VALUE = 1
-# COL_TARGET_PCT = 2
-# COL_PREFERRED_INSTR = 3
-# COL_INVESTABLE = 4
-
 def _style_group_row(item: QTreeWidgetItem) -> None:
 
     background = QBrush(QColor("#f0f0f0"))
