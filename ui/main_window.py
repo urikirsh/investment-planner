@@ -424,7 +424,6 @@ class MainWindow(QMainWindow):
             # children instruments
             for j in range(gitem.childCount()):
                 ins = gitem.child(j)
-                # if ins.text(0) != "Instrument":
                 if ins.parent() is None:  # not an instrument
                     continue
 
@@ -557,10 +556,7 @@ class MainWindow(QMainWindow):
 
     def _populate_summary(self, p, steps: List[WizardStep], mode: str):
         budget = compute_invest_budget(p)
-        lines = []
-        lines.append(f"Mode: {mode}")
-        lines.append(f"Invest budget (cash - reserve): {budget}")
-        lines.append("")
+        lines = [f"Mode: {mode}", f"Invest budget (cash - reserve): {budget}", ""]
         if not steps:
             lines.append("No actions required.")
         else:
