@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tree.setDragDropMode(QAbstractItemView.InternalMove)
         self.tree.setDefaultDropAction(Qt.MoveAction)
-        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.SelectedClicked)
+        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.tree.setIndentation(22)
 
     def _generate_controls_widget(self) -> QWidget:
