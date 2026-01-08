@@ -104,20 +104,7 @@ def _set_group_tree_item(tree: QTreeWidget,
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
-    # gitem.setText(Col.PREFERRED_INSTR.value, preferred_instrument_id)
     combo = QComboBox()
-    combo.setEditable(False)
-
-    # Populate with instruments belonging to this group
-    for i in range(gitem.childCount()):
-        ins = gitem.child(i)
-        combo.addItem(ins.name, ins.id)  # label, userData=ID
-
-    # Select current preferred
-    idx = combo.findData(preferred_instrument_id)
-    if idx >= 0:
-        combo.setCurrentIndex(idx)
-
     tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
 
     gitem.setText(Col.INVESTABLE.value, "")
