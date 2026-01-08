@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List
-from enum import Enum, auto
 import uuid
 
 from PySide6.QtCore import Qt
