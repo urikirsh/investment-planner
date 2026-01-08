@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
 
         kind = get_item_kind(item)
 
-        # Prevent editing computed/group-only fields:
+        # Prevent editing computed/group-only/instrument-only fields:
         # - group/bucket: Total value is computed, Investable is unused
         # - instrument: Target/Preferred unused
         self._suppress_item_changed = True
@@ -186,7 +186,7 @@ class MainWindow(QMainWindow):
                 if column == Col.INVESTABLE.value:
                     item.setText(Col.INVESTABLE.value, "")
 
-            if kind == "instrument":
+            if kind == RowKind.INSTRUMENT.name:
                 if column == Col.TARGET_PCT.value:
                     item.setText(Col.TARGET_PCT.value, "")
                 if column == Col.PREFERRED_INSTR.value:
