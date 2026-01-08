@@ -198,13 +198,13 @@ class MainWindow(QMainWindow):
             for i in range(self.tree.topLevelItemCount()):
                 parent = self.tree.topLevelItem(i)
                 kind = _get_item_kind(parent)
-                if kind != RowKind.INSTRUMENT.name:
+                if kind == RowKind.INSTRUMENT.name:
                     continue
 
                 total = D("0")
                 for j in range(parent.childCount()):
                     child = parent.child(j)
-                    if _get_item_kind(child) != "instrument":
+                    if _get_item_kind(child) != RowKind.INSTRUMENT.name:
                         continue
                     total += _parse_amount_cell(child.text(Col.TOT_VALUE.value))
 
