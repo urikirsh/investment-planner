@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PySide6.QtGui import QFont, QColor, QBrush
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
 from investment_planner.validation import validate_portfolio
@@ -54,6 +55,15 @@ def _get_item_id(item: QTreeWidgetItem) -> str:
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
+def _style_group_row(item: QTreeWidgetItem) -> None:
+
+    background = QBrush(QColor("#f0f0f0"))
+    for col in range(item.columnCount()):
+        font = item.font(col)
+        font.setBold(True)
+        item.setFont(col, font)
+
+        item.setBackground(col, background)
 
 def _set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
@@ -69,6 +79,7 @@ def _set_group_tree_item(gitem: QTreeWidgetItem,
 
     gid = id_str.strip() or _new_id("grp")
     _set_item_meta(gitem, "group", gid)
+    _style_group_row(gitem)
 
 
 def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
