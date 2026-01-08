@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PySide6.QtGui import QFont, QColor, QBrush
+from PySide6.QtGui import QColor, QBrush
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
 from investment_planner.validation import validate_portfolio
@@ -55,6 +55,12 @@ def _get_item_id(item: QTreeWidgetItem) -> str:
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
+COL_NAME = 0
+COL_TOT_VALUE = 1
+COL_TARGET_PCT = 2
+COL_PREFERRED_INSTR = 3
+COL_INVESTABLE = 4
+
 def _style_group_row(item: QTreeWidgetItem) -> None:
 
     background = QBrush(QColor("#f0f0f0"))
@@ -68,14 +74,14 @@ def _style_group_row(item: QTreeWidgetItem) -> None:
 def _set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
-                         preferred_instrument_id: str,
+                         preferred_instrument_id: str = "",
                          id_str: str = "") -> None:
     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-    gitem.setText(0, name)
-    gitem.setText(1, "")  # total value (unused for groups)
-    gitem.setText(2, str(target_pct))
-    gitem.setText(3, preferred_instrument_id)
-    gitem.setText(4, "")  # Investable (unused for groups)
+    gitem.setText(COL_NAME, name)
+    gitem.setText(COL_TOT_VALUE, "0")  # will be recalculated anyway
+    gitem.setText(COL_TARGET_PCT, str(target_pct))
+    gitem.setText(COL_PREFERRED_INSTR, preferred_instrument_id)
+    gitem.setText(COL_INVESTABLE, "")
 
     gid = id_str.strip() or _new_id("grp")
     _set_item_meta(gitem, "group", gid)
@@ -86,15 +92,25 @@ def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str,
         -> None:
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-    item.setText(0, name)
-    item.setText(1, value)
-    item.setText(2, "")  # target pct (not used for instruments)
-    item.setText(3, "")  # preferred instrument (not used for instruments)
-    item.setText(4, "true" if investable else "false")
+    item.setText(COL_NAME, name)
+    item.setText(COL_TOT_VALUE, value)
+    item.setText(COL_TARGET_PCT, "")
+    item.setText(COL_PREFERRED_INSTR, "")
+    item.setText(COL_INVESTABLE, "true" if investable else "false")
 
     iid = id_str.strip() or _new_id("ins")
     _set_item_meta(item, "instrument", iid)
 
+
+def _parse_amount_cell(txt: str) -> D:
+    txt = (txt or "").strip()
+    if not txt:
+        return D("0")
+    try:
+        return D(txt)
+    except (InvalidOperation, ValueError):
+        # If user typed garbage, treat as 0 for sums, validation will catch later
+        return D("0")
 
 @dataclass
 class WizardStep:
@@ -139,9 +155,66 @@ class MainWindow(QMainWindow):
 
         self._load_or_init()
 
+        self._suppress_item_changed = False
+        self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
+
     # -------------------------
     # Screen 1 (Main)
     # -------------------------
+
+    def _recalc_parent_amounts(self):
+        """
+        For every top-level item (group or bucket), set its Amount = sum(child Amounts).
+        """
+        self._suppress_item_changed = True
+        try:
+            for i in range(self.tree.topLevelItemCount()):
+                parent = self.tree.topLevelItem(i)
+                kind = _get_item_kind(parent)
+                if kind not in ("group", "bucket"):
+                    continue
+
+                total = D("0")
+                for j in range(parent.childCount()):
+                    child = parent.child(j)
+                    if _get_item_kind(child) != "instrument":
+                        continue
+                    total += _parse_amount_cell(child.text(COL_TOT_VALUE))
+
+                parent.setText(COL_TOT_VALUE, str(total))
+        finally:
+            self._suppress_item_changed = False
+
+    def _on_item_changed_guard_and_recalc(self, item, column: int):
+        if self._suppress_item_changed:
+            return
+
+        kind = _get_item_kind(item)
+
+        # Prevent editing computed/group-only fields:
+        # - group/bucket: Total value is computed, Investable is unused
+        # - instrument: Target/Preferred unused
+        self._suppress_item_changed = True
+        try:
+            if kind in ("group", "bucket"):
+                if column == COL_TOT_VALUE:
+                    # revert by recomputing (will overwrite whatever user typed)
+                    pass
+                if column == COL_INVESTABLE:
+                    item.setText(COL_INVESTABLE, "")
+
+            if kind == "instrument":
+                if column == COL_TARGET_PCT:
+                    item.setText(COL_TARGET_PCT, "")
+                if column == COL_PREFERRED_INSTR:
+                    item.setText(COL_PREFERRED_INSTR, "")
+
+        finally:
+            self._suppress_item_changed = False
+
+        # Always recalc totals after any edit
+        self._recalc_parent_amounts()
+        self._refresh_total_label()
 
     def _generate_cash_box(self) -> QWidget:
         # Cash block (fixed)
@@ -255,17 +328,10 @@ class MainWindow(QMainWindow):
         return main_screen_widget
 
     def _add_asset_group(self):
-        gid = _new_id("grp")
+        # gid = _new_id("grp")
         gitem = QTreeWidgetItem(self.tree)
-        gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
-        gitem.setText(0, "New Asset Group")
-        gitem.setText(1, "")   # total value (not used for groups)
-        gitem.setText(2, "0")  # target pct
-        gitem.setText(3, "")   # preferred instrument id (filled later)
-        gitem.setText(4, "")   # investable (not used for groups)
-
-        _set_item_meta(gitem, "group", gid)
+        _set_group_tree_item(gitem, "New Asset Group", 0)
 
         self.tree.expandAll()
         self._refresh_total_label()
@@ -277,23 +343,9 @@ class MainWindow(QMainWindow):
             return
 
         # If instrument selected, use its parent group
-        # parent = sel if sel.text(0) == "Group" else sel.parent()
         parent = sel.parent() or sel
-        if parent is None:
-            QMessageBox.warning(self, "Add instrument", "Select a valid group first.")
-            return
 
-        iid = _new_id("ins")
-        item = QTreeWidgetItem(parent)
-        item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-
-        item.setText(0, "New Instrument")
-        item.setText(1, "1")    # total value (must be positive by validation)
-        item.setText(2, "")     # target pct, not used
-        item.setText(3, "")     # preferred instrument id, not used
-        item.setText(4, "true") # investable
-
-        _set_item_meta(item, "instrument", iid)
+        _add_instrument_item_to_group(parent, "New Instrument", "1", True, "ins")
 
         self.tree.expandAll()
         self._refresh_total_label()
@@ -394,6 +446,9 @@ class MainWindow(QMainWindow):
         except Exception:
             self.total_label.setText("Total portfolio: —")
 
+        self._recalc_parent_amounts()
+
+
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
             -> Dict[str, Any]:
         cash_amount = self.cash_amount_edit.text().strip()
@@ -421,9 +476,9 @@ class MainWindow(QMainWindow):
             gid = _get_item_id(gitem) or _new_id("grp")
             is_non_investable_bucket = (kind == "bucket") # Special bucket treated as not-a-group in JSON strategy
 
-            gname = gitem.text(1).strip()
-            target_pct = gitem.text(3).strip() or "0"
-            preferred_instrument = gitem.text(4).strip()
+            gname = gitem.text(COL_NAME).strip()
+            target_pct = gitem.text(COL_TARGET_PCT).strip() or "0"
+            preferred_instrument = gitem.text(COL_PREFERRED_INSTR).strip()
 
 
             if not is_non_investable_bucket:
@@ -439,7 +494,6 @@ class MainWindow(QMainWindow):
             # children instruments
             for j in range(gitem.childCount()):
                 ins = gitem.child(j)
-                # if ins.text(0) != "Instrument":
                 if ins.parent() is None:  # not an instrument
                     continue
 
@@ -448,9 +502,9 @@ class MainWindow(QMainWindow):
                     iid = _new_id("ins")
                     _set_item_meta(ins, "instrument", iid)
 
-                iname = ins.text(1).strip()
-                amount = ins.text(2).strip() or "0"
-                investable_txt = (ins.text(5).strip().lower() or "false")
+                iname = ins.text(COL_NAME).strip()
+                tot_value = ins.text(COL_TOT_VALUE).strip() or "0"
+                investable_txt = (ins.text(COL_INVESTABLE).strip().lower() or "false")
                 investable = investable_txt in ("true", "1", "yes", "y")
 
                 if is_non_investable_bucket:
@@ -463,7 +517,7 @@ class MainWindow(QMainWindow):
                     {
                         "id": iid,
                         "name": iname,
-                        "amount": amount,
+                        "amount": tot_value,
                         "investable": investable,
                         **({"groupId": group_id} if group_id is not None else {}),
                     }
@@ -572,10 +626,7 @@ class MainWindow(QMainWindow):
 
     def _populate_summary(self, p, steps: List[WizardStep], mode: str):
         budget = compute_invest_budget(p)
-        lines = []
-        lines.append(f"Mode: {mode}")
-        lines.append(f"Invest budget (cash - reserve): {budget}")
-        lines.append("")
+        lines = [f"Mode: {mode}", f"Invest budget (cash - reserve): {budget}", ""]
         if not steps:
             lines.append("No actions required.")
         else:
