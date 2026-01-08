@@ -40,7 +40,7 @@ def _d_from_text(txt: str, field: str) -> D:
     except (InvalidOperation, ValueError):
         raise ValueError(f"{field} must be a number, got: {txt!r}")
 
-ROLE_KIND = Qt.UserRole + 1     # "group" / "instrument" / "bucket"
+ROLE_KIND = Qt.UserRole + 1     # RowKind
 ROLE_ID = Qt.UserRole + 2       # the internal id string
 
 def _set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
@@ -80,7 +80,7 @@ def _style_group_row(item: QTreeWidgetItem) -> None:
 
 def _apply_row_alignment(item: QTreeWidgetItem) -> None:
     # Numbers right-aligned
-    if _get_item_kind(item) in ("group", "bucket"):
+    if _get_item_kind(item) in (RowKind.GROUP.name, RowKind.GROUP.BUCKET):
         # Computed total amounts are centered
         item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
     else:
@@ -106,7 +106,7 @@ def _set_group_tree_item(gitem: QTreeWidgetItem,
     gitem.setText(Col.INVESTABLE.value, "")
 
     gid = id_str.strip() or _new_id("grp")
-    _set_item_meta(gitem, "group", gid)
+    _set_item_meta(gitem, RowKind.GROUP.name, gid)
 
     _apply_row_alignment(gitem)
     _style_group_row(gitem)
@@ -198,7 +198,7 @@ class MainWindow(QMainWindow):
             for i in range(self.tree.topLevelItemCount()):
                 parent = self.tree.topLevelItem(i)
                 kind = _get_item_kind(parent)
-                if kind not in ("group", "bucket"):
+                if kind not in (RowKind.GROUP.name, RowKind.BUCKET.name):
                     continue
 
                 total = D("0")
@@ -223,7 +223,7 @@ class MainWindow(QMainWindow):
         # - instrument: Target/Preferred unused
         self._suppress_item_changed = True
         try:
-            if kind in ("group", "bucket"):
+            if kind in (RowKind.GROUP.name, RowKind.BUCKET.name):
                 if column == Col.TOT_VALUE.value:
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
@@ -509,11 +509,11 @@ class MainWindow(QMainWindow):
             gitem = self.tree.topLevelItem(i)
 
             kind = _get_item_kind(gitem)
-            if kind not in ("group", "bucket"):
+            if kind not in (RowKind.GROUP.name, RowKind.BUCKET.name):
                 continue
 
             gid = _get_item_id(gitem) or _new_id("grp")
-            is_non_investable_bucket = (kind == "bucket") # Special bucket treated as not-a-group in JSON strategy
+            is_non_investable_bucket = (kind == RowKind.BUCKET.name) # Special bucket treated as not-a-group in JSON strategy
 
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
