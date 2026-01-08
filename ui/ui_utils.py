@@ -102,7 +102,6 @@ def set_group_tree_item(tree: QTreeWidget,
                          gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
-                         preferred_instrument_id: str = "",  # TODO - delete
                          id_str: str = "") -> None:
     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
     gitem.setText(Col.NAME.value, name)

@@ -405,7 +405,7 @@ class MainWindow(QMainWindow):
 
             for g in p.asset_groups:
                 gitem = QTreeWidgetItem(self.tree)
-                set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.preferred_instrument_id, g.id)
+                set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
                     add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
@@ -417,7 +417,6 @@ class MainWindow(QMainWindow):
                                      non_investable_bucket,
                                      "Non-investable (excluded from strategy)",
                                      0,
-                                     "",
                                      RowKind.NON_INVESTABLE_BUCKET.name)
 
                 for ins in non_investable:
