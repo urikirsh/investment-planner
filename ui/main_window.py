@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PySide6.QtGui import QFont, QColor, QBrush
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
 from investment_planner.validation import validate_portfolio
@@ -54,6 +55,15 @@ def _get_item_id(item: QTreeWidgetItem) -> str:
 def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
+def _style_group_row(item: QTreeWidgetItem) -> None:
+
+    background = QBrush(QColor("#f0f0f0"))
+    for col in range(item.columnCount()):
+        font = item.font(col)
+        font.setBold(True)
+        item.setFont(col, font)
+
+        item.setBackground(col, background)
 
 def _set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
@@ -61,27 +71,26 @@ def _set_group_tree_item(gitem: QTreeWidgetItem,
                          preferred_instrument_id: str,
                          id_str: str = "") -> None:
     gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
-    gitem.setText(0, "Group")
-    gitem.setText(1, name)
-    gitem.setText(2, "")  # total value (unused for groups)
-    gitem.setText(3, str(target_pct))
-    gitem.setText(4, preferred_instrument_id)
-    gitem.setText(5, "")  # Investable (unused for groups)
+    gitem.setText(0, name)
+    gitem.setText(1, "")  # total value (unused for groups)
+    gitem.setText(2, str(target_pct))
+    gitem.setText(3, preferred_instrument_id)
+    gitem.setText(4, "")  # Investable (unused for groups)
 
     gid = id_str.strip() or _new_id("grp")
     _set_item_meta(gitem, "group", gid)
+    _style_group_row(gitem)
 
 
 def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
         -> None:
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
-    item.setText(0, "Instrument")
-    item.setText(1, name)
-    item.setText(2, value)
-    item.setText(3, "")  # target pct (not used for instruments)
-    item.setText(4, "")  # preferred instrument (not used for instruments)
-    item.setText(5, "true" if investable else "false")
+    item.setText(0, name)
+    item.setText(1, value)
+    item.setText(2, "")  # target pct (not used for instruments)
+    item.setText(3, "")  # preferred instrument (not used for instruments)
+    item.setText(4, "true" if investable else "false")
 
     iid = id_str.strip() or _new_id("ins")
     _set_item_meta(item, "instrument", iid)
@@ -155,15 +164,14 @@ class MainWindow(QMainWindow):
     def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(6)
+        self.tree.setColumnCount(5)
         self.tree.setHeaderLabels(
             [
-                "Type",
                 "Name",
                 "Total value",
-                "Target % (group)",
-                "Preferred Instrument (group)",
-                "Investable (instrument)",
+                "Target %",
+                "Preferred Instrument",
+                "Investable",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -251,12 +259,11 @@ class MainWindow(QMainWindow):
         gitem = QTreeWidgetItem(self.tree)
         gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
-        gitem.setText(0, "Group")
-        gitem.setText(1, "New Asset Group")
-        gitem.setText(2, "")   # total value (not used for groups)
-        gitem.setText(3, "0")  # target pct
-        gitem.setText(4, "")   # preferred instrument id (filled later)
-        gitem.setText(5, "")   # investable (not used for groups)
+        gitem.setText(0, "New Asset Group")
+        gitem.setText(1, "")   # total value (not used for groups)
+        gitem.setText(2, "0")  # target pct
+        gitem.setText(3, "")   # preferred instrument id (filled later)
+        gitem.setText(4, "")   # investable (not used for groups)
 
         _set_item_meta(gitem, "group", gid)
 
@@ -270,7 +277,8 @@ class MainWindow(QMainWindow):
             return
 
         # If instrument selected, use its parent group
-        parent = sel if sel.text(0) == "Group" else sel.parent()
+        # parent = sel if sel.text(0) == "Group" else sel.parent()
+        parent = sel.parent() or sel
         if parent is None:
             QMessageBox.warning(self, "Add instrument", "Select a valid group first.")
             return
@@ -279,12 +287,11 @@ class MainWindow(QMainWindow):
         item = QTreeWidgetItem(parent)
         item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
 
-        item.setText(0, "Instrument")
-        item.setText(1, "New Instrument")
-        item.setText(2, "1")    # total value (must be positive by validation)
-        item.setText(3, "")     # target pct, not used
-        item.setText(4, "")     # preferred instrument id, not used
-        item.setText(5, "true") # investable
+        item.setText(0, "New Instrument")
+        item.setText(1, "1")    # total value (must be positive by validation)
+        item.setText(2, "")     # target pct, not used
+        item.setText(3, "")     # preferred instrument id, not used
+        item.setText(4, "true") # investable
 
         _set_item_meta(item, "instrument", iid)
 
@@ -295,14 +302,13 @@ class MainWindow(QMainWindow):
         sel = self.tree.currentItem()
         if sel is None:
             return
-        if sel.text(0) == "Group":
+        parent = sel.parent()
+        if parent is None:
             idx = self.tree.indexOfTopLevelItem(sel)
             if idx >= 0:
                 self.tree.takeTopLevelItem(idx)
         else:
-            parent = sel.parent()
-            if parent is not None:
-                parent.removeChild(sel)
+            parent.removeChild(sel)
         self._refresh_total_label()
 
     def _load_or_init(self):
@@ -433,7 +439,8 @@ class MainWindow(QMainWindow):
             # children instruments
             for j in range(gitem.childCount()):
                 ins = gitem.child(j)
-                if ins.text(0) != "Instrument":
+                # if ins.text(0) != "Instrument":
+                if ins.parent() is None:  # not an instrument
                     continue
 
                 iid = _get_item_id(ins)
