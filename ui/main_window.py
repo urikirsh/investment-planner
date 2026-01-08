@@ -116,7 +116,6 @@ def _set_group_tree_item(tree: QTreeWidget,
     _style_group_row(gitem)
 
 
-
 def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
         -> None:
     item = QTreeWidgetItem(gitem)
@@ -313,10 +312,7 @@ class MainWindow(QMainWindow):
 
         finally:
             self._suppress_item_changed = False
-
-            # Always recalc totals after any edit
-            self._recalc_parent_amounts()
-            self._refresh_total_label()
+            self._refresh_data()
 
     def _generate_cash_box(self) -> QWidget:
         # Cash block (fixed)
@@ -448,7 +444,7 @@ class MainWindow(QMainWindow):
         _set_group_tree_item(self.tree, gitem, "New Asset Group", 0)
 
         self.tree.expandAll()
-        self._refresh_total_label()
+        self._refresh_data()
 
     def _add_instrument(self):
         sel = self.tree.currentItem()
@@ -462,7 +458,7 @@ class MainWindow(QMainWindow):
         _add_instrument_item_to_group(parent, "New Instrument", "1", True, "ins")
 
         self.tree.expandAll()
-        self._refresh_total_label()
+        self._refresh_data()
 
     def _delete_selected(self):
         sel = self.tree.currentItem()
@@ -475,7 +471,7 @@ class MainWindow(QMainWindow):
                 self.tree.takeTopLevelItem(idx)
         else:
             parent.removeChild(sel)
-        self._refresh_total_label()
+        self._refresh_data()
 
     def _load_or_init(self):
         if self.json_path.exists():
@@ -499,7 +495,7 @@ class MainWindow(QMainWindow):
 
         self.current_portfolio = p
         self._populate_main_from_portfolio(p)
-        self._refresh_total_label()
+        self._refresh_data()
 
     def _populate_main_from_portfolio(self, p):
         self.tree.blockSignals(True)
@@ -549,6 +545,11 @@ class MainWindow(QMainWindow):
         finally:
             self.tree.blockSignals(False)
 
+    def _refresh_data(self):
+        self._refresh_total_label()
+        self._recalc_parent_amounts()
+        self._refresh_preferred_dropdowns()
+
     def _refresh_total_label(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
@@ -560,9 +561,6 @@ class MainWindow(QMainWindow):
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
             self.total_label.setText("Total portfolio: —")
-
-        self._recalc_parent_amounts()
-        self._refresh_preferred_dropdowns()
 
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
