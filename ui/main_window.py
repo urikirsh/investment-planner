@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
-    QWidget,
+    QWidget, QHeaderView,
 )
 from PySide6.QtGui import QColor, QBrush
 
@@ -71,6 +71,21 @@ def _style_group_row(item: QTreeWidgetItem) -> None:
 
         item.setBackground(col, background)
 
+def _apply_row_alignment(item: QTreeWidgetItem) -> None:
+    # Numbers right-aligned
+    if _get_item_kind(item) in ("group", "bucket"):
+        # Computed total amounts are centered
+        item.setTextAlignment(COL_TOT_VALUE, Qt.AlignCenter | Qt.AlignVCenter)
+    else:
+        item.setTextAlignment(COL_TOT_VALUE, Qt.AlignRight | Qt.AlignVCenter)
+    item.setTextAlignment(COL_TARGET_PCT, Qt.AlignCenter | Qt.AlignVCenter)
+
+    # Text left-aligned
+    item.setTextAlignment(COL_NAME, Qt.AlignLeft | Qt.AlignVCenter)
+    item.setTextAlignment(COL_PREFERRED_INSTR, Qt.AlignLeft | Qt.AlignVCenter)
+    item.setTextAlignment(COL_INVESTABLE, Qt.AlignLeft | Qt.AlignVCenter)
+
+
 def _set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
@@ -85,7 +100,10 @@ def _set_group_tree_item(gitem: QTreeWidgetItem,
 
     gid = id_str.strip() or _new_id("grp")
     _set_item_meta(gitem, "group", gid)
+
+    _apply_row_alignment(gitem)
     _style_group_row(gitem)
+
 
 
 def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
@@ -100,6 +118,8 @@ def _add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str,
 
     iid = id_str.strip() or _new_id("ins")
     _set_item_meta(item, "instrument", iid)
+
+    _apply_row_alignment(item)
 
 
 def _parse_amount_cell(txt: str) -> D:
@@ -253,6 +273,19 @@ class MainWindow(QMainWindow):
         self.tree.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.tree.setIndentation(22)
 
+        # Set column widths and drag behaviors
+        header = self.tree.header()
+
+        header.setSectionResizeMode(COL_NAME, QHeaderView.Stretch)
+
+        header.setSectionResizeMode(COL_TOT_VALUE, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(COL_TARGET_PCT, QHeaderView.Fixed)
+        header.setSectionResizeMode(COL_PREFERRED_INSTR, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(COL_INVESTABLE, QHeaderView.Fixed)
+
+        self.tree.setColumnWidth(COL_TARGET_PCT, 54)
+        self.tree.setColumnWidth(COL_INVESTABLE, 50)
+
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
         controls = QWidget()
@@ -308,7 +341,7 @@ class MainWindow(QMainWindow):
         main_screen_widget = QWidget()
         layout = QVBoxLayout(main_screen_widget)
 
-        title = QLabel("Main")
+        title = QLabel("Insert data here")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
         layout.addWidget(self._generate_cash_box())
