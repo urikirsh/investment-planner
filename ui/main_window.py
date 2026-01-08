@@ -406,9 +406,9 @@ class MainWindow(QMainWindow):
             gid = _get_item_id(gitem) or _new_id("grp")
             is_non_investable_bucket = (kind == "bucket") # Special bucket treated as not-a-group in JSON strategy
 
-            gname = gitem.text(1).strip()
-            target_pct = gitem.text(3).strip() or "0"
-            preferred_instrument = gitem.text(4).strip()
+            gname = gitem.text(COL_NAME).strip()
+            target_pct = gitem.text(COL_TARGET_PCT).strip() or "0"
+            preferred_instrument = gitem.text(COL_PREFERRED_INSTR).strip()
 
 
             if not is_non_investable_bucket:
@@ -433,9 +433,9 @@ class MainWindow(QMainWindow):
                     iid = _new_id("ins")
                     _set_item_meta(ins, "instrument", iid)
 
-                iname = ins.text(1).strip()
-                amount = ins.text(2).strip() or "0"
-                investable_txt = (ins.text(5).strip().lower() or "false")
+                iname = ins.text(COL_NAME).strip()
+                tot_value = ins.text(COL_TOT_VALUE).strip() or "0"
+                investable_txt = (ins.text(COL_INVESTABLE).strip().lower() or "false")
                 investable = investable_txt in ("true", "1", "yes", "y")
 
                 if is_non_investable_bucket:
@@ -448,7 +448,7 @@ class MainWindow(QMainWindow):
                     {
                         "id": iid,
                         "name": iname,
-                        "amount": amount,
+                        "amount": tot_value,
                         "investable": investable,
                         **({"groupId": group_id} if group_id is not None else {}),
                     }
