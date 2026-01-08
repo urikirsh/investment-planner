@@ -11,7 +11,7 @@ D = Decimal
 @dataclass(frozen=True)
 class Cash:
     value: D
-    reserve: D   # TODO - call this min_reserve
+    min_reserve: D
 
 
 @dataclass(frozen=True)

@@ -15,7 +15,7 @@ def compute_invest_budget(p: Portfolio) -> D:
     Cash is excluded from thev strategy universe.
     Budget is simply cash.value - cash.reserve, floored at 0.
     """
-    budget = p.cash.value - p.cash.reserve
+    budget = p.cash.value - p.cash.min_reserve
     return budget if budget > 0 else D("0")
 
 

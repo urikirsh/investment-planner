@@ -12,9 +12,9 @@ def validate_portfolio(p: Portfolio) -> None:
     # Cash validation (you requested: positive)
     if p.cash.value <= 0:
         raise ValueError("cash.value must be positive")
-    if p.cash.reserve <= 0:
+    if p.cash.min_reserve <= 0:
         raise ValueError("cash.reserve must be positive")
-    if p.cash.reserve > p.cash.value:
+    if p.cash.min_reserve > p.cash.value:
         raise ValueError("cash.reserve must be <= cash.value")
 
     # Asset groups validation

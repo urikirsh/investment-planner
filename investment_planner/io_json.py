@@ -25,7 +25,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
 
     cash = Cash(
         value=_parse_decimal(cash_raw.get("value"), "cash.value"),
-        reserve=_parse_decimal(cash_raw.get("reserve"), "cash.reserve"),
+        min_reserve=_parse_decimal(cash_raw.get("min_reserve"), "cash.reserve"),
     )
 
     # Asset groups
@@ -89,7 +89,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
     return {
         "cash": {
             "value": str(p.cash.value),
-            "reserve": str(p.cash.reserve),
+            "min_reserve": str(p.cash.min_reserve),
         },
         "groups": [
             {
