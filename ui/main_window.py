@@ -276,14 +276,9 @@ class MainWindow(QMainWindow):
             return
 
         # If instrument selected, use its parent group
-        # parent = sel if sel.text(0) == "Group" else sel.parent()
         parent = sel.parent() or sel
-        if parent is None:
-            QMessageBox.warning(self, "Add instrument", "Select a valid group first.")
-            return
 
-        item = QTreeWidgetItem(parent)
-        _add_instrument_item_to_group(item, "New Instrument", "1", True, "ins")
+        _add_instrument_item_to_group(parent, "New Instrument", "1", True, "ins")
 
         self.tree.expandAll()
         self._refresh_total_label()
