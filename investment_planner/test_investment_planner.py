@@ -2,21 +2,21 @@ from decimal import Decimal
 
 import pytest
 
-from io_json import load_portfolio
-from validation import validate_portfolio
-from planning import (
+from investment_planner.io_json import load_portfolio
+from investment_planner.validation import validate_portfolio
+from investment_planner.planning import (
     compute_invest_budget,
     plan_invest_no_sell,
     plan_rebalance
 )
-from calc_stock_units import calculate_buy_units, commit_buy, commit_sell
+from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
 D = Decimal
 
 
 def make_valid_data(
     *,
-    cash_amount="12000",
+    cash_value="12000",
     cash_reserve="2000",
     # Group targets sum to 100 exactly
     group_targets=(("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "40.0")),
@@ -28,13 +28,13 @@ def make_valid_data(
 
     - group_targets: iterable of (id, name, targetPercentage_str)
     - preferred_map: dict group_id -> instrument_id. If None, uses first instrument per group.
-    - instruments: list of dicts with keys: id, name, amount, investable, groupId (optional)
+    - instruments: list of dicts with keys: id, name, value, investable, groupId (optional)
     """
     if instruments is None:
         instruments = [
-            {"id": "i1", "name": "Inst 1", "amount": "6000", "investable": True, "groupId": "g1"},
-            {"id": "i2", "name": "Inst 2", "amount": "4000", "investable": True, "groupId": "g2"},
-            {"id": "i3", "name": "Parking", "amount": "1000", "investable": False},
+            {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
+            {"id": "i3", "name": "Parking", "value": "1000", "investable": False},
         ]
 
     if preferred_map is None:
@@ -58,7 +58,7 @@ def make_valid_data(
         )
 
     return {
-        "cash": {"amount": cash_amount, "reserve": cash_reserve},
+        "cash": {"value": cash_value, "reserve": cash_reserve},
         "groups": groups,
         "instruments": instruments,
     }
@@ -74,10 +74,10 @@ def test_validate_portfolio_happy_path():
     validate_portfolio(p)  # should not raise
 
 
-def test_validation_cash_reserve_must_not_exceed_cash_amount():
-    data = make_valid_data(cash_amount="100", cash_reserve="101")
+def test_validation_cash_reserve_must_not_exceed_cash_value():
+    data = make_valid_data(cash_value="100", cash_reserve="101")
     p = load_portfolio(data)
-    with pytest.raises(ValueError, match="cash.reserve must be <= cash amount"):
+    with pytest.raises(ValueError, match="cash.reserve must be <= cash.value"):
         validate_portfolio(p)
 
 
@@ -88,20 +88,20 @@ def test_validation_percentages_must_sum_to_100_exactly():
         validate_portfolio(p)
 
 
-def test_validation_amount_cannot_be_negative():
+def test_validation_value_cannot_be_negative():
     instruments = [
-        {"id": "i1", "name": "Inst 1", "amount": "0", "investable": True, "groupId": "g1"},  # amount 0 is fine
-        {"id": "i2", "name": "Inst 2", "amount": "-4000", "investable": True, "groupId": "g2"},
+        {"id": "i1", "name": "Inst 1", "value": "0", "investable": True, "groupId": "g1"},  # value 0 is fine
+        {"id": "i2", "name": "Inst 2", "value": "-4000", "investable": True, "groupId": "g2"},
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
-    with pytest.raises(ValueError, match="Instrument 'Inst 1' amount must be positive"):
+    with pytest.raises(ValueError, match="Instrument 'Inst 1' value must be positive"):
         validate_portfolio(p)
 
 def test_validation_instrument_names_must_be_unique():
     instruments = [
-        {"id": "i1", "name": "DUP", "amount": "6000", "investable": True, "groupId": "g1"},
-        {"id": "i2", "name": "DUP", "amount": "4000", "investable": True, "groupId": "g2"},
+        {"id": "i1", "name": "DUP", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "i2", "name": "DUP", "value": "4000", "investable": True, "groupId": "g2"},
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
@@ -111,8 +111,8 @@ def test_validation_instrument_names_must_be_unique():
 
 def test_validation_investable_instrument_must_have_group():
     instruments = [
-        {"id": "i1", "name": "Inst 1", "amount": "6000", "investable": True},  # missing groupId
-        {"id": "i2", "name": "Inst 2", "amount": "4000", "investable": True, "groupId": "g2"},
+        {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True},  # missing groupId
+        {"id": "i2", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
@@ -121,8 +121,8 @@ def test_validation_investable_instrument_must_have_group():
 
 def test_validation_group_must_exist():
     instruments = [
-        {"id": "i1", "name": "Inst 1", "amount": "6000", "investable": True, "groupId": "g3"},  # fake group
-        {"id": "i2", "name": "Inst 2", "amount": "4000", "investable": True, "groupId": "g2"},
+        {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g3"},  # fake group
+        {"id": "i2", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
@@ -132,8 +132,8 @@ def test_validation_group_must_exist():
 
 def test_validation_non_investable_instrument_must_not_have_group():
     instruments = [
-        {"id": "i1", "name": "Inst 1", "amount": "6000", "investable": True, "groupId": "g1"},
-        {"id": "i2", "name": "Parking", "amount": "4000", "investable": False, "groupId": "g2"},
+        {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "i2", "name": "Parking", "value": "4000", "investable": False, "groupId": "g2"},
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
@@ -143,8 +143,8 @@ def test_validation_non_investable_instrument_must_not_have_group():
 
 def test_validation_preferred_instrument_must_exist():
     instruments = [
-        {"id": "i1", "name": "Inst 1", "amount": "6000", "investable": True, "groupId": "g1"},
-        {"id": "i2", "name": "Inst 2", "amount": "4000", "investable": True, "groupId": "g2"},
+        {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "i2", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
     ]
     # set preferredInstrumentId to a non-existent id for g2
     preferred_map = {"g1": "i1", "g2": "DOES_NOT_EXIST"}
@@ -156,8 +156,8 @@ def test_validation_preferred_instrument_must_exist():
 
 def test_validation_preferred_instrument_must_belong_to_same_group():
     instruments = [
-        {"id": "i1", "name": "Inst 1", "amount": "6000", "investable": True, "groupId": "g1"},
-        {"id": "i2", "name": "Inst 2", "amount": "4000", "investable": True, "groupId": "g2"},
+        {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "i2", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
     ]
     # g1 points to i2 (wrong group)
     preferred_map = {"g1": "i2", "g2": "i2"}
@@ -172,13 +172,13 @@ def test_validation_preferred_instrument_must_belong_to_same_group():
 # -------------------------
 
 def test_compute_invest_budget_basic():
-    data = make_valid_data(cash_amount="12000", cash_reserve="2000")
+    data = make_valid_data(cash_value="12000", cash_reserve="2000")
     p = load_portfolio(data)
     assert compute_invest_budget(p) == D("10000")
 
 
 def test_compute_invest_budget_floors_at_zero():
-    data = make_valid_data(cash_amount="1000", cash_reserve="1000")
+    data = make_valid_data(cash_value="1000", cash_reserve="1000")
     p = load_portfolio(data)
     assert compute_invest_budget(p) == D("0")
 
@@ -188,7 +188,7 @@ def test_compute_invest_budget_floors_at_zero():
 # -------------------------
 
 def test_plan_invest_no_sell_empty_when_budget_zero():
-    data = make_valid_data(cash_amount="2000", cash_reserve="2000")
+    data = make_valid_data(cash_value="2000", cash_reserve="2000")
     p = load_portfolio(data)
     plan = plan_invest_no_sell(p)
     assert plan == []
@@ -198,13 +198,13 @@ def test_plan_invest_no_sell_preserves_group_order():
     # 3 groups in a specific order
     group_targets = (("gA", "A", "30"), ("gB", "B", "30"), ("gC", "C", "40"))
     instruments = [
-        {"id": "iA", "name": "iA", "amount": "100", "investable": True, "groupId": "gA"},
-        {"id": "iB", "name": "iB", "amount": "100", "investable": True, "groupId": "gB"},
-        {"id": "iC", "name": "iC", "amount": "100", "investable": True, "groupId": "gC"},
+        {"id": "iA", "name": "iA", "value": "100", "investable": True, "groupId": "gA"},
+        {"id": "iB", "name": "iB", "value": "100", "investable": True, "groupId": "gB"},
+        {"id": "iC", "name": "iC", "value": "100", "investable": True, "groupId": "gC"},
     ]
     preferred_map = {"gA": "iA", "gB": "iB", "gC": "iC"}
     data = make_valid_data(
-        cash_amount="300",
+        cash_value="300",
         cash_reserve="0.1",  # reserve must be positive; keep tiny but positive
         group_targets=group_targets,
         preferred_map=preferred_map,
@@ -212,7 +212,7 @@ def test_plan_invest_no_sell_preserves_group_order():
     )
     p = load_portfolio(data)
 
-    # Note: validation requires reserve > 0 and cash.amount > 0; reserve is 0.1 so ok
+    # Note: validation requires reserve > 0 and cash.value > 0; reserve is 0.1 so ok
     plan = plan_invest_no_sell(p)
     assert [r.asset_group_id for r in plan] == ["gA", "gB", "gC"]
 
@@ -223,14 +223,14 @@ def test_plan_invest_no_sell_excludes_overweight_groups_and_renormalizes():
     so no-selling allocator should exclude it and invest only into g2.
     """
     data = make_valid_data(
-        cash_amount="6000",
+        cash_value="6000",
         cash_reserve="2000",  # budget = 10000
         group_targets=(("g1", "Asset 1", "50"), ("g2", "Asset 2", "50")),
         preferred_map={"g1": "i1", "g2": "i2"},
         instruments=[
             # Current strategy exposure: g1=9000, g2=1000
-            {"id": "i1", "name": "Inst 1", "amount": "9000", "investable": True, "groupId": "g1"},
-            {"id": "i2", "name": "Inst 2", "amount": "1000", "investable": True, "groupId": "g2"},
+            {"id": "i1", "name": "Inst 1", "value": "9000", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "1000", "investable": True, "groupId": "g2"},
         ],
     )
     p = load_portfolio(data)
@@ -252,13 +252,13 @@ def test_plan_rebalance_contains_buys_and_sells_in_group_order():
     g1 overweight, g2 underweight, budget positive -> should produce a sell for g1 and buy for g2.
     """
     data = make_valid_data(
-        cash_amount="12000",
+        cash_value="12000",
         cash_reserve="2000",  # budget=10000
         group_targets=(("g1", "Asset 1", "50"), ("g2", "Asset 2", "50")),
         preferred_map={"g1": "i1", "g2": "i2"},
         instruments=[
-            {"id": "i1", "name": "Inst 1", "amount": "9000", "investable": True, "groupId": "g1"},
-            {"id": "i2", "name": "Inst 2", "amount": "1000", "investable": True, "groupId": "g2"},
+            {"id": "i1", "name": "Inst 1", "value": "9000", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "1000", "investable": True, "groupId": "g2"},
         ],
     )
     p = load_portfolio(data)
@@ -275,13 +275,13 @@ def test_plan_rebalance_contains_buys_and_sells_in_group_order():
     # In this specific setup, both are buys (because budget increases total).
     # To force a sell, use zero budget with g1>target.
     data2 = make_valid_data(
-        cash_amount="2000",
+        cash_value="2000",
         cash_reserve="2000",  # budget=0
         group_targets=(("g1", "Asset 1", "50"), ("g2", "Asset 2", "50")),
         preferred_map={"g1": "i1", "g2": "i2"},
         instruments=[
-            {"id": "i1", "name": "Inst 1", "amount": "9000", "investable": True, "groupId": "g1"},
-            {"id": "i2", "name": "Inst 2", "amount": "1000", "investable": True, "groupId": "g2"},
+            {"id": "i1", "name": "Inst 1", "value": "9000", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "1000", "investable": True, "groupId": "g2"},
         ],
     )
     p2 = load_portfolio(data2)
@@ -296,12 +296,12 @@ def test_plan_rebalance_contains_buys_and_sells_in_group_order():
 
 def make_portfolio():
     data = {
-        "cash": {"amount": "1000", "reserve": "100"},
+        "cash": {"value": "1000", "reserve": "100"},
         "groups": [
             {"id": "g1", "name": "Asset", "targetPercentage": "100", "preferredInstrumentId": "i1"}
         ],
         "instruments": [
-            {"id": "i1", "name": "Inst", "amount": "500", "investable": True, "groupId": "g1"}
+            {"id": "i1", "name": "Inst", "value": "500", "investable": True, "groupId": "g1"}
         ],
     }
     return load_portfolio(data)
@@ -316,8 +316,8 @@ def test_calculate_buy_units_floor():
 def test_commit_buy_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("200"))
-    assert p2.cash.amount == D("800")
-    assert next(i for i in p2.instruments if i.id == "i1").amount == D("700")
+    assert p2.cash.value == D("800")
+    assert next(i for i in p2.instruments if i.id == "i1").value == D("700")
 
 
 def test_commit_buy_below_min_trade_does_nothing():
@@ -329,11 +329,11 @@ def test_commit_buy_below_min_trade_does_nothing():
 def test_commit_sell_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_sell(p=p, instrument_id="i1", proceeds=D("200"))
-    assert p2.cash.amount == D("1200")
-    assert next(i for i in p2.instruments if i.id == "i1").amount == D("300")
+    assert p2.cash.value == D("1200")
+    assert next(i for i in p2.instruments if i.id == "i1").value == D("300")
 
 
-def test_commit_sell_cannot_sell_more_than_amount():
+def test_commit_sell_cannot_sell_more_than_value():
     p = make_portfolio()
     with pytest.raises(ValueError):
         commit_sell(p=p, instrument_id="i1", proceeds=D("9999"))

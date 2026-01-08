@@ -12,21 +12,21 @@ D = Decimal
 
 def compute_invest_budget(p: Portfolio) -> D:
     """
-    Cash is excluded from the strategy universe.
-    Budget is simply cash.amount - cash.reserve, floored at 0.
+    Cash is excluded from thev strategy universe.
+    Budget is simply cash.value - cash.reserve, floored at 0.
     """
-    budget = p.cash.amount - p.cash.reserve
+    budget = p.cash.value - p.cash.reserve
     return budget if budget > 0 else D("0")
 
 
 def _asset_group_current_values(p: Portfolio) -> Dict[str, D]:
     """
-    Current exposure per asset group = sum(amount) of investable instruments in that group.
+    Current exposure per asset group = sum(value) of investable instruments in that group.
     """
     cur: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
     for ins in p.instruments:
         if ins.investable and ins.asset_group_id:
-            cur[ins.asset_group_id] += ins.amount
+            cur[ins.asset_group_id] += ins.value
     return cur
 
 

@@ -24,7 +24,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
         raise ValueError("Missing or invalid 'cash' object")
 
     cash = Cash(
-        amount=_parse_decimal(cash_raw.get("amount"), "cash.amount"),
+        value=_parse_decimal(cash_raw.get("value"), "cash.value"),
         reserve=_parse_decimal(cash_raw.get("reserve"), "cash.reserve"),
     )
 
@@ -65,7 +65,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
             Instrument(
                 id=str(ins.get("id", "")).strip(),
                 name=str(ins.get("name", "")).strip(),
-                amount=_parse_decimal(ins.get("amount"), f"instruments[{i}].amount"),
+                value=_parse_decimal(ins.get("value"), f"instruments[{i}].value"),
                 investable=bool(ins.get("investable")),
                 asset_group_id=asset_group_id,
             )
@@ -88,7 +88,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
     """
     return {
         "cash": {
-            "amount": str(p.cash.amount),
+            "value": str(p.cash.value),
             "reserve": str(p.cash.reserve),
         },
         "groups": [
@@ -104,7 +104,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
             {
                 "id": ins.id,
                 "name": ins.name,
-                "amount": str(ins.amount),
+                "value": str(ins.value),
                 "investable": bool(ins.investable),
                 **({"groupId": ins.asset_group_id} if ins.asset_group_id is not None else {}),
             }

@@ -10,8 +10,8 @@ D = Decimal
 
 @dataclass(frozen=True)
 class Cash:
-    amount: D
-    reserve: D
+    value: D
+    reserve: D   # TODO - call this min_reserve
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ class AssetGroup:
 class Instrument:
     id: str
     name: str
-    amount: D  # current market value
+    value: D  # current market value
     investable: bool
     asset_group_id: Optional[str]  # None for non-investable instruments
 

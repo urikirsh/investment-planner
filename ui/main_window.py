@@ -383,7 +383,7 @@ class MainWindow(QMainWindow):
         self.tree.blockSignals(True)
         try:
             self.tree.clear()
-            self.cash_amount_edit.setText(str(p.cash.amount))
+            self.cash_amount_edit.setText(str(p.cash.value))
             self.cash_reserve_edit.setText(str(p.cash.reserve))
 
             # group -> list instruments (keep input order as stored)
@@ -394,7 +394,7 @@ class MainWindow(QMainWindow):
                 row = {
                     "id": ins.id,
                     "name": ins.name,
-                    "amount": str(ins.amount),
+                    "amount": str(ins.value),
                     "investable": ins.investable,
                     "groupId": ins.asset_group_id,
                 }
