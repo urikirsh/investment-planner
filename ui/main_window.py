@@ -31,9 +31,11 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
-from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color
+from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID
 
 D = Decimal
+
+NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
 class MainWindow(QMainWindow):
     """
@@ -95,7 +97,7 @@ class MainWindow(QMainWindow):
                     continue
 
                 # Bucket: no preferred instrument
-                if kind == RowKind.NON_INVESTABLE_BUCKET.value:
+                if kind == RowKind.NON_INVESTABLE_BUCKET.name:
                     # Remove widget if exists
                     if self.tree.itemWidget(group_item, Col.PREFERRED_INSTR.value) is not None:
                         self.tree.setItemWidget(group_item, Col.PREFERRED_INSTR.value, None)
@@ -163,8 +165,6 @@ class MainWindow(QMainWindow):
                 if column in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
-                if column == Col.INVESTABLE.value:
-                    item.setText(Col.INVESTABLE.value, "")
 
             if kind == RowKind.INSTRUMENT.name:
                 if column == Col.TARGET_PCT.value:
@@ -207,7 +207,6 @@ class MainWindow(QMainWindow):
                 "Strategy %",
                 "Drift (pp)",
                 "Preferred Instrument",
-                "Investable",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -326,6 +325,11 @@ class MainWindow(QMainWindow):
         sel = self.tree.currentItem()
         if sel is None:
             return
+
+        if get_item_kind(sel) == RowKind.NON_INVESTABLE_BUCKET.name:
+            QMessageBox.warning(self, "Not allowed", "The non-investable bucket cannot be deleted.")
+            return
+
         parent = sel.parent()
         if parent is None:
             idx = self.tree.indexOfTopLevelItem(sel)
@@ -390,17 +394,24 @@ class MainWindow(QMainWindow):
                 for ins in ins_by_group.get(g.id, []):
                     add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["investable"], ins["id"])
 
-            # Non-investable section (optional): keep simple as a group-like bucket at bottom
-            if non_investable:
-                non_investable_bucket = QTreeWidgetItem(self.tree)
-                set_group_tree_item(self.tree,
-                                     non_investable_bucket,
-                                     "Non-investable (excluded from strategy)",
-                                     0,
-                                     RowKind.NON_INVESTABLE_BUCKET.name)
+            # Non-investable section is always present and always added, even if it is empty.
+            # It does not exist in the JSON, it is purely in the UI
+            non_investable_bucket = QTreeWidgetItem(self.tree)
+            set_group_tree_item(self.tree,
+                                 non_investable_bucket,
+                                 NON_INVESTABLE_BUCKET_TITLE,
+                                 0,
+                                 NON_INVESTABLE_BUCKET_ID)
 
-                for ins in non_investable:
-                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
+            flags = non_investable_bucket.flags()
+            flags &= ~Qt.ItemIsEditable
+            non_investable_bucket.setFlags(flags)
+
+            # TODO: add style to this special item
+
+            for ins in non_investable:
+                add_instrument_item_to_group(
+                    non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
@@ -453,18 +464,19 @@ class MainWindow(QMainWindow):
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
 
-            combo = self._get_preferred_combo(gitem)
-            if combo is None:
-                raise ValueError(f"Group '{gitem}' is missing preferred instrument selector")
-
-            preferred_id = combo.currentData()
-            if not preferred_id:
-                raise ValueError(f"Group '{gitem}' must have a preferred instrument selected")
-
             is_non_investable_bucket = (
                         kind == RowKind.NON_INVESTABLE_BUCKET.name)  # Special bucket treated as not-a-group in JSON strategy
 
             if not is_non_investable_bucket:
+                combo = self._get_preferred_combo(gitem)
+
+                if combo is None:
+                    raise ValueError(f"Group '{gitem}' is missing preferred instrument selector")
+
+                preferred_id = combo.currentData()
+                if not preferred_id:
+                    raise ValueError(f"Group '{gitem}' must have a preferred instrument selected")
+
                 groups.append(
                     {
                         "id": gid,
@@ -477,6 +489,7 @@ class MainWindow(QMainWindow):
             # children instruments
             for j in range(gitem.childCount()):
                 ins = gitem.child(j)
+
                 if ins.parent() is None:  # not an instrument
                     continue
 
@@ -487,13 +500,12 @@ class MainWindow(QMainWindow):
 
                 iname = ins.text(Col.NAME.value).strip()
                 tot_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
-                investable_txt = (ins.text(Col.INVESTABLE.value).strip().lower() or "false")
-                investable = investable_txt in ("true", "1", "yes", "y")
 
                 if is_non_investable_bucket:
                     investable = False
                     group_id = None
                 else:
+                    investable = True
                     group_id = gid
 
                 instruments.append(
@@ -795,7 +807,7 @@ class MainWindow(QMainWindow):
                 top = self.tree.topLevelItem(i)
                 kind = get_item_kind(top)
 
-                if kind == RowKind.GROUP.name:
+                if kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                     # sum children
                     total = D("0")
                     for j in range(top.childCount()):
@@ -809,13 +821,9 @@ class MainWindow(QMainWindow):
 
                     top.setText(Col.TOT_VALUE.value, str(total))
                     row_value[top] = total
-                    group_items.append(top)
-                    strategy_total += total
-
-                elif kind == RowKind.NON_INVESTABLE_BUCKET:
-                    v = parse_value_cell(top.text(Col.TOT_VALUE.value))
-                    row_value[top] = v
-                    portfolio_instruments_total += v
+                    if kind == RowKind.GROUP.name:  # do not do this for the non investible bucket
+                        group_items.append(top)
+                        strategy_total += total
 
             cash_value = parse_value_cell(self.cash_value_edit.text())  # rename field when you do value migration
             portfolio_total = cash_value + portfolio_instruments_total
@@ -844,11 +852,8 @@ class MainWindow(QMainWindow):
             # 4) Clear group-only columns for non-group rows (optional cleanliness)
             for i in range(self.tree.topLevelItemCount()):
                 top = self.tree.topLevelItem(i)
-                if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET:
+                if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
                     top.setText(Col.TARGET_PCT.value, "")
-                    top.setText(Col.STRATEGY_PCT.value, "")
-                    top.setText(Col.DRIFT_PP.value, "")
-                    top.setText(Col.PREFERRED_INSTR.value, "")
 
         finally:
             self._suppress_item_changed = False

@@ -50,7 +50,6 @@ class Col(Enum):
     STRATEGY_PCT = 4
     DRIFT_PP = 5
     PREFERRED_INSTR = 6
-    INVESTABLE = 7
 
 @dataclass
 class WizardStep:
