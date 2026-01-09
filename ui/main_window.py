@@ -806,7 +806,7 @@ class MainWindow(QMainWindow):
                 top = self.tree.topLevelItem(i)
                 kind = get_item_kind(top)
 
-                if kind == RowKind.GROUP.name:
+                if kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                     # sum children
                     total = D("0")
                     for j in range(top.childCount()):
@@ -820,23 +820,9 @@ class MainWindow(QMainWindow):
 
                     top.setText(Col.TOT_VALUE.value, str(total))
                     row_value[top] = total
-                    group_items.append(top)
-                    strategy_total += total
-
-                elif kind == RowKind.NON_INVESTABLE_BUCKET.name:
-                    # sum children
-                    total = D("0")
-                    for j in range(top.childCount()):
-                        child = top.child(j)
-                        if get_item_kind(child) != RowKind.INSTRUMENT.name:
-                            continue
-                        v = parse_value_cell(child.text(Col.TOT_VALUE.value))
-                        total += v
-                        row_value[child] = v
-                        portfolio_instruments_total += v
-
-                    top.setText(Col.TOT_VALUE.value, str(total))
-                    row_value[top] = total
+                    if kind == RowKind.GROUP.name:  # do not do this for the non investible bucket
+                        group_items.append(top)
+                        strategy_total += total
 
             cash_value = parse_value_cell(self.cash_value_edit.text())  # rename field when you do value migration
             portfolio_total = cash_value + portfolio_instruments_total
