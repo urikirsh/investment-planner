@@ -781,7 +781,6 @@ class MainWindow(QMainWindow):
         - Portfolio % for all rows
         - Strategy % + Drift(pp) for group rows only
         """
-        print(f"DEBUG: called _recalc_totals_and_pcts")
         self._suppress_item_changed = True
         try:
             # 1) First pass: compute group values and collect row values
