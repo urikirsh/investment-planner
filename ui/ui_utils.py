@@ -137,7 +137,7 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     apply_row_alignment(item)
 
 
-def parse_amount_cell(txt: str) -> D:  # TODO: rename
+def parse_value_cell(txt: str) -> D:
     txt = (txt or "").strip()
     if not txt:
         return D("0")

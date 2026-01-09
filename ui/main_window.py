@@ -30,7 +30,7 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
-    set_group_tree_item, add_instrument_item_to_group, parse_amount_cell
+    set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color
 
 D = Decimal
@@ -182,9 +182,9 @@ class MainWindow(QMainWindow):
         cash_layout = QHBoxLayout(cash_box)
 
         cash_layout.addWidget(QLabel("Cash value:"))
-        self.cash_amount_edit = QLineEdit()  # TODO: rename
-        self.cash_amount_edit.setPlaceholderText("e.g. 1000")
-        cash_layout.addWidget(self.cash_amount_edit)
+        self.cash_value_edit = QLineEdit()
+        self.cash_value_edit.setPlaceholderText("e.g. 1000")
+        cash_layout.addWidget(self.cash_value_edit)
 
         cash_layout.addWidget(QLabel("Minimal cash reserve:"))
         self.cash_reserve_edit = QLineEdit()
@@ -294,7 +294,7 @@ class MainWindow(QMainWindow):
 
         # Live total refresh
         self.tree.itemChanged.connect(self._refresh_total_label)
-        self.cash_amount_edit.textChanged.connect(self._refresh_total_label)
+        self.cash_value_edit.textChanged.connect(self._refresh_total_label)
         self.cash_reserve_edit.textChanged.connect(self._refresh_total_label)
 
         return main_screen_widget
@@ -345,12 +345,12 @@ class MainWindow(QMainWindow):
         else:
             # Minimal default portfolio
             data = {
-                "cash": {"amount": "12000", "min_reserve": "2000"},
+                "cash": {"value": "12000", "min_reserve": "2000"},
                 "groups": [
                     {"id": "sp500", "name": "S&P 500", "targetPercentage": "100", "preferredInstrumentId": "spx_a"}
                 ],
                 "instruments": [
-                    {"id": "spx_a", "name": "SPX 500", "amount": "1", "investable": True, "groupId": "sp500"}
+                    {"id": "spx_a", "name": "SPX 500", "value": "1", "investable": True, "groupId": "sp500"}
                 ],
             }
             p = load_portfolio(data)
@@ -363,7 +363,7 @@ class MainWindow(QMainWindow):
         self.tree.blockSignals(True)
         try:
             self.tree.clear()
-            self.cash_amount_edit.setText(str(p.cash.value))
+            self.cash_value_edit.setText(str(p.cash.value))
             self.cash_reserve_edit.setText(str(p.cash.min_reserve))
 
             # group -> list instruments (keep input order as stored)
@@ -374,7 +374,7 @@ class MainWindow(QMainWindow):
                 row = {
                     "id": ins.id,
                     "name": ins.name,
-                    "amount": str(ins.value),
+                    "value": str(ins.value),
                     "investable": ins.investable,
                     "groupId": ins.asset_group_id,
                 }
@@ -388,7 +388,7 @@ class MainWindow(QMainWindow):
                 set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
+                    add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["investable"], ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
@@ -400,7 +400,7 @@ class MainWindow(QMainWindow):
                                      RowKind.NON_INVESTABLE_BUCKET.name)
 
                 for ins in non_investable:
-                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["amount"], False, ins["id"])
+                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
@@ -414,7 +414,7 @@ class MainWindow(QMainWindow):
     def _refresh_total_label(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
-            # Total portfolio = cash + all instruments amounts
+            # Total portfolio = cash + all instruments values
             cash_amt = D(str(data["cash"]["value"]))
             total = cash_amt
             for ins in data.get("instruments", []):
@@ -426,15 +426,15 @@ class MainWindow(QMainWindow):
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
             -> Dict[str, Any]:
-        cash_amount = self.cash_amount_edit.text().strip()
+        cash_value = self.cash_value_edit.text().strip()
         cash_reserve = self.cash_reserve_edit.text().strip()
 
         if not allow_partial:
-            if not cash_amount or not cash_reserve:
-                raise ValueError("Cash amount and reserve must be filled")
+            if not cash_value or not cash_reserve:
+                raise ValueError("Cash value and reserve must be filled")
 
         # In allow_partial, default to "0" if empty for total display
-        cash_amount = cash_amount or "0"
+        cash_value = cash_value or "0"
         cash_reserve = cash_reserve or "0"
 
         groups: List[Dict[str, Any]] = []
@@ -506,7 +506,7 @@ class MainWindow(QMainWindow):
                     }
                 )
 
-        return {"cash": {"value": cash_amount, "min_reserve": cash_reserve}, "groups": groups, "instruments": instruments}
+        return {"cash": {"value": cash_value, "min_reserve": cash_reserve}, "groups": groups, "instruments": instruments}
 
     def _save_from_main_ui(self) -> None:
         data = self._build_data_from_main_ui(allow_partial=False)
@@ -694,7 +694,7 @@ class MainWindow(QMainWindow):
             f"Step {idx}/{total}\n"
             f"Asset group: {s.asset_group_name}\n"
             f"Instrument: {s.preferred_instrument_name}\n"
-            f"Planned {action} amount (money): {abs(s.planned_delta_money)}"
+            f"Planned {action} value: {abs(s.planned_delta_money)}"
         )
         self.price_edit.setText("")
         self.wiz_result.setText("Units: — | Spent/Proceeds: — | Leftover vs plan: —")
@@ -802,7 +802,7 @@ class MainWindow(QMainWindow):
                         child = top.child(j)
                         if get_item_kind(child) != RowKind.INSTRUMENT.name:
                             continue
-                        v = parse_amount_cell(child.text(Col.TOT_VALUE.value))
+                        v = parse_value_cell(child.text(Col.TOT_VALUE.value))
                         total += v
                         row_value[child] = v
                         portfolio_instruments_total += v
@@ -813,11 +813,11 @@ class MainWindow(QMainWindow):
                     strategy_total += total
 
                 elif kind == RowKind.NON_INVESTABLE_BUCKET:
-                    v = parse_amount_cell(top.text(Col.TOT_VALUE.value))
+                    v = parse_value_cell(top.text(Col.TOT_VALUE.value))
                     row_value[top] = v
                     portfolio_instruments_total += v
 
-            cash_value = parse_amount_cell(self.cash_amount_edit.text())  # rename field when you do value migration
+            cash_value = parse_value_cell(self.cash_value_edit.text())  # rename field when you do value migration
             portfolio_total = cash_value + portfolio_instruments_total
 
             # 2) Portfolio % for all items
@@ -836,7 +836,7 @@ class MainWindow(QMainWindow):
                     g.setText(Col.STRATEGY_PCT.value, fmt_pct(sp))
 
                     # target pct is user-entered decimal string
-                    target = parse_amount_cell(g.text(Col.TARGET_PCT.value))
+                    target = parse_value_cell(g.text(Col.TARGET_PCT.value))
                     drift = sp - target
                     g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
                     apply_drift_color(g, Col.DRIFT_PP.value, drift)
