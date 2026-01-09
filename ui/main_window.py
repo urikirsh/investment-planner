@@ -205,7 +205,6 @@ class MainWindow(QMainWindow):
                 "Strategy %",
                 "Drift (pp)",
                 "Preferred Instrument",
-                "Investable",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
