@@ -31,6 +31,7 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_amount_cell
+from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color
 
 D = Decimal
 
@@ -75,29 +76,6 @@ class MainWindow(QMainWindow):
     # -------------------------
     # Screen 1 (Main)
     # -------------------------
-
-    def _recalc_parent_amounts(self):
-        """
-        For every top-level item (group or non-investable bucket), set its Amount = sum(child Amounts).
-        """
-        self._suppress_item_changed = True
-        try:
-            for i in range(self.tree.topLevelItemCount()):
-                parent = self.tree.topLevelItem(i)
-                kind = get_item_kind(parent)
-                if kind == RowKind.INSTRUMENT.name:
-                    continue
-
-                total = D("0")
-                for j in range(parent.childCount()):
-                    child = parent.child(j)
-                    if get_item_kind(child) != RowKind.INSTRUMENT.name:
-                        continue
-                    total += parse_amount_cell(child.text(Col.TOT_VALUE.value))
-
-                parent.setText(Col.TOT_VALUE.value, str(total))
-        finally:
-            self._suppress_item_changed = False
 
     def _get_preferred_combo(self, group_item) -> QComboBox | None:
         w = self.tree.itemWidget(group_item, Col.PREFERRED_INSTR.value)
@@ -182,7 +160,7 @@ class MainWindow(QMainWindow):
         self._suppress_item_changed = True
         try:
             if kind != RowKind.INSTRUMENT.name:
-                if column == Col.TOT_VALUE.value:
+                if column in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
                 if column == Col.INVESTABLE.value:
@@ -204,7 +182,7 @@ class MainWindow(QMainWindow):
         cash_layout = QHBoxLayout(cash_box)
 
         cash_layout.addWidget(QLabel("Cash value:"))
-        self.cash_amount_edit = QLineEdit()
+        self.cash_amount_edit = QLineEdit()  # TODO: rename
         self.cash_amount_edit.setPlaceholderText("e.g. 1000")
         cash_layout.addWidget(self.cash_amount_edit)
 
@@ -224,7 +202,10 @@ class MainWindow(QMainWindow):
             [
                 "Name",
                 "Total value",
+                "Portfolio %",
                 "Target %",
+                "Strategy %",
+                "Drift (pp)",
                 "Preferred Instrument",
                 "Investable",
             ]
@@ -238,14 +219,11 @@ class MainWindow(QMainWindow):
         # Set column widths and drag behaviors
         header = self.tree.header()
 
-        header.setSectionResizeMode(Col.NAME.value, QHeaderView.Stretch)
-        header.setSectionResizeMode(Col.TOT_VALUE.value, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(Col.TARGET_PCT.value, QHeaderView.Fixed)
-        header.setSectionResizeMode(Col.PREFERRED_INSTR.value, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(Col.INVESTABLE.value, QHeaderView.Fixed)
-
-        self.tree.setColumnWidth(Col.TARGET_PCT.value, 54)
-        self.tree.setColumnWidth(Col.INVESTABLE.value, 50)
+        for col in Col:
+            if col == Col.NAME:
+                header.setSectionResizeMode(col.value, QHeaderView.Stretch)
+            else:
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
@@ -430,7 +408,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_data(self):
         self._refresh_total_label()
-        self._recalc_parent_amounts()
+        self._recalc_totals_and_pcts()
         self._refresh_preferred_dropdowns()
 
     def _refresh_total_label(self):
@@ -793,4 +771,85 @@ class MainWindow(QMainWindow):
 
     def _on_preferred_changed(self):
         pass
+
+    def _recalc_totals_and_pcts(self) -> None:
+        """
+        Updates:
+        - group total value = sum(child instrument Values)
+        - strategy total value (sum of group values)
+        - portfolio total value (cash + all instrument values)
+        - Portfolio % for all rows
+        - Strategy % + Drift(pp) for group rows only
+        """
+        self._suppress_item_changed = True
+        try:
+            # 1) First pass: compute group values and collect row values
+            group_items: list[QTreeWidgetItem] = []
+            row_value: dict[QTreeWidgetItem, D] = {}
+
+            portfolio_instruments_total = D("0")  # all instruments (investable + non)
+            strategy_total = D("0")  # sum of investable group totals
+
+            # Compute investable group totals and child instrument totals
+            for i in range(self.tree.topLevelItemCount()):
+                top = self.tree.topLevelItem(i)
+                kind = get_item_kind(top)
+
+                if kind == RowKind.GROUP.name:
+                    # sum children
+                    total = D("0")
+                    for j in range(top.childCount()):
+                        child = top.child(j)
+                        if get_item_kind(child) != RowKind.INSTRUMENT.name:
+                            continue
+                        v = parse_amount_cell(child.text(Col.TOT_VALUE.value))
+                        total += v
+                        row_value[child] = v
+                        portfolio_instruments_total += v
+
+                    top.setText(Col.TOT_VALUE.value, str(total))
+                    row_value[top] = total
+                    group_items.append(top)
+                    strategy_total += total
+
+                elif kind == RowKind.NON_INVESTABLE_BUCKET:
+                    v = parse_amount_cell(top.text(Col.TOT_VALUE.value))
+                    row_value[top] = v
+                    portfolio_instruments_total += v
+
+            cash_value = parse_amount_cell(self.cash_amount_edit.text())  # rename field when you do value migration
+            portfolio_total = cash_value + portfolio_instruments_total
+
+            # 2) Portfolio % for all items
+            for item, v in row_value.items():
+                pct = safe_pct(v, portfolio_total)
+                item.setText(Col.PORTFOLIO_PCT.value, "" if pct is None else fmt_pct(pct))
+
+            # 3) Strategy % + Drift for groups only (exclude non-investables + cash already excluded)
+            for g in group_items:
+                gval = row_value.get(g, D("0"))
+                sp = safe_pct(gval, strategy_total)
+                if sp is None:
+                    g.setText(Col.STRATEGY_PCT.value, "")
+                    g.setText(Col.DRIFT_PP.value, "")
+                else:
+                    g.setText(Col.STRATEGY_PCT.value, fmt_pct(sp))
+
+                    # target pct is user-entered decimal string
+                    target = parse_amount_cell(g.text(Col.TARGET_PCT.value))
+                    drift = sp - target
+                    g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
+                    apply_drift_color(g, Col.DRIFT_PP.value, drift)
+
+            # 4) Clear group-only columns for non-group rows (optional cleanliness)
+            for i in range(self.tree.topLevelItemCount()):
+                top = self.tree.topLevelItem(i)
+                if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET:
+                    top.setText(Col.TARGET_PCT.value, "")
+                    top.setText(Col.STRATEGY_PCT.value, "")
+                    top.setText(Col.DRIFT_PP.value, "")
+                    top.setText(Col.PREFERRED_INSTR.value, "")
+
+        finally:
+            self._suppress_item_changed = False
 

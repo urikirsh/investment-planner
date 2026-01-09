@@ -84,13 +84,14 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         item.setBackground(col, background)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
-    # Numbers right-aligned
-    if get_item_kind(item) != RowKind.INSTRUMENT.name:
-        # Computed total amounts are centered
-        item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
-    else:
-        item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignRight | Qt.AlignVCenter)
-    item.setTextAlignment(Col.TARGET_PCT.value, Qt.AlignCenter | Qt.AlignVCenter)
+
+    # Numbers are right-aligned for instruments, centered for groups
+    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
+        col_idx = col.value
+        if get_item_kind(item) != RowKind.INSTRUMENT.name:
+            item.setTextAlignment(col_idx, Qt.AlignCenter | Qt.AlignVCenter)
+        else:
+            item.setTextAlignment(col_idx, Qt.AlignRight | Qt.AlignVCenter)
 
     # Text left-aligned
     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
@@ -136,7 +137,7 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     apply_row_alignment(item)
 
 
-def parse_amount_cell(txt: str) -> D:
+def parse_amount_cell(txt: str) -> D:  # TODO: rename
     txt = (txt or "").strip()
     if not txt:
         return D("0")
@@ -145,3 +146,33 @@ def parse_amount_cell(txt: str) -> D:
     except (InvalidOperation, ValueError):
         # If user typed garbage, treat as 0 for sums, validation will catch later
         return D("0")
+
+def fmt_pct(value: D) -> str:
+    # standard rounding to 1 decimal
+    return f"{value:.1f}%"
+
+def fmt_pp(value: D) -> str:
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.1f} pp"
+
+def safe_pct(numer: D, denom: D) -> D | None:
+    if denom == 0:
+        return None
+    return (numer * D("100")) / denom
+
+def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
+    """
+    Color-code drift (percentage points):
+    - Negative (under target): red
+    - Positive (over target): green
+    - Zero: default color
+    """
+    if drift_pp < 0:
+        # Underweight → red
+        item.setForeground(col_index, QBrush(QColor("#b00020")))
+    elif drift_pp > 0:
+        # Overweight → green
+        item.setForeground(col_index, QBrush(QColor("#1b5e20")))
+    else:
+        # Neutral → default
+        item.setForeground(col_index, QBrush())
