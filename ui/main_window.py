@@ -488,6 +488,7 @@ class MainWindow(QMainWindow):
             # children instruments
             for j in range(gitem.childCount()):
                 ins = gitem.child(j)
+
                 if ins.parent() is None:  # not an instrument
                     continue
 
@@ -498,12 +499,12 @@ class MainWindow(QMainWindow):
 
                 iname = ins.text(Col.NAME.value).strip()
                 tot_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
-                investable = investable_txt in ("true", "1", "yes", "y")
 
                 if is_non_investable_bucket:
                     investable = False
                     group_id = None
                 else:
+                    investable = True
                     group_id = gid
 
                 instruments.append(
