@@ -317,7 +317,7 @@ class MainWindow(QMainWindow):
         # If instrument selected, use its parent group
         parent = sel.parent() or sel
 
-        add_instrument_item_to_group(parent, "New Instrument", "1", True, "ins")
+        add_instrument_item_to_group(parent, "New Instrument", "1", True)
 
         self.tree.expandAll()
         self._refresh_data()
