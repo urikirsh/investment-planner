@@ -137,6 +137,10 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
 
     apply_row_alignment(item)
 
+    flags = item.flags()
+    flags &= ~Qt.ItemIsDropEnabled
+    item.setFlags(flags)
+
 
 def parse_value_cell(txt: str) -> D:
     txt = (txt or "").strip()
