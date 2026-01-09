@@ -345,12 +345,12 @@ class MainWindow(QMainWindow):
         else:
             # Minimal default portfolio
             data = {
-                "cash": {"amount": "12000", "min_reserve": "2000"},
+                "cash": {"value": "12000", "min_reserve": "2000"},
                 "groups": [
                     {"id": "sp500", "name": "S&P 500", "targetPercentage": "100", "preferredInstrumentId": "spx_a"}
                 ],
                 "instruments": [
-                    {"id": "spx_a", "name": "SPX 500", "amount": "1", "investable": True, "groupId": "sp500"}
+                    {"id": "spx_a", "name": "SPX 500", "value": "1", "investable": True, "groupId": "sp500"}
                 ],
             }
             p = load_portfolio(data)
@@ -374,7 +374,7 @@ class MainWindow(QMainWindow):
                 row = {
                     "id": ins.id,
                     "name": ins.name,
-                    "amount": str(ins.value),
+                    "value": str(ins.value),
                     "investable": ins.investable,
                     "groupId": ins.asset_group_id,
                 }
@@ -388,7 +388,7 @@ class MainWindow(QMainWindow):
                 set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    add_instrument_item_to_group(gitem, ins["name"], ins["amount"], ins["investable"], ins["id"])
+                    add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["investable"], ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
             if non_investable:
@@ -400,7 +400,7 @@ class MainWindow(QMainWindow):
                                      RowKind.NON_INVESTABLE_BUCKET.name)
 
                 for ins in non_investable:
-                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["amount"], False, ins["id"])
+                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
@@ -414,7 +414,7 @@ class MainWindow(QMainWindow):
     def _refresh_total_label(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
-            # Total portfolio = cash + all instruments amounts
+            # Total portfolio = cash + all instruments values
             cash_amt = D(str(data["cash"]["value"]))
             total = cash_amt
             for ins in data.get("instruments", []):
@@ -426,15 +426,15 @@ class MainWindow(QMainWindow):
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
             -> Dict[str, Any]:
-        cash_amount = self.cash_value_edit.text().strip()
+        cash_value = self.cash_value_edit.text().strip()
         cash_reserve = self.cash_reserve_edit.text().strip()
 
         if not allow_partial:
-            if not cash_amount or not cash_reserve:
-                raise ValueError("Cash amount and reserve must be filled")
+            if not cash_value or not cash_reserve:
+                raise ValueError("Cash value and reserve must be filled")
 
         # In allow_partial, default to "0" if empty for total display
-        cash_amount = cash_amount or "0"
+        cash_value = cash_value or "0"
         cash_reserve = cash_reserve or "0"
 
         groups: List[Dict[str, Any]] = []
@@ -506,7 +506,7 @@ class MainWindow(QMainWindow):
                     }
                 )
 
-        return {"cash": {"value": cash_amount, "min_reserve": cash_reserve}, "groups": groups, "instruments": instruments}
+        return {"cash": {"value": cash_value, "min_reserve": cash_reserve}, "groups": groups, "instruments": instruments}
 
     def _save_from_main_ui(self) -> None:
         data = self._build_data_from_main_ui(allow_partial=False)
@@ -694,7 +694,7 @@ class MainWindow(QMainWindow):
             f"Step {idx}/{total}\n"
             f"Asset group: {s.asset_group_name}\n"
             f"Instrument: {s.preferred_instrument_name}\n"
-            f"Planned {action} amount (money): {abs(s.planned_delta_money)}"
+            f"Planned {action} value: {abs(s.planned_delta_money)}"
         )
         self.price_edit.setText("")
         self.wiz_result.setText("Units: — | Spent/Proceeds: — | Leftover vs plan: —")
