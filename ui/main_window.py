@@ -31,11 +31,10 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
-from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color
+from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID
 
 D = Decimal
 
-NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
 class MainWindow(QMainWindow):
@@ -326,6 +325,11 @@ class MainWindow(QMainWindow):
         sel = self.tree.currentItem()
         if sel is None:
             return
+
+        if get_item_kind(sel) == RowKind.NON_INVESTABLE_BUCKET.name:
+            QMessageBox.warning(self, "Not allowed", "The non-investable bucket cannot be deleted.")
+            return
+
         parent = sel.parent()
         if parent is None:
             idx = self.tree.indexOfTopLevelItem(sel)
@@ -390,7 +394,8 @@ class MainWindow(QMainWindow):
                 for ins in ins_by_group.get(g.id, []):
                     add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["investable"], ins["id"])
 
-            # Non-investable section (optional): keep simple as a group-like bucket at bottom
+            # Non-investable section is always present and always added, even if it is empty.
+            # It does not exist in the JSON, it is purely in the UI
             non_investable_bucket = QTreeWidgetItem(self.tree)
             set_group_tree_item(self.tree,
                                  non_investable_bucket,
@@ -402,8 +407,11 @@ class MainWindow(QMainWindow):
             flags &= ~Qt.ItemIsEditable
             non_investable_bucket.setFlags(flags)
 
+            # TODO: add style to this special item
+
             for ins in non_investable:
-                add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
+                add_instrument_item_to_group(
+                    non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
 
             self.tree.expandAll()
         finally:

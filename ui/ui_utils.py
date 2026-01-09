@@ -54,6 +54,8 @@ Functions in this module should be:
 
 D = Decimal
 
+NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
+
 def d_from_text(txt: str, field: str) -> D:
     try:
         return D(txt.strip())
@@ -112,7 +114,10 @@ def set_group_tree_item(tree: QTreeWidget,
     tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
 
     gid = id_str.strip() or new_id("grp")
-    set_item_meta(gitem, RowKind.GROUP.name, gid)
+
+    row_kind = RowKind.NON_INVESTABLE_BUCKET.name if id_str == NON_INVESTABLE_BUCKET_ID else RowKind.GROUP.name
+
+    set_item_meta(gitem, row_kind, gid)
 
     apply_row_alignment(gitem)
     style_group_row(gitem)
