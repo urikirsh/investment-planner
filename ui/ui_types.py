@@ -45,9 +45,12 @@ class RowKind(Enum):
 class Col(Enum):
     NAME = 0
     TOT_VALUE = 1
-    TARGET_PCT = 2
-    PREFERRED_INSTR = 3
-    INVESTABLE = 4
+    PORTFOLIO_PCT = 2
+    TARGET_PCT = 3
+    STRATEGY_PCT = 4
+    DRIFT_PP = 5
+    PREFERRED_INSTR = 6
+    INVESTABLE = 7
 
 @dataclass
 class WizardStep:

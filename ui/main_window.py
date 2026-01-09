@@ -224,7 +224,10 @@ class MainWindow(QMainWindow):
             [
                 "Name",
                 "Total value",
+                "Portfolio %",
                 "Target %",
+                "Strategy %",
+                "Drift (pp)",
                 "Preferred Instrument",
                 "Investable",
             ]
@@ -238,14 +241,11 @@ class MainWindow(QMainWindow):
         # Set column widths and drag behaviors
         header = self.tree.header()
 
-        header.setSectionResizeMode(Col.NAME.value, QHeaderView.Stretch)
-        header.setSectionResizeMode(Col.TOT_VALUE.value, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(Col.TARGET_PCT.value, QHeaderView.Fixed)
-        header.setSectionResizeMode(Col.PREFERRED_INSTR.value, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(Col.INVESTABLE.value, QHeaderView.Fixed)
-
-        self.tree.setColumnWidth(Col.TARGET_PCT.value, 54)
-        self.tree.setColumnWidth(Col.INVESTABLE.value, 50)
+        for col in Col:
+            if col == Col.NAME:
+                header.setSectionResizeMode(col.value, QHeaderView.Stretch)
+            else:
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
