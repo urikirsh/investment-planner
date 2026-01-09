@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
                     continue
 
                 # Bucket: no preferred instrument
-                if kind == RowKind.NON_INVESTABLE_BUCKET.value:
+                if kind == RowKind.NON_INVESTABLE_BUCKET.name:
                     # Remove widget if exists
                     if self.tree.itemWidget(group_item, Col.PREFERRED_INSTR.value) is not None:
                         self.tree.setItemWidget(group_item, Col.PREFERRED_INSTR.value, None)
