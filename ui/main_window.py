@@ -77,29 +77,6 @@ class MainWindow(QMainWindow):
     # Screen 1 (Main)
     # -------------------------
 
-    def _recalc_parent_amounts(self):
-        """
-        For every top-level item (group or non-investable bucket), set its Amount = sum(child Amounts).
-        """
-        self._suppress_item_changed = True
-        try:
-            for i in range(self.tree.topLevelItemCount()):
-                parent = self.tree.topLevelItem(i)
-                kind = get_item_kind(parent)
-                if kind == RowKind.INSTRUMENT.name:
-                    continue
-
-                total = D("0")
-                for j in range(parent.childCount()):
-                    child = parent.child(j)
-                    if get_item_kind(child) != RowKind.INSTRUMENT.name:
-                        continue
-                    total += parse_amount_cell(child.text(Col.TOT_VALUE.value))
-
-                parent.setText(Col.TOT_VALUE.value, str(total))
-        finally:
-            self._suppress_item_changed = False
-
     def _get_preferred_combo(self, group_item) -> QComboBox | None:
         w = self.tree.itemWidget(group_item, Col.PREFERRED_INSTR.value)
         return w if isinstance(w, QComboBox) else None
