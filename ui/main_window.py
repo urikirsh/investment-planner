@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
         self._suppress_item_changed = True
         try:
             if kind != RowKind.INSTRUMENT.name:
-                if column == Col.TOT_VALUE.value:
+                if column in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
                 if column == Col.INVESTABLE.value:
