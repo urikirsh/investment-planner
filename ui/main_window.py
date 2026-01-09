@@ -35,6 +35,9 @@ from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color
 
 D = Decimal
 
+NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
+NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
+
 class MainWindow(QMainWindow):
     """
     3-screen flow:
@@ -388,16 +391,19 @@ class MainWindow(QMainWindow):
                     add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["investable"], ins["id"])
 
             # Non-investable section (optional): keep simple as a group-like bucket at bottom
-            if non_investable:
-                non_investable_bucket = QTreeWidgetItem(self.tree)
-                set_group_tree_item(self.tree,
-                                     non_investable_bucket,
-                                     "Non-investable (excluded from strategy)",
-                                     0,
-                                     RowKind.NON_INVESTABLE_BUCKET.name)
+            non_investable_bucket = QTreeWidgetItem(self.tree)
+            set_group_tree_item(self.tree,
+                                 non_investable_bucket,
+                                 NON_INVESTABLE_BUCKET_TITLE,
+                                 0,
+                                 NON_INVESTABLE_BUCKET_ID)
 
-                for ins in non_investable:
-                    add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
+            flags = non_investable_bucket.flags()
+            flags &= ~Qt.ItemIsEditable
+            non_investable_bucket.setFlags(flags)
+
+            for ins in non_investable:
+                add_instrument_item_to_group(non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
 
             self.tree.expandAll()
         finally:
