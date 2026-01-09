@@ -31,7 +31,7 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_amount_cell
-from ui.ui_utils import safe_pct, fmt_pct, fmt_pp
+from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color
 
 D = Decimal
 
@@ -839,6 +839,7 @@ class MainWindow(QMainWindow):
                     target = parse_amount_cell(g.text(Col.TARGET_PCT.value))
                     drift = sp - target
                     g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
+                    apply_drift_color(g, Col.DRIFT_PP.value, drift)
 
             # 4) Clear group-only columns for non-group rows (optional cleanliness)
             for i in range(self.tree.topLevelItemCount()):

@@ -159,3 +159,20 @@ def safe_pct(numer: D, denom: D) -> D | None:
     if denom == 0:
         return None
     return (numer * D("100")) / denom
+
+def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
+    """
+    Color-code drift (percentage points):
+    - Negative (under target): red
+    - Positive (over target): green
+    - Zero: default color
+    """
+    if drift_pp < 0:
+        # Underweight → red
+        item.setForeground(col_index, QBrush(QColor("#b00020")))
+    elif drift_pp > 0:
+        # Overweight → green
+        item.setForeground(col_index, QBrush(QColor("#1b5e20")))
+    else:
+        # Neutral → default
+        item.setForeground(col_index, QBrush())
