@@ -823,10 +823,20 @@ class MainWindow(QMainWindow):
                     group_items.append(top)
                     strategy_total += total
 
-                elif kind == RowKind.NON_INVESTABLE_BUCKET:
-                    v = parse_value_cell(top.text(Col.TOT_VALUE.value))
-                    row_value[top] = v
-                    portfolio_instruments_total += v
+                elif kind == RowKind.NON_INVESTABLE_BUCKET.name:
+                    # sum children
+                    total = D("0")
+                    for j in range(top.childCount()):
+                        child = top.child(j)
+                        if get_item_kind(child) != RowKind.INSTRUMENT.name:
+                            continue
+                        v = parse_value_cell(child.text(Col.TOT_VALUE.value))
+                        total += v
+                        row_value[child] = v
+                        portfolio_instruments_total += v
+
+                    top.setText(Col.TOT_VALUE.value, str(total))
+                    row_value[top] = total
 
             cash_value = parse_value_cell(self.cash_value_edit.text())  # rename field when you do value migration
             portfolio_total = cash_value + portfolio_instruments_total
@@ -855,11 +865,8 @@ class MainWindow(QMainWindow):
             # 4) Clear group-only columns for non-group rows (optional cleanliness)
             for i in range(self.tree.topLevelItemCount()):
                 top = self.tree.topLevelItem(i)
-                if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET:
+                if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
                     top.setText(Col.TARGET_PCT.value, "")
-                    top.setText(Col.STRATEGY_PCT.value, "")
-                    top.setText(Col.DRIFT_PP.value, "")
-                    top.setText(Col.PREFERRED_INSTR.value, "")
 
         finally:
             self._suppress_item_changed = False
