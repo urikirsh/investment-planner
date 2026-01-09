@@ -408,7 +408,6 @@ class MainWindow(QMainWindow):
 
     def _refresh_data(self):
         self._refresh_total_label()
-        # self._recalc_parent_amounts()
         self._recalc_totals_and_pcts()
         self._refresh_preferred_dropdowns()
 
