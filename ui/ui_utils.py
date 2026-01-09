@@ -136,7 +136,7 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     apply_row_alignment(item)
 
 
-def parse_amount_cell(txt: str) -> D:
+def parse_amount_cell(txt: str) -> D:  # TODO: rename
     txt = (txt or "").strip()
     if not txt:
         return D("0")
@@ -145,3 +145,16 @@ def parse_amount_cell(txt: str) -> D:
     except (InvalidOperation, ValueError):
         # If user typed garbage, treat as 0 for sums, validation will catch later
         return D("0")
+
+def fmt_pct(value: D) -> str:
+    # standard rounding to 1 decimal
+    return f"{value:.1f}%"
+
+def fmt_pp(value: D) -> str:
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.1f} pp"
+
+def safe_pct(numer: D, denom: D) -> D | None:
+    if denom == 0:
+        return None
+    return (numer * D("100")) / denom
