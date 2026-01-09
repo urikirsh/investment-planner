@@ -84,13 +84,14 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         item.setBackground(col, background)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
-    # Numbers right-aligned
-    if get_item_kind(item) != RowKind.INSTRUMENT.name:
-        # Computed total amounts are centered
-        item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignCenter | Qt.AlignVCenter)
-    else:
-        item.setTextAlignment(Col.TOT_VALUE.value, Qt.AlignRight | Qt.AlignVCenter)
-    item.setTextAlignment(Col.TARGET_PCT.value, Qt.AlignCenter | Qt.AlignVCenter)
+
+    # Numbers are right-aligned for instruments, centered for groups
+    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
+        col_idx = col.value
+        if get_item_kind(item) != RowKind.INSTRUMENT.name:
+            item.setTextAlignment(col_idx, Qt.AlignCenter | Qt.AlignVCenter)
+        else:
+            item.setTextAlignment(col_idx, Qt.AlignRight | Qt.AlignVCenter)
 
     # Text left-aligned
     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
