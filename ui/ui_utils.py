@@ -96,7 +96,6 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
     # Text left-aligned
     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
     item.setTextAlignment(Col.PREFERRED_INSTR.value, Qt.AlignLeft | Qt.AlignVCenter)
-    item.setTextAlignment(Col.INVESTABLE.value, Qt.AlignLeft | Qt.AlignVCenter)
 
 
 def set_group_tree_item(tree: QTreeWidget,
@@ -111,8 +110,6 @@ def set_group_tree_item(tree: QTreeWidget,
 
     combo = QComboBox()
     tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
-
-    gitem.setText(Col.INVESTABLE.value, "")
 
     gid = id_str.strip() or new_id("grp")
     set_item_meta(gitem, RowKind.GROUP.name, gid)
@@ -129,7 +126,6 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     item.setText(Col.TOT_VALUE.value, value)
     item.setText(Col.TARGET_PCT.value, "")
     item.setText(Col.PREFERRED_INSTR.value, "")
-    item.setText(Col.INVESTABLE.value, "true" if investable else "false")
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT.name, iid)

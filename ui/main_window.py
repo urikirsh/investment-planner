@@ -163,8 +163,6 @@ class MainWindow(QMainWindow):
                 if column in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
                     # revert by recomputing (will overwrite whatever user typed)
                     pass
-                if column == Col.INVESTABLE.value:
-                    item.setText(Col.INVESTABLE.value, "")
 
             if kind == RowKind.INSTRUMENT.name:
                 if column == Col.TARGET_PCT.value:
@@ -487,7 +485,6 @@ class MainWindow(QMainWindow):
 
                 iname = ins.text(Col.NAME.value).strip()
                 tot_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
-                investable_txt = (ins.text(Col.INVESTABLE.value).strip().lower() or "false")
                 investable = investable_txt in ("true", "1", "yes", "y")
 
                 if is_non_investable_bucket:
