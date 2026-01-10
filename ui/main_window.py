@@ -33,6 +33,8 @@ from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, 
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID
 
+from ui.tree_widget import InvestmentTreeWidget
+
 D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
@@ -196,7 +198,7 @@ class MainWindow(QMainWindow):
 
     def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
-        self.tree = QTreeWidget()
+        self.tree = InvestmentTreeWidget()
         self.tree.setColumnCount(5)
         self.tree.setHeaderLabels(
             [
