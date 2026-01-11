@@ -88,6 +88,10 @@ def style_group_row(item: QTreeWidgetItem) -> None:
     for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value):
         set_cell_readonly_look(item, c)
 
+def style_instrument_row(item: QTreeWidgetItem) -> None:
+    for c in (Col.TARGET_PCT.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
+        set_cell_readonly_look(item, c)
+
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
     # Numbers are right-aligned for instruments, centered for groups
@@ -144,8 +148,7 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     flags &= ~Qt.ItemIsDropEnabled
     item.setFlags(flags)
 
-    for c in (Col.TARGET_PCT.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
-        set_cell_readonly_look(item, c)
+    style_instrument_row(item)
 
 
 def parse_value_cell(txt: str) -> D:
