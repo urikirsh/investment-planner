@@ -30,7 +30,7 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
-from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID
+from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 
 from ui.tree_widget import InvestmentTreeWidget
 
@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
 
         self._suppress_item_changed = False
         self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
+        self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         self._refresh_data()
 
@@ -155,27 +156,7 @@ class MainWindow(QMainWindow):
         if self._suppress_item_changed:
             return
 
-        kind = get_item_kind(item)
-
-        # Prevent editing computed/group-only/instrument-only fields:
-        # - group/bucket: Total value is computed, Investable is unused
-        # - instrument: Target/Preferred unused
-        self._suppress_item_changed = True
-        try:
-            if kind != RowKind.INSTRUMENT.name:
-                if column in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
-                    # revert by recomputing (will overwrite whatever user typed)
-                    pass
-
-            if kind == RowKind.INSTRUMENT.name:
-                if column == Col.TARGET_PCT.value:
-                    item.setText(Col.TARGET_PCT.value, "")
-                if column == Col.PREFERRED_INSTR.value:
-                    item.setText(Col.PREFERRED_INSTR.value, "")
-
-        finally:
-            self._suppress_item_changed = False
-            self._refresh_data()
+        self._refresh_data()
 
     def _generate_cash_box(self) -> QWidget:
         # Cash block (fixed)
@@ -405,10 +386,6 @@ class MainWindow(QMainWindow):
                                  NON_INVESTABLE_BUCKET_TITLE,
                                  0,
                                  NON_INVESTABLE_BUCKET_ID)
-
-            flags = non_investable_bucket.flags()
-            flags &= ~Qt.ItemIsEditable
-            non_investable_bucket.setFlags(flags)
 
             for ins in non_investable:
                 add_instrument_item_to_group(
@@ -860,5 +837,14 @@ class MainWindow(QMainWindow):
             self._suppress_item_changed = False
 
     def _after_tree_reorder(self, *args):
-        print(f"DEBUG: on rows moved triggered")
         self._refresh_data()
+
+    def _on_item_double_clicked(self, item, column):
+        kind = get_item_kind(item)
+
+        if _is_cell_editable(kind, column):
+            # Temporarily enable editing
+            item.setFlags(item.flags() | Qt.ItemIsEditable)
+            self.tree.editItem(item, column)
+            # Disable immediately after edit starts
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
