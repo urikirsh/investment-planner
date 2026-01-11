@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QStackedWidget,
     QTextEdit,
-    QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget, QHeaderView, QComboBox,
@@ -32,6 +31,8 @@ from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID
+
+from ui.tree_widget import InvestmentTreeWidget
 
 D = Decimal
 
@@ -196,7 +197,7 @@ class MainWindow(QMainWindow):
 
     def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
-        self.tree = QTreeWidget()
+        self.tree = InvestmentTreeWidget()
         self.tree.setColumnCount(5)
         self.tree.setHeaderLabels(
             [
@@ -223,6 +224,8 @@ class MainWindow(QMainWindow):
                 header.setSectionResizeMode(col.value, QHeaderView.Stretch)
             else:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
+
+        self.tree.items_reordered.connect(self._after_tree_reorder)
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
@@ -858,3 +861,6 @@ class MainWindow(QMainWindow):
         finally:
             self._suppress_item_changed = False
 
+    def _after_tree_reorder(self, *args):
+        print(f"DEBUG: on rows moved triggered")
+        self._refresh_data()
