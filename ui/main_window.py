@@ -27,12 +27,14 @@ from investment_planner.validation import validate_portfolio
 from investment_planner.planning import compute_invest_budget, plan_invest_no_sell, plan_rebalance
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
-from ui.ui_types import RowKind, Col, WizardStep
+from ui.ui_types import RowKind, Col, WizardStep, ROLE_PREV_TEXT
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 
 from ui.tree_widget import InvestmentTreeWidget
+
+from ui.decimal_input_delegate import DecimalInputDelegate
 
 D = Decimal
 
@@ -156,6 +158,12 @@ class MainWindow(QMainWindow):
         if self._suppress_item_changed:
             return
 
+        # Only business-rule validate relevant cells
+        if get_item_kind(item) == RowKind.GROUP.name and column == Col.TARGET_PCT.value:
+            if not self._validate_target_pct_cell_or_revert(item):
+                self._refresh_data()
+                return
+
         self._refresh_data()
 
     def _generate_cash_box(self) -> QWidget:
@@ -207,6 +215,11 @@ class MainWindow(QMainWindow):
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
 
         self.tree.items_reordered.connect(self._after_tree_reorder)
+
+        self.tree.setItemDelegateForColumn(Col.TOT_VALUE.value,
+                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
+        self.tree.setItemDelegateForColumn(Col.TARGET_PCT.value,
+                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
@@ -843,8 +856,43 @@ class MainWindow(QMainWindow):
         kind = get_item_kind(item)
 
         if _is_cell_editable(kind, column):
+            # Save previous value for this specific column
+            item.setData(column, ROLE_PREV_TEXT, item.text(column))
+
             # Temporarily enable editing
             item.setFlags(item.flags() | Qt.ItemIsEditable)
             self.tree.editItem(item, column)
             # Disable immediately after edit starts
             item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+
+    def _validate_target_pct_cell_or_revert(self, item) -> bool:
+        """
+        Validates the group's Target % cell. Returns True if OK, False if reverted.
+        """
+        col = Col.TARGET_PCT.value
+        raw = item.text(col).strip()
+        prev = item.data(col, ROLE_PREV_TEXT)
+
+        try:
+            p = Decimal(raw)
+        except Exception:
+            self._warn_and_revert(item, col, raw, prev, "Target % must be a number.")
+            return False
+
+        if p > 100:
+            self._warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
+            return False
+
+        return True
+
+    def _warn_and_revert(self, item, col: int, bad: str, prev: str, msg: str) -> None:
+        self._suppress_item_changed = True
+        try:
+            QMessageBox.warning(
+                self,
+                "Invalid input",
+                f"{msg}\n\nYou entered: {bad}\nReverting to previous value: {prev}"
+            )
+            item.setText(col, prev if prev is not None else "")
+        finally:
+            self._suppress_item_changed = False

@@ -34,8 +34,9 @@ Design intent:
 This file should remain small, stable, and dependency-light.
 """
 
-ROLE_KIND = Qt.UserRole + 1     # RowKind
-ROLE_ID = Qt.UserRole + 2       # the internal id string
+ROLE_KIND = Qt.UserRole + 1        # RowKind
+ROLE_ID = Qt.UserRole + 2          # the internal id string
+ROLE_PREV_TEXT = Qt.UserRole + 50  # previous text in cell (before edit)
 
 class RowKind(Enum):
     GROUP = auto()
