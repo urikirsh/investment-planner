@@ -130,7 +130,7 @@ def set_group_tree_item(tree: QTreeWidget,
     style_group_row(gitem)
 
 
-def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
+def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, id_str: str = "") \
         -> None:
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)

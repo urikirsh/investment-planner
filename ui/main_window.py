@@ -319,7 +319,7 @@ class MainWindow(QMainWindow):
         # If instrument selected, use its parent group
         parent = sel.parent() or sel
 
-        add_instrument_item_to_group(parent, "New Instrument", "1", True)
+        add_instrument_item_to_group(parent, "New Instrument", "1")
 
         self.tree.expandAll()
         self._refresh_data()
@@ -395,7 +395,7 @@ class MainWindow(QMainWindow):
                 set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["investable"], ins["id"])
+                    add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["id"])
 
             # Non-investable section is always present and always added, even if it is empty.
             # It does not exist in the JSON, it is purely in the UI
@@ -414,7 +414,7 @@ class MainWindow(QMainWindow):
 
             for ins in non_investable:
                 add_instrument_item_to_group(
-                    non_investable_bucket, ins["name"], ins["value"], False, ins["id"])
+                    non_investable_bucket, ins["name"], ins["value"], ins["id"])
 
             self.tree.expandAll()
         finally:
