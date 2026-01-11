@@ -88,7 +88,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
 
         item.setBackground(col, background)
 
-    for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value):
+    for c in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value):
         set_cell_readonly_look(item, c)
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
