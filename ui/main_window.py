@@ -407,11 +407,6 @@ class MainWindow(QMainWindow):
                                  0,
                                  NON_INVESTABLE_BUCKET_ID)
 
-            # TODO - this should be unneccesary
-            flags = non_investable_bucket.flags()
-            flags &= ~Qt.ItemIsEditable
-            non_investable_bucket.setFlags(flags)
-
             for ins in non_investable:
                 add_instrument_item_to_group(
                     non_investable_bucket, ins["name"], ins["value"], ins["id"])
