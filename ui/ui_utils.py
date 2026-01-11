@@ -76,14 +76,24 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 def style_group_row(item: QTreeWidgetItem) -> None:
+    if get_item_kind(item) == RowKind.NON_INVESTABLE_BUCKET.name:
+        background = QBrush(QColor("#e8f0ff")) # subtle blue tint
+    else:
+        background = QBrush(QColor("#f0f0f0"))
 
-    background = QBrush(QColor("#f0f0f0"))
     for col in range(item.columnCount()):
         font = item.font(col)
         font.setBold(True)
         item.setFont(col, font)
 
         item.setBackground(col, background)
+
+    for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value):
+        set_cell_readonly_look(item, c)
+
+def style_instrument_row(item: QTreeWidgetItem) -> None:
+    for c in (Col.TARGET_PCT.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
+        set_cell_readonly_look(item, c)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
@@ -123,7 +133,7 @@ def set_group_tree_item(tree: QTreeWidget,
     style_group_row(gitem)
 
 
-def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, investable: bool, id_str: str = "") \
+def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, id_str: str = "") \
         -> None:
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
@@ -140,6 +150,8 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     flags = item.flags()
     flags &= ~Qt.ItemIsDropEnabled
     item.setFlags(flags)
+
+    style_instrument_row(item)
 
 
 def parse_value_cell(txt: str) -> D:
@@ -180,4 +192,8 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
         item.setForeground(col_index, QBrush(QColor("#1b5e20")))
     else:
         # Neutral → default
-        item.setForeground(col_index, QBrush())
+        set_cell_readonly_look(item, col_index)
+
+def set_cell_readonly_look(item, col: int) -> None:
+    # light gray text
+    item.setForeground(col, QBrush(QColor("#777777")))
