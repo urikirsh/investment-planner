@@ -34,6 +34,8 @@ from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVEST
 
 from ui.tree_widget import InvestmentTreeWidget
 
+from ui.decimal_input_delegate import DecimalInputDelegate
+
 D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
@@ -207,6 +209,11 @@ class MainWindow(QMainWindow):
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
 
         self.tree.items_reordered.connect(self._after_tree_reorder)
+
+        self.tree.setItemDelegateForColumn(Col.TOT_VALUE.value,
+                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
+        self.tree.setItemDelegateForColumn(Col.TARGET_PCT.value,
+                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
