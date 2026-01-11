@@ -226,6 +226,8 @@ class MainWindow(QMainWindow):
             else:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
 
+        self.tree.items_reordered.connect(self._after_tree_reorder)
+
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
         controls = QWidget()
@@ -860,3 +862,6 @@ class MainWindow(QMainWindow):
         finally:
             self._suppress_item_changed = False
 
+    def _after_tree_reorder(self, *args):
+        print(f"DEBUG: on rows moved triggered")
+        self._refresh_data()
