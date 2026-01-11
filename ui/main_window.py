@@ -156,27 +156,7 @@ class MainWindow(QMainWindow):
         if self._suppress_item_changed:
             return
 
-        kind = get_item_kind(item)
-
-        # Prevent editing computed/group-only/instrument-only fields:
-        # - group/bucket: Total value is computed, Investable is unused
-        # - instrument: Target/Preferred unused
-        self._suppress_item_changed = True
-        try:
-            if kind != RowKind.INSTRUMENT.name:
-                if column in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
-                    # revert by recomputing (will overwrite whatever user typed)
-                    pass
-
-            if kind == RowKind.INSTRUMENT.name:
-                if column == Col.TARGET_PCT.value:
-                    item.setText(Col.TARGET_PCT.value, "")
-                if column == Col.PREFERRED_INSTR.value:
-                    item.setText(Col.PREFERRED_INSTR.value, "")
-
-        finally:
-            self._suppress_item_changed = False
-            self._refresh_data()
+        self._refresh_data()
 
     def _generate_cash_box(self) -> QWidget:
         # Cash block (fixed)
