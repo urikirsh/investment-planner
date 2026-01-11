@@ -53,7 +53,8 @@ class InvestmentTreeWidget(QTreeWidget):
 
         # ---- Allow ON-ITEM only for instrument -> (group or bucket) ----
         if pos_kind == QTreeWidget.OnItem:
-            if dragged_kind == RowKind.INSTRUMENT and target_kind in (RowKind.GROUP, RowKind.NON_INVESTABLE_BUCKET):
+            if (dragged_kind == RowKind.INSTRUMENT.name and
+                    target_kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name)):
                 # Allowed: move instrument into that group/bucket
                 super().dropEvent(event)
                 self.items_reordered.emit()
@@ -67,11 +68,8 @@ class InvestmentTreeWidget(QTreeWidget):
         # Above/Below an instrument means "same parent as that instrument"
         # Above/Below a group means "top-level reorder" (parent None)
         target_parent = target.parent()
-        target_parent_kind = self._kind_of(target_parent) if target_parent else None
 
         # Instruments must always have a parent (cannot become top-level)
-
-
         if dragged_kind == RowKind.INSTRUMENT:
             if target_parent is None:
                 # Above/below a top-level item would make it top-level => forbid
@@ -79,8 +77,7 @@ class InvestmentTreeWidget(QTreeWidget):
                 return
 
         # Groups/bucket must stay top-level (reorder among top-level only)
-        if dragged_kind in (RowKind.GROUP, RowKind.NON_INVESTABLE_BUCKET):
-
+        if dragged_kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
             if target_parent is not None:
                 # can't reorder groups inside a group's children
                 event.ignore()
