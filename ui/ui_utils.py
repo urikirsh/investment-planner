@@ -76,8 +76,11 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 def style_group_row(item: QTreeWidgetItem) -> None:
+    if get_item_kind(item) == RowKind.NON_INVESTABLE_BUCKET.name:
+        background = QBrush(QColor("#e8f0ff")) # subtle blue tint
+    else:
+        background = QBrush(QColor("#f0f0f0"))
 
-    background = QBrush(QColor("#f0f0f0"))
     for col in range(item.columnCount()):
         font = item.font(col)
         font.setBold(True)

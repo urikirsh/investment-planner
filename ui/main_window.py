@@ -410,8 +410,6 @@ class MainWindow(QMainWindow):
             flags &= ~Qt.ItemIsEditable
             non_investable_bucket.setFlags(flags)
 
-            # TODO: add style to this special item
-
             for ins in non_investable:
                 add_instrument_item_to_group(
                     non_investable_bucket, ins["name"], ins["value"], ins["id"])
