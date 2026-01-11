@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QStackedWidget,
     QTextEdit,
-    QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget, QHeaderView, QComboBox,
