@@ -307,7 +307,7 @@ def make_portfolio():
     return load_portfolio(data)
 
 def test_calculate_buy_units_floor():
-    calc = calculate_buy_units(instrument_id="i1", planned_money=D("100"), price=D("33"))
+    calc = calculate_buy_units(instrument_id="i1", planned_money=D("100"), price_ag=D("33"))
     assert calc.units == 3
     assert calc.spent == D("99")
     assert calc.leftover == D("1")
