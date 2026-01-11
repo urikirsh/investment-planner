@@ -657,7 +657,7 @@ class MainWindow(QMainWindow):
         form_layout = QFormLayout(form)
         self.price_edit = QLineEdit()
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
-        form_layout.addRow("Price:", self.price_edit)
+        form_layout.addRow("Price (Agorot):", self.price_edit)
         layout.addWidget(form)
 
         calc_row = QWidget()
@@ -714,7 +714,7 @@ class MainWindow(QMainWindow):
             calc = calculate_buy_units(
                 instrument_id=s.preferred_instrument_id,
                 planned_money=planned,
-                price=price,
+                price_ag=price,
             )
             self._last_calc = calc
 
@@ -747,7 +747,7 @@ class MainWindow(QMainWindow):
                         p=self.current_portfolio,
                         instrument_id=s.preferred_instrument_id,
                         spent=spent,
-                        min_trade_ils=D("1"),
+                        min_trade_ils=D("100"),
                     )
                 else:
                     # SELL (simple: sell from preferred instrument)

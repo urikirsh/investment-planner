@@ -27,20 +27,22 @@ def _floor_units(planned_money: D, price: D) -> int:
     return int(units_dec)
 
 
-def calculate_buy_units(*, instrument_id: str, planned_money: D, price: D) -> BuyCalculation:
+def calculate_buy_units(*, instrument_id: str, planned_money: D, price_ag: D) -> BuyCalculation:
     """
     Given a planned money allocation and a unit price, compute units to buy (floor),
     spent and leftover.
+    Price is in Agorot, while planned money is in ILS
     """
-    units = _floor_units(planned_money, price)
-    spent = price * D(units)
+    price_ils = price_ag / Decimal("100")      # conversion
+    units = _floor_units(planned_money, price_ils)
+    spent = price_ils * D(units)
     leftover = planned_money - spent
     # Safety: leftover should never be negative
     if leftover < 0:
         leftover = D("0")
     return BuyCalculation(
         instrument_id=instrument_id,
-        price=price,
+        price=price_ils,
         planned_money=planned_money,
         units=units,
         spent=spent,
