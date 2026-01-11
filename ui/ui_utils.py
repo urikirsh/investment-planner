@@ -189,7 +189,7 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
         item.setForeground(col_index, QBrush(QColor("#1b5e20")))
     else:
         # Neutral → default
-        item.setForeground(col_index, QBrush())
+        set_cell_readonly_look(item, col_index)
 
 def set_cell_readonly_look(item, col: int) -> None:
     # light gray text
