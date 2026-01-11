@@ -128,6 +128,7 @@ def set_group_tree_item(tree: QTreeWidget,
     row_kind = RowKind.NON_INVESTABLE_BUCKET.name if id_str == NON_INVESTABLE_BUCKET_ID else RowKind.GROUP.name
 
     set_item_meta(gitem, row_kind, gid)
+    disable_edits_to_row(gitem)
 
     apply_row_alignment(gitem)
     style_group_row(gitem)
@@ -150,8 +151,15 @@ def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, 
     flags = item.flags()
     flags &= ~Qt.ItemIsDropEnabled
     item.setFlags(flags)
+    disable_edits_to_row(item)
 
     style_instrument_row(item)
+
+
+def disable_edits_to_row(row: QTreeWidgetItem) -> None:
+    flags = row.flags()
+    flags &= ~Qt.ItemIsEditable
+    row.setFlags(flags)
 
 
 def parse_value_cell(txt: str) -> D:
@@ -197,3 +205,13 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
 def set_cell_readonly_look(item, col: int) -> None:
     # light gray text
     item.setForeground(col, QBrush(QColor("#777777")))
+
+def _is_cell_editable(kind: str, col: int) -> bool:
+    if kind == RowKind.GROUP.name:
+        return col in (Col.NAME.value, Col.TARGET_PCT.value)
+
+    if kind == RowKind.INSTRUMENT.name:
+        return col in (Col.NAME.value, Col.TOT_VALUE.value)
+
+    # bucket
+    return False

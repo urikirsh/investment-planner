@@ -30,7 +30,7 @@ from investment_planner.calc_stock_units import calculate_buy_units, commit_buy,
 from ui.ui_types import RowKind, Col, WizardStep
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
-from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID
+from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 
 from ui.tree_widget import InvestmentTreeWidget
 
@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
 
         self._suppress_item_changed = False
         self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
+        self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         self._refresh_data()
 
@@ -406,6 +407,7 @@ class MainWindow(QMainWindow):
                                  0,
                                  NON_INVESTABLE_BUCKET_ID)
 
+            # TODO - this should be unneccesary
             flags = non_investable_bucket.flags()
             flags &= ~Qt.ItemIsEditable
             non_investable_bucket.setFlags(flags)
@@ -860,5 +862,14 @@ class MainWindow(QMainWindow):
             self._suppress_item_changed = False
 
     def _after_tree_reorder(self, *args):
-        print(f"DEBUG: on rows moved triggered")
         self._refresh_data()
+
+    def _on_item_double_clicked(self, item, column):
+        kind = get_item_kind(item)
+
+        if _is_cell_editable(kind, column):
+            # Temporarily enable editing
+            item.setFlags(item.flags() | Qt.ItemIsEditable)
+            self.tree.editItem(item, column)
+            # Disable immediately after edit starts
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
