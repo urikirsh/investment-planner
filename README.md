@@ -63,11 +63,17 @@ The application never executes trades automatically. All actions are explicit an
 
 ## Screenshots
 
-Screenshots will be added here to illustrate:
-- Main portfolio screen
-- Strategy drift visualization
-- Investment summary
-- Per-instrument investment flow
+### Main portfolio screen
+
+![img.png](main_window_screenshot.png)
+
+### Investment summary screen
+
+![img.png](per_instrument_screenshot.png)
+
+### Per-instrument investment screen
+
+![img.png](per_instrument_screenshot.png)
 
 ---
 
