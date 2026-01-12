@@ -1,154 +1,83 @@
 # Investment Planner
 
-A **local-first investment planning tool** for passive investors who follow a target allocation strategy and want to invest new funds efficiently, with minimal friction and without unnecessary taxable events.
+**A GUI tool for planning and executing a passive investment strategy**
 
-The app helps answer one recurring question:
+`investment-planner` is a desktop application for managing a long-term investment strategy based on predefined asset allocation targets.
 
-> *“Given my current portfolio and target allocation, how should I invest new money today?”*
+It helps answer a common question for passive investors:
 
----
+> *Given my current holdings and target allocation, how should I allocate new money (or rebalance) in a clear, controlled way?*
 
-## ✨ Key Features
-
-- **Target allocation by asset group**
-  - Define strategy at the *asset exposure* level (e.g. S&P 500, Bonds, Crypto).
-  - Each asset group has an exact target percentage (must sum to 100%).
-
-- **Multiple instruments per asset group**
-  - Hold the same exposure via multiple providers/funds.
-  - Choose a **preferred instrument** for new purchases while keeping legacy holdings (useful for tax reasons).
-
-- **Cash reserve handling**
-  - Keep a configurable minimum cash balance for fees.
-  - Automatically infer how much cash is available for investment.
-
-- **No-sell investment planning**
-  - Default mode allocates new money only (no selling).
-  - Overweight asset groups are skipped automatically.
-
-- **Optional rebalance mode**
-  - Allows selling and buying to return to target allocation.
-
-- **Discrete unit calculation**
-  - Enter instrument prices.
-  - App calculates how many units to buy (always rounded down).
-  - Minimum trade size enforced.
-
-- **Step-by-step investment wizard**
-  - Review plan → calculate units → commit each trade.
-  - Partial progress is saved; no need to complete everything in one session.
-
-- **Local JSON storage**
-  - All data is stored locally.
-  - No external APIs, no broker integration, no cloud dependency.
+The tool is designed for **real-world use**, emphasizes correctness and transparency, and is actively used to manage an actual portfolio.
 
 ---
 
-## 🧠 Conceptual Model
+## Core concepts
 
-- **Asset Group**  
-  Represents an exposure in your strategy (e.g. “S&P 500”, “US Bonds”).  
-  Holds the target percentage and defines *what* you want exposure to.
+- You define **asset groups** with target percentages (must sum to exactly 100).
+- Instruments belong to groups and have a current **market value (ILS)**.
+- Over time, market movements cause the portfolio to drift from the target.
+- When investing new money (or rebalancing), the app:
+  - shows how far each group is from its target
+  - calculates how much should be allocated per group
+  - helps translate value allocations into concrete buy decisions
 
-- **Instrument**  
-  A concrete fund / ETF / product that provides exposure to an asset group.  
-  You may have multiple instruments per group but buy new units only via the preferred one.
-
-- **Cash**  
-  Explicitly modeled and excluded from strategy percentages.  
-  Only cash above the configured reserve is considered investable.
+The application never executes trades automatically. All actions are explicit and user-controlled.
 
 ---
 
-## 🖥️ GUI Overview
+## Features
 
-The app uses a simple 3-screen flow:
+### Portfolio structure
+- Asset groups with **decimal target percentages**
+- Instruments with current **market value in ILS**
+- Permanent **Non-investable bucket** for holdings excluded from the strategy
+- **Cash** with a configurable minimum reserve (excluded from allocation logic)
 
-1. **Main screen**
-   - Edit cash, asset groups, instruments, targets.
-   - Reorder asset groups (controls investment order).
-   - Save or start investment planning.
+### Calculations & insights
+- **Strategy %** per group (share of investable assets)
+- **Portfolio %** per row (share of total portfolio value, matching broker apps)
+- **Drift (pp)** from target allocation, with color coding:
+  - green → over target (overperforming asset)
+  - red → under target (underperforming asset)
+- Strict validation: target percentages must sum to **100.0** exactly
 
-2. **Summary screen**
-   - Shows planned buy/sell amounts per asset group.
-   - Confirms investment budget and execution order.
+### Investment workflow
+- Two modes:
+  - **Invest** – allocate new funds without selling, to avoid a tax event
+  - **Invest & Rebalance** – allow selling to restore targets
+- Step-by-step investment flow:
+  - per-instrument allocation
+  - price input exactly as shown in the broker (**agorot**)
+  - automatic conversion to ILS
+  - integer unit calculation (rounded down)
+- Partial execution supported (each instrument handled independently)
 
-3. **Investment wizard**
-   - For each asset group:
-     - Enter price.
-     - See calculated units.
-     - Save & continue to the next step.
+### UI & UX
+- Immediate validation with clear feedback and automatic revert on invalid input
+- Drag & drop to:
+  - reorder groups and instruments
+  - move instruments into or out of the non-investable bucket
 
 ---
 
-## 🚀 Getting Started
+## Screenshots
+
+Screenshots will be added here to illustrate:
+- Main portfolio screen
+- Strategy drift visualization
+- Investment summary
+- Per-instrument investment flow
+
+---
+
+## Running the application
 
 ### Requirements
-- Python **3.10+**
-- Windows / macOS / Linux
+- **Python 3.14.2**
+- **PySide6**
 
-### Install dependencies
+Install dependencies:
+
 ```bash
 pip install PySide6
-```
-
-### Run the app
-
-From the project root:
-
-```bash
-python -m app
-```
-
-If `portfolio.json` exists, it will be loaded automatically.
-Otherwise, a minimal default portfolio is created.
-
----
-
-## 🧪 Tests
-
-Core logic is fully unit-tested (planning, validation, unit calculation).
-
-Run all tests:
-
-```bash
-pip install pytest
-pytest
-```
-
----
-
-## 📁 Project Structure
-
-```bash
-investment_planner/
-├── models.py            # Data models
-├── io_json.py           # Load/save portfolio JSON
-├── validation.py        # Strict portfolio validation
-├── planning.py          # Invest / rebalance algorithms
-├── calc_stock_units.py  # Price → units → commit logic
-│
-ui/
-├── main_window.py       # PySide6 GUI
-│
-app.py                   # Application entry point
-```
-
----
-
-## 🔒 Privacy & Safety
-
-- No network access
-- No credentials
-- No broker APIs
-- Portfolio data is local and excluded via `.gitignore`
-
-This tool is designed for personal decision support only.
-
----
-
-## ⚠️ Disclaimer
-
-This software is provided for **educational and personal use only**.
-It does **not** constitute financial advice.
-You are solely responsible for any investment decisions you make.
