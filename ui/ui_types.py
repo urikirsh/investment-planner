@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
+from decimal import Decimal
 
 from PySide6.QtCore import Qt
 
@@ -33,6 +34,8 @@ Design intent:
 
 This file should remain small, stable, and dependency-light.
 """
+
+D = Decimal
 
 ROLE_KIND = Qt.UserRole + 1        # RowKind
 ROLE_ID = Qt.UserRole + 2          # the internal id string

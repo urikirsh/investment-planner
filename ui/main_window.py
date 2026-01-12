@@ -812,7 +812,7 @@ class MainWindow(QMainWindow):
 
                     top.setText(Col.TOT_VALUE.value, str(total))
                     row_value[top] = total
-                    if kind == RowKind.GROUP.name:  # do not do this for the non investible bucket
+                    if kind == RowKind.GROUP.name:  # do not do this for the non-investible bucket
                         group_items.append(top)
                         strategy_total += total
 
