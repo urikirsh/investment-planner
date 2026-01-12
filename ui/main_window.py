@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(add_instrument)
 
         delete_row = QPushButton("Delete Selected")
-        delete_row.clicked.connect(self._delete_selected)
+        delete_row.clicked.connect(self._delete_selected_row)
         controls_layout.addWidget(delete_row)
 
         controls_layout.addStretch(1)
@@ -289,9 +289,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._generate_bottom_buttons_widget())
 
         # Live total refresh
-        self.tree.itemChanged.connect(self._refresh_total_label)
-        self.cash_value_edit.textChanged.connect(self._refresh_total_label)
-        self.cash_reserve_edit.textChanged.connect(self._refresh_total_label)
+        self.tree.itemChanged.connect(self._refresh_total_portfolio)
+        self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
 
         return main_screen_widget
 
@@ -318,7 +318,7 @@ class MainWindow(QMainWindow):
         self.tree.expandAll()
         self._refresh_data()
 
-    def _delete_selected(self):
+    def _delete_selected_row(self):
         sel = self.tree.currentItem()
         if sel is None:
             return
@@ -409,11 +409,11 @@ class MainWindow(QMainWindow):
             self.tree.blockSignals(False)
 
     def _refresh_data(self):
-        self._refresh_total_label()
+        self._refresh_total_portfolio()
         self._recalc_totals_and_pcts()
         self._refresh_preferred_dropdowns()
 
-    def _refresh_total_label(self):
+    def _refresh_total_portfolio(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
             # Total portfolio = cash + all instruments values
