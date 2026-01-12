@@ -5,6 +5,19 @@ from typing import Dict
 
 from investment_planner.models import Portfolio, Instrument
 
+"""
+validation.py
+
+Validation logic for ensuring portfolio and strategy correctness.
+
+This module contains checks that verify the internal consistency of a
+portfolio and its investment strategy, such as target allocation rules,
+structural integrity, and reference validity. Validation is performed
+before saving or executing an investment plan.
+
+No UI, persistence, or calculation logic belongs in this module.
+"""
+
 D = Decimal
 
 
