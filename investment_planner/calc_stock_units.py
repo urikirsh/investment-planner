@@ -3,12 +3,67 @@ from decimal import Decimal, ROUND_FLOOR, getcontext
 
 from investment_planner.models import Portfolio, Instrument, Cash
 
+"""
+calc_stock_units.py
+
+Utility logic for translating value-based investment decisions into
+concrete stock purchase quantities.
+
+This module is responsible for:
+- Converting user-entered stock prices (as shown by the broker, in agorot)
+  into internal ILS values
+- Calculating how many units of a stock can be purchased for a given
+  allocation amount
+- Enforcing discrete-unit constraints (stocks are always bought as integers)
+- Applying consistent rounding rules (always round down)
+
+Design principles:
+- All portfolio values are handled internally in ILS
+- User-facing price input mirrors the broker UI exactly (agorot),
+  with explicit conversion handled here
+- Calculations are deterministic and side-effect free
+- No UI logic and no persistence logic lives in this module
+
+This module is used by the per-instrument investment flow to ensure
+that theoretical allocation plans are translated into realistic,
+executable buy decisions.
+"""
+
 getcontext().prec = 28
 D = Decimal
 
 
 @dataclass(frozen=True)
 class BuyCalculation:
+    """
+    Immutable result of a single stock purchase calculation.
+
+    This data structure represents the outcome of translating a
+    value-based investment decision into a concrete, executable
+    buy plan for a specific instrument.
+
+    Fields:
+    - instrument_id:
+        Identifier of the instrument to be purchased.
+    - price:
+        Price per unit in ILS (already converted from the broker-displayed
+        agorot value).
+    - planned_money:
+        Amount of money (ILS) that the strategy intends to allocate
+        to this instrument.
+    - units:
+        Number of units to buy (always a non-negative integer,
+        rounded down to respect discrete trading constraints).
+    - spent:
+        Actual amount of money spent (units × price, in ILS).
+    - leftover:
+        Unused money from the planned allocation
+        (planned_money − spent).
+
+    Design notes:
+    - The class is frozen (immutable) to ensure calculations remain
+      deterministic and side-effect free.
+    """
     instrument_id: str
     price: D
     planned_money: D
