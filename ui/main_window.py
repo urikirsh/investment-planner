@@ -36,6 +36,21 @@ from ui.tree_widget import InvestmentTreeWidget
 
 from ui.decimal_input_delegate import DecimalInputDelegate
 
+"""
+main_window.py
+
+Primary GUI implementation for the investment planner application.
+
+This module defines the main application window and coordinates all
+user interaction, including portfolio editing, validation feedback,
+navigation through the investment workflow, and triggering planning
+and execution logic.
+
+The main window acts as an orchestrator between the UI components and
+the underlying domain logic, while keeping calculation, validation,
+and persistence responsibilities in their respective modules.
+"""
+
 D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
