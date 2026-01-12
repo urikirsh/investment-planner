@@ -3,13 +3,18 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from investment_planner.models import Portfolio
+from investment_planner.models import Portfolio, Instrument
 
 D = Decimal
 
 
 def validate_portfolio(p: Portfolio) -> None:
-    # Cash validation
+    _validate_cash(p)
+    _validate_asset_groups(p)
+    _validate_instruments(p)
+    _validate_preferred_instrument(p)
+
+def _validate_cash(p: Portfolio) -> None:
     if p.cash.value <= 0:
         raise ValueError("cash.value must be positive")
     if p.cash.min_reserve < 0:
@@ -17,7 +22,7 @@ def validate_portfolio(p: Portfolio) -> None:
     if p.cash.min_reserve > p.cash.value:
         raise ValueError("cash.reserve must be <= cash.value")
 
-    # Asset groups validation
+def _validate_asset_groups(p: Portfolio) -> None:
     if not p.asset_groups:
         raise ValueError("At least one asset group is required")
 
@@ -38,7 +43,7 @@ def validate_portfolio(p: Portfolio) -> None:
     if pct_sum != D("100"):
         raise ValueError(f"Sum of asset group target percentages must be exactly 100, got {pct_sum}")
 
-    # Instruments validation
+def _validate_instruments(p: Portfolio) -> None:
     if not p.instruments:
         raise ValueError("At least one instrument is required")
 
@@ -54,7 +59,7 @@ def validate_portfolio(p: Portfolio) -> None:
     if len(set(ins_names)) != len(ins_names):
         raise ValueError("Duplicate instrument.name found (names must be unique)")
 
-    group_id_set = set(group_ids)
+    group_id_set = {g.id for g in p.asset_groups}
 
     for ins in p.instruments:
         if ins.value < 0:
@@ -73,8 +78,8 @@ def validate_portfolio(p: Portfolio) -> None:
             if ins.asset_group_id is not None:
                 raise ValueError(f"Non-investable instrument '{ins.name}' must not have assetGroupId/groupId")
 
-    # Preferred instrument validation
-    instruments_by_id: Dict[str, object] = {ins.id: ins for ins in p.instruments}
+def _validate_preferred_instrument(p: Portfolio) -> None:
+    instruments_by_id: Dict[str, Instrument] = {ins.id: ins for ins in p.instruments}
 
     for g in p.asset_groups:
         if not g.preferred_instrument_id:
@@ -84,12 +89,12 @@ def validate_portfolio(p: Portfolio) -> None:
                 f"Asset group '{g.name}' preferredInstrumentId not found: {g.preferred_instrument_id}"
             )
 
-        pref = instruments_by_id[g.preferred_instrument_id]
-        # type: ignore[attr-defined]
-        if not pref.investable:  # noqa: E501
+        pref: Instrument = instruments_by_id[g.preferred_instrument_id]
+
+        if not pref.investable:
             raise ValueError(f"Asset group '{g.name}' preferred instrument must be investable")
-        # type: ignore[attr-defined]
-        if pref.asset_group_id != g.id:  # noqa: E501
+
+        if pref.asset_group_id != g.id:
             raise ValueError(
                 f"Asset group '{g.name}' preferred instrument must belong to the same asset group"
             )
