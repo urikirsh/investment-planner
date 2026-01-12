@@ -6,6 +6,20 @@ from typing import Dict, List
 from investment_planner.models import Portfolio, AssetGroupPlanRow
 from investment_planner.validation import validate_portfolio
 
+"""
+planning.py
+
+Investment planning logic for translating a target allocation strategy
+into concrete buy and sell decisions.
+
+This module computes how each asset group should change in value in order
+to move the portfolio toward its target percentages, based on current
+holdings and available funds. It produces planning results that are later
+consumed by the execution and UI layers.
+
+No persistence or UI logic belongs in this module.
+"""
+
 getcontext().prec = 28
 D = Decimal
 

@@ -36,6 +36,21 @@ from ui.tree_widget import InvestmentTreeWidget
 
 from ui.decimal_input_delegate import DecimalInputDelegate
 
+"""
+main_window.py
+
+Primary GUI implementation for the investment planner application.
+
+This module defines the main application window and coordinates all
+user interaction, including portfolio editing, validation feedback,
+navigation through the investment workflow, and triggering planning
+and execution logic.
+
+The main window acts as an orchestrator between the UI components and
+the underlying domain logic, while keeping calculation, validation,
+and persistence responsibilities in their respective modules.
+"""
+
 D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
@@ -235,7 +250,7 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(add_instrument)
 
         delete_row = QPushButton("Delete Selected")
-        delete_row.clicked.connect(self._delete_selected)
+        delete_row.clicked.connect(self._delete_selected_row)
         controls_layout.addWidget(delete_row)
 
         controls_layout.addStretch(1)
@@ -289,9 +304,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._generate_bottom_buttons_widget())
 
         # Live total refresh
-        self.tree.itemChanged.connect(self._refresh_total_label)
-        self.cash_value_edit.textChanged.connect(self._refresh_total_label)
-        self.cash_reserve_edit.textChanged.connect(self._refresh_total_label)
+        self.tree.itemChanged.connect(self._refresh_total_portfolio)
+        self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
 
         return main_screen_widget
 
@@ -318,7 +333,7 @@ class MainWindow(QMainWindow):
         self.tree.expandAll()
         self._refresh_data()
 
-    def _delete_selected(self):
+    def _delete_selected_row(self):
         sel = self.tree.currentItem()
         if sel is None:
             return
@@ -409,11 +424,11 @@ class MainWindow(QMainWindow):
             self.tree.blockSignals(False)
 
     def _refresh_data(self):
-        self._refresh_total_label()
+        self._refresh_total_portfolio()
         self._recalc_totals_and_pcts()
         self._refresh_preferred_dropdowns()
 
-    def _refresh_total_label(self):
+    def _refresh_total_portfolio(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
             # Total portfolio = cash + all instruments values
@@ -812,7 +827,7 @@ class MainWindow(QMainWindow):
 
                     top.setText(Col.TOT_VALUE.value, str(total))
                     row_value[top] = total
-                    if kind == RowKind.GROUP.name:  # do not do this for the non investible bucket
+                    if kind == RowKind.GROUP.name:  # do not do this for the non-investible bucket
                         group_items.append(top)
                         strategy_total += total
 

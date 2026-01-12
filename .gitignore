@@ -16,4 +16,4 @@ Thumbs.db
 .idea/
 
 # App data
-portfolio.json
+*.json

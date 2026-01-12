@@ -5,6 +5,19 @@ from typing import Any, Dict, Optional
 
 from investment_planner.models import Cash, AssetGroup, Instrument, Portfolio
 
+"""
+io_json.py
+
+JSON input/output layer for portfolio persistence.
+
+This module handles loading portfolio data from JSON into in-memory
+domain models and serializing those models back to disk. It isolates
+file I/O and basic structural validation from the rest of the system.
+
+All monetary values are stored in ILS. No investment logic, calculations,
+or UI behavior belongs in this module.
+"""
+
 getcontext().prec = 28
 D = Decimal
 
@@ -18,6 +31,32 @@ def _parse_decimal(value: Any, field: str) -> D:
 
 
 def load_portfolio(data: Dict[str, Any]) -> Portfolio:
+    """
+    Parse a raw JSON-decoded dictionary into a strongly-typed Portfolio model.
+
+    Expects a dict with:
+    - "cash": object with "value" and "min_reserve" (both parsed as Decimal, in ILS)
+    - "groups" (or legacy key "assetGroups"): list of asset group objects containing
+      id, name, targetPercentage, preferredInstrumentId
+    - "instruments": list of instrument objects containing id, name, value, investable,
+      and an optional group reference ("groupId" or legacy "assetGroupId")
+
+    This function performs structural/type validation and raises ValueError with a
+    precise path (e.g. "instruments[3].value") when a required field is missing or
+    malformed. It does not perform strategy validation (e.g. target sums, ID uniqueness,
+    preferred instrument existence); those checks belong to the validation layer.
+
+    Parameters
+    ----------
+    data:
+        A dictionary produced by json.load()/json.loads().
+
+    Returns
+    -------
+    Portfolio
+        A Portfolio instance containing Cash, AssetGroup, and Instrument objects.
+    """
+
     # Cash
     cash_raw = data.get("cash")
     if not isinstance(cash_raw, dict):
