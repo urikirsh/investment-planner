@@ -9,7 +9,7 @@ D = Decimal
 
 
 def validate_portfolio(p: Portfolio) -> None:
-    # Cash validation (you requested: positive)
+    # Cash validation
     if p.cash.value <= 0:
         raise ValueError("cash.value must be positive")
     if p.cash.min_reserve < 0:

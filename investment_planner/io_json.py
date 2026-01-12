@@ -56,7 +56,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     Portfolio
         A Portfolio instance containing Cash, AssetGroup, and Instrument objects.
     """
-    
+
     # Cash
     cash_raw = data.get("cash")
     if not isinstance(cash_raw, dict):
