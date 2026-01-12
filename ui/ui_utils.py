@@ -16,40 +16,13 @@ from ui.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 """
 ui_utils.py
 
-Shared utility functions for the GUI layer.
+Reusable helper functions for the UI layer.
 
-This module contains *pure or near-pure helper functions* used by UI components
-to keep widget classes (e.g. MainWindow) focused on behavior and flow rather
-than low-level details.
+This module contains small, focused utilities used by UI components,
+such as styling helpers, formatting functions, and minor UI-related
+logic that does not belong in widget classes themselves.
 
-Typical responsibilities:
-- Parsing and validating user input from widgets (e.g. Decimal parsing)
-- Formatting values for display in the UI (numbers, percentages, etc.)
-- Applying consistent visual styling to UI elements (row styling, alignment)
-- Small reusable helpers that do not maintain UI state
-
-What belongs here:
-- Functions that operate on QTreeWidgetItem appearance (styling, alignment)
-- Input parsing helpers that raise clear, user-friendly errors
-- Lightweight UI formatting helpers
-
-What does NOT belong here:
-- QWidget / QMainWindow subclasses
-- Business or investment logic
-- JSON persistence or file I/O
-- Long-lived UI state or navigation logic
-
-Design intent:
-- Reduce the size and cognitive load of main_window.py
-- Encourage reuse of common UI behaviors
-- Make UI helpers easy to test and reason about
-- Avoid duplication of small but important logic across the UI layer
-
-Functions in this module should be:
-- Small
-- Explicit
-- Side-effect-limited
-- Easy to move or refactor as the UI evolves
+No business logic or persistence logic belongs in this module.
 """
 
 D = Decimal
