@@ -69,12 +69,21 @@ def _validate_instruments(p: Portfolio) -> None:
     if not p.instruments:
         raise ValueError("At least one instrument is required")
 
+    _validate_instrument_identity(p)
+    _validate_instrument_name_uniqueness(p)
+    group_pct_sum = _validate_instrument_values_and_group_mapping(p)
+    _validate_group_instrument_pct_sums(p, group_pct_sum)
+
+
+def _validate_instrument_identity(p: Portfolio) -> None:
     ins_ids = [ins.id for ins in p.instruments]
     if any(not iid for iid in ins_ids):
         raise ValueError("All instruments must have a non-empty 'id'")
     if len(set(ins_ids)) != len(ins_ids):
         raise ValueError("Duplicate instrument.id found")
 
+
+def _validate_instrument_name_uniqueness(p: Portfolio) -> None:
     ins_names = [ins.name for ins in p.instruments]
     if any(not n for n in ins_names):
         raise ValueError("All instruments must have a non-empty 'name'")
@@ -107,6 +116,8 @@ def _validate_instruments(p: Portfolio) -> None:
             f"({first_loc} and {dup_loc}). Rename one of them to a unique name."
         )
 
+
+def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
     group_id_set = {g.id for g in p.asset_groups}
     group_pct_sum: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
 
@@ -137,6 +148,10 @@ def _validate_instruments(p: Portfolio) -> None:
                     f"Non-investable instrument '{ins.name}' targetInGroupPercentage must be 0"
                 )
 
+    return group_pct_sum
+
+
+def _validate_group_instrument_pct_sums(p: Portfolio, group_pct_sum: Dict[str, D]) -> None:
     for g in p.asset_groups:
         pct_sum = group_pct_sum[g.id]
         if pct_sum != D("100"):
