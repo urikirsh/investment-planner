@@ -36,14 +36,12 @@ class AssetGroup:
     """
     Represents a logical investment category within the strategy.
 
-    Each asset group has a target percentage allocation and may designate
-    a preferred instrument to be used when allocating new funds.
+    Each asset group has a target percentage allocation.
     Asset groups participate in strategy calculations and drift analysis.
     """
     id: str
     name: str
     target_pct: D  # e.g. Decimal("25.0")
-    preferred_instrument_id: str
 
 
 @dataclass(frozen=True)
@@ -100,10 +98,6 @@ class AssetGroupPlanRow:
     - planned_delta_money:
         Planned change in value (ILS) required to reach the target.
         Positive values indicate buying; negative values indicate selling.
-    - preferred_instrument_id:
-        Identifier of the instrument preferred for executing purchases
-        for this asset group.
-
     This structure is produced by the planning logic and consumed by the
     investment execution flow. It contains no execution or UI behavior.
     """
@@ -112,4 +106,3 @@ class AssetGroupPlanRow:
     target_pct: D
     current_value: D
     planned_delta_money: D              # positive=buy, negative=sell
-    preferred_instrument_id: str

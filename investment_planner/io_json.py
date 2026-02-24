@@ -37,7 +37,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     Expects a dict with:
     - "cash": object with "value" and "min_reserve" (both parsed as Decimal, in ILS)
     - "groups" (or legacy key "assetGroups"): list of asset group objects containing
-      id, name, targetPercentage, preferredInstrumentId
+      id, name, targetPercentage
     - "instruments": list of instrument objects containing id, name, value, investable,
       group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
@@ -45,7 +45,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     This function performs structural/type validation and raises ValueError with a
     precise path (e.g. "instruments[3].value") when a required field is missing or
     malformed. It does not perform strategy validation (e.g. target sums, ID uniqueness,
-    preferred instrument existence); those checks belong to the validation layer.
+    in-group target sum checks); those checks belong to the validation layer.
 
     Parameters
     ----------
@@ -83,7 +83,6 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
                 id=str(g.get("id", "")).strip(),
                 name=str(g.get("name", "")).strip(),
                 target_pct=_parse_decimal(g.get("targetPercentage"), f"groups[{i}].targetPercentage"),
-                preferred_instrument_id=str(g.get("preferredInstrumentId", "")).strip(),
             )
         )
 
@@ -140,7 +139,6 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
                 "id": g.id,
                 "name": g.name,
                 "targetPercentage": str(g.target_pct),
-                "preferredInstrumentId": g.preferred_instrument_id,
             }
             for g in p.asset_groups
         ],
@@ -164,4 +162,3 @@ def save_portfolio_file(p: Portfolio, path: str | Path) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
-

@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from investment_planner.models import Portfolio, Instrument
+from investment_planner.models import Portfolio
 
 """
 validation.py
@@ -25,7 +25,6 @@ def validate_portfolio(p: Portfolio) -> None:
     _validate_cash(p)
     _validate_asset_groups(p)
     _validate_instruments(p)
-    _validate_preferred_instrument(p)
 
 def _validate_cash(p: Portfolio) -> None:
     if p.cash.value <= 0:
@@ -107,25 +106,4 @@ def _validate_instruments(p: Portfolio) -> None:
         if pct_sum != D("100"):
             raise ValueError(
                 f"Sum of targetInGroupPercentage for group '{g.name}' must be exactly 100, got {pct_sum}"
-            )
-
-def _validate_preferred_instrument(p: Portfolio) -> None:
-    instruments_by_id: Dict[str, Instrument] = {ins.id: ins for ins in p.instruments}
-
-    for g in p.asset_groups:
-        if not g.preferred_instrument_id:
-            raise ValueError(f"Asset group '{g.name}' must have preferredInstrumentId")
-        if g.preferred_instrument_id not in instruments_by_id:
-            raise ValueError(
-                f"Asset group '{g.name}' preferredInstrumentId not found: {g.preferred_instrument_id}"
-            )
-
-        pref: Instrument = instruments_by_id[g.preferred_instrument_id]
-
-        if not pref.investable:
-            raise ValueError(f"Asset group '{g.name}' preferred instrument must be investable")
-
-        if pref.asset_group_id != g.id:
-            raise ValueError(
-                f"Asset group '{g.name}' preferred instrument must belong to the same asset group"
             )

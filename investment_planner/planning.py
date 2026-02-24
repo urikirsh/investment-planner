@@ -94,7 +94,6 @@ def plan_invest_no_sell(p: Portfolio) -> List[AssetGroupPlanRow]:
                             target_pct=g.target_pct,
                             current_value=cur[g.id],
                             planned_delta_money=dmoney,
-                            preferred_instrument_id=g.preferred_instrument_id,
                         )
                     )
             return rows
@@ -128,24 +127,9 @@ def plan_rebalance(p: Portfolio) -> List[AssetGroupPlanRow]:
                 target_pct=g.target_pct,
                 current_value=cur[g.id],
                 planned_delta_money=delta,
-                preferred_instrument_id=g.preferred_instrument_id,
             )
         )
     return rows
-
-
-def map_asset_group_buys_to_instruments(plan: List[AssetGroupPlanRow]) -> Dict[str, D]:
-    """
-    Map positive asset-group deltas to the preferred instrument (buys only).
-    Sells remain at the asset-group level (you'll decide later how to sell across instruments).
-    """
-    instrument_buys: Dict[str, D] = {}
-    for row in plan:
-        if row.planned_delta_money > 0:
-            instrument_buys[row.preferred_instrument_id] = (
-                instrument_buys.get(row.preferred_instrument_id, D("0")) + row.planned_delta_money
-            )
-    return instrument_buys
 
 
 def map_asset_group_deltas_to_instruments(

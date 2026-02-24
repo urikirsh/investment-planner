@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QTreeWidgetItem,
     QVBoxLayout,
-    QWidget, QHeaderView, QComboBox,
+    QWidget, QHeaderView,
 )
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
@@ -103,77 +103,6 @@ class MainWindow(QMainWindow):
     # Screen 1 (Main)
     # -------------------------
 
-    def _get_preferred_combo(self, group_item) -> QComboBox | None:
-        w = self.tree.itemWidget(group_item, Col.PREFERRED_INSTR.value)
-        return w if isinstance(w, QComboBox) else None
-
-    def _refresh_preferred_dropdowns(self) -> None:
-        """
-        Ensure each group row has a Preferred Instrument dropdown whose options match
-        the group's current instrument children (by ID), and whose labels match current names.
-        """
-        self._suppress_item_changed = True
-        try:
-            for i in range(self.tree.topLevelItemCount()):
-                group_item = self.tree.topLevelItem(i)
-                kind = get_item_kind(group_item)
-                if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
-                    continue
-
-                # Bucket: no preferred instrument
-                if kind == RowKind.NON_INVESTABLE_BUCKET.name:
-                    # Remove widget if exists
-                    if self.tree.itemWidget(group_item, Col.PREFERRED_INSTR.value) is not None:
-                        self.tree.setItemWidget(group_item, Col.PREFERRED_INSTR.value, None)
-                    group_item.setText(Col.PREFERRED_INSTR.value, "")
-                    continue
-
-                # Collect instruments under this group
-                instruments: list[tuple[str, str]] = []  # (id, name)
-                for j in range(group_item.childCount()):
-                    child = group_item.child(j)
-                    if get_item_kind(child) != RowKind.INSTRUMENT.name:
-                        continue
-                    ins_id = get_item_id(child)
-                    ins_name = child.text(Col.NAME.value).strip()
-                    if ins_id and ins_name:
-                        instruments.append((ins_id, ins_name))
-
-                combo = self._get_preferred_combo(group_item)
-                if combo is None:
-                    combo = QComboBox()
-                    combo.setEditable(False)
-                    # When user changes preferred, we might want to trigger validation/refresh
-                    combo.currentIndexChanged.connect(lambda _=None: self._on_preferred_changed())
-                    self.tree.setItemWidget(group_item, Col.PREFERRED_INSTR.value, combo)
-
-                # Preserve current selection (by ID)
-                prev_selected_id = combo.currentData()
-
-                # Rebuild options
-                combo.blockSignals(True)
-                combo.clear()
-                for ins_id, ins_name in instruments:
-                    combo.addItem(ins_name, ins_id)  # label, userData=id
-                combo.blockSignals(False)
-
-                # Restore selection if still valid
-                if prev_selected_id is not None:
-                    idx = combo.findData(prev_selected_id)
-                else:
-                    idx = -1
-
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
-                else:
-                    # If no valid previous selection:
-                    # - if only one instrument -> select it
-                    # - if multiple -> select first (or leave unselected if you prefer)
-                    if combo.count() > 0:
-                        combo.setCurrentIndex(0)
-        finally:
-            self._suppress_item_changed = False
-
     def _on_item_changed_guard_and_recalc(self, item, column: int):
         if self._suppress_item_changed:
             return
@@ -221,7 +150,6 @@ class MainWindow(QMainWindow):
                 "Strategy %",
                 "Drift (pp)",
                 "In-group target %",
-                "Preferred Instrument",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -271,7 +199,7 @@ class MainWindow(QMainWindow):
     def _generate_total_portfolio_value_widget(self) -> QWidget:
         totals = QWidget()
         totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio value: —")
+        self.total_label = QLabel("Total portfolio value: -")
         totals_layout.addWidget(self.total_label)
         totals_layout.addStretch(1)
         return totals
@@ -326,7 +254,7 @@ class MainWindow(QMainWindow):
         # gid = _new_id("grp")
         gitem = QTreeWidgetItem(self.tree)
 
-        set_group_tree_item(self.tree, gitem, "New Asset Group", 0)
+        set_group_tree_item(gitem, "New Asset Group", 0)
 
         self.tree.expandAll()
         self._refresh_data()
@@ -380,7 +308,7 @@ class MainWindow(QMainWindow):
             data = {
                 "cash": {"value": "12000", "min_reserve": "2000"},
                 "groups": [
-                    {"id": "sp500", "name": "S&P 500", "targetPercentage": "100", "preferredInstrumentId": "spx_a"}
+                    {"id": "sp500", "name": "S&P 500", "targetPercentage": "100"}
                 ],
                 "instruments": [
                     {
@@ -426,7 +354,7 @@ class MainWindow(QMainWindow):
 
             for g in p.asset_groups:
                 gitem = QTreeWidgetItem(self.tree)
-                set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.id)
+                set_group_tree_item(gitem, g.name, g.target_pct, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
                     add_instrument_item_to_group(
@@ -440,11 +368,12 @@ class MainWindow(QMainWindow):
             # Non-investable section is always present and always added, even if it is empty.
             # It does not exist in the JSON, it is purely in the UI
             non_investable_bucket = QTreeWidgetItem(self.tree)
-            set_group_tree_item(self.tree,
-                                 non_investable_bucket,
-                                 NON_INVESTABLE_BUCKET_TITLE,
-                                 0,
-                                 NON_INVESTABLE_BUCKET_ID)
+            set_group_tree_item(
+                non_investable_bucket,
+                NON_INVESTABLE_BUCKET_TITLE,
+                0,
+                NON_INVESTABLE_BUCKET_ID,
+            )
 
             for ins in non_investable:
                 add_instrument_item_to_group(
@@ -462,7 +391,6 @@ class MainWindow(QMainWindow):
     def _refresh_data(self):
         self._refresh_total_portfolio()
         self._recalc_totals_and_pcts()
-        self._refresh_preferred_dropdowns()
 
     def _refresh_total_portfolio(self):
         try:
@@ -474,7 +402,7 @@ class MainWindow(QMainWindow):
                 total += D(str(ins["value"]))
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
-            self.total_label.setText("Total portfolio: —")
+            self.total_label.setText("Total portfolio: -")
 
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
@@ -506,25 +434,15 @@ class MainWindow(QMainWindow):
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
 
-            is_non_investable_bucket = (
-                        kind == RowKind.NON_INVESTABLE_BUCKET.name)  # Special bucket treated as not-a-group in JSON strategy
+            # This top-level bucket exists only in UI and is not serialized as a strategy group.
+            is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET.name
 
             if not is_non_investable_bucket:
-                combo = self._get_preferred_combo(gitem)
-
-                if combo is None:
-                    raise ValueError(f"Group '{gitem}' is missing preferred instrument selector")
-
-                preferred_id = combo.currentData()
-                if not preferred_id:
-                    raise ValueError(f"Group '{gitem}' must have a preferred instrument selected")
-
                 groups.append(
                     {
                         "id": gid,
                         "name": gname,
                         "targetPercentage": target_pct,
-                        "preferredInstrumentId": preferred_id,
                     }
                 )
 
@@ -655,6 +573,10 @@ class MainWindow(QMainWindow):
         quit_btn.clicked.connect(QApplication.instance().quit)
         btns_layout.addWidget(quit_btn)
 
+        back_btn = QPushButton("Back")
+        back_btn.clicked.connect(self._summary_back)
+        btns_layout.addWidget(back_btn)
+
         next_btn = QPushButton("Next")
         next_btn.clicked.connect(self._summary_next)
         btns_layout.addWidget(next_btn)
@@ -679,7 +601,7 @@ class MainWindow(QMainWindow):
 
         if mode == "rebalance":
             lines.append("")
-            lines.append("Note: SELL steps will be executed using the preferred instrument (simple rule).")
+            lines.append("Note: SELL steps follow per-instrument in-group targets.")
 
         self.summary_text.setText("\n".join(lines))
 
@@ -690,6 +612,9 @@ class MainWindow(QMainWindow):
             return
         self._show_current_wizard_step()
         self.stack.setCurrentWidget(self.screen_wizard)
+
+    def _summary_back(self):
+        self.stack.setCurrentWidget(self.screen_main)
 
     # -------------------------
     # Screen 3 (Wizard)
@@ -703,7 +628,7 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
 
-        self.wiz_info = QLabel("—")
+        self.wiz_info = QLabel("-")
         self.wiz_info.setWordWrap(True)
         layout.addWidget(self.wiz_info)
 
@@ -720,7 +645,7 @@ class MainWindow(QMainWindow):
         calc_btn.clicked.connect(self._wizard_calculate)
         calc_layout.addWidget(calc_btn)
 
-        self.wiz_result = QLabel("Units: — | Spent: — | Leftover vs plan: —")
+        self.wiz_result = QLabel("Units: - | Spent: - | Leftover vs plan: -")
         self.wiz_result.setWordWrap(True)
         calc_layout.addWidget(self.wiz_result, 1)
         layout.addWidget(calc_row)
@@ -754,7 +679,7 @@ class MainWindow(QMainWindow):
             f"Planned {action} value: {abs(s.planned_delta_money)}"
         )
         self.price_edit.setText("")
-        self.wiz_result.setText("Units: — | Spent/Proceeds: — | Leftover vs plan: —")
+        self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
 
         # store last calculation
         self._last_calc = None
@@ -794,7 +719,7 @@ class MainWindow(QMainWindow):
                 calc_units = self._last_calc.units
                 spent = self._last_calc.spent
 
-            # Allow save&continue with 0 units -> skip saving (your requirement)
+            # If no valid trade was calculated, continue without saving changes.
             if calc_units > 0 and spent >= D("1"):
                 if s.planned_delta_money > 0:
                     self.current_portfolio = commit_buy(
@@ -804,7 +729,7 @@ class MainWindow(QMainWindow):
                         min_trade_ils=D("100"),
                     )
                 else:
-                    # SELL (simple: sell from preferred instrument)
+                    # SELL from the current wizard instrument
                     self.current_portfolio = commit_sell(
                         p=self.current_portfolio,
                         instrument_id=s.instrument_id,
@@ -812,7 +737,7 @@ class MainWindow(QMainWindow):
                         min_trade_ils=D("1"),
                     )
 
-                # Persist after each step (matches your “partial saves ok”)
+                # Persist after each step to support partial execution.
                 save_portfolio_file(self.current_portfolio, self.json_path)
 
             # Next step or back to main
@@ -825,9 +750,6 @@ class MainWindow(QMainWindow):
                 self._show_current_wizard_step()
         except Exception as e:
             QMessageBox.critical(self, "Save failed", str(e))
-
-    def _on_preferred_changed(self):
-        pass
 
     def _recalc_totals_and_pcts(self) -> None:
         """
@@ -866,11 +788,11 @@ class MainWindow(QMainWindow):
 
                     top.setText(Col.TOT_VALUE.value, str(total))
                     row_value[top] = total
-                    if kind == RowKind.GROUP.name:  # do not do this for the non-investible bucket
+                    if kind == RowKind.GROUP.name:  # do not do this for the non-investable bucket
                         group_items.append(top)
                         strategy_total += total
 
-            cash_value = parse_value_cell(self.cash_value_edit.text())  # rename field when you do value migration
+            cash_value = parse_value_cell(self.cash_value_edit.text())
             portfolio_total = cash_value + portfolio_instruments_total
 
             # 2) Portfolio % for all items
@@ -894,7 +816,7 @@ class MainWindow(QMainWindow):
                     g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
                     apply_drift_color(g, Col.DRIFT_PP.value, drift)
 
-            # 4) Clear group-only columns for non-group rows (optional cleanliness)
+            # 4) Keep group-only columns blank for the non-investable bucket row.
             for i in range(self.tree.topLevelItemCount()):
                 top = self.tree.topLevelItem(i)
                 if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:

@@ -5,9 +5,7 @@ import uuid
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QTreeWidget,
     QTreeWidgetItem,
-    QComboBox
 )
 from PySide6.QtGui import QColor, QBrush
 
@@ -86,11 +84,9 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
     # Text left-aligned
     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
-    item.setTextAlignment(Col.PREFERRED_INSTR.value, Qt.AlignLeft | Qt.AlignVCenter)
 
 
-def set_group_tree_item(tree: QTreeWidget,
-                         gitem: QTreeWidgetItem,
+def set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
                          id_str: str = "") -> None:
@@ -99,9 +95,6 @@ def set_group_tree_item(tree: QTreeWidget,
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
     gitem.setText(Col.IN_GROUP_PCT.value, "")
-
-    combo = QComboBox()
-    tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
 
     gid = id_str.strip() or new_id("grp")
 
@@ -124,7 +117,6 @@ def add_instrument_item_to_group(
     item.setText(Col.TOT_VALUE.value, value)
     item.setText(Col.TARGET_PCT.value, "")
     item.setText(Col.IN_GROUP_PCT.value, in_group_pct)
-    item.setText(Col.PREFERRED_INSTR.value, "")
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT.name, iid)
@@ -156,7 +148,7 @@ def parse_value_cell(txt: str) -> D:
         return D("0")
 
 def fmt_pct(value: D) -> str:
-    # standard rounding to 1 decimal
+    # Standard rounding to 1 decimal place.
     return f"{value:.1f}%"
 
 def fmt_pp(value: D) -> str:
@@ -176,13 +168,13 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
     - Zero: default color
     """
     if drift_pp < 0:
-        # Underweight → red
+        # Underweight -> red
         item.setForeground(col_index, QBrush(QColor("#b00020")))
     elif drift_pp > 0:
-        # Overweight → green
+        # Overweight -> green
         item.setForeground(col_index, QBrush(QColor("#1b5e20")))
     else:
-        # Neutral → default
+        # Neutral -> default
         set_cell_readonly_look(item, col_index)
 
 def set_cell_readonly_look(item, col: int) -> None:

@@ -55,10 +55,10 @@ class BuyCalculation:
         Number of units to buy (always a non-negative integer,
         rounded down to respect discrete trading constraints).
     - spent:
-        Actual amount of money spent (units × price, in ILS).
+        Actual amount of money spent (units * price, in ILS).
     - leftover:
         Unused money from the planned allocation
-        (planned_money − spent).
+        (planned_money - spent).
 
     Design notes:
     - The class is frozen (immutable) to ensure calculations remain
