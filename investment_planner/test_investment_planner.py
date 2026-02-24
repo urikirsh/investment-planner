@@ -129,7 +129,24 @@ def test_validation_instrument_names_must_be_unique():
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
-    with pytest.raises(ValueError, match="Duplicate instrument.name"):
+    with pytest.raises(
+        ValueError,
+        match=r"Duplicate instrument name 'DUP' across multiple locations .*Rename one of them to a unique name",
+    ):
+        validate_portfolio(p)
+
+
+def test_validation_instrument_names_duplicate_within_same_group_has_detailed_error():
+    instruments = [
+        {"id": "i1", "name": "DUP", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "i2", "name": "DUP", "value": "4000", "investable": True, "groupId": "g1"},
+    ]
+    data = make_valid_data(instruments=instruments)
+    p = load_portfolio(data)
+    with pytest.raises(
+        ValueError,
+        match=r"Duplicate instrument name 'DUP' in asset group 'Asset 1'.*Rename one of the instruments in this group",
+    ):
         validate_portfolio(p)
 
 
