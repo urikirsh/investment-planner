@@ -51,7 +51,6 @@ class Col(Enum):
     STRATEGY_PCT = 4
     DRIFT_PP = 5
     IN_GROUP_PCT = 6
-    PREFERRED_INSTR = 7
 
 @dataclass
 class WizardStep:
@@ -67,4 +66,3 @@ class WizardStep:
     instrument_id: str
     instrument_name: str
     planned_delta_money: D  # positive buy, negative sell
-

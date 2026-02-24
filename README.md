@@ -31,6 +31,7 @@ The application never executes trades automatically. All actions are explicit an
 ### Portfolio structure
 - Asset groups with **decimal target percentages**
 - Instruments with current **market value in ILS**
+- Per-group instrument split using mandatory **in-group target percentages** (must sum to 100 per group)
 - Permanent **Non-investable bucket** for holdings excluded from the strategy
 - **Cash** with a configurable minimum reserve (excluded from allocation logic)
 
@@ -47,7 +48,7 @@ The application never executes trades automatically. All actions are explicit an
   - **Invest** – allocate new funds without selling, to avoid a tax event
   - **Invest & Rebalance** – allow selling to restore targets
 - Step-by-step investment flow:
-  - per-instrument allocation
+  - per-instrument allocation based on desired post-investment in-group targets
   - price input exactly as shown in the broker (**agorot**)
   - automatic conversion to ILS
   - integer unit calculation (rounded down)
