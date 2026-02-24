@@ -39,7 +39,8 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     - "groups" (or legacy key "assetGroups"): list of asset group objects containing
       id, name, targetPercentage, preferredInstrumentId
     - "instruments": list of instrument objects containing id, name, value, investable,
-      and an optional group reference ("groupId" or legacy "assetGroupId")
+      group reference ("groupId" or legacy "assetGroupId"), and required
+      "targetInGroupPercentage"
 
     This function performs structural/type validation and raises ValueError with a
     precise path (e.g. "instruments[3].value") when a required field is missing or
@@ -107,6 +108,10 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
                 value=_parse_decimal(ins.get("value"), f"instruments[{i}].value"),
                 investable=bool(ins.get("investable")),
                 asset_group_id=asset_group_id,
+                target_in_group_pct=_parse_decimal(
+                    ins.get("targetInGroupPercentage"),
+                    f"instruments[{i}].targetInGroupPercentage",
+                ),
             )
         )
 
@@ -145,6 +150,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
                 "name": ins.name,
                 "value": str(ins.value),
                 "investable": bool(ins.investable),
+                "targetInGroupPercentage": str(ins.target_in_group_pct),
                 **({"groupId": ins.asset_group_id} if ins.asset_group_id is not None else {}),
             }
             for ins in p.instruments

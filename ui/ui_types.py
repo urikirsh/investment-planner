@@ -50,7 +50,8 @@ class Col(Enum):
     TARGET_PCT = 3
     STRATEGY_PCT = 4
     DRIFT_PP = 5
-    PREFERRED_INSTR = 6
+    IN_GROUP_PCT = 6
+    PREFERRED_INSTR = 7
 
 @dataclass
 class WizardStep:
@@ -63,7 +64,7 @@ class WizardStep:
     """
     asset_group_id: str
     asset_group_name: str
-    preferred_instrument_id: str
-    preferred_instrument_name: str
+    instrument_id: str
+    instrument_name: str
     planned_delta_money: D  # positive buy, negative sell
 

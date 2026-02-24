@@ -7,7 +7,8 @@ from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
     plan_invest_no_sell,
-    plan_rebalance
+    plan_rebalance,
+    map_asset_group_deltas_to_instruments,
 )
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
@@ -32,10 +33,45 @@ def make_valid_data(
     """
     if instruments is None:
         instruments = [
-            {"id": "i1", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
-            {"id": "i2", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
-            {"id": "i3", "name": "Parking", "value": "1000", "investable": False},
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "4000",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i3",
+                "name": "Parking",
+                "value": "1000",
+                "investable": False,
+                "targetInGroupPercentage": "0",
+            },
         ]
+
+    # Ensure mandatory targetInGroupPercentage exists for every instrument.
+    seen_by_group = {}
+    for ins in instruments:
+        if "targetInGroupPercentage" in ins:
+            continue
+        if ins.get("investable") and ins.get("groupId"):
+            gid = ins["groupId"]
+            if gid not in seen_by_group:
+                ins["targetInGroupPercentage"] = "100"
+                seen_by_group[gid] = True
+            else:
+                ins["targetInGroupPercentage"] = "0"
+        else:
+            ins["targetInGroupPercentage"] = "0"
 
     if preferred_map is None:
         preferred_map = {}
@@ -58,7 +94,7 @@ def make_valid_data(
         )
 
     return {
-        "cash": {"value": cash_value, "reserve": cash_reserve},
+        "cash": {"value": cash_value, "min_reserve": cash_reserve},
         "groups": groups,
         "instruments": instruments,
     }
@@ -95,7 +131,7 @@ def test_validation_value_cannot_be_negative():
     ]
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
-    with pytest.raises(ValueError, match="Instrument 'Inst 1' value must be positive"):
+    with pytest.raises(ValueError, match="Instrument 'Inst 2' value cannot be negative"):
         validate_portfolio(p)
 
 def test_validation_instrument_names_must_be_unique():
@@ -290,24 +326,100 @@ def test_plan_rebalance_contains_buys_and_sells_in_group_order():
     assert rows2[0].planned_delta_money == D("5000") - D("9000")  # -4000
     assert rows2[1].planned_delta_money == D("5000") - D("1000")  # +4000
 
+
+def test_map_asset_group_deltas_to_instruments_uses_post_investment_targets():
+    data = make_valid_data(
+        cash_value="1000",
+        cash_reserve="0",
+        group_targets=(("g1", "Gold", "100"),),
+        preferred_map={"g1": "d4"},
+        instruments=[
+            {
+                "id": "d4",
+                "name": "D4",
+                "value": "200",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "50",
+            },
+            {
+                "id": "d5",
+                "name": "D5",
+                "value": "100",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "50",
+            },
+        ],
+    )
+    p = load_portfolio(data)
+    rows = plan_invest_no_sell(p)
+    steps = map_asset_group_deltas_to_instruments(p, rows)
+
+    by_id = {ins_id: delta for _, _, ins_id, delta in steps}
+    assert by_id["d4"] == D("450")
+    assert by_id["d5"] == D("550")
+    assert sum(by_id.values(), D("0")) == rows[0].planned_delta_money
+
+
+def test_map_asset_group_deltas_to_instruments_excludes_zero_pct_instruments():
+    data = make_valid_data(
+        cash_value="1000",
+        cash_reserve="0",
+        group_targets=(("g1", "Group", "100"),),
+        preferred_map={"g1": "i1"},
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "300",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "200",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "0",
+            },
+        ],
+    )
+    p = load_portfolio(data)
+    rows = plan_invest_no_sell(p)
+    steps = map_asset_group_deltas_to_instruments(p, rows)
+
+    assert len(steps) == 1
+    assert steps[0][2] == "i1"
+    assert steps[0][3] == rows[0].planned_delta_money
+
 # -------------------------
 # Planning tests: unit calculation tests
 # -------------------------
 
 def make_portfolio():
     data = {
-        "cash": {"value": "1000", "reserve": "100"},
+        "cash": {"value": "1000", "min_reserve": "100"},
         "groups": [
             {"id": "g1", "name": "Asset", "targetPercentage": "100", "preferredInstrumentId": "i1"}
         ],
         "instruments": [
-            {"id": "i1", "name": "Inst", "value": "500", "investable": True, "groupId": "g1"}
+            {
+                "id": "i1",
+                "name": "Inst",
+                "value": "500",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            }
         ],
     }
     return load_portfolio(data)
 
 def test_calculate_buy_units_floor():
-    calc = calculate_buy_units(instrument_id="i1", planned_money=D("100"), price_ag=D("33"))
+    calc = calculate_buy_units(instrument_id="i1", planned_money=D("100"), price_ag=D("3300"))
     assert calc.units == 3
     assert calc.spent == D("99")
     assert calc.leftover == D("1")

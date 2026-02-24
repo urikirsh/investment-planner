@@ -146,3 +146,79 @@ def map_asset_group_buys_to_instruments(plan: List[AssetGroupPlanRow]) -> Dict[s
                 instrument_buys.get(row.preferred_instrument_id, D("0")) + row.planned_delta_money
             )
     return instrument_buys
+
+
+def map_asset_group_deltas_to_instruments(
+    p: Portfolio, plan: List[AssetGroupPlanRow]
+) -> List[tuple[str, str, str, D]]:
+    """
+    Split each asset-group delta across that group's investable instruments based on
+    target_in_group_pct. Returns ordered tuples:
+    (asset_group_id, asset_group_name, instrument_id, planned_delta_money)
+    """
+    instruments_by_group: Dict[str, list] = {g.id: [] for g in p.asset_groups}
+    for ins in p.instruments:
+        if ins.investable and ins.asset_group_id:
+            instruments_by_group[ins.asset_group_id].append(ins)
+
+    def _split_positive_delta_no_sell(group_instruments: list, group_delta: D) -> Dict[str, D]:
+        cur = {ins.id: ins.value for ins in group_instruments}
+        pct = {ins.id: ins.target_in_group_pct for ins in group_instruments}
+        active_ids = [ins.id for ins in group_instruments]
+
+        while True:
+            pct_total = sum((pct[iid] for iid in active_ids), D("0"))
+            if pct_total <= 0:
+                return {ins.id: D("0") for ins in group_instruments}
+
+            sum_active_current = sum((cur[iid] for iid in active_ids), D("0"))
+            active_total_after = sum_active_current + group_delta
+
+            deltas: Dict[str, D] = {}
+            negative_ids: list[str] = []
+            for iid in active_ids:
+                wanted = (active_total_after * pct[iid]) / pct_total
+                delta = wanted - cur[iid]
+                deltas[iid] = delta
+                if delta < 0:
+                    negative_ids.append(iid)
+
+            if not negative_ids:
+                result = {ins.id: D("0") for ins in group_instruments}
+                for iid in active_ids:
+                    result[iid] = deltas[iid]
+                return result
+
+            neg_set = set(negative_ids)
+            active_ids = [iid for iid in active_ids if iid not in neg_set]
+            if not active_ids:
+                return {ins.id: D("0") for ins in group_instruments}
+
+    def _split_by_post_target(group_instruments: list, group_delta: D) -> Dict[str, D]:
+        current_total = sum((ins.value for ins in group_instruments), D("0"))
+        total_after = current_total + group_delta
+        deltas: Dict[str, D] = {}
+        for ins in group_instruments:
+            wanted = (total_after * ins.target_in_group_pct) / D("100")
+            deltas[ins.id] = wanted - ins.value
+        return deltas
+
+    steps: List[tuple[str, str, str, D]] = []
+    for row in plan:
+        group_instruments = [
+            ins for ins in instruments_by_group.get(row.asset_group_id, []) if ins.target_in_group_pct > 0
+        ]
+        if not group_instruments:
+            continue
+
+        if row.planned_delta_money > 0:
+            split_deltas = _split_positive_delta_no_sell(group_instruments, row.planned_delta_money)
+        else:
+            split_deltas = _split_by_post_target(group_instruments, row.planned_delta_money)
+
+        for ins in group_instruments:
+            delta = split_deltas.get(ins.id, D("0"))
+            if delta != 0:
+                steps.append((row.asset_group_id, row.asset_group_name, ins.id, delta))
+
+    return steps
