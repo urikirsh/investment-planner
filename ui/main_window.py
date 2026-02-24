@@ -946,13 +946,16 @@ class MainWindow(QMainWindow):
 
     def _validate_in_group_pct_cell_or_revert(self, item) -> bool:
         """
-        Validates an instrument's In-group target % cell. Returns True if OK, False if reverted.
+        Validates an instrument's In-group target % cell.
+        Returns True if accepted, False if reverted/ignored.
         """
         parent = item.parent()
         if parent is None:
-            return True
+            # Defensive: instrument rows should always have a parent.
+            return False
         if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
-            return True
+            # In-group % is not applicable for non-investable holdings.
+            return False
 
         col = Col.IN_GROUP_PCT.value
         raw = item.text(col).strip()
