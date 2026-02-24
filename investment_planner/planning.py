@@ -153,8 +153,17 @@ def map_asset_group_deltas_to_instruments(
 ) -> List[tuple[str, str, str, D]]:
     """
     Split each asset-group delta across that group's investable instruments based on
-    target_in_group_pct. Returns ordered tuples:
+    target_in_group_pct, targeting the desired *post-investment* in-group composition.
+    Returns ordered tuples:
     (asset_group_id, asset_group_name, instrument_id, planned_delta_money)
+
+    Important behavior:
+    - Only instruments with target_in_group_pct > 0 are considered.
+    - For positive group deltas (buying), we do not force sells inside the group.
+      Overweight instruments can be frozen at delta=0, while the remaining active
+      instruments absorb the buy amount.
+    - For zero/negative group deltas, we solve directly to post-target values
+      (which can yield negative deltas per instrument).
     """
     instruments_by_group: Dict[str, list] = {g.id: [] for g in p.asset_groups}
     for ins in p.instruments:
@@ -162,11 +171,21 @@ def map_asset_group_deltas_to_instruments(
             instruments_by_group[ins.asset_group_id].append(ins)
 
     def _split_positive_delta_no_sell(group_instruments: list, group_delta: D) -> Dict[str, D]:
+        """
+        Allocate a positive group delta across instruments while forbidding per-instrument sells.
+
+        This mirrors the no-sell logic at asset-group level:
+        - Compute wanted post-invest values from in-group percentages.
+        - If some instruments would require negative delta (sell), exclude them from the active set.
+        - Renormalize percentages over the remaining active instruments and iterate.
+        - Return deltas for all instruments (inactive ones get 0).
+        """
         cur = {ins.id: ins.value for ins in group_instruments}
         pct = {ins.id: ins.target_in_group_pct for ins in group_instruments}
         active_ids = [ins.id for ins in group_instruments]
 
         while True:
+            # Active percentages are renormalized by dividing by pct_total.
             pct_total = sum((pct[iid] for iid in active_ids), D("0"))
             if pct_total <= 0:
                 return {ins.id: D("0") for ins in group_instruments}
@@ -184,17 +203,26 @@ def map_asset_group_deltas_to_instruments(
                     negative_ids.append(iid)
 
             if not negative_ids:
+                # Stable allocation: all active deltas are non-negative.
                 result = {ins.id: D("0") for ins in group_instruments}
                 for iid in active_ids:
                     result[iid] = deltas[iid]
                 return result
 
+            # Freeze instruments that would need a sell and retry with the rest.
             neg_set = set(negative_ids)
             active_ids = [iid for iid in active_ids if iid not in neg_set]
             if not active_ids:
                 return {ins.id: D("0") for ins in group_instruments}
 
     def _split_by_post_target(group_instruments: list, group_delta: D) -> Dict[str, D]:
+        """
+        Solve directly for per-instrument deltas from desired post-investment percentages.
+
+        For each instrument:
+            wanted_after = (group_total_after * target_pct / 100)
+            delta = wanted_after - current_value
+        """
         current_total = sum((ins.value for ins in group_instruments), D("0"))
         total_after = current_total + group_delta
         deltas: Dict[str, D] = {}
@@ -205,17 +233,21 @@ def map_asset_group_deltas_to_instruments(
 
     steps: List[tuple[str, str, str, D]] = []
     for row in plan:
+        # Ignore instruments with 0% in-group target: they should not receive future investments.
         group_instruments = [
             ins for ins in instruments_by_group.get(row.asset_group_id, []) if ins.target_in_group_pct > 0
         ]
         if not group_instruments:
             continue
 
+        # Positive group delta -> buy-only split (no per-instrument sells).
+        # Non-positive group delta -> exact post-target solve.
         if row.planned_delta_money > 0:
             split_deltas = _split_positive_delta_no_sell(group_instruments, row.planned_delta_money)
         else:
             split_deltas = _split_by_post_target(group_instruments, row.planned_delta_money)
 
+        # Keep output compact: only emit actionable (non-zero) instrument deltas.
         for ins in group_instruments:
             delta = split_deltas.get(ins.id, D("0"))
             if delta != 0:
