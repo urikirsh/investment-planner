@@ -21,6 +21,16 @@ No UI, persistence, or calculation logic belongs in this module.
 D = Decimal
 
 
+def _format_instrument_location(p: Portfolio, idx: int, instrument_name: str, group_id: str | None) -> str:
+    del idx  # index is intentionally hidden from user-facing messages
+    del instrument_name
+    group_by_id = {g.id: g.name for g in p.asset_groups}
+    if group_id is None:
+        return "non-investable bucket"
+    group_name = group_by_id.get(group_id, "<unknown group>")
+    return f"asset group '{group_name}'"
+
+
 def validate_portfolio(p: Portfolio) -> None:
     _validate_cash(p)
     _validate_asset_groups(p)
@@ -68,8 +78,34 @@ def _validate_instruments(p: Portfolio) -> None:
     ins_names = [ins.name for ins in p.instruments]
     if any(not n for n in ins_names):
         raise ValueError("All instruments must have a non-empty 'name'")
-    if len(set(ins_names)) != len(ins_names):
-        raise ValueError("Duplicate instrument.name found (names must be unique)")
+
+    # Detect duplicate names and fail fast on the first duplicate for clear feedback.
+    first_seen_index_by_name: Dict[str, int] = {}
+    for idx, ins in enumerate(p.instruments):
+        prior_idx = first_seen_index_by_name.get(ins.name)
+        if prior_idx is None:
+            first_seen_index_by_name[ins.name] = idx
+            continue
+
+        first_ins = p.instruments[prior_idx]
+        first_loc = _format_instrument_location(p, prior_idx, first_ins.name, first_ins.asset_group_id)
+        dup_loc = _format_instrument_location(p, idx, ins.name, ins.asset_group_id)
+
+        if first_ins.asset_group_id == ins.asset_group_id:
+            if ins.asset_group_id is None:
+                raise ValueError(
+                    f"Duplicate instrument name '{ins.name}' in the non-investable bucket. "
+                    "Rename one of the instruments to a unique name."
+                )
+            raise ValueError(
+                f"Duplicate instrument name '{ins.name}' in {dup_loc}. "
+                "Rename one of the instruments in this group to a unique name."
+            )
+
+        raise ValueError(
+            f"Duplicate instrument name '{ins.name}' across multiple locations "
+            f"({first_loc} and {dup_loc}). Rename one of them to a unique name."
+        )
 
     group_id_set = {g.id for g in p.asset_groups}
     group_pct_sum: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
