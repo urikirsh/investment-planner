@@ -655,6 +655,10 @@ class MainWindow(QMainWindow):
         quit_btn.clicked.connect(QApplication.instance().quit)
         btns_layout.addWidget(quit_btn)
 
+        back_btn = QPushButton("Back")
+        back_btn.clicked.connect(self._summary_back)
+        btns_layout.addWidget(back_btn)
+
         next_btn = QPushButton("Next")
         next_btn.clicked.connect(self._summary_next)
         btns_layout.addWidget(next_btn)
@@ -690,6 +694,9 @@ class MainWindow(QMainWindow):
             return
         self._show_current_wizard_step()
         self.stack.setCurrentWidget(self.screen_wizard)
+
+    def _summary_back(self):
+        self.stack.setCurrentWidget(self.screen_main)
 
     # -------------------------
     # Screen 3 (Wizard)
