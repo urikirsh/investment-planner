@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
     def _generate_total_portfolio_value_widget(self) -> QWidget:
         totals = QWidget()
         totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio value: —")
+        self.total_label = QLabel("Total portfolio value: -")
         totals_layout.addWidget(self.total_label)
         totals_layout.addStretch(1)
         return totals
@@ -402,7 +402,7 @@ class MainWindow(QMainWindow):
                 total += D(str(ins["value"]))
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
-            self.total_label.setText("Total portfolio: —")
+            self.total_label.setText("Total portfolio: -")
 
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
@@ -434,8 +434,8 @@ class MainWindow(QMainWindow):
             gname = gitem.text(Col.NAME.value).strip()
             target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
 
-            is_non_investable_bucket = (
-                        kind == RowKind.NON_INVESTABLE_BUCKET.name)  # Special bucket treated as not-a-group in JSON strategy
+            # This top-level bucket exists only in UI and is not serialized as a strategy group.
+            is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET.name
 
             if not is_non_investable_bucket:
                 groups.append(
@@ -628,7 +628,7 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
 
-        self.wiz_info = QLabel("—")
+        self.wiz_info = QLabel("-")
         self.wiz_info.setWordWrap(True)
         layout.addWidget(self.wiz_info)
 
@@ -645,7 +645,7 @@ class MainWindow(QMainWindow):
         calc_btn.clicked.connect(self._wizard_calculate)
         calc_layout.addWidget(calc_btn)
 
-        self.wiz_result = QLabel("Units: — | Spent: — | Leftover vs plan: —")
+        self.wiz_result = QLabel("Units: - | Spent: - | Leftover vs plan: -")
         self.wiz_result.setWordWrap(True)
         calc_layout.addWidget(self.wiz_result, 1)
         layout.addWidget(calc_row)
@@ -679,7 +679,7 @@ class MainWindow(QMainWindow):
             f"Planned {action} value: {abs(s.planned_delta_money)}"
         )
         self.price_edit.setText("")
-        self.wiz_result.setText("Units: — | Spent/Proceeds: — | Leftover vs plan: —")
+        self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
 
         # store last calculation
         self._last_calc = None
@@ -719,7 +719,7 @@ class MainWindow(QMainWindow):
                 calc_units = self._last_calc.units
                 spent = self._last_calc.spent
 
-            # Allow save&continue with 0 units -> skip saving (your requirement)
+            # If no valid trade was calculated, continue without saving changes.
             if calc_units > 0 and spent >= D("1"):
                 if s.planned_delta_money > 0:
                     self.current_portfolio = commit_buy(
@@ -737,7 +737,7 @@ class MainWindow(QMainWindow):
                         min_trade_ils=D("1"),
                     )
 
-                # Persist after each step (matches your “partial saves ok”)
+                # Persist after each step to support partial execution.
                 save_portfolio_file(self.current_portfolio, self.json_path)
 
             # Next step or back to main
@@ -788,11 +788,11 @@ class MainWindow(QMainWindow):
 
                     top.setText(Col.TOT_VALUE.value, str(total))
                     row_value[top] = total
-                    if kind == RowKind.GROUP.name:  # do not do this for the non-investible bucket
+                    if kind == RowKind.GROUP.name:  # do not do this for the non-investable bucket
                         group_items.append(top)
                         strategy_total += total
 
-            cash_value = parse_value_cell(self.cash_value_edit.text())  # rename field when you do value migration
+            cash_value = parse_value_cell(self.cash_value_edit.text())
             portfolio_total = cash_value + portfolio_instruments_total
 
             # 2) Portfolio % for all items
@@ -816,7 +816,7 @@ class MainWindow(QMainWindow):
                     g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
                     apply_drift_color(g, Col.DRIFT_PP.value, drift)
 
-            # 4) Clear group-only columns for non-group rows (optional cleanliness)
+            # 4) Keep group-only columns blank for the non-investable bucket row.
             for i in range(self.tree.topLevelItemCount()):
                 top = self.tree.topLevelItem(i)
                 if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:

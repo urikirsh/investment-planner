@@ -84,6 +84,8 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
     # Text left-aligned
     item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
+
+
 def set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
@@ -146,7 +148,7 @@ def parse_value_cell(txt: str) -> D:
         return D("0")
 
 def fmt_pct(value: D) -> str:
-    # standard rounding to 1 decimal
+    # Standard rounding to 1 decimal place.
     return f"{value:.1f}%"
 
 def fmt_pp(value: D) -> str:
@@ -166,13 +168,13 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
     - Zero: default color
     """
     if drift_pp < 0:
-        # Underweight → red
+        # Underweight -> red
         item.setForeground(col_index, QBrush(QColor("#b00020")))
     elif drift_pp > 0:
-        # Overweight → green
+        # Overweight -> green
         item.setForeground(col_index, QBrush(QColor("#1b5e20")))
     else:
-        # Neutral → default
+        # Neutral -> default
         set_cell_readonly_look(item, col_index)
 
 def set_cell_readonly_look(item, col: int) -> None:

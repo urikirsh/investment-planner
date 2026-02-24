@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QTreeWidget
 from PySide6.QtCore import Qt, Signal
 
-from ui.ui_types import RowKind, Col, ROLE_KIND  # adjust imports to your project
+from ui.ui_types import RowKind, Col, ROLE_KIND
 
 
 class InvestmentTreeWidget(QTreeWidget):
@@ -23,11 +23,11 @@ class InvestmentTreeWidget(QTreeWidget):
         self.setDropIndicatorShown(True)
 
     def _kind_of(self, item) -> RowKind | None:
-        # Store kind in the NAME column role (or whichever you chose)
+        # Row kind is stored in the NAME column role.
         return item.data(Col.NAME.value, ROLE_KIND)
 
     def dropEvent(self, event):
-        # Identify what's being dragged (we use currentItem; good enough for single-select UI)
+        # Identify the dragged item (single-selection UI).
         dragged = self.currentItem()
         if dragged is None:
             event.ignore()
