@@ -73,10 +73,16 @@ def _validate_instruments(p: Portfolio) -> None:
         raise ValueError("Duplicate instrument.name found (names must be unique)")
 
     group_id_set = {g.id for g in p.asset_groups}
+    group_pct_sum: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
 
     for ins in p.instruments:
         if ins.value < 0:
-            raise ValueError(f"Instrument '{ins.name}' value cannot be positive")
+            raise ValueError(f"Instrument '{ins.name}' value cannot be negative")
+
+        if ins.target_in_group_pct < 0 or ins.target_in_group_pct > D("100"):
+            raise ValueError(
+                f"Instrument '{ins.name}' targetInGroupPercentage must be between 0 and 100"
+            )
 
         if ins.investable:
             # investable instruments must belong to a group
@@ -86,10 +92,22 @@ def _validate_instruments(p: Portfolio) -> None:
                 raise ValueError(
                     f"Instrument '{ins.name}' references unknown asset group id '{ins.asset_group_id}'"
                 )
+            group_pct_sum[ins.asset_group_id] += ins.target_in_group_pct
         else:
             # non-investable instruments must not belong to a group
             if ins.asset_group_id is not None:
                 raise ValueError(f"Non-investable instrument '{ins.name}' must not have assetGroupId/groupId")
+            if ins.target_in_group_pct != D("0"):
+                raise ValueError(
+                    f"Non-investable instrument '{ins.name}' targetInGroupPercentage must be 0"
+                )
+
+    for g in p.asset_groups:
+        pct_sum = group_pct_sum[g.id]
+        if pct_sum != D("100"):
+            raise ValueError(
+                f"Sum of targetInGroupPercentage for group '{g.name}' must be exactly 100, got {pct_sum}"
+            )
 
 def _validate_preferred_instrument(p: Portfolio) -> None:
     instruments_by_id: Dict[str, Instrument] = {ins.id: ins for ins in p.instruments}

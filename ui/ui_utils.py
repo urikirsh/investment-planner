@@ -61,7 +61,13 @@ def style_group_row(item: QTreeWidgetItem) -> None:
 
         item.setBackground(col, background)
 
-    for c in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value):
+    for c in (
+        Col.TOT_VALUE.value,
+        Col.PORTFOLIO_PCT.value,
+        Col.STRATEGY_PCT.value,
+        Col.DRIFT_PP.value,
+        Col.IN_GROUP_PCT.value,
+    ):
         set_cell_readonly_look(item, c)
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
@@ -71,7 +77,7 @@ def style_instrument_row(item: QTreeWidgetItem) -> None:
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
     # Numbers are right-aligned for instruments, centered for groups
-    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
+    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT, Col.IN_GROUP_PCT]:
         col_idx = col.value
         if get_item_kind(item) != RowKind.INSTRUMENT.name:
             item.setTextAlignment(col_idx, Qt.AlignCenter | Qt.AlignVCenter)
@@ -92,6 +98,7 @@ def set_group_tree_item(tree: QTreeWidget,
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
+    gitem.setText(Col.IN_GROUP_PCT.value, "")
 
     combo = QComboBox()
     tree.setItemWidget(gitem, Col.PREFERRED_INSTR.value, combo)
@@ -107,13 +114,16 @@ def set_group_tree_item(tree: QTreeWidget,
     style_group_row(gitem)
 
 
-def add_instrument_item_to_group(gitem: QTreeWidgetItem, name: str, value: str, id_str: str = "") \
+def add_instrument_item_to_group(
+        gitem: QTreeWidgetItem, name: str, value: str, in_group_pct: str, id_str: str = ""
+) \
         -> None:
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
     item.setText(Col.TARGET_PCT.value, "")
+    item.setText(Col.IN_GROUP_PCT.value, in_group_pct)
     item.setText(Col.PREFERRED_INSTR.value, "")
 
     iid = id_str.strip() or new_id("ins")
@@ -184,7 +194,7 @@ def _is_cell_editable(kind: str, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT.name:
-        return col in (Col.NAME.value, Col.TOT_VALUE.value)
+        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.IN_GROUP_PCT.value)
 
     # bucket
     return False

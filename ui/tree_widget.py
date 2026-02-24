@@ -42,7 +42,7 @@ class InvestmentTreeWidget(QTreeWidget):
 
         # If dropping on empty viewport => would make item top-level (bad for instruments)
         if target is None:
-            if dragged_kind == RowKind.INSTRUMENT:
+            if dragged_kind == RowKind.INSTRUMENT.name:
                 event.ignore()
                 return
             # For groups, dropping to empty means reorder top-level, which is OK
@@ -53,8 +53,10 @@ class InvestmentTreeWidget(QTreeWidget):
 
         # ---- Allow ON-ITEM only for instrument -> (group or bucket) ----
         if pos_kind == QTreeWidget.OnItem:
-            if (dragged_kind == RowKind.INSTRUMENT.name and
-                    target_kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name)):
+            if (
+                dragged_kind == RowKind.INSTRUMENT.name
+                and target_kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name)
+            ):
                 # Allowed: move instrument into that group/bucket
                 super().dropEvent(event)
                 self.items_reordered.emit()
@@ -70,7 +72,7 @@ class InvestmentTreeWidget(QTreeWidget):
         target_parent = target.parent()
 
         # Instruments must always have a parent (cannot become top-level)
-        if dragged_kind == RowKind.INSTRUMENT:
+        if dragged_kind == RowKind.INSTRUMENT.name:
             if target_parent is None:
                 # Above/below a top-level item would make it top-level => forbid
                 event.ignore()

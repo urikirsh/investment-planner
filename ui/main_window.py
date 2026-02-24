@@ -24,7 +24,12 @@ from PySide6.QtWidgets import (
 
 from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
 from investment_planner.validation import validate_portfolio
-from investment_planner.planning import compute_invest_budget, plan_invest_no_sell, plan_rebalance
+from investment_planner.planning import (
+    compute_invest_budget,
+    plan_invest_no_sell,
+    plan_rebalance,
+    map_asset_group_deltas_to_instruments,
+)
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 
 from ui.ui_types import RowKind, Col, WizardStep, ROLE_PREV_TEXT
@@ -178,6 +183,10 @@ class MainWindow(QMainWindow):
             if not self._validate_target_pct_cell_or_revert(item):
                 self._refresh_data()
                 return
+        if get_item_kind(item) == RowKind.INSTRUMENT.name and column == Col.IN_GROUP_PCT.value:
+            if not self._validate_in_group_pct_cell_or_revert(item):
+                self._refresh_data()
+                return
 
         self._refresh_data()
 
@@ -202,7 +211,7 @@ class MainWindow(QMainWindow):
     def _init_group_and_instruments_tree(self) -> None:
         # Tree: Groups as top-level, instruments as children
         self.tree = InvestmentTreeWidget()
-        self.tree.setColumnCount(5)
+        self.tree.setColumnCount(len(Col))
         self.tree.setHeaderLabels(
             [
                 "Name",
@@ -211,6 +220,7 @@ class MainWindow(QMainWindow):
                 "Target %",
                 "Strategy %",
                 "Drift (pp)",
+                "In-group target %",
                 "Preferred Instrument",
             ]
         )
@@ -234,6 +244,8 @@ class MainWindow(QMainWindow):
         self.tree.setItemDelegateForColumn(Col.TOT_VALUE.value,
                                            DecimalInputDelegate(allow_empty=False, parent=self.tree))
         self.tree.setItemDelegateForColumn(Col.TARGET_PCT.value,
+                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
+        self.tree.setItemDelegateForColumn(Col.IN_GROUP_PCT.value,
                                            DecimalInputDelegate(allow_empty=False, parent=self.tree))
 
     def _generate_controls_widget(self) -> QWidget:
@@ -328,7 +340,12 @@ class MainWindow(QMainWindow):
         # If instrument selected, use its parent group
         parent = sel.parent() or sel
 
-        add_instrument_item_to_group(parent, "New Instrument", "1")
+        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
+            default_in_group_pct = "0"
+        else:
+            default_in_group_pct = "100" if parent.childCount() == 0 else "0"
+
+        add_instrument_item_to_group(parent, "New Instrument", "1", default_in_group_pct)
 
         self.tree.expandAll()
         self._refresh_data()
@@ -366,7 +383,14 @@ class MainWindow(QMainWindow):
                     {"id": "sp500", "name": "S&P 500", "targetPercentage": "100", "preferredInstrumentId": "spx_a"}
                 ],
                 "instruments": [
-                    {"id": "spx_a", "name": "SPX 500", "value": "1", "investable": True, "groupId": "sp500"}
+                    {
+                        "id": "spx_a",
+                        "name": "SPX 500",
+                        "value": "1",
+                        "investable": True,
+                        "groupId": "sp500",
+                        "targetInGroupPercentage": "100",
+                    }
                 ],
             }
             p = load_portfolio(data)
@@ -393,6 +417,7 @@ class MainWindow(QMainWindow):
                     "value": str(ins.value),
                     "investable": ins.investable,
                     "groupId": ins.asset_group_id,
+                    "targetInGroupPercentage": str(ins.target_in_group_pct),
                 }
                 if ins.investable and ins.asset_group_id:
                     ins_by_group.setdefault(ins.asset_group_id, []).append(row)
@@ -404,7 +429,13 @@ class MainWindow(QMainWindow):
                 set_group_tree_item(self.tree, gitem, g.name, g.target_pct, g.id)
 
                 for ins in ins_by_group.get(g.id, []):
-                    add_instrument_item_to_group(gitem, ins["name"], ins["value"], ins["id"])
+                    add_instrument_item_to_group(
+                        gitem,
+                        ins["name"],
+                        ins["value"],
+                        ins["targetInGroupPercentage"],
+                        ins["id"],
+                    )
 
             # Non-investable section is always present and always added, even if it is empty.
             # It does not exist in the JSON, it is purely in the UI
@@ -417,7 +448,12 @@ class MainWindow(QMainWindow):
 
             for ins in non_investable:
                 add_instrument_item_to_group(
-                    non_investable_bucket, ins["name"], ins["value"], ins["id"])
+                    non_investable_bucket,
+                    ins["name"],
+                    ins["value"],
+                    "0",
+                    ins["id"],
+                )
 
             self.tree.expandAll()
         finally:
@@ -510,9 +546,11 @@ class MainWindow(QMainWindow):
                 if is_non_investable_bucket:
                     investable = False
                     group_id = None
+                    target_in_group_pct = "0"
                 else:
                     investable = True
                     group_id = gid
+                    target_in_group_pct = ins.text(Col.IN_GROUP_PCT.value).strip() or "0"
 
                 instruments.append(
                     {
@@ -520,6 +558,7 @@ class MainWindow(QMainWindow):
                         "name": iname,
                         "value": tot_value,
                         "investable": investable,
+                        "targetInGroupPercentage": target_in_group_pct,
                         **({"groupId": group_id} if group_id is not None else {}),
                     }
                 )
@@ -562,25 +601,25 @@ class MainWindow(QMainWindow):
             else:
                 rows = plan_rebalance(p)
 
-            # Build wizard steps in group order, executing via preferred instrument
-            # Only include non-zero deltas (and for invest mode they are already non-negative)
+            # Build wizard steps in group order, split by instrument target % within each group.
             ins_by_id = {ins.id: ins for ins in p.instruments}
+            instrument_steps = map_asset_group_deltas_to_instruments(p, rows)
 
             steps: List[WizardStep] = []
-            for r in rows:
-                if r.planned_delta_money == 0:
+            for group_id, group_name, instrument_id, planned_delta in instrument_steps:
+                if planned_delta == 0:
                     continue
-                pref = ins_by_id.get(r.preferred_instrument_id)
-                if pref is None:
-                    raise ValueError(f"Preferred instrument not found: {r.preferred_instrument_id}")
+                ins = ins_by_id.get(instrument_id)
+                if ins is None:
+                    raise ValueError(f"Instrument not found: {instrument_id}")
 
                 steps.append(
                     WizardStep(
-                        asset_group_id=r.asset_group_id,
-                        asset_group_name=r.asset_group_name,
-                        preferred_instrument_id=pref.id,
-                        preferred_instrument_name=pref.name,
-                        planned_delta_money=r.planned_delta_money,
+                        asset_group_id=group_id,
+                        asset_group_name=group_name,
+                        instrument_id=ins.id,
+                        instrument_name=ins.name,
+                        planned_delta_money=planned_delta,
                     )
                 )
 
@@ -631,11 +670,11 @@ class MainWindow(QMainWindow):
         if not steps:
             lines.append("No actions required.")
         else:
-            lines.append("Planned actions (executed via preferred instrument per asset group):")
+            lines.append("Planned actions (split per instrument by in-group target percentages):")
             for s in steps:
                 action = "BUY" if s.planned_delta_money > 0 else "SELL"
                 lines.append(
-                    f"- {action} {abs(s.planned_delta_money)} in [{s.asset_group_name}] via [{s.preferred_instrument_name}]"
+                    f"- {action} {abs(s.planned_delta_money)} in [{s.asset_group_name}] via [{s.instrument_name}]"
                 )
 
         if mode == "rebalance":
@@ -711,7 +750,7 @@ class MainWindow(QMainWindow):
         self.wiz_info.setText(
             f"Step {idx}/{total}\n"
             f"Asset group: {s.asset_group_name}\n"
-            f"Instrument: {s.preferred_instrument_name}\n"
+            f"Instrument: {s.instrument_name}\n"
             f"Planned {action} value: {abs(s.planned_delta_money)}"
         )
         self.price_edit.setText("")
@@ -727,7 +766,7 @@ class MainWindow(QMainWindow):
 
             planned = abs(s.planned_delta_money)
             calc = calculate_buy_units(
-                instrument_id=s.preferred_instrument_id,
+                instrument_id=s.instrument_id,
                 planned_money=planned,
                 price_ag=price,
             )
@@ -760,7 +799,7 @@ class MainWindow(QMainWindow):
                 if s.planned_delta_money > 0:
                     self.current_portfolio = commit_buy(
                         p=self.current_portfolio,
-                        instrument_id=s.preferred_instrument_id,
+                        instrument_id=s.instrument_id,
                         spent=spent,
                         min_trade_ils=D("100"),
                     )
@@ -768,7 +807,7 @@ class MainWindow(QMainWindow):
                     # SELL (simple: sell from preferred instrument)
                     self.current_portfolio = commit_sell(
                         p=self.current_portfolio,
-                        instrument_id=s.preferred_instrument_id,
+                        instrument_id=s.instrument_id,
                         proceeds=spent,
                         min_trade_ils=D("1"),
                     )
@@ -870,6 +909,11 @@ class MainWindow(QMainWindow):
     def _on_item_double_clicked(self, item, column):
         kind = get_item_kind(item)
 
+        if kind == RowKind.INSTRUMENT.name and column == Col.IN_GROUP_PCT.value:
+            parent = item.parent()
+            if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
+                return
+
         if _is_cell_editable(kind, column):
             # Save previous value for this specific column
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
@@ -896,6 +940,39 @@ class MainWindow(QMainWindow):
 
         if p > 100:
             self._warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
+            return False
+
+        return True
+
+    def _validate_in_group_pct_cell_or_revert(self, item) -> bool:
+        """
+        Validates an instrument's In-group target % cell.
+        Returns True if accepted, False if reverted/ignored.
+        """
+        parent = item.parent()
+        if parent is None:
+            # Defensive: instrument rows should always have a parent.
+            return False
+        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
+            # In-group % is not applicable for non-investable holdings.
+            return False
+
+        col = Col.IN_GROUP_PCT.value
+        raw = item.text(col).strip()
+        prev = item.data(col, ROLE_PREV_TEXT)
+
+        try:
+            p = Decimal(raw)
+        except Exception:
+            self._warn_and_revert(item, col, raw, prev, "In-group target % must be a number.")
+            return False
+
+        if p < 0:
+            self._warn_and_revert(item, col, raw, prev, "In-group target % cannot be negative.")
+            return False
+
+        if p > 100:
+            self._warn_and_revert(item, col, raw, prev, "In-group target % cannot exceed 100.")
             return False
 
         return True
