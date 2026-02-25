@@ -112,8 +112,8 @@ class MainWindow(QMainWindow):
             if not self._validate_target_pct_cell_or_revert(item):
                 self._refresh_data()
                 return
-        if get_item_kind(item) == RowKind.INSTRUMENT.name and column == Col.IN_GROUP_PCT.value:
-            if not self._validate_in_group_pct_cell_or_revert(item):
+        if get_item_kind(item) == RowKind.INSTRUMENT.name and column == Col.TARGET_PCT.value:
+            if not self._validate_instrument_target_pct_cell_or_revert(item):
                 self._refresh_data()
                 return
 
@@ -149,7 +149,6 @@ class MainWindow(QMainWindow):
                 "Target %",
                 "Strategy %",
                 "Drift (pp)",
-                "In-group target %",
             ]
         )
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -160,12 +159,18 @@ class MainWindow(QMainWindow):
 
         # Set column widths and drag behaviors
         header = self.tree.header()
+        header.setStretchLastSection(False)
 
         for col in Col:
             if col == Col.NAME:
                 header.setSectionResizeMode(col.value, QHeaderView.Stretch)
+            elif col == Col.DRIFT_PP:
+                header.setSectionResizeMode(col.value, QHeaderView.Fixed)
             else:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
+
+        self.tree.setColumnWidth(Col.DRIFT_PP.value, 78)
+        self.tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignCenter)
 
         self.tree.items_reordered.connect(self._after_tree_reorder)
 
@@ -173,8 +178,24 @@ class MainWindow(QMainWindow):
                                            DecimalInputDelegate(allow_empty=False, parent=self.tree))
         self.tree.setItemDelegateForColumn(Col.TARGET_PCT.value,
                                            DecimalInputDelegate(allow_empty=False, parent=self.tree))
-        self.tree.setItemDelegateForColumn(Col.IN_GROUP_PCT.value,
-                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
+        header_item = self.tree.headerItem()
+        header_item.setToolTip(
+            Col.TARGET_PCT.value,
+            "This is your goal for this row.\n"
+            "For an asset group: part of your whole investment plan.\n"
+            "For an instrument: part of its asset group.",
+        )
+        header_item.setToolTip(
+            Col.STRATEGY_PCT.value,
+            "This is where you are now.\n"
+            "For an asset group: its current share of your invested portfolio.\n"
+            "For an instrument: its current share inside its asset group.",
+        )
+        header_item.setToolTip(
+            Col.DRIFT_PP.value,
+            "How far you are from your goal for this row.\n"
+            "Positive means above goal. Negative means below goal.",
+        )
 
     def _generate_controls_widget(self) -> QWidget:
         # Controls row: add/remove
@@ -269,7 +290,7 @@ class MainWindow(QMainWindow):
         parent = sel.parent() or sel
 
         if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
-            default_in_group_pct = "0"
+            default_in_group_pct = ""
         else:
             default_in_group_pct = "100" if parent.childCount() == 0 else "0"
 
@@ -380,7 +401,7 @@ class MainWindow(QMainWindow):
                     non_investable_bucket,
                     ins["name"],
                     ins["value"],
-                    "0",
+                    "",
                     ins["id"],
                 )
 
@@ -468,7 +489,7 @@ class MainWindow(QMainWindow):
                 else:
                     investable = True
                     group_id = gid
-                    target_in_group_pct = ins.text(Col.IN_GROUP_PCT.value).strip() or "0"
+                    target_in_group_pct = ins.text(Col.TARGET_PCT.value).strip() or "0"
 
                 instruments.append(
                     {
@@ -758,7 +779,9 @@ class MainWindow(QMainWindow):
         - strategy total value (sum of group values)
         - portfolio total value (cash + all instrument values)
         - Portfolio % for all rows
-        - Strategy % + Drift(pp) for group rows only
+        - Strategy % + Drift(pp):
+          - group rows: relative to investable strategy
+          - instrument rows: relative to parent group
         """
         self._suppress_item_changed = True
         try:
@@ -800,7 +823,7 @@ class MainWindow(QMainWindow):
                 pct = safe_pct(v, portfolio_total)
                 item.setText(Col.PORTFOLIO_PCT.value, "" if pct is None else fmt_pct(pct))
 
-            # 3) Strategy % + Drift for groups only (exclude non-investables + cash already excluded)
+            # 3) Strategy % + Drift for group rows
             for g in group_items:
                 gval = row_value.get(g, D("0"))
                 sp = safe_pct(gval, strategy_total)
@@ -816,11 +839,43 @@ class MainWindow(QMainWindow):
                     g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
                     apply_drift_color(g, Col.DRIFT_PP.value, drift)
 
-            # 4) Keep group-only columns blank for the non-investable bucket row.
+            # 4) Strategy % + Drift for instrument rows (within parent group only).
+            for i in range(self.tree.topLevelItemCount()):
+                top = self.tree.topLevelItem(i)
+                top_kind = get_item_kind(top)
+                group_total = row_value.get(top, D("0"))
+                for j in range(top.childCount()):
+                    child = top.child(j)
+                    if get_item_kind(child) != RowKind.INSTRUMENT.name:
+                        continue
+
+                    if top_kind != RowKind.GROUP.name:
+                        child.setText(Col.TARGET_PCT.value, "")
+                        child.setText(Col.STRATEGY_PCT.value, "")
+                        child.setText(Col.DRIFT_PP.value, "")
+                        apply_drift_color(child, Col.DRIFT_PP.value, D("0"))
+                        continue
+
+                    child_sp = safe_pct(row_value.get(child, D("0")), group_total)
+                    if child_sp is None:
+                        child.setText(Col.STRATEGY_PCT.value, "")
+                        child.setText(Col.DRIFT_PP.value, "")
+                        apply_drift_color(child, Col.DRIFT_PP.value, D("0"))
+                        continue
+
+                    child.setText(Col.STRATEGY_PCT.value, fmt_pct(child_sp))
+                    child_target = parse_value_cell(child.text(Col.TARGET_PCT.value))
+                    child_drift = child_sp - child_target
+                    child.setText(Col.DRIFT_PP.value, fmt_pp(child_drift))
+                    apply_drift_color(child, Col.DRIFT_PP.value, child_drift)
+
+            # 5) Keep group-only columns blank for the non-investable bucket row.
             for i in range(self.tree.topLevelItemCount()):
                 top = self.tree.topLevelItem(i)
                 if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
                     top.setText(Col.TARGET_PCT.value, "")
+                    top.setText(Col.STRATEGY_PCT.value, "")
+                    top.setText(Col.DRIFT_PP.value, "")
 
         finally:
             self._suppress_item_changed = False
@@ -831,7 +886,7 @@ class MainWindow(QMainWindow):
     def _on_item_double_clicked(self, item, column):
         kind = get_item_kind(item)
 
-        if kind == RowKind.INSTRUMENT.name and column == Col.IN_GROUP_PCT.value:
+        if kind == RowKind.INSTRUMENT.name and column == Col.TARGET_PCT.value:
             parent = item.parent()
             if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
                 return
@@ -866,9 +921,9 @@ class MainWindow(QMainWindow):
 
         return True
 
-    def _validate_in_group_pct_cell_or_revert(self, item) -> bool:
+    def _validate_instrument_target_pct_cell_or_revert(self, item) -> bool:
         """
-        Validates an instrument's In-group target % cell.
+        Validates an instrument row's Target % (in-group target) cell.
         Returns True if accepted, False if reverted/ignored.
         """
         parent = item.parent()
@@ -879,22 +934,22 @@ class MainWindow(QMainWindow):
             # In-group % is not applicable for non-investable holdings.
             return False
 
-        col = Col.IN_GROUP_PCT.value
+        col = Col.TARGET_PCT.value
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
 
         try:
             p = Decimal(raw)
         except Exception:
-            self._warn_and_revert(item, col, raw, prev, "In-group target % must be a number.")
+            self._warn_and_revert(item, col, raw, prev, "Target % must be a number.")
             return False
 
         if p < 0:
-            self._warn_and_revert(item, col, raw, prev, "In-group target % cannot be negative.")
+            self._warn_and_revert(item, col, raw, prev, "Target % cannot be negative.")
             return False
 
         if p > 100:
-            self._warn_and_revert(item, col, raw, prev, "In-group target % cannot exceed 100.")
+            self._warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
 
         return True
