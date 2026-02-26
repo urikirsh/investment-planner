@@ -20,9 +20,9 @@ and item behavior throughout the application.
 
 D = Decimal
 
-ROLE_KIND = Qt.UserRole + 1        # RowKind
-ROLE_ID = Qt.UserRole + 2          # the internal id string
-ROLE_PREV_TEXT = Qt.UserRole + 50  # previous text in cell (before edit)
+ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
+ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
+ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
 
 class RowKind(Enum):
     """

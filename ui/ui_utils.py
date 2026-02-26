@@ -77,19 +77,33 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
     for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
         col_idx = col.value
         if get_item_kind(item) != RowKind.INSTRUMENT.name:
-            item.setTextAlignment(col_idx, Qt.AlignCenter | Qt.AlignVCenter)
+            item.setTextAlignment(
+                col_idx,
+                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
+            )
         else:
-            item.setTextAlignment(col_idx, Qt.AlignRight | Qt.AlignVCenter)
+            item.setTextAlignment(
+                col_idx,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )
 
     # Text left-aligned
-    item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
+    item.setTextAlignment(
+        Col.NAME.value,
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+    )
 
 
 def set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
                          id_str: str = "") -> None:
-    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+    gitem.setFlags(
+        gitem.flags()
+        | Qt.ItemFlag.ItemIsEditable
+        | Qt.ItemFlag.ItemIsDragEnabled
+        | Qt.ItemFlag.ItemIsDropEnabled
+    )
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
@@ -110,7 +124,7 @@ def add_instrument_item_to_group(
 ) \
         -> None:
     item = QTreeWidgetItem(gitem)
-    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
@@ -121,7 +135,7 @@ def add_instrument_item_to_group(
     apply_row_alignment(item)
 
     flags = item.flags()
-    flags &= ~Qt.ItemIsDropEnabled
+    flags &= ~Qt.ItemFlag.ItemIsDropEnabled
     item.setFlags(flags)
     disable_edits_to_row(item)
 
@@ -130,7 +144,7 @@ def add_instrument_item_to_group(
 
 def disable_edits_to_row(row: QTreeWidgetItem) -> None:
     flags = row.flags()
-    flags &= ~Qt.ItemIsEditable
+    flags &= ~Qt.ItemFlag.ItemIsEditable
     row.setFlags(flags)
 
 

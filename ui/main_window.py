@@ -157,10 +157,10 @@ class MainWindow(QMainWindow):
                 "Drift (pp)",
             ]
         )
-        self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tree.setDragDropMode(QAbstractItemView.InternalMove)
-        self.tree.setDefaultDropAction(Qt.MoveAction)
-        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.tree.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.tree.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self.tree.setIndentation(22)
 
         # Set column widths and drag behaviors
@@ -169,14 +169,14 @@ class MainWindow(QMainWindow):
 
         for col in Col:
             if col == Col.NAME:
-                header.setSectionResizeMode(col.value, QHeaderView.Stretch)
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
             elif col == Col.DRIFT_PP:
-                header.setSectionResizeMode(col.value, QHeaderView.Fixed)
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             else:
-                header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
 
         self.tree.setColumnWidth(Col.DRIFT_PP.value, 78)
-        self.tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignCenter)
+        self.tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
 
         self.tree.items_reordered.connect(self._after_tree_reorder)
 
@@ -479,6 +479,8 @@ class MainWindow(QMainWindow):
         top_count = self.tree.topLevelItemCount()
         for i in range(top_count):
             gitem = self.tree.topLevelItem(i)
+            if gitem is None:
+                continue
 
             kind = get_item_kind(gitem)
             if kind == RowKind.INSTRUMENT.name:
@@ -677,7 +679,7 @@ class MainWindow(QMainWindow):
         btns_layout = QHBoxLayout(btns)
 
         quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        quit_btn.clicked.connect(self._quit_app)
         btns_layout.addWidget(quit_btn)
 
         back_btn = QPushButton("Back")
@@ -766,7 +768,7 @@ class MainWindow(QMainWindow):
         btns_layout = QHBoxLayout(btns)
 
         quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        quit_btn.clicked.connect(self._quit_app)
         btns_layout.addWidget(quit_btn)
 
         save_btn = QPushButton("Save and continue")
@@ -947,6 +949,8 @@ class MainWindow(QMainWindow):
 
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
+            if top is None:
+                continue
             kind = get_item_kind(top)
             if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                 continue
@@ -954,6 +958,8 @@ class MainWindow(QMainWindow):
             total = D("0")
             for j in range(top.childCount()):
                 child = top.child(j)
+                if child is None:
+                    continue
                 if get_item_kind(child) != RowKind.INSTRUMENT.name:
                     continue
                 v = parse_value_cell(child.text(Col.TOT_VALUE.value))
@@ -1013,11 +1019,15 @@ class MainWindow(QMainWindow):
         """
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
+            if top is None:
+                continue
             top_kind = get_item_kind(top)
             group_total = row_values.get(top, D("0"))
 
             for j in range(top.childCount()):
                 child = top.child(j)
+                if child is None:
+                    continue
                 if get_item_kind(child) != RowKind.INSTRUMENT.name:
                     continue
 
@@ -1051,6 +1061,8 @@ class MainWindow(QMainWindow):
         """
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
+            if top is None:
+                continue
             if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
                 top.setText(Col.TARGET_PCT.value, "")
                 top.setText(Col.STRATEGY_PCT.value, "")
@@ -1072,10 +1084,15 @@ class MainWindow(QMainWindow):
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
 
             # Temporarily enable editing
-            item.setFlags(item.flags() | Qt.ItemIsEditable)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
             self.tree.editItem(item, column)
             # Disable immediately after edit starts
-            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+    def _quit_app(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def _validate_target_pct_cell_or_revert(self, item) -> bool:
         """
