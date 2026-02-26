@@ -699,6 +699,10 @@ class MainWindow(QMainWindow):
         save_btn.clicked.connect(self._wizard_save_continue)
         btns_layout.addWidget(save_btn)
 
+        skip_save_btn = QPushButton("Continue without saving")
+        skip_save_btn.clicked.connect(self._wizard_continue_without_saving)
+        btns_layout.addWidget(skip_save_btn)
+
         btns_layout.addStretch(1)
         layout.addWidget(btns)
 
@@ -778,16 +782,27 @@ class MainWindow(QMainWindow):
                 # Persist after each step to support partial execution.
                 save_portfolio_file(self.current_portfolio, self.json_path)
 
-            # Next step or back to main
-            self.current_step_index += 1
-            if self.current_step_index >= len(self.current_plan_steps):
-                # Return to main with updated data
-                self._populate_main_from_portfolio(self.current_portfolio)
-                self.stack.setCurrentWidget(self.screen_main)
-            else:
-                self._show_current_wizard_step()
+            self._advance_wizard_step()
         except Exception as e:
             QMessageBox.critical(self, "Save failed", str(e))
+
+    def _wizard_continue_without_saving(self):
+        try:
+            if self.current_portfolio is None:
+                raise ValueError("No portfolio loaded")
+            self._advance_wizard_step()
+        except Exception as e:
+            QMessageBox.critical(self, "Continue failed", str(e))
+
+    def _advance_wizard_step(self):
+        # Next step or back to main
+        self.current_step_index += 1
+        if self.current_step_index >= len(self.current_plan_steps):
+            # Return to main with the current in-memory portfolio state.
+            self._populate_main_from_portfolio(self.current_portfolio)
+            self.stack.setCurrentWidget(self.screen_main)
+        else:
+            self._show_current_wizard_step()
 
     def _recalc_totals_and_pcts(self) -> None:
         """
