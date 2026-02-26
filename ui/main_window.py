@@ -178,6 +178,9 @@ class MainWindow(QMainWindow):
                                            DecimalInputDelegate(allow_empty=False, parent=self.tree))
         self.tree.setItemDelegateForColumn(Col.TARGET_PCT.value,
                                            DecimalInputDelegate(allow_empty=False, parent=self.tree))
+        self._set_tree_header_tooltips()
+
+    def _set_tree_header_tooltips(self) -> None:
         header_item = self.tree.headerItem()
         header_item.setToolTip(
             Col.NAME.value,
