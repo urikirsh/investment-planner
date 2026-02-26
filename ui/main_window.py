@@ -805,21 +805,42 @@ class MainWindow(QMainWindow):
         """
         self._suppress_item_changed = True
         try:
-            group_items, row_value, portfolio_instruments_total, strategy_total = self._collect_row_values_and_totals()
+            group_items, row_values, portfolio_instruments_total, strategy_total = self._collect_row_values_and_totals()
             cash_value = parse_value_cell(self.cash_value_edit.text())
             portfolio_total = cash_value + portfolio_instruments_total
 
-            self._apply_portfolio_pct(row_value, portfolio_total)
-            self._apply_group_strategy_and_drift(group_items, row_value, strategy_total)
-            self._apply_instrument_strategy_and_drift(row_value)
+            self._apply_portfolio_pct(row_values, portfolio_total)
+            self._apply_group_strategy_and_drift(group_items, row_values, strategy_total)
+            self._apply_instrument_strategy_and_drift(row_values)
             self._clear_non_investable_bucket_group_columns()
 
         finally:
             self._suppress_item_changed = False
 
     def _collect_row_values_and_totals(self) -> tuple[list[QTreeWidgetItem], dict[QTreeWidgetItem, D], D, D]:
+        """
+        Collect per-row numeric values and aggregate totals used by recalculation steps.
+
+        Parameters
+        ----------
+        None
+            Uses the current state of `self.tree`.
+
+        Returns
+        -------
+        tuple[list[QTreeWidgetItem], dict[QTreeWidgetItem, Decimal], Decimal, Decimal]
+            (group_items, row_values, portfolio_instruments_total, strategy_total)
+            - group_items:
+              Top-level rows that are real asset groups (excludes the non-investable bucket).
+            - row_values:
+              Mapping from each processed row item (group and instrument rows) to its numeric value.
+            - portfolio_instruments_total:
+              Sum of all instrument values (investable + non-investable).
+            - strategy_total:
+              Sum of investable group totals only.
+        """
         group_items: list[QTreeWidgetItem] = []
-        row_value: dict[QTreeWidgetItem, D] = {}
+        row_values: dict[QTreeWidgetItem, D] = {}
         portfolio_instruments_total = D("0")
         strategy_total = D("0")
 
@@ -836,26 +857,26 @@ class MainWindow(QMainWindow):
                     continue
                 v = parse_value_cell(child.text(Col.TOT_VALUE.value))
                 total += v
-                row_value[child] = v
+                row_values[child] = v
                 portfolio_instruments_total += v
 
             top.setText(Col.TOT_VALUE.value, str(total))
-            row_value[top] = total
+            row_values[top] = total
             if kind == RowKind.GROUP.name:
                 group_items.append(top)
                 strategy_total += total
 
-        return group_items, row_value, portfolio_instruments_total, strategy_total
+        return group_items, row_values, portfolio_instruments_total, strategy_total
 
-    def _apply_portfolio_pct(self, row_value: dict[QTreeWidgetItem, D], portfolio_total: D) -> None:
-        for item, v in row_value.items():
+    def _apply_portfolio_pct(self, row_values: dict[QTreeWidgetItem, D], portfolio_total: D) -> None:
+        for item, v in row_values.items():
             pct = safe_pct(v, portfolio_total)
             item.setText(Col.PORTFOLIO_PCT.value, "" if pct is None else fmt_pct(pct))
 
     def _apply_group_strategy_and_drift(
         self,
         group_items: list[QTreeWidgetItem],
-        row_value: dict[QTreeWidgetItem, D],
+        row_values: dict[QTreeWidgetItem, D],
         strategy_total: D,
     ) -> None:
         """
@@ -865,7 +886,7 @@ class MainWindow(QMainWindow):
         Drift(pp) = actual_strategy_pct - target_pct.
         """
         for g in group_items:
-            gval = row_value.get(g, D("0"))
+            gval = row_values.get(g, D("0"))
             sp = safe_pct(gval, strategy_total)
             if sp is None:
                 g.setText(Col.STRATEGY_PCT.value, "")
@@ -878,7 +899,7 @@ class MainWindow(QMainWindow):
             g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
             apply_drift_color(g, Col.DRIFT_PP.value, drift)
 
-    def _apply_instrument_strategy_and_drift(self, row_value: dict[QTreeWidgetItem, D]) -> None:
+    def _apply_instrument_strategy_and_drift(self, row_values: dict[QTreeWidgetItem, D]) -> None:
         """
         Fill Strategy % and Drift for instrument rows using within-group scope.
 
@@ -892,7 +913,7 @@ class MainWindow(QMainWindow):
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
             top_kind = get_item_kind(top)
-            group_total = row_value.get(top, D("0"))
+            group_total = row_values.get(top, D("0"))
 
             for j in range(top.childCount()):
                 child = top.child(j)
@@ -906,7 +927,7 @@ class MainWindow(QMainWindow):
                     apply_drift_color(child, Col.DRIFT_PP.value, D("0"))
                     continue
 
-                child_sp = safe_pct(row_value.get(child, D("0")), group_total)
+                child_sp = safe_pct(row_values.get(child, D("0")), group_total)
                 if child_sp is None:
                     child.setText(Col.STRATEGY_PCT.value, "")
                     child.setText(Col.DRIFT_PP.value, "")
