@@ -26,8 +26,16 @@ D = Decimal
 
 def compute_invest_budget(p: Portfolio) -> D:
     """
-    Cash is excluded from the strategy universe.
-    Budget is cash.value - cash.reserve - cash.future_tax, floored at 0.
+    Compute investable cash budget for planning.
+
+    Formula
+    -------
+    ``cash.value - cash.min_reserve - cash.future_tax``, floored at ``0``.
+
+    Returns
+    -------
+    Decimal
+        Non-negative amount available for strategy allocation.
     """
     budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
     return budget if budget > 0 else D("0")
@@ -35,7 +43,13 @@ def compute_invest_budget(p: Portfolio) -> D:
 
 def _asset_group_current_values(p: Portfolio) -> Dict[str, D]:
     """
-    Current exposure per asset group = sum(value) of investable instruments in that group.
+    Aggregate current investable exposure per asset group.
+
+    Returns
+    -------
+    dict[str, Decimal]
+        Mapping of ``asset_group_id -> current value`` including all investable
+        instruments assigned to that group.
     """
     cur: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
     for ins in p.instruments:
@@ -48,9 +62,16 @@ def plan_invest_no_sell(p: Portfolio) -> List[AssetGroupPlanRow]:
     """
     No selling allowed.
 
-    If some asset groups are overweight (negative delta), they are excluded,
-    and their target percentages are redistributed among remaining groups.
-    Preserves asset group order.
+    If some asset groups are overweight (negative delta), they are excluded
+    from the active set and target percentages are re-normalized among the
+    remaining groups. This repeats until all active groups have non-negative
+    deltas.
+
+    Returns
+    -------
+    list[AssetGroupPlanRow]
+        Planned non-negative buy deltas by group, preserving original
+        ``p.asset_groups`` order.
     """
     validate_portfolio(p)
     budget = compute_invest_budget(p)
@@ -106,8 +127,13 @@ def plan_rebalance(p: Portfolio) -> List[AssetGroupPlanRow]:
     """
     Selling allowed.
 
-    Compute deltas directly against the original 100% targets across all asset groups.
-    Positive=buy, Negative=sell. Preserves asset group order.
+    Compute deltas directly against original group targets across all groups.
+
+    Returns
+    -------
+    list[AssetGroupPlanRow]
+        Per-group deltas where positive means buy and negative means sell.
+        Output order follows ``p.asset_groups``.
     """
     validate_portfolio(p)
     budget = compute_invest_budget(p)
@@ -136,10 +162,11 @@ def map_asset_group_deltas_to_instruments(
     p: Portfolio, plan: List[AssetGroupPlanRow]
 ) -> List[tuple[str, str, str, D]]:
     """
-    Split each asset-group delta across that group's investable instruments based on
-    target_in_group_pct, targeting the desired *post-investment* in-group composition.
-    Returns ordered tuples:
-    (asset_group_id, asset_group_name, instrument_id, planned_delta_money)
+    Split each planned asset-group delta into per-instrument deltas.
+
+    The split targets desired post-investment in-group percentages
+    (``target_in_group_pct``), while preserving no-sell behavior for positive
+    group deltas.
 
     Important behavior:
     - Only instruments with target_in_group_pct > 0 are considered.
@@ -148,6 +175,13 @@ def map_asset_group_deltas_to_instruments(
       instruments absorb the buy amount.
     - For zero/negative group deltas, we solve directly to post-target values
       (which can yield negative deltas per instrument).
+
+    Returns
+    -------
+    list[tuple[str, str, str, Decimal]]
+        Ordered tuples:
+        ``(asset_group_id, asset_group_name, instrument_id, planned_delta_money)``.
+        Zero deltas are omitted.
     """
     instruments_by_group: Dict[str, list] = {g.id: [] for g in p.asset_groups}
     for ins in p.instruments:

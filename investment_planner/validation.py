@@ -22,6 +22,12 @@ D = Decimal
 
 
 def _format_instrument_location(p: Portfolio, idx: int, instrument_name: str, group_id: str | None) -> str:
+    """
+    Build a user-facing location label for duplicate-name error messages.
+
+    The function intentionally hides positional/index details to keep
+    validation messages stable and easy to read.
+    """
     del idx  # index is intentionally hidden from user-facing messages
     del instrument_name
     group_by_id = {g.id: g.name for g in p.asset_groups}
@@ -32,11 +38,25 @@ def _format_instrument_location(p: Portfolio, idx: int, instrument_name: str, gr
 
 
 def validate_portfolio(p: Portfolio) -> None:
+    """
+    Run the full portfolio validation pipeline.
+
+    Validation order:
+    1. cash constraints
+    2. asset-group constraints
+    3. instrument constraints
+
+    Raises
+    ------
+    ValueError
+        On the first violated rule encountered.
+    """
     _validate_cash(p)
     _validate_asset_groups(p)
     _validate_instruments(p)
 
 def _validate_cash(p: Portfolio) -> None:
+    """Validate cash-level numeric and relationship constraints."""
     if p.cash.value <= 0:
         raise ValueError("cash.value must be positive")
     if p.cash.min_reserve < 0:
@@ -47,6 +67,11 @@ def _validate_cash(p: Portfolio) -> None:
         raise ValueError("cash.reserve must be <= cash.value")
 
 def _validate_asset_groups(p: Portfolio) -> None:
+    """
+    Validate asset-group identity and target-allocation rules.
+
+    Enforces that group targets are positive and sum exactly to 100.
+    """
     if not p.asset_groups:
         raise ValueError("At least one asset group is required")
 
@@ -68,6 +93,12 @@ def _validate_asset_groups(p: Portfolio) -> None:
         raise ValueError(f"Sum of asset group target percentages must be exactly 100, got {pct_sum}")
 
 def _validate_instruments(p: Portfolio) -> None:
+    """
+    Validate instrument set by delegating to focused helper checks.
+
+    Includes identity, name uniqueness, value/range constraints, mapping
+    consistency, and per-group in-group percentage totals.
+    """
     if not p.instruments:
         raise ValueError("At least one instrument is required")
 
@@ -78,6 +109,7 @@ def _validate_instruments(p: Portfolio) -> None:
 
 
 def _validate_instrument_identity(p: Portfolio) -> None:
+    """Validate that instrument ids are present and globally unique."""
     ins_ids = [ins.id for ins in p.instruments]
     if any(not iid for iid in ins_ids):
         raise ValueError("All instruments must have a non-empty 'id'")
@@ -86,6 +118,11 @@ def _validate_instrument_identity(p: Portfolio) -> None:
 
 
 def _validate_instrument_name_uniqueness(p: Portfolio) -> None:
+    """
+    Validate global uniqueness of instrument names with actionable messages.
+
+    Error text includes human-readable location(s) to simplify correction in UI.
+    """
     ins_names = [ins.name for ins in p.instruments]
     if any(not n for n in ins_names):
         raise ValueError("All instruments must have a non-empty 'name'")
@@ -120,6 +157,14 @@ def _validate_instrument_name_uniqueness(p: Portfolio) -> None:
 
 
 def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
+    """
+    Validate per-instrument value/range/mapping rules and accumulate group pct sums.
+
+    Returns
+    -------
+    dict[str, Decimal]
+        Running sum of ``target_in_group_pct`` for each asset group.
+    """
     group_id_set = {g.id for g in p.asset_groups}
     group_pct_sum: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
 
@@ -154,6 +199,7 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
 
 
 def _validate_group_instrument_pct_sums(p: Portfolio, group_pct_sum: Dict[str, D]) -> None:
+    """Validate that each group's instrument target percentages sum exactly to 100."""
     for g in p.asset_groups:
         pct_sum = group_pct_sum[g.id]
         if pct_sum != D("100"):

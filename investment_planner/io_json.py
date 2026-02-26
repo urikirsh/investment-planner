@@ -23,6 +23,26 @@ D = Decimal
 
 
 def _parse_decimal(value: Any, field: str) -> D:
+    """
+    Parse a value into ``Decimal`` and provide field-aware errors.
+
+    Parameters
+    ----------
+    value:
+        Raw JSON value (number/string/etc.) to parse.
+    field:
+        Human-readable field path used in error messages.
+
+    Returns
+    -------
+    Decimal
+        Parsed decimal value.
+
+    Raises
+    ------
+    ValueError
+        If ``value`` cannot be interpreted as a number.
+    """
     try:
         # Using str() preserves "exactness" of JSON numeric literals better than float()
         return D(str(value))
@@ -57,6 +77,12 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     -------
     Portfolio
         A Portfolio instance containing Cash, AssetGroup, and Instrument objects.
+
+    Raises
+    ------
+    ValueError
+        If required keys are missing, structural types are invalid, or numeric
+        fields cannot be parsed.
     """
 
     # Cash
@@ -120,6 +146,19 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
 
 
 def load_portfolio_file(path: str | Path) -> Portfolio:
+    """
+    Load a portfolio from a JSON file path.
+
+    Parameters
+    ----------
+    path:
+        Path-like location of the portfolio JSON file.
+
+    Returns
+    -------
+    Portfolio
+        Parsed portfolio model.
+    """
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
@@ -128,8 +167,23 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
 
 def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
     """
-    Convert Portfolio back to a JSON-serializable dict.
-    Uses the 'groups' key (not 'assetGroups') to keep it simple.
+    Convert a ``Portfolio`` into a JSON-serializable dictionary.
+
+    Output schema notes
+    -------------------
+    - Uses ``groups`` as the canonical key (not legacy ``assetGroups``).
+    - Decimal fields are serialized as strings to preserve precision.
+    - ``groupId`` is omitted for non-investable instruments.
+
+    Parameters
+    ----------
+    p:
+        Portfolio model to serialize.
+
+    Returns
+    -------
+    dict[str, Any]
+        JSON-ready dictionary suitable for ``json.dump``.
     """
     return {
         "cash": {
@@ -160,6 +214,19 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
 
 
 def save_portfolio_file(p: Portfolio, path: str | Path) -> None:
+    """
+    Serialize and write a portfolio JSON file to disk.
+
+    The file is written with UTF-8 encoding, pretty-printed indentation,
+    and a trailing newline to keep diffs stable.
+
+    Parameters
+    ----------
+    p:
+        Portfolio model to persist.
+    path:
+        Destination file path.
+    """
     path = Path(path)
     data = dump_portfolio(p)
     with path.open("w", encoding="utf-8") as f:

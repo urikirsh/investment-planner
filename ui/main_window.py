@@ -440,10 +440,16 @@ class MainWindow(QMainWindow):
             self.tree.blockSignals(False)
 
     def _refresh_data(self):
+        """Refresh all derived UI values after any editable input change."""
         self._refresh_total_portfolio()
         self._recalc_totals_and_pcts()
 
     def _refresh_total_portfolio(self):
+        """
+        Update total-portfolio label from current editable UI values.
+
+        Uses partial parsing (invalid/empty values degrade gracefully to placeholder).
+        """
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
             # Total portfolio = cash + all instrument values - future tax
@@ -460,6 +466,15 @@ class MainWindow(QMainWindow):
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
             -> Dict[str, Any]:
+        """
+        Convert current main-screen widgets into the JSON-like data schema.
+
+        Parameters
+        ----------
+        allow_partial:
+            If ``True``, empty numeric fields are normalized to ``"0"`` so live
+            recalculation can continue while editing.
+        """
         cash_value = self.cash_value_edit.text().strip()
         cash_reserve = self.cash_reserve_edit.text().strip()
         future_tax = self.future_tax_edit.text().strip()
@@ -545,6 +560,7 @@ class MainWindow(QMainWindow):
         }
 
     def _save_from_main_ui(self) -> None:
+        """Build, parse, validate and persist current main-screen portfolio state."""
         data = self._build_data_from_main_ui(allow_partial=False)
         p = load_portfolio(data)  # parses Decimals
         validate_portfolio(p)
@@ -595,6 +611,11 @@ class MainWindow(QMainWindow):
             return
 
     def _has_unsaved_main_changes(self) -> bool:
+        """
+        Compare current UI state against persisted JSON state.
+
+        Any parse/load failure is treated as unsaved changes to avoid accidental data loss.
+        """
         # If current UI state cannot be parsed, treat it as unsaved changes.
         try:
             current_data = self._build_data_from_main_ui(allow_partial=True)
@@ -613,6 +634,11 @@ class MainWindow(QMainWindow):
         return current_portfolio != saved_portfolio
 
     def _run_planning(self, mode: str):
+        """
+        Execute planning flow from current UI state and open summary screen.
+
+        ``mode`` is either ``"invest"`` (no-sell planning) or ``"rebalance"``.
+        """
         try:
             self._save_from_main_ui()
             p = self.current_portfolio
@@ -720,6 +746,7 @@ class MainWindow(QMainWindow):
         self.summary_text.setText("\n".join(lines))
 
     def _summary_next(self):
+        """Advance from summary to wizard, or return to main if no steps exist."""
         if not self.current_plan_steps:
             # Nothing to do -> go back to main
             self.stack.setCurrentWidget(self.screen_main)
@@ -728,6 +755,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.screen_wizard)
 
     def _summary_back(self):
+        """Return from summary screen to main editor."""
         self.stack.setCurrentWidget(self.screen_main)
 
     # -------------------------
@@ -785,6 +813,7 @@ class MainWindow(QMainWindow):
         return w
 
     def _show_current_wizard_step(self):
+        """Render current wizard step details and reset last calculation state."""
         s = self.current_plan_steps[self.current_step_index]
         idx = self.current_step_index + 1
         total = len(self.current_plan_steps)
@@ -803,6 +832,7 @@ class MainWindow(QMainWindow):
         self._last_calc = None
 
     def _wizard_calculate(self):
+        """Calculate units/spend for the current wizard step from entered price."""
         try:
             s = self.current_plan_steps[self.current_step_index]
             price = d_from_text(self.price_edit.text(), "price")
@@ -823,6 +853,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Calculation failed", str(e))
 
     def _wizard_save_continue(self):
+        """Apply current step trade (if valid), persist, and move to next step."""
         try:
             if self.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
@@ -863,6 +894,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Save failed", str(e))
 
     def _wizard_continue_without_saving(self):
+        """Skip current step without mutating portfolio and move forward."""
         try:
             if self.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
@@ -871,6 +903,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Continue failed", str(e))
 
     def _advance_wizard_step(self):
+        """Move to next wizard step or return to main when flow is complete."""
         # Next step or back to main
         self.current_step_index += 1
         if self.current_step_index >= len(self.current_plan_steps):
@@ -910,10 +943,12 @@ class MainWindow(QMainWindow):
             self._suppress_item_changed = False
 
     def _normalize_future_tax_input(self) -> None:
+        """Normalize empty future-tax input to zero on edit completion."""
         if not self.future_tax_edit.text().strip():
             self.future_tax_edit.setText("0")
 
     def _update_future_tax_visual_state(self) -> None:
+        """Highlight future-tax field when value is positive."""
         future_tax = parse_value_cell(self.future_tax_edit.text())
         if future_tax > 0:
             self.future_tax_edit.setStyleSheet("color: #b00020;")
@@ -976,6 +1011,7 @@ class MainWindow(QMainWindow):
         return group_items, row_values, portfolio_instruments_total, strategy_total
 
     def _apply_portfolio_pct(self, row_values: dict[QTreeWidgetItem, D], portfolio_total: D) -> None:
+        """Populate Portfolio % column for all rows from current row values."""
         for item, v in row_values.items():
             pct = safe_pct(v, portfolio_total)
             item.setText(Col.PORTFOLIO_PCT.value, "" if pct is None else fmt_pct(pct))
@@ -1069,9 +1105,15 @@ class MainWindow(QMainWindow):
                 top.setText(Col.DRIFT_PP.value, "")
 
     def _after_tree_reorder(self, *args):
+        """Refresh derived values after drag-and-drop reordering/moves."""
         self._refresh_data()
 
     def _on_item_double_clicked(self, item, column):
+        """
+        Start guarded cell editing on double-click for editable cells only.
+
+        Previous text is captured for possible validation-driven revert.
+        """
         kind = get_item_kind(item)
 
         if kind == RowKind.INSTRUMENT.name and column == Col.TARGET_PCT.value:
@@ -1090,6 +1132,7 @@ class MainWindow(QMainWindow):
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
     def _quit_app(self) -> None:
+        """Quit application if a Qt application instance exists."""
         app = QApplication.instance()
         if app is not None:
             app.quit()
@@ -1148,6 +1191,7 @@ class MainWindow(QMainWindow):
         return True
 
     def _warn_and_revert(self, item, col: int, bad: str, prev: str, msg: str) -> None:
+        """Show validation warning and revert edited cell to previous value."""
         self._suppress_item_changed = True
         try:
             QMessageBox.warning(

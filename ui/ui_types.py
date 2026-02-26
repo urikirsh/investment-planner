@@ -20,6 +20,8 @@ and item behavior throughout the application.
 
 D = Decimal
 
+# Item data roles used on QTreeWidgetItem cells.
+# These extend Qt.UserRole to avoid collisions with built-in Qt roles.
 ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
 ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
 ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
@@ -59,6 +61,10 @@ class WizardStep:
     WizardStep is used to control navigation and state transitions
     between the different screens of the investment process
     (summary, per-instrument execution, etc.).
+
+    Field semantics:
+    - `planned_delta_money > 0`: buy flow
+    - `planned_delta_money < 0`: sell flow
     """
     asset_group_id: str
     asset_group_name: str

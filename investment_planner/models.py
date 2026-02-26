@@ -27,6 +27,8 @@ class Cash:
     to total portfolio value. A minimum reserve can be defined to ensure
     sufficient liquidity for fees or operational needs. Future tax is a
     non-investable liability that reduces effective portfolio value.
+
+    Monetary fields are expected in ILS and represented as ``Decimal``.
     """
     value: D
     min_reserve: D
@@ -40,6 +42,11 @@ class AssetGroup:
 
     Each asset group has a target percentage allocation.
     Asset groups participate in strategy calculations and drift analysis.
+
+    Invariants (enforced by validation):
+    - ``id`` and ``name`` are non-empty
+    - ``target_pct`` is positive
+    - portfolio-level sum of all group targets is exactly 100
     """
     id: str
     name: str
@@ -55,6 +62,12 @@ class Instrument:
     participate in the investment strategy. Instruments assigned to an
     asset group are considered investable; others are treated as
     non-investable holdings.
+
+    Invariants (enforced by validation):
+    - ``value`` is non-negative
+    - ``target_in_group_pct`` is in [0, 100]
+    - investable instruments must reference a valid ``asset_group_id``
+    - non-investable instruments must have ``asset_group_id is None``
     """
     id: str
     name: str
@@ -73,6 +86,10 @@ class Portfolio:
     and a collection of instruments representing current holdings.
     This model is used as the primary input for validation, planning,
     and investment calculations.
+
+    Ordering notes:
+    - ``asset_groups`` order is semantically important and drives plan output order.
+    - ``instruments`` order is preserved for stable UI rendering and iteration.
     """
     cash: Cash
     asset_groups: list[AssetGroup]       # ordered (drives planning order)
@@ -100,6 +117,7 @@ class AssetGroupPlanRow:
     - planned_delta_money:
         Planned change in value (ILS) required to reach the target.
         Positive values indicate buying; negative values indicate selling.
+
     This structure is produced by the planning logic and consumed by the
     investment execution flow. It contains no execution or UI behavior.
     """

@@ -17,16 +17,35 @@ class InvestmentTreeWidget(QTreeWidget):
     items_reordered = Signal()
 
     def __init__(self, parent=None):
+        """Initialize tree widget with internal drag-and-drop behavior."""
         super().__init__(parent)
         self.setDragDropMode(QTreeWidget.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
         self.setDropIndicatorShown(True)
 
     def _kind_of(self, item) -> RowKind | None:
-        # Row kind is stored in the NAME column role.
+        """
+        Return the semantic row kind stored in item metadata.
+
+        Row kind is stored in the NAME column under `ROLE_KIND`.
+        """
         return item.data(Col.NAME.value, ROLE_KIND)
 
     def dropEvent(self, event):
+        """
+        Enforce portfolio-tree structural invariants during drag-and-drop.
+
+        Rules enforced:
+        - Group and non-investable bucket rows remain top-level only.
+        - Instrument rows must always have a parent (group or bucket).
+        - On-item drops are only allowed for instrument -> (group or bucket).
+
+        Emits
+        -----
+        items_reordered
+            Emitted after successful accepted drops that may affect display order
+            or parent-child relationships.
+        """
         # Identify the dragged item (single-selection UI).
         dragged = self.currentItem()
         if dragged is None:
