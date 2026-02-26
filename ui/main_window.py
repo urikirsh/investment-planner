@@ -446,7 +446,7 @@ class MainWindow(QMainWindow):
     def _refresh_total_portfolio(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
-            # Total portfolio = cash + all instruments values
+            # Total portfolio = cash + all instrument values - future tax
             cash_amt = D(str(data["cash"]["value"]))
             future_tax = D(str(data["cash"]["future_tax"]))
             total = cash_amt
