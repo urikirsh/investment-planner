@@ -35,7 +35,7 @@ The application never executes trades automatically. All actions are explicit an
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
   - configurable minimum reserve
-  - configurable future tax (non-investable liability, persisted in JSON)
+  - configurable future tax (non-investable liability)
 
 ### Calculations and insights
 - Strategy % per group (share of investable assets)
