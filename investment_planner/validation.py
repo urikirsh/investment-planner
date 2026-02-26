@@ -41,6 +41,8 @@ def _validate_cash(p: Portfolio) -> None:
         raise ValueError("cash.value must be positive")
     if p.cash.min_reserve < 0:
         raise ValueError("cash.reserve cannot be negative")
+    if p.cash.future_tax < 0:
+        raise ValueError("cash.future_tax cannot be negative")
     if p.cash.min_reserve > p.cash.value:
         raise ValueError("cash.reserve must be <= cash.value")
 

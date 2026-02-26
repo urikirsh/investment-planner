@@ -27,9 +27,9 @@ D = Decimal
 def compute_invest_budget(p: Portfolio) -> D:
     """
     Cash is excluded from the strategy universe.
-    Budget is simply cash.value - cash.reserve, floored at 0.
+    Budget is cash.value - cash.reserve - cash.future_tax, floored at 0.
     """
-    budget = p.cash.value - p.cash.min_reserve
+    budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
     return budget if budget > 0 else D("0")
 
 

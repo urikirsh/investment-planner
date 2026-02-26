@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from investment_planner.io_json import load_portfolio
+from investment_planner.io_json import dump_portfolio, load_portfolio
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -19,6 +19,7 @@ def make_valid_data(
     *,
     cash_value="12000",
     cash_reserve="2000",
+    cash_future_tax="0",
     # Group targets sum to 100 exactly
     group_targets=(("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "40.0")),
     instruments=None,
@@ -82,7 +83,7 @@ def make_valid_data(
         )
 
     return {
-        "cash": {"value": cash_value, "min_reserve": cash_reserve},
+        "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": cash_future_tax},
         "groups": groups,
         "instruments": instruments,
     }
@@ -110,6 +111,100 @@ def test_validation_percentages_must_sum_to_100_exactly():
     p = load_portfolio(data)
     with pytest.raises(ValueError, match="Sum of asset group target percentages must be exactly 100"):
         validate_portfolio(p)
+
+
+def test_validation_future_tax_cannot_be_negative():
+    data = make_valid_data(cash_future_tax="-0.01")
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="cash.future_tax cannot be negative"):
+        validate_portfolio(p)
+
+
+def test_json_round_trip_preserves_portfolio_structure_and_values():
+    data = make_valid_data(
+        cash_value="12345.67",
+        cash_reserve="2345.67",
+        cash_future_tax="123.45",
+        group_targets=(("g1", "Asset 1", "55.5"), ("g2", "Asset 2", "44.5")),
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000.25",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "70",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "2575.42",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "30",
+            },
+            {
+                "id": "i3",
+                "name": "Inst 3",
+                "value": "3500.00",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i4",
+                "name": "Parking",
+                "value": "1000",
+                "investable": False,
+                "targetInGroupPercentage": "0",
+            },
+        ],
+    )
+    p1 = load_portfolio(data)
+    dumped = dump_portfolio(p1)
+    p2 = load_portfolio(dumped)
+
+    assert p2 == p1
+    assert dumped == {
+        "cash": {"value": "12345.67", "min_reserve": "2345.67", "future_tax": "123.45"},
+        "groups": [
+            {"id": "g1", "name": "Asset 1", "targetPercentage": "55.5"},
+            {"id": "g2", "name": "Asset 2", "targetPercentage": "44.5"},
+        ],
+        "instruments": [
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000.25",
+                "investable": True,
+                "targetInGroupPercentage": "70",
+                "groupId": "g1",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "2575.42",
+                "investable": True,
+                "targetInGroupPercentage": "30",
+                "groupId": "g1",
+            },
+            {
+                "id": "i3",
+                "name": "Inst 3",
+                "value": "3500.00",
+                "investable": True,
+                "targetInGroupPercentage": "100",
+                "groupId": "g2",
+            },
+            {
+                "id": "i4",
+                "name": "Parking",
+                "value": "1000",
+                "investable": False,
+                "targetInGroupPercentage": "0",
+            },
+        ],
+    }
 
 
 def test_validation_value_cannot_be_negative():
@@ -187,15 +282,54 @@ def test_validation_non_investable_instrument_must_not_have_group():
 # -------------------------
 
 def test_compute_invest_budget_basic():
-    data = make_valid_data(cash_value="12000", cash_reserve="2000")
+    data = make_valid_data(cash_value="12000", cash_reserve="2000", cash_future_tax="500")
     p = load_portfolio(data)
-    assert compute_invest_budget(p) == D("10000")
+    assert compute_invest_budget(p) == D("9500")
 
 
 def test_compute_invest_budget_floors_at_zero():
-    data = make_valid_data(cash_value="1000", cash_reserve="1000")
+    data = make_valid_data(cash_value="1000", cash_reserve="900", cash_future_tax="200")
     p = load_portfolio(data)
     assert compute_invest_budget(p) == D("0")
+
+
+def test_stock_unit_calculation_uses_budget_reduced_by_future_tax():
+    """
+    Comprehensive flow check:
+    - future tax is positive
+    - invest plan uses reduced budget (cash - reserve - future_tax)
+    - unit calculation is based on that reduced planned amount
+    """
+    data = make_valid_data(
+        cash_value="1000",
+        cash_reserve="100",
+        cash_future_tax="200",  # reduced budget should be 700 (not 900)
+        group_targets=(("g1", "Asset 1", "100"),),
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "500",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            }
+        ],
+    )
+    p = load_portfolio(data)
+
+    plan_rows = plan_invest_no_sell(p)
+    assert len(plan_rows) == 1
+    assert plan_rows[0].planned_delta_money == D("700")
+
+    calc = calculate_buy_units(
+        instrument_id="i1",
+        planned_money=plan_rows[0].planned_delta_money,
+        price_ag=D("30000"),  # 300 ILS
+    )
+    assert calc.units == 2
+    assert calc.spent == D("600")
+    assert calc.leftover == D("100")
 
 
 # -------------------------
@@ -373,7 +507,7 @@ def test_map_asset_group_deltas_to_instruments_excludes_zero_pct_instruments():
 
 def make_portfolio():
     data = {
-        "cash": {"value": "1000", "min_reserve": "100"},
+        "cash": {"value": "1000", "min_reserve": "100", "future_tax": "0"},
         "groups": [
             {"id": "g1", "name": "Asset", "targetPercentage": "100"}
         ],
@@ -401,6 +535,7 @@ def test_commit_buy_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("200"))
     assert p2.cash.value == D("800")
+    assert p2.cash.future_tax == D("0")
     assert next(i for i in p2.instruments if i.id == "i1").value == D("700")
 
 
@@ -414,6 +549,7 @@ def test_commit_sell_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_sell(p=p, instrument_id="i1", proceeds=D("200"))
     assert p2.cash.value == D("1200")
+    assert p2.cash.future_tax == D("0")
     assert next(i for i in p2.instruments if i.id == "i1").value == D("300")
 
 

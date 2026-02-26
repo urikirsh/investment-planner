@@ -25,10 +25,12 @@ class Cash:
 
     Cash is excluded from the investment strategy itself, but contributes
     to total portfolio value. A minimum reserve can be defined to ensure
-    sufficient liquidity for fees or operational needs.
+    sufficient liquidity for fees or operational needs. Future tax is a
+    non-investable liability that reduces effective portfolio value.
     """
     value: D
     min_reserve: D
+    future_tax: D
 
 
 @dataclass(frozen=True)

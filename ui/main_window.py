@@ -134,6 +134,12 @@ class MainWindow(QMainWindow):
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
         cash_layout.addWidget(self.cash_reserve_edit)
 
+        cash_layout.addWidget(QLabel("Future tax:"))
+        self.future_tax_edit = QLineEdit()
+        self.future_tax_edit.setPlaceholderText("e.g. 0")
+        self.future_tax_edit.setText("0")
+        cash_layout.addWidget(self.future_tax_edit)
+
         cash_layout.addStretch(1)
         return cash_box
 
@@ -285,6 +291,11 @@ class MainWindow(QMainWindow):
         self.tree.itemChanged.connect(self._refresh_total_portfolio)
         self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
         self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.future_tax_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.cash_value_edit.textChanged.connect(self._recalc_totals_and_pcts)
+        self.future_tax_edit.textChanged.connect(self._recalc_totals_and_pcts)
+        self.future_tax_edit.textChanged.connect(self._update_future_tax_visual_state)
+        self.future_tax_edit.editingFinished.connect(self._normalize_future_tax_input)
 
         return main_screen_widget
 
@@ -344,7 +355,7 @@ class MainWindow(QMainWindow):
         else:
             # Minimal default portfolio
             data = {
-                "cash": {"value": "12000", "min_reserve": "2000"},
+                "cash": {"value": "12000", "min_reserve": "2000", "future_tax": "0"},
                 "groups": [
                     {"id": "sp500", "name": "S&P 500", "targetPercentage": "100"}
                 ],
@@ -371,6 +382,8 @@ class MainWindow(QMainWindow):
             self.tree.clear()
             self.cash_value_edit.setText(str(p.cash.value))
             self.cash_reserve_edit.setText(str(p.cash.min_reserve))
+            self.future_tax_edit.setText(str(p.cash.future_tax))
+            self._update_future_tax_visual_state()
 
             # group -> list instruments (keep input order as stored)
             ins_by_group: Dict[str, List[Dict[str, Any]]] = {}
@@ -433,11 +446,13 @@ class MainWindow(QMainWindow):
     def _refresh_total_portfolio(self):
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
-            # Total portfolio = cash + all instruments values
+            # Total portfolio = cash + all instrument values - future tax
             cash_amt = D(str(data["cash"]["value"]))
+            future_tax = D(str(data["cash"]["future_tax"]))
             total = cash_amt
             for ins in data.get("instruments", []):
                 total += D(str(ins["value"]))
+            total -= future_tax
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
             self.total_label.setText("Total portfolio: -")
@@ -447,6 +462,7 @@ class MainWindow(QMainWindow):
             -> Dict[str, Any]:
         cash_value = self.cash_value_edit.text().strip()
         cash_reserve = self.cash_reserve_edit.text().strip()
+        future_tax = self.future_tax_edit.text().strip()
 
         if not allow_partial:
             if not cash_value or not cash_reserve:
@@ -455,6 +471,7 @@ class MainWindow(QMainWindow):
         # In allow_partial, default to "0" if empty for total display
         cash_value = cash_value or "0"
         cash_reserve = cash_reserve or "0"
+        future_tax = future_tax or "0"
 
         groups: List[Dict[str, Any]] = []
         instruments: List[Dict[str, Any]] = []
@@ -519,7 +536,11 @@ class MainWindow(QMainWindow):
                     }
                 )
 
-        return {"cash": {"value": cash_value, "min_reserve": cash_reserve}, "groups": groups, "instruments": instruments}
+        return {
+            "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": future_tax},
+            "groups": groups,
+            "instruments": instruments,
+        }
 
     def _save_from_main_ui(self) -> None:
         data = self._build_data_from_main_ui(allow_partial=False)
@@ -674,7 +695,12 @@ class MainWindow(QMainWindow):
 
     def _populate_summary(self, p, steps: List[WizardStep], mode: str):
         budget = compute_invest_budget(p)
-        lines = [f"Mode: {mode}", f"Invest budget (cash - minimal reserve): {budget}", ""]
+        lines = [
+            f"Mode: {mode}",
+            f"Future tax (non-investable): {p.cash.future_tax}",
+            f"Invest budget (cash - minimal reserve - future tax): {budget}",
+            "",
+        ]
         if not steps:
             lines.append("No actions required.")
         else:
@@ -870,7 +896,8 @@ class MainWindow(QMainWindow):
         try:
             group_items, row_values, portfolio_instruments_total, strategy_total = self._collect_row_values_and_totals()
             cash_value = parse_value_cell(self.cash_value_edit.text())
-            portfolio_total = cash_value + portfolio_instruments_total
+            future_tax = parse_value_cell(self.future_tax_edit.text())
+            portfolio_total = cash_value + portfolio_instruments_total - future_tax
 
             self._apply_portfolio_pct(row_values, portfolio_total)
             self._apply_group_strategy_and_drift(group_items, row_values, strategy_total)
@@ -879,6 +906,17 @@ class MainWindow(QMainWindow):
 
         finally:
             self._suppress_item_changed = False
+
+    def _normalize_future_tax_input(self) -> None:
+        if not self.future_tax_edit.text().strip():
+            self.future_tax_edit.setText("0")
+
+    def _update_future_tax_visual_state(self) -> None:
+        future_tax = parse_value_cell(self.future_tax_edit.text())
+        if future_tax > 0:
+            self.future_tax_edit.setStyleSheet("color: #b00020;")
+        else:
+            self.future_tax_edit.setStyleSheet("")
 
     def _collect_row_values_and_totals(self) -> tuple[list[QTreeWidgetItem], dict[QTreeWidgetItem, D], D, D]:
         """
