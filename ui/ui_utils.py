@@ -64,18 +64,17 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         Col.PORTFOLIO_PCT.value,
         Col.STRATEGY_PCT.value,
         Col.DRIFT_PP.value,
-        Col.IN_GROUP_PCT.value,
     ):
         set_cell_readonly_look(item, c)
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
-    for c in (Col.TARGET_PCT.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
+    for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
         set_cell_readonly_look(item, c)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
     # Numbers are right-aligned for instruments, centered for groups
-    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT, Col.IN_GROUP_PCT]:
+    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
         col_idx = col.value
         if get_item_kind(item) != RowKind.INSTRUMENT.name:
             item.setTextAlignment(col_idx, Qt.AlignCenter | Qt.AlignVCenter)
@@ -94,7 +93,6 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
-    gitem.setText(Col.IN_GROUP_PCT.value, "")
 
     gid = id_str.strip() or new_id("grp")
 
@@ -115,8 +113,7 @@ def add_instrument_item_to_group(
     item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
-    item.setText(Col.TARGET_PCT.value, "")
-    item.setText(Col.IN_GROUP_PCT.value, in_group_pct)
+    item.setText(Col.TARGET_PCT.value, in_group_pct)
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT.name, iid)
@@ -186,7 +183,7 @@ def _is_cell_editable(kind: str, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT.name:
-        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.IN_GROUP_PCT.value)
+        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.TARGET_PCT.value)
 
     # bucket
     return False
