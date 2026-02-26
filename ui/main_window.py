@@ -791,14 +791,17 @@ class MainWindow(QMainWindow):
 
     def _recalc_totals_and_pcts(self) -> None:
         """
-        Updates:
-        - group total value = sum(child instrument Values)
-        - strategy total value (sum of group values)
-        - portfolio total value (cash + all instrument values)
-        - Portfolio % for all rows
-        - Strategy % + Drift(pp):
-          - group rows: relative to investable strategy
-          - instrument rows: relative to parent group
+        Recompute all derived table values from editable inputs.
+
+        This is the single refresh entrypoint for:
+        - aggregated totals (group totals, strategy total, portfolio total)
+        - portfolio-level percentages for all rows
+        - strategy/diff columns per row scope:
+          - group rows: relative to investable strategy universe
+          - instrument rows: relative to their parent asset group
+
+        The method intentionally orchestrates small helpers so each step has
+        one responsibility and can be reasoned about independently.
         """
         self._suppress_item_changed = True
         try:
@@ -855,6 +858,12 @@ class MainWindow(QMainWindow):
         row_value: dict[QTreeWidgetItem, D],
         strategy_total: D,
     ) -> None:
+        """
+        Fill Strategy % and Drift for top-level asset-group rows.
+
+        Strategy % for a group = group_value / total_investable_strategy_value.
+        Drift(pp) = actual_strategy_pct - target_pct.
+        """
         for g in group_items:
             gval = row_value.get(g, D("0"))
             sp = safe_pct(gval, strategy_total)
@@ -870,6 +879,16 @@ class MainWindow(QMainWindow):
             apply_drift_color(g, Col.DRIFT_PP.value, drift)
 
     def _apply_instrument_strategy_and_drift(self, row_value: dict[QTreeWidgetItem, D]) -> None:
+        """
+        Fill Strategy % and Drift for instrument rows using within-group scope.
+
+        For instruments under asset groups:
+        - Strategy % = instrument_value / parent_group_total
+        - Drift(pp) = actual_within_group_pct - instrument_target_pct
+
+        For instruments under the non-investable bucket:
+        - Target/Strategy/Drift are cleared because these rows are out of strategy scope.
+        """
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
             top_kind = get_item_kind(top)
@@ -901,6 +920,13 @@ class MainWindow(QMainWindow):
                 apply_drift_color(child, Col.DRIFT_PP.value, child_drift)
 
     def _clear_non_investable_bucket_group_columns(self) -> None:
+        """
+        Clear group-only columns for the non-investable bucket top-level row.
+
+        We intentionally scan all top-level rows (without early break) so the UI
+        self-heals even if multiple non-investable buckets are present due to
+        malformed input or manual tree edits.
+        """
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
             if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
