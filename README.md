@@ -105,3 +105,85 @@ Run the app:
 ```bash
 python app.py
 ```
+
+---
+
+## Data file format
+
+The app reads and writes a JSON portfolio file with this shape:
+
+```json
+{
+  "cash": {
+    "value": "12000",
+    "min_reserve": "2000",
+    "future_tax": "0"
+  },
+  "groups": [
+    {
+      "id": "g_equity",
+      "name": "Global Equity",
+      "targetPercentage": "70"
+    },
+    {
+      "id": "g_bonds",
+      "name": "Bonds",
+      "targetPercentage": "30"
+    }
+  ],
+  "instruments": [
+    {
+      "id": "i_world_etf",
+      "name": "World ETF",
+      "value": "8000",
+      "investable": true,
+      "groupId": "g_equity",
+      "targetInGroupPercentage": "100"
+    },
+    {
+      "id": "i_bond_fund",
+      "name": "Bond Fund",
+      "value": "3000",
+      "investable": true,
+      "groupId": "g_bonds",
+      "targetInGroupPercentage": "100"
+    },
+    {
+      "id": "i_legacy_holding",
+      "name": "Legacy Holding",
+      "value": "1200",
+      "investable": false,
+      "targetInGroupPercentage": "0"
+    }
+  ]
+}
+```
+
+Notes:
+- Monetary/percentage values are stored as strings and parsed as decimals.
+- `groups[*].targetPercentage` must sum to exactly `100`.
+- For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
+- Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.
+
+See [`example_portfolio.json`](example_portfolio.json) for a full synthetic example.
+
+---
+
+## Save and persistence behavior
+
+- By default, the app uses `portfolio.json` in the project root.
+- On startup, if `portfolio.json` exists, it is loaded.
+- If no file exists, the app initializes a minimal default in-memory portfolio.
+- Pressing `Update` validates current UI data and writes it to `portfolio.json`.
+- During wizard execution, `Save and continue` persists after each step to support partial execution.
+- `Continue without saving` advances the wizard without writing changes for that step.
+
+---
+
+## Project metadata
+
+- Name: `investment-planner`
+- Type: Desktop GUI application (PySide6)
+- Primary language: Python
+- Python requirement: `3.14.2`
+- License: MIT (see [`LICENSE`](LICENSE))
