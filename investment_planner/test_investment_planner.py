@@ -206,6 +206,45 @@ def test_compute_invest_budget_floors_at_zero():
     assert compute_invest_budget(p) == D("0")
 
 
+def test_stock_unit_calculation_uses_budget_reduced_by_future_tax():
+    """
+    Comprehensive flow check:
+    - future tax is positive
+    - invest plan uses reduced budget (cash - reserve - future_tax)
+    - unit calculation is based on that reduced planned amount
+    """
+    data = make_valid_data(
+        cash_value="1000",
+        cash_reserve="100",
+        cash_future_tax="200",  # reduced budget should be 700 (not 900)
+        group_targets=(("g1", "Asset 1", "100"),),
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "500",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            }
+        ],
+    )
+    p = load_portfolio(data)
+
+    plan_rows = plan_invest_no_sell(p)
+    assert len(plan_rows) == 1
+    assert plan_rows[0].planned_delta_money == D("700")
+
+    calc = calculate_buy_units(
+        instrument_id="i1",
+        planned_money=plan_rows[0].planned_delta_money,
+        price_ag=D("30000"),  # 300 ILS
+    )
+    assert calc.units == 2
+    assert calc.spent == D("600")
+    assert calc.leftover == D("100")
+
+
 # -------------------------
 # Planning tests: Invest (no selling)
 # -------------------------
