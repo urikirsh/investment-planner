@@ -247,7 +247,7 @@ class MainWindow(QMainWindow):
         btns_layout = QHBoxLayout(btns)
 
         quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        quit_btn.clicked.connect(self._on_main_quit_clicked)
         btns_layout.addWidget(quit_btn)
 
         invest_btn = QPushButton("Invest")
@@ -541,6 +541,54 @@ class MainWindow(QMainWindow):
     def _on_rebalance_clicked(self):
         self._run_planning(mode="rebalance")
 
+    def _on_main_quit_clicked(self):
+        if not self._has_unsaved_main_changes():
+            QApplication.instance().quit()
+            return
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("Unsaved changes")
+        box.setText("Your current changes are not saved.")
+        box.setInformativeText("Do you want to save before quitting?")
+        save_btn = box.addButton("Save", QMessageBox.AcceptRole)
+        dont_save_btn = box.addButton("Don't Save", QMessageBox.DestructiveRole)
+        cancel_btn = box.addButton("Cancel", QMessageBox.RejectRole)
+        box.setDefaultButton(save_btn)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked == save_btn:
+            try:
+                self._save_from_main_ui()
+                QApplication.instance().quit()
+            except Exception as e:
+                QMessageBox.critical(self, "Validation / Save failed", str(e))
+            return
+        if clicked == dont_save_btn:
+            QApplication.instance().quit()
+            return
+        if clicked == cancel_btn:
+            return
+
+    def _has_unsaved_main_changes(self) -> bool:
+        # If current UI state cannot be parsed, treat it as unsaved changes.
+        try:
+            current_data = self._build_data_from_main_ui(allow_partial=True)
+            current_portfolio = load_portfolio(current_data)
+        except Exception:
+            return True
+
+        if not self.json_path.exists():
+            return True
+
+        try:
+            saved_portfolio = load_portfolio_file(self.json_path)
+        except Exception:
+            return True
+
+        return current_portfolio != saved_portfolio
+
     def _run_planning(self, mode: str):
         try:
             self._save_from_main_ui()
@@ -699,6 +747,10 @@ class MainWindow(QMainWindow):
         save_btn.clicked.connect(self._wizard_save_continue)
         btns_layout.addWidget(save_btn)
 
+        skip_save_btn = QPushButton("Continue without saving")
+        skip_save_btn.clicked.connect(self._wizard_continue_without_saving)
+        btns_layout.addWidget(skip_save_btn)
+
         btns_layout.addStretch(1)
         layout.addWidget(btns)
 
@@ -778,16 +830,27 @@ class MainWindow(QMainWindow):
                 # Persist after each step to support partial execution.
                 save_portfolio_file(self.current_portfolio, self.json_path)
 
-            # Next step or back to main
-            self.current_step_index += 1
-            if self.current_step_index >= len(self.current_plan_steps):
-                # Return to main with updated data
-                self._populate_main_from_portfolio(self.current_portfolio)
-                self.stack.setCurrentWidget(self.screen_main)
-            else:
-                self._show_current_wizard_step()
+            self._advance_wizard_step()
         except Exception as e:
             QMessageBox.critical(self, "Save failed", str(e))
+
+    def _wizard_continue_without_saving(self):
+        try:
+            if self.current_portfolio is None:
+                raise ValueError("No portfolio loaded")
+            self._advance_wizard_step()
+        except Exception as e:
+            QMessageBox.critical(self, "Continue failed", str(e))
+
+    def _advance_wizard_step(self):
+        # Next step or back to main
+        self.current_step_index += 1
+        if self.current_step_index >= len(self.current_plan_steps):
+            # Return to main with the current in-memory portfolio state.
+            self._populate_main_from_portfolio(self.current_portfolio)
+            self.stack.setCurrentWidget(self.screen_main)
+        else:
+            self._show_current_wizard_step()
 
     def _recalc_totals_and_pcts(self) -> None:
         """
