@@ -35,7 +35,8 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     Parse a raw JSON-decoded dictionary into a strongly-typed Portfolio model.
 
     Expects a dict with:
-    - "cash": object with "value" and "min_reserve" (both parsed as Decimal, in ILS)
+    - "cash": object with "value", "min_reserve", and "future_tax"
+      (all parsed as Decimal, in ILS)
     - "groups" (or legacy key "assetGroups"): list of asset group objects containing
       id, name, targetPercentage
     - "instruments": list of instrument objects containing id, name, value, investable,
@@ -66,6 +67,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     cash = Cash(
         value=_parse_decimal(cash_raw.get("value"), "cash.value"),
         min_reserve=_parse_decimal(cash_raw.get("min_reserve"), "cash.reserve"),
+        future_tax=_parse_decimal(cash_raw.get("future_tax"), "cash.future_tax"),
     )
 
     # Asset groups
@@ -133,6 +135,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
         "cash": {
             "value": str(p.cash.value),
             "min_reserve": str(p.cash.min_reserve),
+            "future_tax": str(p.cash.future_tax),
         },
         "groups": [
             {

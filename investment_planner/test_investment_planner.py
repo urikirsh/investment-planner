@@ -19,6 +19,7 @@ def make_valid_data(
     *,
     cash_value="12000",
     cash_reserve="2000",
+    cash_future_tax="0",
     # Group targets sum to 100 exactly
     group_targets=(("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "40.0")),
     instruments=None,
@@ -82,7 +83,7 @@ def make_valid_data(
         )
 
     return {
-        "cash": {"value": cash_value, "min_reserve": cash_reserve},
+        "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": cash_future_tax},
         "groups": groups,
         "instruments": instruments,
     }
@@ -109,6 +110,13 @@ def test_validation_percentages_must_sum_to_100_exactly():
     data = make_valid_data(group_targets=(("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "39.9")))
     p = load_portfolio(data)
     with pytest.raises(ValueError, match="Sum of asset group target percentages must be exactly 100"):
+        validate_portfolio(p)
+
+
+def test_validation_future_tax_cannot_be_negative():
+    data = make_valid_data(cash_future_tax="-0.01")
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="cash.future_tax cannot be negative"):
         validate_portfolio(p)
 
 
@@ -187,13 +195,13 @@ def test_validation_non_investable_instrument_must_not_have_group():
 # -------------------------
 
 def test_compute_invest_budget_basic():
-    data = make_valid_data(cash_value="12000", cash_reserve="2000")
+    data = make_valid_data(cash_value="12000", cash_reserve="2000", cash_future_tax="500")
     p = load_portfolio(data)
-    assert compute_invest_budget(p) == D("10000")
+    assert compute_invest_budget(p) == D("9500")
 
 
 def test_compute_invest_budget_floors_at_zero():
-    data = make_valid_data(cash_value="1000", cash_reserve="1000")
+    data = make_valid_data(cash_value="1000", cash_reserve="900", cash_future_tax="200")
     p = load_portfolio(data)
     assert compute_invest_budget(p) == D("0")
 
@@ -373,7 +381,7 @@ def test_map_asset_group_deltas_to_instruments_excludes_zero_pct_instruments():
 
 def make_portfolio():
     data = {
-        "cash": {"value": "1000", "min_reserve": "100"},
+        "cash": {"value": "1000", "min_reserve": "100", "future_tax": "0"},
         "groups": [
             {"id": "g1", "name": "Asset", "targetPercentage": "100"}
         ],
@@ -401,6 +409,7 @@ def test_commit_buy_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("200"))
     assert p2.cash.value == D("800")
+    assert p2.cash.future_tax == D("0")
     assert next(i for i in p2.instruments if i.id == "i1").value == D("700")
 
 
@@ -414,6 +423,7 @@ def test_commit_sell_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_sell(p=p, instrument_id="i1", proceeds=D("200"))
     assert p2.cash.value == D("1200")
+    assert p2.cash.future_tax == D("0")
     assert next(i for i in p2.instruments if i.id == "i1").value == D("300")
 
 
