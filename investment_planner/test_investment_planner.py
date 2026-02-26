@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from investment_planner.io_json import load_portfolio
+from investment_planner.io_json import dump_portfolio, load_portfolio
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -118,6 +118,93 @@ def test_validation_future_tax_cannot_be_negative():
     p = load_portfolio(data)
     with pytest.raises(ValueError, match="cash.future_tax cannot be negative"):
         validate_portfolio(p)
+
+
+def test_json_round_trip_preserves_portfolio_structure_and_values():
+    data = make_valid_data(
+        cash_value="12345.67",
+        cash_reserve="2345.67",
+        cash_future_tax="123.45",
+        group_targets=(("g1", "Asset 1", "55.5"), ("g2", "Asset 2", "44.5")),
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000.25",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "70",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "2575.42",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "30",
+            },
+            {
+                "id": "i3",
+                "name": "Inst 3",
+                "value": "3500.00",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i4",
+                "name": "Parking",
+                "value": "1000",
+                "investable": False,
+                "targetInGroupPercentage": "0",
+            },
+        ],
+    )
+    p1 = load_portfolio(data)
+    dumped = dump_portfolio(p1)
+    p2 = load_portfolio(dumped)
+
+    assert p2 == p1
+    assert dumped == {
+        "cash": {"value": "12345.67", "min_reserve": "2345.67", "future_tax": "123.45"},
+        "groups": [
+            {"id": "g1", "name": "Asset 1", "targetPercentage": "55.5"},
+            {"id": "g2", "name": "Asset 2", "targetPercentage": "44.5"},
+        ],
+        "instruments": [
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000.25",
+                "investable": True,
+                "targetInGroupPercentage": "70",
+                "groupId": "g1",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "2575.42",
+                "investable": True,
+                "targetInGroupPercentage": "30",
+                "groupId": "g1",
+            },
+            {
+                "id": "i3",
+                "name": "Inst 3",
+                "value": "3500.00",
+                "investable": True,
+                "targetInGroupPercentage": "100",
+                "groupId": "g2",
+            },
+            {
+                "id": "i4",
+                "name": "Parking",
+                "value": "1000",
+                "investable": False,
+                "targetInGroupPercentage": "0",
+            },
+        ],
+    }
 
 
 def test_validation_value_cannot_be_negative():
