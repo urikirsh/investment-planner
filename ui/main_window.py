@@ -247,7 +247,7 @@ class MainWindow(QMainWindow):
         btns_layout = QHBoxLayout(btns)
 
         quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        quit_btn.clicked.connect(self._on_main_quit_clicked)
         btns_layout.addWidget(quit_btn)
 
         invest_btn = QPushButton("Invest")
@@ -540,6 +540,54 @@ class MainWindow(QMainWindow):
 
     def _on_rebalance_clicked(self):
         self._run_planning(mode="rebalance")
+
+    def _on_main_quit_clicked(self):
+        if not self._has_unsaved_main_changes():
+            QApplication.instance().quit()
+            return
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("Unsaved changes")
+        box.setText("Your current changes are not saved.")
+        box.setInformativeText("Do you want to save before quitting?")
+        save_btn = box.addButton("Save", QMessageBox.AcceptRole)
+        dont_save_btn = box.addButton("Don't Save", QMessageBox.DestructiveRole)
+        cancel_btn = box.addButton("Cancel", QMessageBox.RejectRole)
+        box.setDefaultButton(save_btn)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked == save_btn:
+            try:
+                self._save_from_main_ui()
+                QApplication.instance().quit()
+            except Exception as e:
+                QMessageBox.critical(self, "Validation / Save failed", str(e))
+            return
+        if clicked == dont_save_btn:
+            QApplication.instance().quit()
+            return
+        if clicked == cancel_btn:
+            return
+
+    def _has_unsaved_main_changes(self) -> bool:
+        # If current UI state cannot be parsed, treat it as unsaved changes.
+        try:
+            current_data = self._build_data_from_main_ui(allow_partial=True)
+            current_portfolio = load_portfolio(current_data)
+        except Exception:
+            return True
+
+        if not self.json_path.exists():
+            return True
+
+        try:
+            saved_portfolio = load_portfolio_file(self.json_path)
+        except Exception:
+            return True
+
+        return current_portfolio != saved_portfolio
 
     def _run_planning(self, mode: str):
         try:
