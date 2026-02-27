@@ -157,10 +157,10 @@ class MainWindow(QMainWindow):
                 "Drift (pp)",
             ]
         )
-        self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tree.setDragDropMode(QAbstractItemView.InternalMove)
-        self.tree.setDefaultDropAction(Qt.MoveAction)
-        self.tree.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.tree.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.tree.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self.tree.setIndentation(22)
 
         # Set column widths and drag behaviors
@@ -169,14 +169,14 @@ class MainWindow(QMainWindow):
 
         for col in Col:
             if col == Col.NAME:
-                header.setSectionResizeMode(col.value, QHeaderView.Stretch)
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
             elif col == Col.DRIFT_PP:
-                header.setSectionResizeMode(col.value, QHeaderView.Fixed)
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             else:
-                header.setSectionResizeMode(col.value, QHeaderView.ResizeToContents)
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
 
         self.tree.setColumnWidth(Col.DRIFT_PP.value, 78)
-        self.tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignCenter)
+        self.tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
 
         self.tree.items_reordered.connect(self._after_tree_reorder)
 
@@ -440,10 +440,16 @@ class MainWindow(QMainWindow):
             self.tree.blockSignals(False)
 
     def _refresh_data(self):
+        """Refresh all derived UI values after any editable input change."""
         self._refresh_total_portfolio()
         self._recalc_totals_and_pcts()
 
     def _refresh_total_portfolio(self):
+        """
+        Update total-portfolio label from current editable UI values.
+
+        Uses partial parsing (invalid/empty values degrade gracefully to placeholder).
+        """
         try:
             data = self._build_data_from_main_ui(allow_partial=True)
             # Total portfolio = cash + all instrument values - future tax
@@ -460,6 +466,15 @@ class MainWindow(QMainWindow):
 
     def _build_data_from_main_ui(self, allow_partial: bool = False)\
             -> Dict[str, Any]:
+        """
+        Convert current main-screen widgets into the JSON-like data schema.
+
+        Parameters
+        ----------
+        allow_partial:
+            If ``True``, empty numeric fields are normalized to ``"0"`` so live
+            recalculation can continue while editing.
+        """
         cash_value = self.cash_value_edit.text().strip()
         cash_reserve = self.cash_reserve_edit.text().strip()
         future_tax = self.future_tax_edit.text().strip()
@@ -479,6 +494,8 @@ class MainWindow(QMainWindow):
         top_count = self.tree.topLevelItemCount()
         for i in range(top_count):
             gitem = self.tree.topLevelItem(i)
+            if gitem is None:
+                continue
 
             kind = get_item_kind(gitem)
             if kind == RowKind.INSTRUMENT.name:
@@ -543,6 +560,7 @@ class MainWindow(QMainWindow):
         }
 
     def _save_from_main_ui(self) -> None:
+        """Build, parse, validate and persist current main-screen portfolio state."""
         data = self._build_data_from_main_ui(allow_partial=False)
         p = load_portfolio(data)  # parses Decimals
         validate_portfolio(p)
@@ -593,6 +611,11 @@ class MainWindow(QMainWindow):
             return
 
     def _has_unsaved_main_changes(self) -> bool:
+        """
+        Compare current UI state against persisted JSON state.
+
+        Any parse/load failure is treated as unsaved changes to avoid accidental data loss.
+        """
         # If current UI state cannot be parsed, treat it as unsaved changes.
         try:
             current_data = self._build_data_from_main_ui(allow_partial=True)
@@ -611,6 +634,11 @@ class MainWindow(QMainWindow):
         return current_portfolio != saved_portfolio
 
     def _run_planning(self, mode: str):
+        """
+        Execute planning flow from current UI state and open summary screen.
+
+        ``mode`` is either ``"invest"`` (no-sell planning) or ``"rebalance"``.
+        """
         try:
             self._save_from_main_ui()
             p = self.current_portfolio
@@ -677,7 +705,7 @@ class MainWindow(QMainWindow):
         btns_layout = QHBoxLayout(btns)
 
         quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        quit_btn.clicked.connect(self._quit_app)
         btns_layout.addWidget(quit_btn)
 
         back_btn = QPushButton("Back")
@@ -718,6 +746,7 @@ class MainWindow(QMainWindow):
         self.summary_text.setText("\n".join(lines))
 
     def _summary_next(self):
+        """Advance from summary to wizard, or return to main if no steps exist."""
         if not self.current_plan_steps:
             # Nothing to do -> go back to main
             self.stack.setCurrentWidget(self.screen_main)
@@ -726,6 +755,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.screen_wizard)
 
     def _summary_back(self):
+        """Return from summary screen to main editor."""
         self.stack.setCurrentWidget(self.screen_main)
 
     # -------------------------
@@ -766,7 +796,7 @@ class MainWindow(QMainWindow):
         btns_layout = QHBoxLayout(btns)
 
         quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        quit_btn.clicked.connect(self._quit_app)
         btns_layout.addWidget(quit_btn)
 
         save_btn = QPushButton("Save and continue")
@@ -783,6 +813,7 @@ class MainWindow(QMainWindow):
         return w
 
     def _show_current_wizard_step(self):
+        """Render current wizard step details and reset last calculation state."""
         s = self.current_plan_steps[self.current_step_index]
         idx = self.current_step_index + 1
         total = len(self.current_plan_steps)
@@ -801,6 +832,7 @@ class MainWindow(QMainWindow):
         self._last_calc = None
 
     def _wizard_calculate(self):
+        """Calculate units/spend for the current wizard step from entered price."""
         try:
             s = self.current_plan_steps[self.current_step_index]
             price = d_from_text(self.price_edit.text(), "price")
@@ -821,6 +853,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Calculation failed", str(e))
 
     def _wizard_save_continue(self):
+        """Apply current step trade (if valid), persist, and move to next step."""
         try:
             if self.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
@@ -861,6 +894,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Save failed", str(e))
 
     def _wizard_continue_without_saving(self):
+        """Skip current step without mutating portfolio and move forward."""
         try:
             if self.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
@@ -869,6 +903,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Continue failed", str(e))
 
     def _advance_wizard_step(self):
+        """Move to next wizard step or return to main when flow is complete."""
         # Next step or back to main
         self.current_step_index += 1
         if self.current_step_index >= len(self.current_plan_steps):
@@ -908,10 +943,12 @@ class MainWindow(QMainWindow):
             self._suppress_item_changed = False
 
     def _normalize_future_tax_input(self) -> None:
+        """Normalize empty future-tax input to zero on edit completion."""
         if not self.future_tax_edit.text().strip():
             self.future_tax_edit.setText("0")
 
     def _update_future_tax_visual_state(self) -> None:
+        """Highlight future-tax field when value is positive."""
         future_tax = parse_value_cell(self.future_tax_edit.text())
         if future_tax > 0:
             self.future_tax_edit.setStyleSheet("color: #b00020;")
@@ -947,6 +984,8 @@ class MainWindow(QMainWindow):
 
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
+            if top is None:
+                continue
             kind = get_item_kind(top)
             if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
                 continue
@@ -954,6 +993,8 @@ class MainWindow(QMainWindow):
             total = D("0")
             for j in range(top.childCount()):
                 child = top.child(j)
+                if child is None:
+                    continue
                 if get_item_kind(child) != RowKind.INSTRUMENT.name:
                     continue
                 v = parse_value_cell(child.text(Col.TOT_VALUE.value))
@@ -970,6 +1011,7 @@ class MainWindow(QMainWindow):
         return group_items, row_values, portfolio_instruments_total, strategy_total
 
     def _apply_portfolio_pct(self, row_values: dict[QTreeWidgetItem, D], portfolio_total: D) -> None:
+        """Populate Portfolio % column for all rows from current row values."""
         for item, v in row_values.items():
             pct = safe_pct(v, portfolio_total)
             item.setText(Col.PORTFOLIO_PCT.value, "" if pct is None else fmt_pct(pct))
@@ -1013,11 +1055,15 @@ class MainWindow(QMainWindow):
         """
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
+            if top is None:
+                continue
             top_kind = get_item_kind(top)
             group_total = row_values.get(top, D("0"))
 
             for j in range(top.childCount()):
                 child = top.child(j)
+                if child is None:
+                    continue
                 if get_item_kind(child) != RowKind.INSTRUMENT.name:
                     continue
 
@@ -1051,15 +1097,23 @@ class MainWindow(QMainWindow):
         """
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
+            if top is None:
+                continue
             if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
                 top.setText(Col.TARGET_PCT.value, "")
                 top.setText(Col.STRATEGY_PCT.value, "")
                 top.setText(Col.DRIFT_PP.value, "")
 
     def _after_tree_reorder(self, *args):
+        """Refresh derived values after drag-and-drop reordering/moves."""
         self._refresh_data()
 
     def _on_item_double_clicked(self, item, column):
+        """
+        Start guarded cell editing on double-click for editable cells only.
+
+        Previous text is captured for possible validation-driven revert.
+        """
         kind = get_item_kind(item)
 
         if kind == RowKind.INSTRUMENT.name and column == Col.TARGET_PCT.value:
@@ -1072,10 +1126,16 @@ class MainWindow(QMainWindow):
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
 
             # Temporarily enable editing
-            item.setFlags(item.flags() | Qt.ItemIsEditable)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
             self.tree.editItem(item, column)
             # Disable immediately after edit starts
-            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+    def _quit_app(self) -> None:
+        """Quit application if a Qt application instance exists."""
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def _validate_target_pct_cell_or_revert(self, item) -> bool:
         """
@@ -1131,6 +1191,7 @@ class MainWindow(QMainWindow):
         return True
 
     def _warn_and_revert(self, item, col: int, bad: str, prev: str, msg: str) -> None:
+        """Show validation warning and revert edited cell to previous value."""
         self._suppress_item_changed = True
         try:
             QMessageBox.warning(

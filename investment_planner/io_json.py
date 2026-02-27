@@ -23,6 +23,26 @@ D = Decimal
 
 
 def _parse_decimal(value: Any, field: str) -> D:
+    """
+    Parse a value into ``Decimal`` and provide field-aware errors.
+
+    Parameters
+    ----------
+    value:
+        Raw JSON value (number/string/etc.) to parse.
+    field:
+        Human-readable field path used in error messages.
+
+    Returns
+    -------
+    Decimal
+        Parsed decimal value.
+
+    Raises
+    ------
+    ValueError
+        If ``value`` cannot be interpreted as a number.
+    """
     try:
         # Using str() preserves "exactness" of JSON numeric literals better than float()
         return D(str(value))
@@ -37,8 +57,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     Expects a dict with:
     - "cash": object with "value", "min_reserve", and "future_tax"
       (all parsed as Decimal, in ILS)
-    - "groups" (or legacy key "assetGroups"): list of asset group objects containing
-      id, name, targetPercentage
+    - "groups": list of asset group objects containing id, name, targetPercentage
     - "instruments": list of instrument objects containing id, name, value, investable,
       group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
@@ -57,6 +76,12 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     -------
     Portfolio
         A Portfolio instance containing Cash, AssetGroup, and Instrument objects.
+
+    Raises
+    ------
+    ValueError
+        If required keys are missing, structural types are invalid, or numeric
+        fields cannot be parsed.
     """
 
     # Cash
@@ -71,7 +96,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     )
 
     # Asset groups
-    groups_raw = data.get("groups") or data.get("assetGroups")
+    groups_raw = data.get("groups")
     if not isinstance(groups_raw, list):
         raise ValueError("Missing or invalid 'groups' list")
 
@@ -120,6 +145,30 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
 
 
 def load_portfolio_file(path: str | Path) -> Portfolio:
+    """
+    Load a portfolio from a JSON file path.
+
+    Parameters
+    ----------
+    path:
+        Path-like location of the portfolio JSON file.
+
+    Returns
+    -------
+    Portfolio
+        Parsed portfolio model.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    OSError
+        If the file cannot be opened/read due to OS-level errors.
+    json.JSONDecodeError
+        If file contents are not valid JSON.
+    ValueError
+        If JSON structure/types are invalid for portfolio parsing.
+    """
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
@@ -128,8 +177,23 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
 
 def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
     """
-    Convert Portfolio back to a JSON-serializable dict.
-    Uses the 'groups' key (not 'assetGroups') to keep it simple.
+    Convert a ``Portfolio`` into a JSON-serializable dictionary.
+
+    Output schema notes
+    -------------------
+    - Uses ``groups`` as the asset-group key.
+    - Decimal fields are serialized as strings to preserve precision.
+    - ``groupId`` is omitted for non-investable instruments.
+
+    Parameters
+    ----------
+    p:
+        Portfolio model to serialize.
+
+    Returns
+    -------
+    dict[str, Any]
+        JSON-ready dictionary suitable for ``json.dump``.
     """
     return {
         "cash": {
@@ -160,6 +224,26 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
 
 
 def save_portfolio_file(p: Portfolio, path: str | Path) -> None:
+    """
+    Serialize and write a portfolio JSON file to disk.
+
+    The file is written with UTF-8 encoding, pretty-printed indentation,
+    and a trailing newline to keep diffs stable.
+
+    Parameters
+    ----------
+    p:
+        Portfolio model to persist.
+    path:
+        Destination file path.
+
+    Raises
+    ------
+    OSError
+        If the destination cannot be opened/written.
+    TypeError
+        If the serialized structure contains non-JSON-serializable values.
+    """
     path = Path(path)
     data = dump_portfolio(p)
     with path.open("w", encoding="utf-8") as f:

@@ -28,25 +28,31 @@ D = Decimal
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 
 def d_from_text(txt: str, field: str) -> D:
+    """Parse a required Decimal from text and include field name in errors."""
     try:
         return D(txt.strip())
     except (InvalidOperation, ValueError):
         raise ValueError(f"{field} must be a number, got: {txt!r}")
 
 def set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
+    """Attach semantic row metadata (kind/id) to a tree item."""
     item.setData(0, ROLE_KIND, kind)
     item.setData(0, ROLE_ID, _id)
 
 def get_item_kind(item: QTreeWidgetItem) -> str:
+    """Return stored row kind string, or empty string if missing."""
     return item.data(0, ROLE_KIND) or ""
 
 def get_item_id(item: QTreeWidgetItem) -> str:
+    """Return stored internal id string, or empty string if missing."""
     return item.data(0, ROLE_ID) or ""
 
 def new_id(prefix: str) -> str:
+    """Generate a short, pseudo-random id with a stable prefix."""
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 def style_group_row(item: QTreeWidgetItem) -> None:
+    """Apply visual styling for top-level group/bucket rows."""
     if get_item_kind(item) == RowKind.NON_INVESTABLE_BUCKET.name:
         background = QBrush(QColor("#e8f0ff")) # subtle blue tint
     else:
@@ -68,28 +74,50 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         set_cell_readonly_look(item, c)
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
+    """Apply read-only visual styling for derived instrument columns."""
     for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
         set_cell_readonly_look(item, c)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
+    """Apply per-column alignment conventions for group/instrument rows."""
 
     # Numbers are right-aligned for instruments, centered for groups
     for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
         col_idx = col.value
         if get_item_kind(item) != RowKind.INSTRUMENT.name:
-            item.setTextAlignment(col_idx, Qt.AlignCenter | Qt.AlignVCenter)
+            item.setTextAlignment(
+                col_idx,
+                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
+            )
         else:
-            item.setTextAlignment(col_idx, Qt.AlignRight | Qt.AlignVCenter)
+            item.setTextAlignment(
+                col_idx,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )
 
     # Text left-aligned
-    item.setTextAlignment(Col.NAME.value, Qt.AlignLeft | Qt.AlignVCenter)
+    item.setTextAlignment(
+        Col.NAME.value,
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+    )
 
 
 def set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: int,
                          id_str: str = "") -> None:
-    gitem.setFlags(gitem.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+    """
+    Initialize a top-level group/bucket row with metadata, style and defaults.
+
+    The row is marked as non-editable by default; editing is temporarily enabled
+    by higher-level UI handlers when needed.
+    """
+    gitem.setFlags(
+        gitem.flags()
+        | Qt.ItemFlag.ItemIsEditable
+        | Qt.ItemFlag.ItemIsDragEnabled
+        | Qt.ItemFlag.ItemIsDropEnabled
+    )
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
@@ -109,8 +137,9 @@ def add_instrument_item_to_group(
         gitem: QTreeWidgetItem, name: str, value: str, in_group_pct: str, id_str: str = ""
 ) \
         -> None:
+    """Create and initialize an instrument child row under the given parent group."""
     item = QTreeWidgetItem(gitem)
-    item.setFlags(item.flags() | Qt.ItemIsEditable | Qt.ItemIsDragEnabled)
+    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
@@ -121,7 +150,7 @@ def add_instrument_item_to_group(
     apply_row_alignment(item)
 
     flags = item.flags()
-    flags &= ~Qt.ItemIsDropEnabled
+    flags &= ~Qt.ItemFlag.ItemIsDropEnabled
     item.setFlags(flags)
     disable_edits_to_row(item)
 
@@ -129,12 +158,19 @@ def add_instrument_item_to_group(
 
 
 def disable_edits_to_row(row: QTreeWidgetItem) -> None:
+    """Disable in-place editing for all columns in a row."""
     flags = row.flags()
-    flags &= ~Qt.ItemIsEditable
+    flags &= ~Qt.ItemFlag.ItemIsEditable
     row.setFlags(flags)
 
 
 def parse_value_cell(txt: str) -> D:
+    """
+    Parse numeric cell text defensively.
+
+    Returns ``0`` for empty/invalid input so live UI calculations can proceed;
+    strict validation happens separately before save/planning.
+    """
     txt = (txt or "").strip()
     if not txt:
         return D("0")
@@ -145,14 +181,16 @@ def parse_value_cell(txt: str) -> D:
         return D("0")
 
 def fmt_pct(value: D) -> str:
-    # Standard rounding to 1 decimal place.
+    """Format a percentage value with one decimal place."""
     return f"{value:.1f}%"
 
 def fmt_pp(value: D) -> str:
+    """Format a drift value in percentage points with sign for positives."""
     sign = "+" if value > 0 else ""
     return f"{sign}{value:.1f} pp"
 
 def safe_pct(numer: D, denom: D) -> D | None:
+    """Return ``numer/denom * 100`` or ``None`` for zero denominator."""
     if denom == 0:
         return None
     return (numer * D("100")) / denom
@@ -175,10 +213,11 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
         set_cell_readonly_look(item, col_index)
 
 def set_cell_readonly_look(item, col: int) -> None:
-    # light gray text
+    """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
 
 def _is_cell_editable(kind: str, col: int) -> bool:
+    """Return whether a cell is user-editable for a given row kind/column."""
     if kind == RowKind.GROUP.name:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 

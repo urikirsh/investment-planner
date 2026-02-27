@@ -73,6 +73,26 @@ class BuyCalculation:
 
 
 def _floor_units(planned_money: D, price: D) -> int:
+    """
+    Compute the maximum whole number of units affordable for a given budget.
+
+    Parameters
+    ----------
+    planned_money:
+        Budget in ILS allocated to this instrument.
+    price:
+        Unit price in ILS.
+
+    Returns
+    -------
+    int
+        Floor of `planned_money / price`. Returns `0` when `planned_money <= 0`.
+
+    Raises
+    ------
+    ValueError
+        If `price <= 0`.
+    """
     if price <= 0:
         raise ValueError("price must be positive")
     if planned_money <= 0:
@@ -84,9 +104,27 @@ def _floor_units(planned_money: D, price: D) -> int:
 
 def calculate_buy_units(*, instrument_id: str, planned_money: D, price_ag: D) -> BuyCalculation:
     """
-    Given a planned money allocation and a unit price, compute units to buy (floor),
-    spent and leftover.
-    Price is in Agorot, while planned money is in ILS
+    Translate a value allocation into an executable buy order.
+
+    Parameters
+    ----------
+    instrument_id:
+        Target instrument identifier.
+    planned_money:
+        Planned allocation in ILS.
+    price_ag:
+        Unit price in agorot (broker-facing format).
+
+    Returns
+    -------
+    BuyCalculation
+        Includes converted ILS price, units to buy (floored), actual spent amount,
+        and leftover cash from the planned allocation.
+
+    Notes
+    -----
+    - Conversion rule: `price_ils = price_ag / 100`.
+    - Units are always rounded down (never over-spend planned money).
     """
     price_ils = price_ag / Decimal("100")      # conversion
     units = _floor_units(planned_money, price_ils)
@@ -106,6 +144,14 @@ def calculate_buy_units(*, instrument_id: str, planned_money: D, price_ag: D) ->
 
 
 def _find_instrument_index(p: Portfolio, instrument_id: str) -> int:
+    """
+    Locate an instrument by id and return its position in `p.instruments`.
+
+    Raises
+    ------
+    ValueError
+        If the instrument id does not exist in the portfolio.
+    """
     for idx, ins in enumerate(p.instruments):
         if ins.id == instrument_id:
             return idx
@@ -120,10 +166,19 @@ def commit_buy(
     min_trade_ils: D = D("1"),
 ) -> Portfolio:
     """
-    Apply a buy to the portfolio:
-    - decrease cash.value by spent
-    - increase instrument.value by spent
-    If spent < min_trade_ils, does nothing (returns p unchanged).
+    Apply a buy transaction to portfolio state and return a new Portfolio.
+
+    Behavior
+    --------
+    - Decreases `cash.value` by `spent`.
+    - Increases the instrument's `value` by `spent`.
+    - Leaves `cash.min_reserve` and `cash.future_tax` unchanged.
+    - If `spent <= 0` or `spent < min_trade_ils`, returns the input portfolio unchanged.
+
+    Raises
+    ------
+    ValueError
+        If there is not enough cash, instrument is missing, or instrument is non-investable.
     """
     if spent <= 0:
         return p
@@ -138,7 +193,7 @@ def commit_buy(
         raise ValueError(f"Cannot buy non-investable instrument: {ins.name}")
 
     new_cash_value = p.cash.value - spent
-    # keep reserve unchanged
+    # Keep reserve and future_tax unchanged; only liquid cash value is updated.
     new_instruments = list(p.instruments)
     new_instruments[idx] = Instrument(
         id=ins.id,
@@ -148,9 +203,15 @@ def commit_buy(
         asset_group_id=ins.asset_group_id,
         target_in_group_pct=ins.target_in_group_pct,
     )
-    return Portfolio(cash=Cash(value=new_cash_value, min_reserve=p.cash.min_reserve, future_tax=p.cash.future_tax),
-                     asset_groups=p.asset_groups,
-                     instruments=new_instruments)
+    return Portfolio(
+        cash=Cash(
+            value=new_cash_value,
+            min_reserve=p.cash.min_reserve,
+            future_tax=p.cash.future_tax,
+        ),
+        asset_groups=p.asset_groups,
+        instruments=new_instruments,
+    )
 
 
 def commit_sell(
@@ -161,10 +222,19 @@ def commit_sell(
     min_trade_ils: D = D("1"),
 ) -> Portfolio:
     """
-    Apply a sell to the portfolio:
-    - increase cash.value by proceeds
-    - decrease instrument.value by proceeds
-    If proceeds < min_trade_ils, does nothing.
+    Apply a sell transaction to portfolio state and return a new Portfolio.
+
+    Behavior
+    --------
+    - Increases `cash.value` by `proceeds`.
+    - Decreases the instrument's `value` by `proceeds`.
+    - Leaves `cash.min_reserve` and `cash.future_tax` unchanged.
+    - If `proceeds <= 0` or `proceeds < min_trade_ils`, returns input unchanged.
+
+    Raises
+    ------
+    ValueError
+        If instrument is missing, non-investable, or sale exceeds instrument value.
     """
     if proceeds <= 0:
         return p
@@ -188,6 +258,12 @@ def commit_sell(
         asset_group_id=ins.asset_group_id,
         target_in_group_pct=ins.target_in_group_pct,
     )
-    return Portfolio(cash=Cash(value=new_cash_amount, min_reserve=p.cash.min_reserve, future_tax=p.cash.future_tax),
-                     asset_groups=p.asset_groups,
-                     instruments=new_instruments)
+    return Portfolio(
+        cash=Cash(
+            value=new_cash_amount,
+            min_reserve=p.cash.min_reserve,
+            future_tax=p.cash.future_tax,
+        ),
+        asset_groups=p.asset_groups,
+        instruments=new_instruments,
+    )
