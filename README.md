@@ -174,10 +174,14 @@ See [`example_portfolio.json`](example_portfolio.json) for a full synthetic exam
 
 ## Save and persistence behavior
 
-- By default, the app uses `portfolio.json` in the project root.
-- On startup, if `portfolio.json` exists, it is loaded.
-- If no file exists, the app initializes a minimal default in-memory portfolio.
-- Pressing `Update` validates current UI data and writes it to `portfolio.json`.
+- On startup, the app tries to reload the last opened/saved portfolio file path from global user config.
+- If that remembered file path no longer exists, the remembered path is cleared and a minimal default in-memory portfolio is loaded.
+- If no remembered file exists, the app falls back to `portfolio.json` in the project root when available.
+- `Save` validates current UI data and writes to the active portfolio file.
+- `Save As` picks a target file and then saves.
+- `Open` loads a portfolio JSON file from disk.
+- `New` resets the editor to default values in memory (no active file path until saved).
+- `Quit`, `Open`, and `New` prompt to save unsaved changes (`Save` / `Don't Save` / `Cancel`).
 - During wizard execution, `Save and continue` persists after each step to support partial execution.
 - `Continue without saving` advances the wizard without writing changes for that step.
 

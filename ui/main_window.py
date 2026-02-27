@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -40,6 +41,7 @@ from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVEST
 from ui.tree_widget import InvestmentTreeWidget
 
 from ui.decimal_input_delegate import DecimalInputDelegate
+from ui.portfolio_session import PortfolioSession, build_default_portfolio
 
 """
 main_window.py
@@ -73,7 +75,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Investment Planner")
 
-        self.json_path = Path(json_path)
+        self.session = PortfolioSession(default_json_path=Path(json_path))
         self.current_portfolio = None  # type: ignore[assignment]
         self.current_plan_steps: List[WizardStep] = []
         self.current_step_index: int = 0
@@ -98,6 +100,13 @@ class MainWindow(QMainWindow):
         self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
         self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
 
+        self._refresh_data()
+
+    def _load_portfolio_from_file(self, path: Path):
+        p = load_portfolio_file(path)
+        self.current_portfolio = p
+        self.session.mark_loaded(p, path)
+        self._populate_main_from_portfolio(p)
         self._refresh_data()
 
     # -------------------------
@@ -268,9 +277,21 @@ class MainWindow(QMainWindow):
         rebalance_btn.clicked.connect(self._on_rebalance_clicked)
         btns_layout.addWidget(rebalance_btn)
 
-        update_btn = QPushButton("Update")
-        update_btn.clicked.connect(self._on_update_clicked)
-        btns_layout.addWidget(update_btn)
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(self._on_save_clicked)
+        btns_layout.addWidget(save_btn)
+
+        save_as_btn = QPushButton("Save As")
+        save_as_btn.clicked.connect(self._on_save_as_clicked)
+        btns_layout.addWidget(save_as_btn)
+
+        open_btn = QPushButton("Open")
+        open_btn.clicked.connect(self._on_open_clicked)
+        btns_layout.addWidget(open_btn)
+
+        new_btn = QPushButton("New")
+        new_btn.clicked.connect(self._on_new_clicked)
+        btns_layout.addWidget(new_btn)
 
         btns_layout.addStretch(1)
         return btns
@@ -353,33 +374,19 @@ class MainWindow(QMainWindow):
         self._refresh_data()
 
     def _load_or_init(self):
-        if self.json_path.exists():
+        startup_path = self.session.resolve_startup_path()
+
+        if startup_path is not None:
             try:
-                p = load_portfolio_file(self.json_path)
+                self._load_portfolio_from_file(startup_path)
+                return
             except Exception as e:
                 QMessageBox.critical(self, "Load failed", f"Failed loading JSON:\n{e}")
-                p = None
-        else:
-            # Minimal default portfolio
-            data = {
-                "cash": {"value": "12000", "min_reserve": "2000", "future_tax": "0"},
-                "groups": [
-                    {"id": "sp500", "name": "S&P 500", "targetPercentage": "100"}
-                ],
-                "instruments": [
-                    {
-                        "id": "spx_a",
-                        "name": "SPX 500",
-                        "value": "1",
-                        "investable": True,
-                        "groupId": "sp500",
-                        "targetInGroupPercentage": "100",
-                    }
-                ],
-            }
-            p = load_portfolio(data)
+                self.session.set_active_file_path(None)
 
+        p = build_default_portfolio()
         self.current_portfolio = p
+        self.session.mark_new_unsaved(p)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
 
@@ -567,20 +574,106 @@ class MainWindow(QMainWindow):
             "instruments": instruments,
         }
 
-    def _save_from_main_ui(self) -> None:
+    def _save_from_main_ui(self, target_path: Path) -> None:
         """Build, parse, validate and persist current main-screen portfolio state."""
         data = self._build_data_from_main_ui(allow_partial=False)
         p = load_portfolio(data)  # parses Decimals
         validate_portfolio(p)
-        save_portfolio_file(p, self.json_path)
+        save_portfolio_file(p, target_path)
         self.current_portfolio = p
+        self.session.mark_saved(p, target_path)
 
-    def _on_update_clicked(self):
+    def _select_save_path(self) -> Optional[Path]:
+        start_path = self.session.current_file_path or self.session.default_json_path
+        selected, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Portfolio As",
+            str(start_path),
+            "Portfolio JSON (*.json);;JSON files (*.json);;All files (*)",
+        )
+        if not selected:
+            return None
+        chosen = Path(selected).expanduser()
+        if chosen.suffix.lower() != ".json":
+            chosen = chosen.with_suffix(".json")
+        return chosen
+
+    def _save_current_or_save_as(self, *, show_success: bool, force_save_as: bool = False) -> bool:
+        target = None if force_save_as else self.session.current_file_path
+        if target is None:
+            target = self._select_save_path()
+            if target is None:
+                return False
         try:
-            self._save_from_main_ui()
-            QMessageBox.information(self, "Saved", "Portfolio saved.")
+            self._save_from_main_ui(target)
+            if show_success:
+                QMessageBox.information(self, "Saved", f"Portfolio saved to:\n{target}")
+            return True
         except Exception as e:
             QMessageBox.critical(self, "Validation / Save failed", str(e))
+            return False
+
+    def _open_portfolio_from_picker(self) -> bool:
+        start_path = self.session.current_file_path or self.session.default_json_path
+        selected, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Portfolio",
+            str(start_path.parent),
+            "Portfolio JSON (*.json);;JSON files (*.json);;All files (*)",
+        )
+        if not selected:
+            return False
+        path = Path(selected).expanduser()
+        try:
+            self._load_portfolio_from_file(path)
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "Load failed", f"Failed loading JSON:\n{e}")
+            return False
+
+    def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool:
+        if not self._has_unsaved_main_changes():
+            return True
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Unsaved changes")
+        box.setText("Your current changes are not saved.")
+        box.setInformativeText(f"Do you want to save before {action_text}?")
+        save_btn = box.addButton("Save", QMessageBox.ButtonRole.AcceptRole)
+        dont_save_btn = box.addButton("Don't Save", QMessageBox.ButtonRole.DestructiveRole)
+        cancel_btn = box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(save_btn)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked == save_btn:
+            return self._save_current_or_save_as(show_success=False)
+        if clicked == dont_save_btn:
+            return True
+        if clicked == cancel_btn:
+            return False
+        return False
+
+    def _on_save_clicked(self):
+        self._save_current_or_save_as(show_success=True)
+
+    def _on_save_as_clicked(self):
+        self._save_current_or_save_as(show_success=True, force_save_as=True)
+
+    def _on_open_clicked(self):
+        if not self._confirm_continue_with_unsaved_changes("opening another portfolio"):
+            return
+        self._open_portfolio_from_picker()
+
+    def _on_new_clicked(self):
+        if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
+            return
+        p = build_default_portfolio()
+        self.current_portfolio = p
+        self.session.mark_new_unsaved(p)
+        self._populate_main_from_portfolio(p)
+        self._refresh_data()
 
     def _on_invest_clicked(self):
         self._run_planning(mode="invest")
@@ -589,38 +682,15 @@ class MainWindow(QMainWindow):
         self._run_planning(mode="rebalance")
 
     def _on_main_quit_clicked(self):
-        if not self._has_unsaved_main_changes():
-            QApplication.instance().quit()
+        if not self._confirm_continue_with_unsaved_changes("quitting"):
             return
-
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Warning)
-        box.setWindowTitle("Unsaved changes")
-        box.setText("Your current changes are not saved.")
-        box.setInformativeText("Do you want to save before quitting?")
-        save_btn = box.addButton("Save", QMessageBox.AcceptRole)
-        dont_save_btn = box.addButton("Don't Save", QMessageBox.DestructiveRole)
-        cancel_btn = box.addButton("Cancel", QMessageBox.RejectRole)
-        box.setDefaultButton(save_btn)
-        box.exec()
-
-        clicked = box.clickedButton()
-        if clicked == save_btn:
-            try:
-                self._save_from_main_ui()
-                QApplication.instance().quit()
-            except Exception as e:
-                QMessageBox.critical(self, "Validation / Save failed", str(e))
-            return
-        if clicked == dont_save_btn:
-            QApplication.instance().quit()
-            return
-        if clicked == cancel_btn:
-            return
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def _has_unsaved_main_changes(self) -> bool:
         """
-        Compare current UI state against persisted JSON state.
+        Compare current UI state against the last loaded/saved snapshot.
 
         Any parse/load failure is treated as unsaved changes to avoid accidental data loss.
         """
@@ -631,15 +701,7 @@ class MainWindow(QMainWindow):
         except Exception:
             return True
 
-        if not self.json_path.exists():
-            return True
-
-        try:
-            saved_portfolio = load_portfolio_file(self.json_path)
-        except Exception:
-            return True
-
-        return current_portfolio != saved_portfolio
+        return self.session.has_unsaved_changes(current_portfolio)
 
     def _run_planning(self, mode: str):
         """
@@ -648,7 +710,8 @@ class MainWindow(QMainWindow):
         ``mode`` is either ``"invest"`` (no-sell planning) or ``"rebalance"``.
         """
         try:
-            self._save_from_main_ui()
+            if not self._save_current_or_save_as(show_success=False):
+                return
             p = self.current_portfolio
             assert p is not None
 
@@ -895,7 +958,10 @@ class MainWindow(QMainWindow):
                     )
 
                 # Persist after each step to support partial execution.
-                save_portfolio_file(self.current_portfolio, self.json_path)
+                if self.session.current_file_path is None:
+                    raise ValueError("No target file selected. Save the portfolio before continuing.")
+                save_portfolio_file(self.current_portfolio, self.session.current_file_path)
+                self.session.mark_saved(self.current_portfolio, self.session.current_file_path)
 
             self._advance_wizard_step()
         except Exception as e:
