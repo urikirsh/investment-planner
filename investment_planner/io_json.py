@@ -236,6 +236,13 @@ def save_portfolio_file(p: Portfolio, path: str | Path) -> None:
         Portfolio model to persist.
     path:
         Destination file path.
+
+    Raises
+    ------
+    OSError
+        If the destination cannot be opened/written.
+    TypeError
+        If the serialized structure contains non-JSON-serializable values.
     """
     path = Path(path)
     data = dump_portfolio(p)
