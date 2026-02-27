@@ -57,8 +57,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     Expects a dict with:
     - "cash": object with "value", "min_reserve", and "future_tax"
       (all parsed as Decimal, in ILS)
-    - "groups" (or legacy key "assetGroups"): list of asset group objects containing
-      id, name, targetPercentage
+    - "groups": list of asset group objects containing id, name, targetPercentage
     - "instruments": list of instrument objects containing id, name, value, investable,
       group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
@@ -97,7 +96,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     )
 
     # Asset groups
-    groups_raw = data.get("groups") or data.get("assetGroups")
+    groups_raw = data.get("groups")
     if not isinstance(groups_raw, list):
         raise ValueError("Missing or invalid 'groups' list")
 
@@ -182,7 +181,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
 
     Output schema notes
     -------------------
-    - Uses ``groups`` as the canonical key (not legacy ``assetGroups``).
+    - Uses ``groups`` as the asset-group key.
     - Decimal fields are serialized as strings to preserve precision.
     - ``groupId`` is omitted for non-investable instruments.
 
