@@ -383,7 +383,7 @@ class MainWindow(QMainWindow):
         self._populate_main_from_portfolio(p)
         self._refresh_data()
 
-    def _populate_main_from_portfolio(self, p):
+    def _populate_main_from_portfolio(self, p) -> None:
         self.tree.blockSignals(True)
         try:
             self.tree.clear()
