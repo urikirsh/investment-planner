@@ -75,9 +75,6 @@ class PortfolioSession:
             self.set_active_file_path(None)
             startup_path = None
 
-        if startup_path is None and self.default_json_path.exists():
-            startup_path = self.default_json_path
-
         return startup_path
 
     def mark_loaded(self, portfolio: Portfolio, source_path: Path) -> None:

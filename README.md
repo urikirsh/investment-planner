@@ -176,7 +176,7 @@ See [`example_portfolio.json`](example_portfolio.json) for a full synthetic exam
 
 - On startup, the app tries to reload the last opened/saved portfolio file path from global user config.
 - If that remembered file path no longer exists, the remembered path is cleared and a minimal default in-memory portfolio is loaded.
-- If no remembered file exists, the app falls back to `portfolio.json` in the project root when available.
+- If no remembered file exists, the app loads a minimal default in-memory portfolio.
 - `Save` validates current UI data and writes to the active portfolio file.
 - `Save As` picks a target file and then saves.
 - `Open` loads a portfolio JSON file from disk.
