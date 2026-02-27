@@ -59,6 +59,7 @@ and persistence responsibilities in their respective modules.
 D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
+MIN_INVESTABLE_AMOUNT_ILS = D("100")
 
 class MainWindow(QMainWindow):
     """
@@ -139,6 +140,9 @@ class MainWindow(QMainWindow):
         self.future_tax_edit.setPlaceholderText("e.g. 0")
         self.future_tax_edit.setText("0")
         cash_layout.addWidget(self.future_tax_edit)
+
+        self.investable_balance_label = QLabel("Investable balance: 0")
+        cash_layout.addWidget(self.investable_balance_label)
 
         cash_layout.addStretch(1)
         return cash_box
@@ -292,6 +296,9 @@ class MainWindow(QMainWindow):
         self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
         self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
         self.future_tax_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.cash_value_edit.textChanged.connect(self._update_investable_balance_visual_state)
+        self.cash_reserve_edit.textChanged.connect(self._update_investable_balance_visual_state)
+        self.future_tax_edit.textChanged.connect(self._update_investable_balance_visual_state)
         self.cash_value_edit.textChanged.connect(self._recalc_totals_and_pcts)
         self.future_tax_edit.textChanged.connect(self._recalc_totals_and_pcts)
         self.future_tax_edit.textChanged.connect(self._update_future_tax_visual_state)
@@ -376,7 +383,7 @@ class MainWindow(QMainWindow):
         self._populate_main_from_portfolio(p)
         self._refresh_data()
 
-    def _populate_main_from_portfolio(self, p):
+    def _populate_main_from_portfolio(self, p) -> None:
         self.tree.blockSignals(True)
         try:
             self.tree.clear()
@@ -442,6 +449,7 @@ class MainWindow(QMainWindow):
     def _refresh_data(self):
         """Refresh all derived UI values after any editable input change."""
         self._refresh_total_portfolio()
+        self._update_investable_balance_visual_state()
         self._recalc_totals_and_pcts()
 
     def _refresh_total_portfolio(self):
@@ -954,6 +962,21 @@ class MainWindow(QMainWindow):
             self.future_tax_edit.setStyleSheet("color: #b00020;")
         else:
             self.future_tax_edit.setStyleSheet("")
+
+    def _update_investable_balance_visual_state(self) -> None:
+        """Show investable balance and color-code it against minimum investable amount."""
+        cash_value = parse_value_cell(self.cash_value_edit.text())
+        cash_reserve = parse_value_cell(self.cash_reserve_edit.text())
+        future_tax = parse_value_cell(self.future_tax_edit.text())
+        investable_balance = cash_value - cash_reserve - future_tax
+        if investable_balance < 0:
+            investable_balance = D("0")
+
+        self.investable_balance_label.setText(f"Investable balance: {investable_balance}")
+        if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
+            self.investable_balance_label.setStyleSheet("color: #1b5e20;")
+        else:
+            self.investable_balance_label.setStyleSheet("color: #777777;")
 
     def _collect_row_values_and_totals(self) -> tuple[list[QTreeWidgetItem], dict[QTreeWidgetItem, D], D, D]:
         """

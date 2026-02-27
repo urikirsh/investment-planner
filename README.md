@@ -66,6 +66,9 @@ The application never executes trades automatically. All actions are explicit an
 ### UI and UX
 - Immediate validation with clear feedback and automatic revert on invalid input
 - Future tax is highlighted in red when greater than zero
+- Main screen shows your live investable balance, with color feedback:
+  - green when you have enough to invest
+  - gray when you do not
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket
