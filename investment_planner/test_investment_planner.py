@@ -2,7 +2,9 @@ from decimal import Decimal
 
 import pytest
 
+import investment_planner.planning as planning_mod
 from investment_planner.io_json import dump_portfolio, load_portfolio
+from investment_planner.models import AssetGroupPlanRow
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -103,6 +105,21 @@ def test_validation_cash_reserve_must_not_exceed_cash_value():
     data = make_valid_data(cash_value="100", cash_reserve="101")
     p = load_portfolio(data)
     with pytest.raises(ValueError, match="cash.reserve must be <= cash.value"):
+        validate_portfolio(p)
+
+
+@pytest.mark.parametrize("cash_value", ["0", "-1"])
+def test_validation_cash_value_must_be_positive(cash_value: str):
+    data = make_valid_data(cash_value=cash_value)
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="cash.value must be positive"):
+        validate_portfolio(p)
+
+
+def test_validation_cash_reserve_cannot_be_negative():
+    data = make_valid_data(cash_reserve="-0.01")
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="cash.reserve cannot be negative"):
         validate_portfolio(p)
 
 
@@ -274,6 +291,59 @@ def test_validation_non_investable_instrument_must_not_have_group():
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
     with pytest.raises(ValueError, match="Non-investable instrument .* must not have"):
+        validate_portfolio(p)
+
+
+def test_validation_requires_at_least_one_asset_group():
+    data = make_valid_data(
+        group_targets=(),
+        instruments=[
+            {"id": "i1", "name": "Parking", "value": "1000", "investable": False, "targetInGroupPercentage": "0"}
+        ],
+    )
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="At least one asset group is required"):
+        validate_portfolio(p)
+
+
+def test_validation_requires_at_least_one_instrument():
+    data = make_valid_data(instruments=[])
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="At least one instrument is required"):
+        validate_portfolio(p)
+
+
+def test_validation_group_ids_must_be_unique():
+    data = make_valid_data(
+        group_targets=(("dup", "Asset 1", "50"), ("dup", "Asset 2", "50")),
+    )
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="Duplicate asset_group.id found"):
+        validate_portfolio(p)
+
+
+def test_validation_instrument_ids_must_be_unique():
+    instruments = [
+        {"id": "dup", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "dup", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
+    ]
+    data = make_valid_data(instruments=instruments)
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="Duplicate instrument.id found"):
+        validate_portfolio(p)
+
+
+def test_validation_instrument_names_duplicate_in_non_investable_bucket_has_detailed_error():
+    instruments = [
+        {"id": "i1", "name": "DUP", "value": "6000", "investable": False, "targetInGroupPercentage": "0"},
+        {"id": "i2", "name": "DUP", "value": "4000", "investable": False, "targetInGroupPercentage": "0"},
+    ]
+    data = make_valid_data(instruments=instruments)
+    p = load_portfolio(data)
+    with pytest.raises(
+        ValueError,
+        match=r"Duplicate instrument name 'DUP' in the non-investable bucket.*Rename one of the instruments to a unique name",
+    ):
         validate_portfolio(p)
 
 
@@ -501,6 +571,97 @@ def test_map_asset_group_deltas_to_instruments_excludes_zero_pct_instruments():
     assert steps[0][2] == "i1"
     assert steps[0][3] == rows[0].planned_delta_money
 
+
+def test_plan_invest_no_sell_defensive_return_when_pct_total_is_non_positive(monkeypatch):
+    """
+    Defensive-path coverage:
+    if active target percentage sum is <= 0, planner returns [].
+    This shape is invalid for normal validation, so validation is bypassed here.
+    """
+    data = make_valid_data(
+        group_targets=(("g1", "Asset 1", "0"), ("g2", "Asset 2", "0")),
+        instruments=[
+            {"id": "i1", "name": "Inst 1", "value": "100", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "100", "investable": True, "groupId": "g2"},
+        ],
+    )
+    p = load_portfolio(data)
+    monkeypatch.setattr(planning_mod, "validate_portfolio", lambda _: None)
+
+    assert planning_mod.plan_invest_no_sell(p) == []
+
+
+def test_plan_invest_no_sell_defensive_when_all_active_groups_get_excluded(monkeypatch):
+    """
+    Defensive-path coverage:
+    force all groups to become negative-delta in one iteration, leaving no active
+    groups for the next iteration (which then returns []).
+    """
+    data = make_valid_data(
+        cash_value="1000",
+        cash_reserve="0",
+        group_targets=(("g1", "Asset 1", "50"), ("g2", "Asset 2", "50")),
+        instruments=[
+            {"id": "i1", "name": "Inst 1", "value": "500", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "500", "investable": True, "groupId": "g2"},
+        ],
+    )
+    p = load_portfolio(data)
+
+    monkeypatch.setattr(planning_mod, "validate_portfolio", lambda _: None)
+    monkeypatch.setattr(planning_mod, "compute_invest_budget", lambda _: D("-1"))
+
+    assert planning_mod.plan_invest_no_sell(p) == []
+
+
+def test_map_asset_group_deltas_to_instruments_uses_post_target_solver_for_zero_and_negative_group_deltas():
+    data = make_valid_data(
+        group_targets=(("g1", "Asset 1", "100"),),
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "200",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "50",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "100",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "50",
+            },
+        ],
+    )
+    p = load_portfolio(data)
+
+    zero_plan = [
+        AssetGroupPlanRow(
+            asset_group_id="g1",
+            asset_group_name="Asset 1",
+            target_pct=D("100"),
+            current_value=D("300"),
+            planned_delta_money=D("0"),
+        )
+    ]
+    zero_steps = map_asset_group_deltas_to_instruments(p, zero_plan)
+    assert zero_steps == [("g1", "Asset 1", "i1", D("-50")), ("g1", "Asset 1", "i2", D("50"))]
+
+    negative_plan = [
+        AssetGroupPlanRow(
+            asset_group_id="g1",
+            asset_group_name="Asset 1",
+            target_pct=D("100"),
+            current_value=D("300"),
+            planned_delta_money=D("-100"),
+        )
+    ]
+    steps = map_asset_group_deltas_to_instruments(p, negative_plan)
+    assert steps == [("g1", "Asset 1", "i1", D("-100"))]
+
 # -------------------------
 # Planning tests: unit calculation tests
 # -------------------------
@@ -531,6 +692,12 @@ def test_calculate_buy_units_floor():
     assert calc.leftover == D("1")
 
 
+@pytest.mark.parametrize("price_ag", [D("0"), D("-1")])
+def test_calculate_buy_units_non_positive_price_raises(price_ag: D):
+    with pytest.raises(ValueError, match="price must be positive"):
+        calculate_buy_units(instrument_id="i1", planned_money=D("100"), price_ag=price_ag)
+
+
 def test_commit_buy_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("200"))
@@ -542,6 +709,13 @@ def test_commit_buy_updates_cash_and_instrument():
 def test_commit_buy_below_min_trade_does_nothing():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("0.5"), min_trade_ils=D("1"))
+    assert p2 == p
+
+
+@pytest.mark.parametrize("spent", [D("0"), D("-1")])
+def test_commit_buy_non_positive_spent_does_nothing(spent: D):
+    p = make_portfolio()
+    p2 = commit_buy(p=p, instrument_id="i1", spent=spent)
     assert p2 == p
 
 
@@ -557,3 +731,10 @@ def test_commit_sell_cannot_sell_more_than_value():
     p = make_portfolio()
     with pytest.raises(ValueError):
         commit_sell(p=p, instrument_id="i1", proceeds=D("9999"))
+
+
+@pytest.mark.parametrize("proceeds", [D("0"), D("-1")])
+def test_commit_sell_non_positive_proceeds_does_nothing(proceeds: D):
+    p = make_portfolio()
+    p2 = commit_sell(p=p, instrument_id="i1", proceeds=proceeds)
+    assert p2 == p
