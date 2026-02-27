@@ -4,15 +4,13 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from PySide6.QtCore import QStandardPaths
-
 from investment_planner.io_json import load_portfolio
 from investment_planner.models import Portfolio
 
 """
 portfolio_session.py
 
-Session-level portfolio file state and persistence helpers for the GUI.
+Session-level portfolio file state and persistence helpers.
 
 This module centralizes:
 - startup path resolution from global user config
@@ -49,9 +47,9 @@ def build_default_portfolio() -> Portfolio:
 
 
 class PortfolioSession:
-    """Holds active file context and snapshot state for a GUI editing session."""
+    """Holds active file context and snapshot state for a portfolio editing session."""
 
-    def __init__(self, default_json_path: Path):
+    def __init__(self, default_json_path: Path, config_path: Path):
         """
         Initialize session state.
 
@@ -60,17 +58,14 @@ class PortfolioSession:
         default_json_path:
             Project-level default path used by the UI as the initial location
             for open/save dialogs. It is not used as a startup load fallback.
+        config_path:
+            Global config file path used to persist/read the last opened
+            portfolio path.
         """
         self.default_json_path = default_json_path
         self.current_file_path: Optional[Path] = None
         self.saved_portfolio_snapshot: Optional[Portfolio] = None
-        self._config_path = self._resolve_config_path()
-
-    def _resolve_config_path(self) -> Path:
-        """Return the user-level config file path for this application."""
-        app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
-        base_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
-        return base_dir / "config.json"
+        self._config_path = config_path
 
     def _read_last_loaded_path_from_config(self) -> Optional[Path]:
         """Read and parse the remembered portfolio path from config, if any."""

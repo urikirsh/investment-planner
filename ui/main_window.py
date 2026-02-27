@@ -4,7 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -33,6 +33,7 @@ from investment_planner.planning import (
     map_asset_group_deltas_to_instruments,
 )
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
+from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
 
 from ui.ui_types import RowKind, Col, WizardStep, ROLE_PREV_TEXT
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
@@ -42,7 +43,6 @@ from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVEST
 from ui.tree_widget import InvestmentTreeWidget
 
 from ui.decimal_input_delegate import DecimalInputDelegate
-from ui.portfolio_session import PortfolioSession, build_default_portfolio
 
 """
 main_window.py
@@ -77,7 +77,10 @@ class MainWindow(QMainWindow):
         self._base_window_title = "Investment Planner"
         self.setWindowTitle(self._base_window_title)
 
-        self.session = PortfolioSession(default_json_path=Path(json_path))
+        app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+        cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
+        config_path = cfg_dir / "config.json"
+        self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
         self.current_portfolio = None  # type: ignore[assignment]
         self.current_plan_steps: List[WizardStep] = []
         self.current_step_index: int = 0
