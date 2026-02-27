@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QStyledItemDelegate, QLineEdit, QWidget
 from PySide6.QtGui import QRegularExpressionValidator
-from PySide6.QtCore import QRegularExpression, QModelIndex
+from PySide6.QtCore import QRegularExpression, QModelIndex, QPersistentModelIndex
 
 """
 decimal_input_delegate.py
@@ -36,7 +36,7 @@ class DecimalInputDelegate(QStyledItemDelegate):
             QRegularExpression(r"^\d+(\.\d+)?$" if not allow_empty else r"^(\d+(\.\d+)?)?$")
         )
 
-    def createEditor(self, parent: QWidget, option, index: QModelIndex):
+    def createEditor(self, parent: QWidget, option, index: QModelIndex | QPersistentModelIndex):
         """
         Create a ``QLineEdit`` editor with the configured decimal validator.
 
