@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStackedWidget,
+    QStatusBar,
     QTextEdit,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -73,7 +74,8 @@ class MainWindow(QMainWindow):
 
     def __init__(self, json_path: str = "portfolio.json"):
         super().__init__()
-        self.setWindowTitle("Investment Planner")
+        self._base_window_title = "Investment Planner"
+        self.setWindowTitle(self._base_window_title)
 
         self.session = PortfolioSession(default_json_path=Path(json_path))
         self.current_portfolio = None  # type: ignore[assignment]
@@ -94,6 +96,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.screen_wizard)
         self.stack.setCurrentWidget(self.screen_main)
 
+        self._init_status_bar()
         self._load_or_init()
 
         self._suppress_item_changed = False
@@ -102,12 +105,36 @@ class MainWindow(QMainWindow):
 
         self._refresh_data()
 
+    def _current_file_display_name(self) -> str:
+        if self.session.current_file_path is None:
+            return "Untitled"
+        return self.session.current_file_path.name
+
+    def _current_file_full_path_text(self) -> str:
+        if self.session.current_file_path is None:
+            return "No file path yet (new unsaved portfolio)."
+        return str(self.session.current_file_path)
+
+    def _update_file_context_ui(self) -> None:
+        name = self._current_file_display_name()
+        self.setWindowTitle(f"{self._base_window_title} - {name}")
+        self.file_context_label.setText(f"Open: {name}")
+        self.file_context_label.setToolTip(self._current_file_full_path_text())
+
+    def _init_status_bar(self) -> None:
+        self.file_context_label = QLabel("Open: Untitled")
+        self.file_context_label.setToolTip("No file path yet (new unsaved portfolio).")
+        bar = QStatusBar(self)
+        bar.addPermanentWidget(self.file_context_label, 1)
+        self.setStatusBar(bar)
+
     def _load_portfolio_from_file(self, path: Path):
         p = load_portfolio_file(path)
         self.current_portfolio = p
         self.session.mark_loaded(p, path)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
+        self._update_file_context_ui()
 
     # -------------------------
     # Screen 1 (Main)
@@ -389,6 +416,7 @@ class MainWindow(QMainWindow):
         self.session.mark_new_unsaved(p)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
+        self._update_file_context_ui()
 
     def _populate_main_from_portfolio(self, p) -> None:
         self.tree.blockSignals(True)
@@ -582,6 +610,7 @@ class MainWindow(QMainWindow):
         save_portfolio_file(p, target_path)
         self.current_portfolio = p
         self.session.mark_saved(p, target_path)
+        self._update_file_context_ui()
 
     def _select_save_path(self) -> Optional[Path]:
         start_path = self.session.current_file_path or self.session.default_json_path
@@ -674,6 +703,7 @@ class MainWindow(QMainWindow):
         self.session.mark_new_unsaved(p)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
+        self._update_file_context_ui()
 
     def _on_invest_clicked(self):
         self._run_planning(mode="invest")
@@ -962,6 +992,7 @@ class MainWindow(QMainWindow):
                     raise ValueError("No target file selected. Save the portfolio before continuing.")
                 save_portfolio_file(self.current_portfolio, self.session.current_file_path)
                 self.session.mark_saved(self.current_portfolio, self.session.current_file_path)
+                self._update_file_context_ui()
 
             self._advance_wizard_step()
         except Exception as e:
