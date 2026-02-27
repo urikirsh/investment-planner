@@ -2,7 +2,9 @@ from decimal import Decimal
 
 import pytest
 
+import investment_planner.planning as planning_mod
 from investment_planner.io_json import dump_portfolio, load_portfolio
+from investment_planner.models import AssetGroupPlanRow
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -568,6 +570,97 @@ def test_map_asset_group_deltas_to_instruments_excludes_zero_pct_instruments():
     assert len(steps) == 1
     assert steps[0][2] == "i1"
     assert steps[0][3] == rows[0].planned_delta_money
+
+
+def test_plan_invest_no_sell_defensive_return_when_pct_total_is_non_positive(monkeypatch):
+    """
+    Defensive-path coverage:
+    if active target percentage sum is <= 0, planner returns [].
+    This shape is invalid for normal validation, so validation is bypassed here.
+    """
+    data = make_valid_data(
+        group_targets=(("g1", "Asset 1", "0"), ("g2", "Asset 2", "0")),
+        instruments=[
+            {"id": "i1", "name": "Inst 1", "value": "100", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "100", "investable": True, "groupId": "g2"},
+        ],
+    )
+    p = load_portfolio(data)
+    monkeypatch.setattr(planning_mod, "validate_portfolio", lambda _: None)
+
+    assert planning_mod.plan_invest_no_sell(p) == []
+
+
+def test_plan_invest_no_sell_defensive_when_all_active_groups_get_excluded(monkeypatch):
+    """
+    Defensive-path coverage:
+    force all groups to become negative-delta in one iteration, leaving no active
+    groups for the next iteration (which then returns []).
+    """
+    data = make_valid_data(
+        cash_value="1000",
+        cash_reserve="0",
+        group_targets=(("g1", "Asset 1", "50"), ("g2", "Asset 2", "50")),
+        instruments=[
+            {"id": "i1", "name": "Inst 1", "value": "500", "investable": True, "groupId": "g1"},
+            {"id": "i2", "name": "Inst 2", "value": "500", "investable": True, "groupId": "g2"},
+        ],
+    )
+    p = load_portfolio(data)
+
+    monkeypatch.setattr(planning_mod, "validate_portfolio", lambda _: None)
+    monkeypatch.setattr(planning_mod, "compute_invest_budget", lambda _: D("-1"))
+
+    assert planning_mod.plan_invest_no_sell(p) == []
+
+
+def test_map_asset_group_deltas_to_instruments_uses_post_target_solver_for_zero_and_negative_group_deltas():
+    data = make_valid_data(
+        group_targets=(("g1", "Asset 1", "100"),),
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "200",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "50",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "100",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "50",
+            },
+        ],
+    )
+    p = load_portfolio(data)
+
+    zero_plan = [
+        AssetGroupPlanRow(
+            asset_group_id="g1",
+            asset_group_name="Asset 1",
+            target_pct=D("100"),
+            current_value=D("300"),
+            planned_delta_money=D("0"),
+        )
+    ]
+    zero_steps = map_asset_group_deltas_to_instruments(p, zero_plan)
+    assert zero_steps == [("g1", "Asset 1", "i1", D("-50")), ("g1", "Asset 1", "i2", D("50"))]
+
+    negative_plan = [
+        AssetGroupPlanRow(
+            asset_group_id="g1",
+            asset_group_name="Asset 1",
+            target_pct=D("100"),
+            current_value=D("300"),
+            planned_delta_money=D("-100"),
+        )
+    ]
+    steps = map_asset_group_deltas_to_instruments(p, negative_plan)
+    assert steps == [("g1", "Asset 1", "i1", D("-100"))]
 
 # -------------------------
 # Planning tests: unit calculation tests
