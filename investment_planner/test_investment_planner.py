@@ -531,6 +531,12 @@ def test_calculate_buy_units_floor():
     assert calc.leftover == D("1")
 
 
+@pytest.mark.parametrize("price_ag", [D("0"), D("-1")])
+def test_calculate_buy_units_non_positive_price_raises(price_ag: D):
+    with pytest.raises(ValueError, match="price must be positive"):
+        calculate_buy_units(instrument_id="i1", planned_money=D("100"), price_ag=price_ag)
+
+
 def test_commit_buy_updates_cash_and_instrument():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("200"))
@@ -542,6 +548,13 @@ def test_commit_buy_updates_cash_and_instrument():
 def test_commit_buy_below_min_trade_does_nothing():
     p = make_portfolio()
     p2 = commit_buy(p=p, instrument_id="i1", spent=D("0.5"), min_trade_ils=D("1"))
+    assert p2 == p
+
+
+@pytest.mark.parametrize("spent", [D("0"), D("-1")])
+def test_commit_buy_non_positive_spent_does_nothing(spent: D):
+    p = make_portfolio()
+    p2 = commit_buy(p=p, instrument_id="i1", spent=spent)
     assert p2 == p
 
 
@@ -557,3 +570,10 @@ def test_commit_sell_cannot_sell_more_than_value():
     p = make_portfolio()
     with pytest.raises(ValueError):
         commit_sell(p=p, instrument_id="i1", proceeds=D("9999"))
+
+
+@pytest.mark.parametrize("proceeds", [D("0"), D("-1")])
+def test_commit_sell_non_positive_proceeds_does_nothing(proceeds: D):
+    p = make_portfolio()
+    p2 = commit_sell(p=p, instrument_id="i1", proceeds=proceeds)
+    assert p2 == p
