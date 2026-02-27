@@ -106,6 +106,21 @@ def test_validation_cash_reserve_must_not_exceed_cash_value():
         validate_portfolio(p)
 
 
+@pytest.mark.parametrize("cash_value", ["0", "-1"])
+def test_validation_cash_value_must_be_positive(cash_value: str):
+    data = make_valid_data(cash_value=cash_value)
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="cash.value must be positive"):
+        validate_portfolio(p)
+
+
+def test_validation_cash_reserve_cannot_be_negative():
+    data = make_valid_data(cash_reserve="-0.01")
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="cash.reserve cannot be negative"):
+        validate_portfolio(p)
+
+
 def test_validation_percentages_must_sum_to_100_exactly():
     data = make_valid_data(group_targets=(("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "39.9")))
     p = load_portfolio(data)
@@ -274,6 +289,59 @@ def test_validation_non_investable_instrument_must_not_have_group():
     data = make_valid_data(instruments=instruments)
     p = load_portfolio(data)
     with pytest.raises(ValueError, match="Non-investable instrument .* must not have"):
+        validate_portfolio(p)
+
+
+def test_validation_requires_at_least_one_asset_group():
+    data = make_valid_data(
+        group_targets=(),
+        instruments=[
+            {"id": "i1", "name": "Parking", "value": "1000", "investable": False, "targetInGroupPercentage": "0"}
+        ],
+    )
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="At least one asset group is required"):
+        validate_portfolio(p)
+
+
+def test_validation_requires_at_least_one_instrument():
+    data = make_valid_data(instruments=[])
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="At least one instrument is required"):
+        validate_portfolio(p)
+
+
+def test_validation_group_ids_must_be_unique():
+    data = make_valid_data(
+        group_targets=(("dup", "Asset 1", "50"), ("dup", "Asset 2", "50")),
+    )
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="Duplicate asset_group.id found"):
+        validate_portfolio(p)
+
+
+def test_validation_instrument_ids_must_be_unique():
+    instruments = [
+        {"id": "dup", "name": "Inst 1", "value": "6000", "investable": True, "groupId": "g1"},
+        {"id": "dup", "name": "Inst 2", "value": "4000", "investable": True, "groupId": "g2"},
+    ]
+    data = make_valid_data(instruments=instruments)
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="Duplicate instrument.id found"):
+        validate_portfolio(p)
+
+
+def test_validation_instrument_names_duplicate_in_non_investable_bucket_has_detailed_error():
+    instruments = [
+        {"id": "i1", "name": "DUP", "value": "6000", "investable": False, "targetInGroupPercentage": "0"},
+        {"id": "i2", "name": "DUP", "value": "4000", "investable": False, "targetInGroupPercentage": "0"},
+    ]
+    data = make_valid_data(instruments=instruments)
+    p = load_portfolio(data)
+    with pytest.raises(
+        ValueError,
+        match=r"Duplicate instrument name 'DUP' in the non-investable bucket.*Rename one of the instruments to a unique name",
+    ):
         validate_portfolio(p)
 
 
