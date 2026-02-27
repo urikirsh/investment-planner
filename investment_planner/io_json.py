@@ -158,6 +158,17 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
     -------
     Portfolio
         Parsed portfolio model.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    OSError
+        If the file cannot be opened/read due to OS-level errors.
+    json.JSONDecodeError
+        If file contents are not valid JSON.
+    ValueError
+        If JSON structure/types are invalid for portfolio parsing.
     """
     path = Path(path)
     with path.open("r", encoding="utf-8") as f:
