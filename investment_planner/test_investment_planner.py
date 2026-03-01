@@ -5,6 +5,7 @@ import pytest
 import investment_planner.planning as planning_mod
 from investment_planner.io_json import dump_portfolio, load_portfolio, save_portfolio_file
 from investment_planner.models import AssetGroupPlanRow
+from investment_planner.planning_types import PlanningMode
 from investment_planner.portfolio_document import PortfolioDocument
 from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
 from investment_planner.use_cases import (
@@ -889,7 +890,7 @@ def test_use_case_build_plan_for_current_document_returns_steps(tmp_path):
     portfolio = load_portfolio(make_valid_data())
     session.document.mark_new_unsaved(portfolio)
 
-    result = build_plan_for_current_document(session, "invest")
+    result = build_plan_for_current_document(session, PlanningMode.INVEST)
 
     assert result.portfolio == portfolio
     assert result.budget == D("10000")

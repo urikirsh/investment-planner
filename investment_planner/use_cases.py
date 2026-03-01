@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List
 
 from investment_planner.calc_stock_units import commit_buy, commit_sell
 from investment_planner.io_json import load_portfolio
 from investment_planner.models import AssetGroupPlanRow, Portfolio
+from investment_planner.planning_types import PlanningMode
 from investment_planner.planning import (
     compute_invest_budget,
     map_asset_group_deltas_to_instruments,
@@ -18,7 +19,6 @@ from investment_planner.portfolio_session import PortfolioSession, build_default
 from investment_planner.validation import validate_portfolio
 
 D = Decimal
-PlanningMode = Literal["invest", "rebalance"]
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ def build_plan_for_current_document(session: PortfolioSession, mode: PlanningMod
             mode=mode,
         )
 
-    rows = plan_invest_no_sell(portfolio) if mode == "invest" else plan_rebalance(portfolio)
+    rows = plan_invest_no_sell(portfolio) if mode == PlanningMode.INVEST else plan_rebalance(portfolio)
     instrument_steps = map_asset_group_deltas_to_instruments(portfolio, rows)
     instruments_by_id = {ins.id: ins for ins in portfolio.instruments}
 

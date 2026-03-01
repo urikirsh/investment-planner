@@ -25,10 +25,10 @@ from PySide6.QtWidgets import (
 )
 
 from investment_planner.calc_stock_units import calculate_buy_units
+from investment_planner.planning_types import PlanningMode
 from investment_planner.portfolio_session import PortfolioSession
 from investment_planner.use_cases import (
     PlanStep,
-    PlanningMode,
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
         self.current_plan_steps: List[PlanStep] = []
         self.current_step_index: int = 0
-        self.current_mode: PlanningMode = "invest"
+        self.current_mode: PlanningMode = PlanningMode.INVEST
 
         # Screens
         self.stack = QStackedWidget()
@@ -726,10 +726,10 @@ class MainWindow(QMainWindow):
         self._update_file_context_ui()
 
     def _on_invest_clicked(self):
-        self._run_planning(mode="invest")
+        self._run_planning(mode=PlanningMode.INVEST)
 
     def _on_rebalance_clicked(self):
-        self._run_planning(mode="rebalance")
+        self._run_planning(mode=PlanningMode.REBALANCE)
 
     def _on_main_quit_clicked(self):
         if not self._confirm_continue_with_unsaved_changes("quitting"):
@@ -757,7 +757,7 @@ class MainWindow(QMainWindow):
         """
         Execute planning flow from current UI state and open summary screen.
 
-        ``mode`` is either ``"invest"`` (no-sell planning) or ``"rebalance"``.
+        ``mode`` selects either invest-only or invest-and-rebalance strategy.
         """
         try:
             if not self._save_current_or_save_as(show_success=False):
@@ -816,7 +816,7 @@ class MainWindow(QMainWindow):
         if budget < 0:
             budget = D("0")
         lines = [
-            f"Mode: {mode}",
+            f"Mode: {mode.value}",
             f"Future tax (non-investable): {p.cash.future_tax}",
             f"Invest budget (cash - minimal reserve - future tax): {budget}",
             "",
@@ -831,7 +831,7 @@ class MainWindow(QMainWindow):
                     f"- {action} {abs(s.planned_delta_money)} in [{s.asset_group_name}] via [{s.instrument_name}]"
                 )
 
-        if mode == "rebalance":
+        if mode == PlanningMode.REBALANCE:
             lines.append("")
             lines.append("Note: SELL steps follow per-instrument in-group targets.")
 
