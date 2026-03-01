@@ -8,17 +8,12 @@ from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
-    QFormLayout,
-    QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
-    QPushButton,
     QStackedWidget,
     QStatusBar,
     QTreeWidgetItem,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -42,6 +37,7 @@ from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVEST
 
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
+from ui.screens.wizard_screen import WizardScreen
 
 """
 main_window.py
@@ -90,7 +86,7 @@ class MainWindow(QMainWindow):
 
         self._init_main_screen()
         self._init_summary_screen()
-        self.screen_wizard = self._build_wizard_screen()
+        self._init_wizard_screen()
 
         self.stack.addWidget(self.screen_main)
         self.stack.addWidget(self.screen_summary)
@@ -663,55 +659,16 @@ class MainWindow(QMainWindow):
     # Screen 3 (Wizard)
     # -------------------------
 
-    def _build_wizard_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-
-        title = QLabel("Invest per asset group")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-
-        self.wiz_info = QLabel("-")
-        self.wiz_info.setWordWrap(True)
-        layout.addWidget(self.wiz_info)
-
-        form = QWidget()
-        form_layout = QFormLayout(form)
-        self.price_edit = QLineEdit()
-        self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
-        form_layout.addRow("Price (Agorot):", self.price_edit)
-        layout.addWidget(form)
-
-        calc_row = QWidget()
-        calc_layout = QHBoxLayout(calc_row)
-        calc_btn = QPushButton("Calculate")
-        calc_btn.clicked.connect(self._wizard_calculate)
-        calc_layout.addWidget(calc_btn)
-
-        self.wiz_result = QLabel("Units: - | Spent: - | Leftover vs plan: -")
-        self.wiz_result.setWordWrap(True)
-        calc_layout.addWidget(self.wiz_result, 1)
-        layout.addWidget(calc_row)
-
-        btns = QWidget()
-        btns_layout = QHBoxLayout(btns)
-
-        quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(self._quit_app)
-        btns_layout.addWidget(quit_btn)
-
-        save_btn = QPushButton("Save and continue")
-        save_btn.clicked.connect(self._wizard_save_continue)
-        btns_layout.addWidget(save_btn)
-
-        skip_save_btn = QPushButton("Continue without saving")
-        skip_save_btn.clicked.connect(self._wizard_continue_without_saving)
-        btns_layout.addWidget(skip_save_btn)
-
-        btns_layout.addStretch(1)
-        layout.addWidget(btns)
-
-        return w
+    def _init_wizard_screen(self) -> None:
+        """Build screen-3 widget and wire wizard actions."""
+        self.screen_wizard = WizardScreen(self)
+        self.wiz_info = self.screen_wizard.wiz_info
+        self.price_edit = self.screen_wizard.price_edit
+        self.wiz_result = self.screen_wizard.wiz_result
+        self.screen_wizard.calculate_btn.clicked.connect(self._wizard_calculate)
+        self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
+        self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
+        self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
 
     def _show_current_wizard_step(self):
         """Render current wizard step details and reset last calculation state."""
