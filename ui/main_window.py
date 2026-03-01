@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QApplication,
     QFileDialog,
     QFormLayout,
@@ -21,7 +20,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QTreeWidgetItem,
     QVBoxLayout,
-    QWidget, QHeaderView,
+    QWidget,
 )
 
 from investment_planner.calc_stock_units import calculate_buy_units
@@ -42,9 +41,7 @@ from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, 
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 
-from ui.tree_widget import InvestmentTreeWidget
-
-from ui.decimal_input_delegate import DecimalInputDelegate
+from ui.screens.main_editor_screen import MainEditorScreen
 
 """
 main_window.py
@@ -91,7 +88,7 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
-        self.screen_main = self._build_main_screen()
+        self._init_main_screen()
         self.screen_summary = self._build_summary_screen()
         self.screen_wizard = self._build_wizard_screen()
 
@@ -147,6 +144,40 @@ class MainWindow(QMainWindow):
     # Screen 1 (Main)
     # -------------------------
 
+    def _init_main_screen(self) -> None:
+        """Build screen-1 widget and wire all main-editor signal handlers."""
+        self.screen_main = MainEditorScreen(self)
+        self.tree = self.screen_main.tree
+        self.cash_value_edit = self.screen_main.cash_value_edit
+        self.cash_reserve_edit = self.screen_main.cash_reserve_edit
+        self.future_tax_edit = self.screen_main.future_tax_edit
+        self.investable_balance_label = self.screen_main.investable_balance_label
+        self.total_label = self.screen_main.total_label
+
+        self.screen_main.add_group_btn.clicked.connect(self._add_asset_group)
+        self.screen_main.add_instrument_btn.clicked.connect(self._add_instrument)
+        self.screen_main.delete_row_btn.clicked.connect(self._delete_selected_row)
+        self.screen_main.quit_btn.clicked.connect(self._on_main_quit_clicked)
+        self.screen_main.invest_btn.clicked.connect(self._on_invest_clicked)
+        self.screen_main.rebalance_btn.clicked.connect(self._on_rebalance_clicked)
+        self.screen_main.save_btn.clicked.connect(self._on_save_clicked)
+        self.screen_main.save_as_btn.clicked.connect(self._on_save_as_clicked)
+        self.screen_main.open_btn.clicked.connect(self._on_open_clicked)
+        self.screen_main.new_btn.clicked.connect(self._on_new_clicked)
+
+        self.tree.items_reordered.connect(self._after_tree_reorder)
+        self.tree.itemChanged.connect(self._refresh_total_portfolio)
+        self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.future_tax_edit.textChanged.connect(self._refresh_total_portfolio)
+        self.cash_value_edit.textChanged.connect(self._update_investable_balance_visual_state)
+        self.cash_reserve_edit.textChanged.connect(self._update_investable_balance_visual_state)
+        self.future_tax_edit.textChanged.connect(self._update_investable_balance_visual_state)
+        self.cash_value_edit.textChanged.connect(self._recalc_totals_and_pcts)
+        self.future_tax_edit.textChanged.connect(self._recalc_totals_and_pcts)
+        self.future_tax_edit.textChanged.connect(self._update_future_tax_visual_state)
+        self.future_tax_edit.editingFinished.connect(self._normalize_future_tax_input)
+
     def _on_item_changed_guard_and_recalc(self, item, column: int):
         if self._suppress_item_changed:
             return
@@ -162,204 +193,6 @@ class MainWindow(QMainWindow):
                 return
 
         self._refresh_data()
-
-    def _generate_cash_box(self) -> QWidget:
-        # Cash block (fixed)
-        cash_box = QWidget()
-        cash_layout = QHBoxLayout(cash_box)
-
-        cash_layout.addWidget(QLabel("Cash value:"))
-        self.cash_value_edit = QLineEdit()
-        self.cash_value_edit.setPlaceholderText("e.g. 1000")
-        cash_layout.addWidget(self.cash_value_edit)
-
-        cash_layout.addWidget(QLabel("Minimal cash reserve:"))
-        self.cash_reserve_edit = QLineEdit()
-        self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
-        cash_layout.addWidget(self.cash_reserve_edit)
-
-        cash_layout.addWidget(QLabel("Future tax:"))
-        self.future_tax_edit = QLineEdit()
-        self.future_tax_edit.setPlaceholderText("e.g. 0")
-        self.future_tax_edit.setText("0")
-        cash_layout.addWidget(self.future_tax_edit)
-
-        self.investable_balance_label = QLabel("Investable balance: 0")
-        cash_layout.addWidget(self.investable_balance_label)
-
-        cash_layout.addStretch(1)
-        return cash_box
-
-    def _init_group_and_instruments_tree(self) -> None:
-        # Tree: Groups as top-level, instruments as children
-        self.tree = InvestmentTreeWidget()
-        self.tree.setColumnCount(len(Col))
-        self.tree.setHeaderLabels(
-            [
-                "Name",
-                "Total value",
-                "Portfolio %",
-                "Target %",
-                "Strategy %",
-                "Drift (pp)",
-            ]
-        )
-        self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.tree.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.tree.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
-        self.tree.setIndentation(22)
-
-        # Set column widths and drag behaviors
-        header = self.tree.header()
-        header.setStretchLastSection(False)
-
-        for col in Col:
-            if col == Col.NAME:
-                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
-            elif col == Col.DRIFT_PP:
-                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
-            else:
-                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
-
-        self.tree.setColumnWidth(Col.DRIFT_PP.value, 78)
-        self.tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
-
-        self.tree.items_reordered.connect(self._after_tree_reorder)
-
-        self.tree.setItemDelegateForColumn(Col.TOT_VALUE.value,
-                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
-        self.tree.setItemDelegateForColumn(Col.TARGET_PCT.value,
-                                           DecimalInputDelegate(allow_empty=False, parent=self.tree))
-        self._set_tree_header_tooltips()
-
-    def _set_tree_header_tooltips(self) -> None:
-        header_item = self.tree.headerItem()
-        header_item.setToolTip(
-            Col.NAME.value,
-            "The asset group or instrument name shown in this row.",
-        )
-        header_item.setToolTip(
-            Col.TOT_VALUE.value,
-            "Current value for this row.\n"
-            "For an asset group: sum of its instruments.\n"
-            "For an instrument: the instrument's own value.",
-        )
-        header_item.setToolTip(
-            Col.PORTFOLIO_PCT.value,
-            "Share of your full portfolio value (including cash and all instruments).",
-        )
-        header_item.setToolTip(
-            Col.TARGET_PCT.value,
-            "This is your goal for this row.\n"
-            "For an asset group: part of your whole investment plan.\n"
-            "For an instrument: part of its asset group.",
-        )
-        header_item.setToolTip(
-            Col.STRATEGY_PCT.value,
-            "This is where you are now.\n"
-            "For an asset group: its current share of your invested portfolio.\n"
-            "For an instrument: its current share inside its asset group.",
-        )
-        header_item.setToolTip(
-            Col.DRIFT_PP.value,
-            "How far you are from your goal for this row.\n"
-            "Positive means above goal. Negative means below goal.",
-        )
-
-    def _generate_controls_widget(self) -> QWidget:
-        # Controls row: add/remove
-        controls = QWidget()
-        controls_layout = QHBoxLayout(controls)
-
-        add_group = QPushButton("Add Asset Group")
-        add_group.clicked.connect(self._add_asset_group)
-        controls_layout.addWidget(add_group)
-
-        add_instrument = QPushButton("Add Instrument")
-        add_instrument.clicked.connect(self._add_instrument)
-        controls_layout.addWidget(add_instrument)
-
-        delete_row = QPushButton("Delete Selected")
-        delete_row.clicked.connect(self._delete_selected_row)
-        controls_layout.addWidget(delete_row)
-
-        controls_layout.addStretch(1)
-        return controls
-
-    def _generate_total_portfolio_value_widget(self) -> QWidget:
-        totals = QWidget()
-        totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio value: -")
-        totals_layout.addWidget(self.total_label)
-        totals_layout.addStretch(1)
-        return totals
-
-    def _generate_bottom_buttons_widget(self) -> QWidget:
-        btns = QWidget()
-        btns_layout = QHBoxLayout(btns)
-
-        quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(self._on_main_quit_clicked)
-        btns_layout.addWidget(quit_btn)
-
-        invest_btn = QPushButton("Invest")
-        invest_btn.clicked.connect(self._on_invest_clicked)
-        btns_layout.addWidget(invest_btn)
-
-        rebalance_btn = QPushButton("Invest & Rebalance")
-        rebalance_btn.clicked.connect(self._on_rebalance_clicked)
-        btns_layout.addWidget(rebalance_btn)
-
-        save_btn = QPushButton("Save")
-        save_btn.clicked.connect(self._on_save_clicked)
-        btns_layout.addWidget(save_btn)
-
-        save_as_btn = QPushButton("Save As")
-        save_as_btn.clicked.connect(self._on_save_as_clicked)
-        btns_layout.addWidget(save_as_btn)
-
-        open_btn = QPushButton("Open")
-        open_btn.clicked.connect(self._on_open_clicked)
-        btns_layout.addWidget(open_btn)
-
-        new_btn = QPushButton("New")
-        new_btn.clicked.connect(self._on_new_clicked)
-        btns_layout.addWidget(new_btn)
-
-        btns_layout.addStretch(1)
-        return btns
-
-    def _build_main_screen(self) -> QWidget:
-        main_screen_widget = QWidget()
-        layout = QVBoxLayout(main_screen_widget)
-
-        title = QLabel("Insert data here")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-        layout.addWidget(self._generate_cash_box())
-
-        self._init_group_and_instruments_tree()
-        layout.addWidget(self.tree, 1)
-
-        layout.addWidget(self._generate_controls_widget())
-        layout.addWidget(self._generate_total_portfolio_value_widget())
-        layout.addWidget(self._generate_bottom_buttons_widget())
-
-        # Live total refresh
-        self.tree.itemChanged.connect(self._refresh_total_portfolio)
-        self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
-        self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
-        self.future_tax_edit.textChanged.connect(self._refresh_total_portfolio)
-        self.cash_value_edit.textChanged.connect(self._update_investable_balance_visual_state)
-        self.cash_reserve_edit.textChanged.connect(self._update_investable_balance_visual_state)
-        self.future_tax_edit.textChanged.connect(self._update_investable_balance_visual_state)
-        self.cash_value_edit.textChanged.connect(self._recalc_totals_and_pcts)
-        self.future_tax_edit.textChanged.connect(self._recalc_totals_and_pcts)
-        self.future_tax_edit.textChanged.connect(self._update_future_tax_visual_state)
-        self.future_tax_edit.editingFinished.connect(self._normalize_future_tax_input)
-
-        return main_screen_widget
 
     def _add_asset_group(self):
         # gid = _new_id("grp")
