@@ -893,10 +893,29 @@ def test_use_case_build_plan_for_current_document_returns_steps(tmp_path):
     result = build_plan_for_current_document(session, PlanningMode.INVEST)
 
     assert result.portfolio == portfolio
+    assert result.mode == PlanningMode.INVEST
     assert result.budget == D("10000")
-    assert len(result.rows) >= 1
-    assert len(result.steps) >= 1
-    assert all(step.instrument_name for step in result.steps)
+    assert len(result.rows) == 2
+    assert result.rows[0].asset_group_id == "g1"
+    assert result.rows[0].asset_group_name == "Asset 1"
+    assert result.rows[0].current_value == D("6000")
+    assert result.rows[0].planned_delta_money == D("6000")
+    assert result.rows[1].asset_group_id == "g2"
+    assert result.rows[1].asset_group_name == "Asset 2"
+    assert result.rows[1].current_value == D("4000")
+    assert result.rows[1].planned_delta_money == D("4000")
+
+    assert len(result.steps) == 2
+    assert result.steps[0].asset_group_id == "g1"
+    assert result.steps[0].asset_group_name == "Asset 1"
+    assert result.steps[0].instrument_id == "i1"
+    assert result.steps[0].instrument_name == "Inst 1"
+    assert result.steps[0].planned_delta_money == D("6000")
+    assert result.steps[1].asset_group_id == "g2"
+    assert result.steps[1].asset_group_name == "Asset 2"
+    assert result.steps[1].instrument_id == "i2"
+    assert result.steps[1].instrument_name == "Inst 2"
+    assert result.steps[1].planned_delta_money == D("4000")
 
 
 def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
