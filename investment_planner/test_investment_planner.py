@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 import investment_planner.planning as planning_mod
-from investment_planner.io_json import dump_portfolio, load_portfolio
+from investment_planner.io_json import dump_portfolio, load_portfolio, save_portfolio_file
 from investment_planner.models import AssetGroupPlanRow
 from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
 from investment_planner.validation import validate_portfolio
@@ -779,7 +779,7 @@ def test_portfolio_session_resolve_startup_path_clears_missing_file_reference(tm
     assert session._read_last_loaded_path_from_config() is None
 
 
-def test_portfolio_session_marks_and_dirty_state_tracking(tmp_path):
+def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     session = PortfolioSession(
         default_json_path=tmp_path / "default_portfolio",
         config_path=tmp_path / "config.json",
@@ -787,18 +787,30 @@ def test_portfolio_session_marks_and_dirty_state_tracking(tmp_path):
     p1 = load_portfolio(make_valid_data())
     p2 = load_portfolio(make_valid_data(cash_value="15000"))
 
-    session.mark_loaded(p1, tmp_path / "p1.json")
+    p1_path = tmp_path / "p1.json"
+    p2_path = tmp_path / "p2.json"
+    save_portfolio_file(p1, p1_path)
+
+    loaded = session.load_document_from_path(p1_path)
+    assert loaded == p1
     assert session.current_file_path == tmp_path / "p1.json"
-    assert session.has_unsaved_changes(p1) is False
-    assert session.has_unsaved_changes(p2) is True
+    assert session.document.current_portfolio == p1
+    assert session.document.is_dirty() is False
 
-    session.mark_saved(p2, tmp_path / "p2.json")
-    assert session.current_file_path == tmp_path / "p2.json"
-    assert session.has_unsaved_changes(p2) is False
+    session.document.set_current(p2)
+    assert session.document.is_dirty() is True
 
-    session.mark_new_unsaved(p1)
+    session.save_document_to_path(p2_path)
+    assert session.current_file_path == p2_path
+    assert session.document.current_portfolio == p2
+    assert session.document.saved_snapshot == p2
+    assert session.document.is_dirty() is False
+
+    session.mark_new_document(p1)
     assert session.current_file_path is None
-    assert session.has_unsaved_changes(p1) is False
+    assert session.document.current_portfolio == p1
+    assert session.document.saved_snapshot == p1
+    assert session.document.is_dirty() is False
 
 
 def test_build_default_portfolio_returns_valid_portfolio():

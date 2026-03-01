@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget, QHeaderView,
 )
 
-from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
+from investment_planner.io_json import load_portfolio
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -81,7 +81,6 @@ class MainWindow(QMainWindow):
         cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
         config_path = cfg_dir / "config.json"
         self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
-        self.current_portfolio = None  # type: ignore[assignment]
         self.current_plan_steps: List[WizardStep] = []
         self.current_step_index: int = 0
         self.current_mode: str = "invest"  # "invest" or "rebalance"
@@ -137,9 +136,7 @@ class MainWindow(QMainWindow):
 
     def _load_portfolio_from_file(self, path: Path):
         """Load a portfolio from disk into editor state and refresh UI context."""
-        p = load_portfolio_file(path)
-        self.current_portfolio = p
-        self.session.mark_loaded(p, path)
+        p = self.session.load_document_from_path(path)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
         self._update_file_context_ui()
@@ -420,8 +417,7 @@ class MainWindow(QMainWindow):
                 self.session.set_active_file_path(None)
 
         p = build_default_portfolio()
-        self.current_portfolio = p
-        self.session.mark_new_unsaved(p)
+        self.session.mark_new_document(p)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
         self._update_file_context_ui()
@@ -624,9 +620,8 @@ class MainWindow(QMainWindow):
         data = self._build_data_from_main_ui(allow_partial=False)
         p = load_portfolio(data)  # parses Decimals
         validate_portfolio(p)
-        save_portfolio_file(p, target_path)
-        self.current_portfolio = p
-        self.session.mark_saved(p, target_path)
+        self.session.document.set_current(p)
+        self.session.save_document_to_path(target_path)
         self._update_file_context_ui()
 
     def _select_save_path(self) -> Optional[Path]:
@@ -728,8 +723,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
         p = build_default_portfolio()
-        self.current_portfolio = p
-        self.session.mark_new_unsaved(p)
+        self.session.mark_new_document(p)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
         self._update_file_context_ui()
@@ -760,7 +754,8 @@ class MainWindow(QMainWindow):
         except Exception:
             return True
 
-        return self.session.has_unsaved_changes(current_portfolio)
+        self.session.document.set_current(current_portfolio)
+        return self.session.document.is_dirty()
 
     def _run_planning(self, mode: str):
         """
@@ -771,7 +766,7 @@ class MainWindow(QMainWindow):
         try:
             if not self._save_current_or_save_as(show_success=False):
                 return
-            p = self.current_portfolio
+            p = self.session.document.current_portfolio
             assert p is not None
 
             budget = compute_invest_budget(p)
@@ -985,7 +980,7 @@ class MainWindow(QMainWindow):
     def _wizard_save_continue(self):
         """Apply current step trade (if valid), persist, and move to next step."""
         try:
-            if self.current_portfolio is None:
+            if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
 
             s = self.current_plan_steps[self.current_step_index]
@@ -1000,27 +995,29 @@ class MainWindow(QMainWindow):
 
             # If no valid trade was calculated, continue without saving changes.
             if calc_units > 0 and spent >= D("1"):
+                current = self.session.document.current_portfolio
+                assert current is not None
                 if s.planned_delta_money > 0:
-                    self.current_portfolio = commit_buy(
-                        p=self.current_portfolio,
+                    current = commit_buy(
+                        p=current,
                         instrument_id=s.instrument_id,
                         spent=spent,
                         min_trade_ils=D("100"),
                     )
                 else:
                     # SELL from the current wizard instrument
-                    self.current_portfolio = commit_sell(
-                        p=self.current_portfolio,
+                    current = commit_sell(
+                        p=current,
                         instrument_id=s.instrument_id,
                         proceeds=spent,
                         min_trade_ils=D("1"),
                     )
+                self.session.document.set_current(current)
 
                 # Persist after each step to support partial execution.
                 if self.session.current_file_path is None:
                     raise ValueError("No target file selected. Save the portfolio before continuing.")
-                save_portfolio_file(self.current_portfolio, self.session.current_file_path)
-                self.session.mark_saved(self.current_portfolio, self.session.current_file_path)
+                self.session.save_document_to_path(self.session.current_file_path)
                 self._update_file_context_ui()
 
             self._advance_wizard_step()
@@ -1030,7 +1027,7 @@ class MainWindow(QMainWindow):
     def _wizard_continue_without_saving(self):
         """Skip current step without mutating portfolio and move forward."""
         try:
-            if self.current_portfolio is None:
+            if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
             self._advance_wizard_step()
         except Exception as e:
@@ -1042,7 +1039,9 @@ class MainWindow(QMainWindow):
         self.current_step_index += 1
         if self.current_step_index >= len(self.current_plan_steps):
             # Return to main with the current in-memory portfolio state.
-            self._populate_main_from_portfolio(self.current_portfolio)
+            current = self.session.document.current_portfolio
+            assert current is not None
+            self._populate_main_from_portfolio(current)
             self.stack.setCurrentWidget(self.screen_main)
         else:
             self._show_current_wizard_step()
