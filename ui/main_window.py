@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QStackedWidget,
     QStatusBar,
-    QTextEdit,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -42,6 +41,7 @@ from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, 
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 
 from ui.screens.main_editor_screen import MainEditorScreen
+from ui.screens.summary_screen import SummaryScreen
 
 """
 main_window.py
@@ -89,7 +89,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stack)
 
         self._init_main_screen()
-        self.screen_summary = self._build_summary_screen()
+        self._init_summary_screen()
         self.screen_wizard = self._build_wizard_screen()
 
         self.stack.addWidget(self.screen_main)
@@ -612,37 +612,13 @@ class MainWindow(QMainWindow):
     # Screen 2 (Summary)
     # -------------------------
 
-    def _build_summary_screen(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-
-        title = QLabel("Summary")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
-        layout.addWidget(title)
-
-        self.summary_text = QTextEdit()
-        self.summary_text.setReadOnly(True)
-        layout.addWidget(self.summary_text, 1)
-
-        btns = QWidget()
-        btns_layout = QHBoxLayout(btns)
-
-        quit_btn = QPushButton("Quit")
-        quit_btn.clicked.connect(self._quit_app)
-        btns_layout.addWidget(quit_btn)
-
-        back_btn = QPushButton("Back")
-        back_btn.clicked.connect(self._summary_back)
-        btns_layout.addWidget(back_btn)
-
-        next_btn = QPushButton("Next")
-        next_btn.clicked.connect(self._summary_next)
-        btns_layout.addWidget(next_btn)
-
-        btns_layout.addStretch(1)
-        layout.addWidget(btns)
-
-        return w
+    def _init_summary_screen(self) -> None:
+        """Build screen-2 widget and wire summary navigation actions."""
+        self.screen_summary = SummaryScreen(self)
+        self.summary_text = self.screen_summary.summary_text
+        self.screen_summary.quit_btn.clicked.connect(self._quit_app)
+        self.screen_summary.back_btn.clicked.connect(self._summary_back)
+        self.screen_summary.next_btn.clicked.connect(self._summary_next)
 
     def _populate_summary(self, p, steps: List[PlanStep], mode: PlanningMode):
         budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
