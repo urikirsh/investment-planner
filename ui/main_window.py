@@ -109,22 +109,26 @@ class MainWindow(QMainWindow):
         self._refresh_data()
 
     def _current_file_display_name(self) -> str:
+        """Return short file label for UI chrome (filename or ``Untitled``)."""
         if self.session.current_file_path is None:
             return "Untitled"
         return self.session.current_file_path.name
 
     def _current_file_full_path_text(self) -> str:
+        """Return full-path tooltip text for the current portfolio file context."""
         if self.session.current_file_path is None:
             return "No file path yet (new unsaved portfolio)."
         return str(self.session.current_file_path)
 
     def _update_file_context_ui(self) -> None:
+        """Refresh window title and status-bar file indicator from session state."""
         name = self._current_file_display_name()
         self.setWindowTitle(f"{self._base_window_title} - {name}")
         self.file_context_label.setText(f"Open: {name}")
         self.file_context_label.setToolTip(self._current_file_full_path_text())
 
     def _init_status_bar(self) -> None:
+        """Create and attach status bar widgets used for active-file visibility."""
         self.file_context_label = QLabel("Open: Untitled")
         self.file_context_label.setToolTip("No file path yet (new unsaved portfolio).")
         bar = QStatusBar(self)
@@ -132,6 +136,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(bar)
 
     def _load_portfolio_from_file(self, path: Path):
+        """Load a portfolio from disk into editor state and refresh UI context."""
         p = load_portfolio_file(path)
         self.current_portfolio = p
         self.session.mark_loaded(p, path)
@@ -606,7 +611,16 @@ class MainWindow(QMainWindow):
         }
 
     def _save_from_main_ui(self, target_path: Path) -> None:
-        """Build, parse, validate and persist current main-screen portfolio state."""
+        """
+        Build, parse, validate and persist current main-screen portfolio state.
+
+        Parameters
+        ----------
+        target_path:
+            Destination portfolio JSON file path chosen by the current save flow
+            (`Save` or `Save As`). The validated portfolio is written to this
+            exact path and then marked as the active session file.
+        """
         data = self._build_data_from_main_ui(allow_partial=False)
         p = load_portfolio(data)  # parses Decimals
         validate_portfolio(p)
@@ -616,6 +630,7 @@ class MainWindow(QMainWindow):
         self._update_file_context_ui()
 
     def _select_save_path(self) -> Optional[Path]:
+        """Open Save As picker and return normalized target path, or ``None`` if canceled."""
         start_path = self.session.current_file_path or self.session.default_json_path
         selected, _ = QFileDialog.getSaveFileName(
             self,
@@ -631,6 +646,11 @@ class MainWindow(QMainWindow):
         return chosen
 
     def _save_current_or_save_as(self, *, show_success: bool, force_save_as: bool = False) -> bool:
+        """
+        Save current editor state to active file or a newly selected file.
+
+        Returns ``True`` only when save completed successfully.
+        """
         target = None if force_save_as else self.session.current_file_path
         if target is None:
             target = self._select_save_path()
@@ -646,6 +666,7 @@ class MainWindow(QMainWindow):
             return False
 
     def _open_portfolio_from_picker(self) -> bool:
+        """Open file picker, load selected portfolio, and return success status."""
         start_path = self.session.current_file_path or self.session.default_json_path
         selected, _ = QFileDialog.getOpenFileName(
             self,
@@ -664,6 +685,7 @@ class MainWindow(QMainWindow):
             return False
 
     def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool:
+        """Prompt user to save/discard/cancel when unsaved edits exist."""
         if not self._has_unsaved_main_changes():
             return True
 
@@ -688,17 +710,21 @@ class MainWindow(QMainWindow):
         return False
 
     def _on_save_clicked(self):
+        """Handle `Save` action from main screen."""
         self._save_current_or_save_as(show_success=True)
 
     def _on_save_as_clicked(self):
+        """Handle `Save As` action from main screen."""
         self._save_current_or_save_as(show_success=True, force_save_as=True)
 
     def _on_open_clicked(self):
+        """Handle `Open` action with unsaved-changes safeguard."""
         if not self._confirm_continue_with_unsaved_changes("opening another portfolio"):
             return
         self._open_portfolio_from_picker()
 
     def _on_new_clicked(self):
+        """Handle `New` action by loading default portfolio after confirmation."""
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
         p = build_default_portfolio()
