@@ -5,6 +5,7 @@ import pytest
 import investment_planner.planning as planning_mod
 from investment_planner.io_json import dump_portfolio, load_portfolio
 from investment_planner.models import AssetGroupPlanRow
+from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -738,3 +739,68 @@ def test_commit_sell_non_positive_proceeds_does_nothing(proceeds: D):
     p = make_portfolio()
     p2 = commit_sell(p=p, instrument_id="i1", proceeds=proceeds)
     assert p2 == p
+
+
+# -------------------------
+# Portfolio session tests
+# -------------------------
+
+def test_portfolio_session_resolve_startup_path_returns_none_when_config_missing(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    assert session.resolve_startup_path() is None
+
+
+def test_portfolio_session_set_active_file_path_persists_path_to_config(tmp_path):
+    config_path = tmp_path / "config.json"
+    target_path = tmp_path / "my_portfolio.json"
+    target_path.write_text("{}", encoding="utf-8")
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+
+    session.set_active_file_path(target_path)
+
+    assert session.current_file_path == target_path
+    reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+    assert reloaded.resolve_startup_path() == target_path
+
+
+def test_portfolio_session_resolve_startup_path_clears_missing_file_reference(tmp_path):
+    config_path = tmp_path / "config.json"
+    missing_file = tmp_path / "missing.json"
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+    session.set_active_file_path(missing_file)
+
+    resolved = session.resolve_startup_path()
+
+    assert resolved is None
+    assert session.current_file_path is None
+    assert session._read_last_loaded_path_from_config() is None
+
+
+def test_portfolio_session_marks_and_dirty_state_tracking(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    p1 = load_portfolio(make_valid_data())
+    p2 = load_portfolio(make_valid_data(cash_value="15000"))
+
+    session.mark_loaded(p1, tmp_path / "p1.json")
+    assert session.current_file_path == tmp_path / "p1.json"
+    assert session.has_unsaved_changes(p1) is False
+    assert session.has_unsaved_changes(p2) is True
+
+    session.mark_saved(p2, tmp_path / "p2.json")
+    assert session.current_file_path == tmp_path / "p2.json"
+    assert session.has_unsaved_changes(p2) is False
+
+    session.mark_new_unsaved(p1)
+    assert session.current_file_path is None
+    assert session.has_unsaved_changes(p1) is False
+
+
+def test_build_default_portfolio_returns_valid_portfolio():
+    p = build_default_portfolio()
+    validate_portfolio(p)
