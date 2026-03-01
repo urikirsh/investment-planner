@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum, auto
 from decimal import Decimal
+from enum import Enum, auto
 
 from PySide6.QtCore import Qt
 
@@ -52,22 +51,3 @@ class Col(Enum):
     TARGET_PCT = 3
     STRATEGY_PCT = 4
     DRIFT_PP = 5
-
-@dataclass
-class WizardStep:
-    """
-    Represents the logical steps of the investment execution workflow.
-
-    WizardStep is used to control navigation and state transitions
-    between the different screens of the investment process
-    (summary, per-instrument execution, etc.).
-
-    Field semantics:
-    - `planned_delta_money > 0`: buy flow
-    - `planned_delta_money < 0`: sell flow
-    """
-    asset_group_id: str
-    asset_group_name: str
-    instrument_id: str
-    instrument_name: str
-    planned_delta_money: D  # positive buy, negative sell
