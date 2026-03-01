@@ -24,18 +24,20 @@ from PySide6.QtWidgets import (
     QWidget, QHeaderView,
 )
 
-from investment_planner.io_json import load_portfolio_file, load_portfolio, save_portfolio_file
-from investment_planner.validation import validate_portfolio
-from investment_planner.planning import (
-    compute_invest_budget,
-    plan_invest_no_sell,
-    plan_rebalance,
-    map_asset_group_deltas_to_instruments,
+from investment_planner.calc_stock_units import calculate_buy_units
+from investment_planner.planning_types import PlanningMode
+from investment_planner.portfolio_session import PortfolioSession
+from investment_planner.use_cases import (
+    PlanStep,
+    apply_wizard_step,
+    build_plan_for_current_document,
+    create_new_default_document,
+    load_document,
+    save_document_from_data,
+    sync_document_from_data,
 )
-from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
-from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
 
-from ui.ui_types import RowKind, Col, WizardStep, ROLE_PREV_TEXT
+from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
 from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
     set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
@@ -81,10 +83,9 @@ class MainWindow(QMainWindow):
         cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
         config_path = cfg_dir / "config.json"
         self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
-        self.current_portfolio = None  # type: ignore[assignment]
-        self.current_plan_steps: List[WizardStep] = []
+        self.current_plan_steps: List[PlanStep] = []
         self.current_step_index: int = 0
-        self.current_mode: str = "invest"  # "invest" or "rebalance"
+        self.current_mode: PlanningMode = PlanningMode.INVEST
 
         # Screens
         self.stack = QStackedWidget()
@@ -137,9 +138,7 @@ class MainWindow(QMainWindow):
 
     def _load_portfolio_from_file(self, path: Path):
         """Load a portfolio from disk into editor state and refresh UI context."""
-        p = load_portfolio_file(path)
-        self.current_portfolio = p
-        self.session.mark_loaded(p, path)
+        p = load_document(self.session, path)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
         self._update_file_context_ui()
@@ -419,9 +418,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Load failed", f"Failed loading JSON:\n{e}")
                 self.session.set_active_file_path(None)
 
-        p = build_default_portfolio()
-        self.current_portfolio = p
-        self.session.mark_new_unsaved(p)
+        p = create_new_default_document(self.session)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
         self._update_file_context_ui()
@@ -622,11 +619,7 @@ class MainWindow(QMainWindow):
             exact path and then marked as the active session file.
         """
         data = self._build_data_from_main_ui(allow_partial=False)
-        p = load_portfolio(data)  # parses Decimals
-        validate_portfolio(p)
-        save_portfolio_file(p, target_path)
-        self.current_portfolio = p
-        self.session.mark_saved(p, target_path)
+        save_document_from_data(self.session, data, target_path)
         self._update_file_context_ui()
 
     def _select_save_path(self) -> Optional[Path]:
@@ -727,18 +720,16 @@ class MainWindow(QMainWindow):
         """Handle `New` action by loading default portfolio after confirmation."""
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
-        p = build_default_portfolio()
-        self.current_portfolio = p
-        self.session.mark_new_unsaved(p)
+        p = create_new_default_document(self.session)
         self._populate_main_from_portfolio(p)
         self._refresh_data()
         self._update_file_context_ui()
 
     def _on_invest_clicked(self):
-        self._run_planning(mode="invest")
+        self._run_planning(mode=PlanningMode.INVEST)
 
     def _on_rebalance_clicked(self):
-        self._run_planning(mode="rebalance")
+        self._run_planning(mode=PlanningMode.REBALANCE)
 
     def _on_main_quit_clicked(self):
         if not self._confirm_continue_with_unsaved_changes("quitting"):
@@ -756,61 +747,30 @@ class MainWindow(QMainWindow):
         # If current UI state cannot be parsed, treat it as unsaved changes.
         try:
             current_data = self._build_data_from_main_ui(allow_partial=True)
-            current_portfolio = load_portfolio(current_data)
+            sync_document_from_data(self.session, current_data)
         except Exception:
             return True
 
-        return self.session.has_unsaved_changes(current_portfolio)
+        return self.session.document.is_dirty()
 
-    def _run_planning(self, mode: str):
+    def _run_planning(self, mode: PlanningMode):
         """
         Execute planning flow from current UI state and open summary screen.
 
-        ``mode`` is either ``"invest"`` (no-sell planning) or ``"rebalance"``.
+        ``mode`` selects either invest-only or invest-and-rebalance strategy.
         """
         try:
             if not self._save_current_or_save_as(show_success=False):
                 return
-            p = self.current_portfolio
-            assert p is not None
-
-            budget = compute_invest_budget(p)
-            if budget <= 0:
+            plan_result = build_plan_for_current_document(self.session, mode)
+            if plan_result.budget <= 0:
                 QMessageBox.information(self, "No budget", "No investable cash")
                 return
-
-            if mode == "invest":
-                rows = plan_invest_no_sell(p)
-            else:
-                rows = plan_rebalance(p)
-
-            # Build wizard steps in group order, split by instrument target % within each group.
-            ins_by_id = {ins.id: ins for ins in p.instruments}
-            instrument_steps = map_asset_group_deltas_to_instruments(p, rows)
-
-            steps: List[WizardStep] = []
-            for group_id, group_name, instrument_id, planned_delta in instrument_steps:
-                if planned_delta == 0:
-                    continue
-                ins = ins_by_id.get(instrument_id)
-                if ins is None:
-                    raise ValueError(f"Instrument not found: {instrument_id}")
-
-                steps.append(
-                    WizardStep(
-                        asset_group_id=group_id,
-                        asset_group_name=group_name,
-                        instrument_id=ins.id,
-                        instrument_name=ins.name,
-                        planned_delta_money=planned_delta,
-                    )
-                )
-
-            self.current_plan_steps = steps
+            self.current_plan_steps = plan_result.steps
             self.current_step_index = 0
             self.current_mode = mode
 
-            self._populate_summary(p, steps, mode)
+            self._populate_summary(plan_result.portfolio, plan_result.steps, mode)
             self.stack.setCurrentWidget(self.screen_summary)
         except Exception as e:
             QMessageBox.critical(self, "Plan failed", str(e))
@@ -851,10 +811,12 @@ class MainWindow(QMainWindow):
 
         return w
 
-    def _populate_summary(self, p, steps: List[WizardStep], mode: str):
-        budget = compute_invest_budget(p)
+    def _populate_summary(self, p, steps: List[PlanStep], mode: PlanningMode):
+        budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
+        if budget < 0:
+            budget = D("0")
         lines = [
-            f"Mode: {mode}",
+            f"Mode: {mode.value}",
             f"Future tax (non-investable): {p.cash.future_tax}",
             f"Invest budget (cash - minimal reserve - future tax): {budget}",
             "",
@@ -869,7 +831,7 @@ class MainWindow(QMainWindow):
                     f"- {action} {abs(s.planned_delta_money)} in [{s.asset_group_name}] via [{s.instrument_name}]"
                 )
 
-        if mode == "rebalance":
+        if mode == PlanningMode.REBALANCE:
             lines.append("")
             lines.append("Note: SELL steps follow per-instrument in-group targets.")
 
@@ -985,7 +947,7 @@ class MainWindow(QMainWindow):
     def _wizard_save_continue(self):
         """Apply current step trade (if valid), persist, and move to next step."""
         try:
-            if self.current_portfolio is None:
+            if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
 
             s = self.current_plan_steps[self.current_step_index]
@@ -998,29 +960,8 @@ class MainWindow(QMainWindow):
                 calc_units = self._last_calc.units
                 spent = self._last_calc.spent
 
-            # If no valid trade was calculated, continue without saving changes.
-            if calc_units > 0 and spent >= D("1"):
-                if s.planned_delta_money > 0:
-                    self.current_portfolio = commit_buy(
-                        p=self.current_portfolio,
-                        instrument_id=s.instrument_id,
-                        spent=spent,
-                        min_trade_ils=D("100"),
-                    )
-                else:
-                    # SELL from the current wizard instrument
-                    self.current_portfolio = commit_sell(
-                        p=self.current_portfolio,
-                        instrument_id=s.instrument_id,
-                        proceeds=spent,
-                        min_trade_ils=D("1"),
-                    )
-
-                # Persist after each step to support partial execution.
-                if self.session.current_file_path is None:
-                    raise ValueError("No target file selected. Save the portfolio before continuing.")
-                save_portfolio_file(self.current_portfolio, self.session.current_file_path)
-                self.session.mark_saved(self.current_portfolio, self.session.current_file_path)
+            applied = apply_wizard_step(self.session, s, calc_units, spent)
+            if applied:
                 self._update_file_context_ui()
 
             self._advance_wizard_step()
@@ -1030,7 +971,7 @@ class MainWindow(QMainWindow):
     def _wizard_continue_without_saving(self):
         """Skip current step without mutating portfolio and move forward."""
         try:
-            if self.current_portfolio is None:
+            if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
             self._advance_wizard_step()
         except Exception as e:
@@ -1042,7 +983,9 @@ class MainWindow(QMainWindow):
         self.current_step_index += 1
         if self.current_step_index >= len(self.current_plan_steps):
             # Return to main with the current in-memory portfolio state.
-            self._populate_main_from_portfolio(self.current_portfolio)
+            current = self.session.document.current_portfolio
+            assert current is not None
+            self._populate_main_from_portfolio(current)
             self.stack.setCurrentWidget(self.screen_main)
         else:
             self._show_current_wizard_step()

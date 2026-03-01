@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from investment_planner.io_json import load_portfolio
+from investment_planner.portfolio_document import PortfolioDocument
 from investment_planner.models import Portfolio
 
 """
@@ -14,8 +15,8 @@ Session-level portfolio file state and persistence helpers.
 
 This module centralizes:
 - startup path resolution from global user config
-- remembering the active portfolio file path
-- tracking the last loaded/saved portfolio snapshot for dirty-state checks
+- a PortfolioDocument with current portfolio model, active file path,
+  saved snapshot, and dirty-state
 - building the minimal default in-memory portfolio
 
 Important startup behavior:
@@ -63,9 +64,13 @@ class PortfolioSession:
             portfolio path.
         """
         self.default_json_path = default_json_path
-        self.current_file_path: Optional[Path] = None
-        self.saved_portfolio_snapshot: Optional[Portfolio] = None
+        self.document = PortfolioDocument()
         self._config_path = config_path
+
+    @property
+    def current_file_path(self) -> Optional[Path]:
+        """Expose active file path tracked by the current document."""
+        return self.document.active_path
 
     def _read_last_loaded_path_from_config(self) -> Optional[Path]:
         """Read and parse the remembered portfolio path from config, if any."""
@@ -91,7 +96,7 @@ class PortfolioSession:
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""
-        self.current_file_path = path
+        self.document.active_path = path
         try:
             self._write_last_loaded_path_to_config(path)
         except Exception:
@@ -114,23 +119,18 @@ class PortfolioSession:
 
         return startup_path
 
-    def mark_loaded(self, portfolio: Portfolio, source_path: Path) -> None:
-        """Mark state after loading from a file path."""
-        self.saved_portfolio_snapshot = portfolio
-        self.set_active_file_path(source_path)
+    def load_document_from_path(self, path: Path) -> Portfolio:
+        """Load document from a file and persist active path in config."""
+        portfolio = self.document.load_from_path(path)
+        self.set_active_file_path(path)
+        return portfolio
 
-    def mark_saved(self, portfolio: Portfolio, target_path: Path) -> None:
-        """Mark state after saving to a file path."""
-        self.saved_portfolio_snapshot = portfolio
-        self.set_active_file_path(target_path)
+    def save_document_to_path(self, path: Path) -> None:
+        """Save current document to file and persist active path in config."""
+        self.document.save_to_path(path)
+        self.set_active_file_path(path)
 
-    def mark_new_unsaved(self, portfolio: Portfolio) -> None:
-        """Mark state after creating/loading default in-memory portfolio."""
-        self.saved_portfolio_snapshot = portfolio
+    def mark_new_document(self, portfolio: Portfolio) -> None:
+        """Initialize a new unsaved document and clear active path in config."""
+        self.document.mark_new_unsaved(portfolio)
         self.set_active_file_path(None)
-
-    def has_unsaved_changes(self, current_portfolio: Portfolio) -> bool:
-        """Return ``True`` when current model differs from the saved snapshot."""
-        if self.saved_portfolio_snapshot is None:
-            return True
-        return current_portfolio != self.saved_portfolio_snapshot
