@@ -5,7 +5,7 @@ from ui.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
-    win = MainWindow(json_path="portfolio.json")
+    win = MainWindow()
     win.resize(1100, 650)
     win.show()
     sys.exit(app.exec())

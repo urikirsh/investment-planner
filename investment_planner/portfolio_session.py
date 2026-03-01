@@ -22,7 +22,7 @@ Important startup behavior:
 - If a remembered file path exists and is valid, it is used.
 - If the remembered path is missing/invalid, it is cleared.
 - If no remembered path exists, callers should load the minimal default
-  portfolio (this module intentionally does not fall back to `portfolio.json`).
+  portfolio (this module intentionally does not fall back to any fixed file).
 """
 
 DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
