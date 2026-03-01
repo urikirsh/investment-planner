@@ -5,6 +5,7 @@ import pytest
 import investment_planner.planning as planning_mod
 from investment_planner.io_json import dump_portfolio, load_portfolio, save_portfolio_file
 from investment_planner.models import AssetGroupPlanRow
+from investment_planner.portfolio_document import PortfolioDocument
 from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
@@ -811,6 +812,12 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     assert session.document.current_portfolio == p1
     assert session.document.saved_snapshot == p1
     assert session.document.is_dirty() is False
+
+
+def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
+    doc = PortfolioDocument()
+    with pytest.raises(ValueError, match="No current portfolio to save"):
+        doc.save_to_path(tmp_path / "x.json")
 
 
 def test_build_default_portfolio_returns_valid_portfolio():
