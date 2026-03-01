@@ -7,6 +7,14 @@ from investment_planner.io_json import dump_portfolio, load_portfolio, save_port
 from investment_planner.models import AssetGroupPlanRow
 from investment_planner.portfolio_document import PortfolioDocument
 from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
+from investment_planner.use_cases import (
+    PlanStep,
+    apply_wizard_step,
+    build_plan_for_current_document,
+    create_new_default_document,
+    save_document_from_data,
+    sync_document_from_data,
+)
 from investment_planner.validation import validate_portfolio
 from investment_planner.planning import (
     compute_invest_budget,
@@ -823,3 +831,120 @@ def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
 def test_build_default_portfolio_returns_valid_portfolio():
     p = build_default_portfolio()
     validate_portfolio(p)
+
+
+def test_use_case_save_document_from_data_persists_and_tracks_snapshot(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    target = tmp_path / "saved.json"
+    data = make_valid_data()
+
+    saved = save_document_from_data(session, data, target)
+
+    assert target.exists()
+    assert session.current_file_path == target
+    assert session.document.current_portfolio == saved
+    assert session.document.saved_snapshot == saved
+    assert session.document.is_dirty() is False
+
+
+def test_use_case_sync_document_from_data_marks_dirty_against_saved_snapshot(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    target = tmp_path / "saved.json"
+    save_document_from_data(session, make_valid_data(), target)
+
+    changed = sync_document_from_data(session, make_valid_data(cash_value="13000"))
+
+    assert session.document.current_portfolio == changed
+    assert session.document.is_dirty() is True
+
+
+def test_use_case_create_new_default_document_clears_active_path(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    existing = tmp_path / "existing.json"
+    existing.write_text("{}", encoding="utf-8")
+    session.set_active_file_path(existing)
+
+    created = create_new_default_document(session)
+
+    assert created == build_default_portfolio()
+    assert session.current_file_path is None
+    assert session.document.current_portfolio == created
+    assert session.document.is_dirty() is False
+
+
+def test_use_case_build_plan_for_current_document_returns_steps(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    portfolio = load_portfolio(make_valid_data())
+    session.document.mark_new_unsaved(portfolio)
+
+    result = build_plan_for_current_document(session, "invest")
+
+    assert result.portfolio == portfolio
+    assert result.budget == D("10000")
+    assert len(result.rows) >= 1
+    assert len(result.steps) >= 1
+    assert all(step.instrument_name for step in result.steps)
+
+
+def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    target = tmp_path / "portfolio.json"
+    save_document_from_data(session, make_valid_data(), target)
+    before = session.document.current_portfolio
+    assert before is not None
+    before_cash = before.cash.value
+
+    step = PlanStep(
+        asset_group_id="g1",
+        asset_group_name="Asset 1",
+        instrument_id="i1",
+        instrument_name="Inst 1",
+        planned_delta_money=D("500"),
+    )
+
+    applied = apply_wizard_step(session, step, calc_units=2, spent=D("200"))
+
+    assert applied is True
+    after = session.document.current_portfolio
+    assert after is not None
+    assert after.cash.value == before_cash - D("200")
+    assert session.current_file_path == target
+
+
+def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
+    session = PortfolioSession(
+        default_json_path=tmp_path / "default_portfolio",
+        config_path=tmp_path / "config.json",
+    )
+    target = tmp_path / "portfolio.json"
+    save_document_from_data(session, make_valid_data(), target)
+    before = session.document.current_portfolio
+    assert before is not None
+
+    step = PlanStep(
+        asset_group_id="g1",
+        asset_group_name="Asset 1",
+        instrument_id="i1",
+        instrument_name="Inst 1",
+        planned_delta_money=D("500"),
+    )
+
+    applied = apply_wizard_step(session, step, calc_units=0, spent=D("0"))
+
+    assert applied is False
+    assert session.document.current_portfolio == before
