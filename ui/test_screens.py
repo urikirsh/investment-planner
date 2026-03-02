@@ -1,3 +1,12 @@
+"""
+UI construction tests for extracted screen widgets.
+
+These tests verify that each screen module builds the expected controls,
+defaults, and static configuration. They intentionally focus on structure
+and wiring surfaces, not full interaction workflows (which are covered via
+MainWindow integration behavior).
+"""
+
 from __future__ import annotations
 
 import os

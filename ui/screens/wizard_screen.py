@@ -1,3 +1,13 @@
+"""
+Wizard screen UI.
+
+This module defines `WizardScreen`, the per-instrument execution view
+(screen 3) used after summary review. It provides layout and widget creation
+for step information, price entry, calculation feedback, and step actions.
+
+All trade execution behavior is intentionally delegated to the coordinator.
+"""
+
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
@@ -64,4 +74,3 @@ class WizardScreen(QWidget):
 
         btns_layout.addStretch(1)
         layout.addWidget(btns)
-

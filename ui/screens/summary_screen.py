@@ -1,3 +1,12 @@
+"""
+Summary screen UI.
+
+This module defines `SummaryScreen`, the read-only summary view (screen 2)
+shown after planning. The widget builds presentation elements and exposes
+its controls (`summary_text`, `quit_btn`, `back_btn`, `next_btn`) for
+coordinator-managed behavior.
+"""
+
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
@@ -47,4 +56,3 @@ class SummaryScreen(QWidget):
 
         btns_layout.addStretch(1)
         layout.addWidget(btns)
-

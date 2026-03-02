@@ -1,3 +1,16 @@
+"""
+Main editor screen UI.
+
+This module defines `MainEditorScreen`, the presentational widget for screen 1
+of the application flow. It is responsible for:
+- building the editable portfolio UI (cash row, tree, controls, actions)
+- exposing key child widgets as attributes for external signal wiring
+- applying static UI setup (column headers, delegates, tooltips)
+
+The class intentionally contains no business logic, persistence logic, or
+navigation flow control. Those concerns stay in `ui.main_window.MainWindow`.
+"""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
@@ -196,4 +209,3 @@ class MainEditorScreen(QWidget):
 
         actions_layout.addStretch(1)
         return actions
-
