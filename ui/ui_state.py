@@ -21,15 +21,28 @@ Lifecycle
   summary/wizard steps.
 - `WizardState` is reset per step and stores only the latest calculation
   relevant to the active step.
+- `UnsavedChangesDecision` encodes save/discard/cancel outcomes for
+  unsaved-changes confirmation flows.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from investment_planner.calc_stock_units import BuyCalculation
 from investment_planner.planning_types import PlanningMode
 from investment_planner.use_cases import PlanStep
+
+
+class UnsavedChangesDecision(str, Enum):
+    """
+    Decision outcomes for unsaved-changes confirmation flows.
+    """
+
+    SAVE = "save"
+    DISCARD = "discard"
+    CANCEL = "cancel"
 
 
 @dataclass
