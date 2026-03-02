@@ -47,6 +47,7 @@ from ui.portfolio_metrics import (
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
+from ui.ui_state import PlanningState, WizardState
 
 """
 main_window_controller.py
@@ -85,9 +86,8 @@ class MainWindow(QMainWindow):
         cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
         config_path = cfg_dir / "config.json"
         self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
-        self.current_plan_steps: List[PlanStep] = []
-        self.current_step_index: int = 0
-        self.current_mode: PlanningMode = PlanningMode.INVEST
+        self.planning_state = PlanningState()
+        self.wizard_state = WizardState()
 
         # Screens
         self.stack = QStackedWidget()
@@ -490,9 +490,10 @@ class MainWindow(QMainWindow):
             if plan_result.budget <= 0:
                 QMessageBox.information(self, "No budget", "No investable cash")
                 return
-            self.current_plan_steps = plan_result.steps
-            self.current_step_index = 0
-            self.current_mode = mode
+            self.planning_state.plan_steps = plan_result.steps
+            self.planning_state.step_index = 0
+            self.planning_state.mode = mode
+            self.wizard_state.last_calc = None
 
             self._populate_summary(plan_result.portfolio, plan_result.steps, mode)
             self.stack.setCurrentWidget(self.screen_summary)
@@ -539,7 +540,7 @@ class MainWindow(QMainWindow):
 
     def _summary_next(self):
         """Advance from summary to wizard, or return to main if no steps exist."""
-        if not self.current_plan_steps:
+        if not self.planning_state.plan_steps:
             # Nothing to do -> go back to main
             self.stack.setCurrentWidget(self.screen_main)
             return
@@ -567,9 +568,9 @@ class MainWindow(QMainWindow):
 
     def _show_current_wizard_step(self):
         """Render current wizard step details and reset last calculation state."""
-        s = self.current_plan_steps[self.current_step_index]
-        idx = self.current_step_index + 1
-        total = len(self.current_plan_steps)
+        s = self.planning_state.plan_steps[self.planning_state.step_index]
+        idx = self.planning_state.step_index + 1
+        total = len(self.planning_state.plan_steps)
 
         action = "BUY" if s.planned_delta_money > 0 else "SELL"
         self.wiz_info.setText(
@@ -582,12 +583,12 @@ class MainWindow(QMainWindow):
         self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
 
         # store last calculation
-        self._last_calc = None
+        self.wizard_state.last_calc = None
 
     def _wizard_calculate(self):
         """Calculate units/spend for the current wizard step from entered price."""
         try:
-            s = self.current_plan_steps[self.current_step_index]
+            s = self.planning_state.plan_steps[self.planning_state.step_index]
             price = d_from_text(self.price_edit.text(), "price")
 
             planned = abs(s.planned_delta_money)
@@ -596,7 +597,7 @@ class MainWindow(QMainWindow):
                 planned_money=planned,
                 price_ag=price,
             )
-            self._last_calc = calc
+            self.wizard_state.last_calc = calc
 
             label_money = "Spent" if s.planned_delta_money > 0 else "Proceeds"
             self.wiz_result.setText(
@@ -611,15 +612,15 @@ class MainWindow(QMainWindow):
             if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
 
-            s = self.current_plan_steps[self.current_step_index]
+            s = self.planning_state.plan_steps[self.planning_state.step_index]
 
             # If user didn't calculate, treat as 0 units (skip saving)
-            if getattr(self, "_last_calc", None) is None:
+            if self.wizard_state.last_calc is None:
                 calc_units = 0
                 spent = D("0")
             else:
-                calc_units = self._last_calc.units
-                spent = self._last_calc.spent
+                calc_units = self.wizard_state.last_calc.units
+                spent = self.wizard_state.last_calc.spent
 
             applied = apply_wizard_step(self.session, s, calc_units, spent)
             if applied:
@@ -641,8 +642,8 @@ class MainWindow(QMainWindow):
     def _advance_wizard_step(self):
         """Move to next wizard step or return to main when flow is complete."""
         # Next step or back to main
-        self.current_step_index += 1
-        if self.current_step_index >= len(self.current_plan_steps):
+        self.planning_state.step_index += 1
+        if self.planning_state.step_index >= len(self.planning_state.plan_steps):
             # Return to main with the current in-memory portfolio state.
             current = self.session.document.current_portfolio
             assert current is not None
