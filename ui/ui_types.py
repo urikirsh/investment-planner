@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum, auto
+from enum import Enum
 
 from PySide6.QtCore import Qt
 
@@ -33,9 +33,21 @@ class RowKind(Enum):
     and special structural rows (such as the non-investable bucket),
     and drives editing rules, drag-and-drop behavior, and calculations.
     """
-    GROUP = auto()
-    INSTRUMENT = auto()
-    NON_INVESTABLE_BUCKET = auto()
+    GROUP = "GROUP"
+    INSTRUMENT = "INSTRUMENT"
+    NON_INVESTABLE_BUCKET = "NON_INVESTABLE_BUCKET"
+
+    @classmethod
+    def from_raw(cls, raw: object) -> "RowKind | None":
+        """Coerce stored item metadata into a RowKind when possible."""
+        if isinstance(raw, cls):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return cls(raw)
+            except ValueError:
+                return None
+        return None
 
 class Col(Enum):
     """

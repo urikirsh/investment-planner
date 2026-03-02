@@ -196,11 +196,11 @@ class MainWindow(QMainWindow):
             return
 
         # Only business-rule validate relevant cells
-        if get_item_kind(item) == RowKind.GROUP.name and column == Col.TARGET_PCT.value:
+        if get_item_kind(item) == RowKind.GROUP and column == Col.TARGET_PCT.value:
             if not self._validate_target_pct_cell_or_revert(item):
                 self._refresh_data()
                 return
-        if get_item_kind(item) == RowKind.INSTRUMENT.name and column == Col.TARGET_PCT.value:
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
             if not self._validate_instrument_target_pct_cell_or_revert(item):
                 self._refresh_data()
                 return
@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
         # If instrument selected, use its parent group
         parent = sel.parent() or sel
 
-        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
+        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
             default_in_group_pct = ""
         else:
             default_in_group_pct = "100" if parent.childCount() == 0 else "0"
@@ -240,7 +240,7 @@ class MainWindow(QMainWindow):
         if sel is None:
             return
 
-        if get_item_kind(sel) == RowKind.NON_INVESTABLE_BUCKET.name:
+        if get_item_kind(sel) == RowKind.NON_INVESTABLE_BUCKET:
             QMessageBox.warning(self, "Not allowed", "The non-investable bucket cannot be deleted.")
             return
 
@@ -837,9 +837,9 @@ class MainWindow(QMainWindow):
         """
         kind = get_item_kind(item)
 
-        if kind == RowKind.INSTRUMENT.name and column == Col.TARGET_PCT.value:
+        if kind == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
             parent = item.parent()
-            if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
+            if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
                 return
 
         if _is_cell_editable(kind, column):
@@ -887,7 +887,7 @@ class MainWindow(QMainWindow):
         if parent is None:
             # Defensive: instrument rows should always have a parent.
             return False
-        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET.name:
+        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
             # In-group % is not applicable for non-investable holdings.
             return False
 

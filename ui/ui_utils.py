@@ -34,14 +34,14 @@ def d_from_text(txt: str, field: str) -> D:
     except (InvalidOperation, ValueError):
         raise ValueError(f"{field} must be a number, got: {txt!r}")
 
-def set_item_meta(item: QTreeWidgetItem, kind: str, _id: str) -> None:
+def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     """Attach semantic row metadata (kind/id) to a tree item."""
-    item.setData(0, ROLE_KIND, kind)
+    item.setData(0, ROLE_KIND, kind.value)
     item.setData(0, ROLE_ID, _id)
 
-def get_item_kind(item: QTreeWidgetItem) -> str:
-    """Return stored row kind string, or empty string if missing."""
-    return item.data(0, ROLE_KIND) or ""
+def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
+    """Return stored row kind as typed enum, or ``None`` if missing/invalid."""
+    return RowKind.from_raw(item.data(0, ROLE_KIND))
 
 def get_item_id(item: QTreeWidgetItem) -> str:
     """Return stored internal id string, or empty string if missing."""
@@ -53,7 +53,7 @@ def new_id(prefix: str) -> str:
 
 def style_group_row(item: QTreeWidgetItem) -> None:
     """Apply visual styling for top-level group/bucket rows."""
-    if get_item_kind(item) == RowKind.NON_INVESTABLE_BUCKET.name:
+    if get_item_kind(item) == RowKind.NON_INVESTABLE_BUCKET:
         background = QBrush(QColor("#e8f0ff")) # subtle blue tint
     else:
         background = QBrush(QColor("#f0f0f0"))
@@ -84,7 +84,7 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
     # Numbers are right-aligned for instruments, centered for groups
     for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
         col_idx = col.value
-        if get_item_kind(item) != RowKind.INSTRUMENT.name:
+        if get_item_kind(item) != RowKind.INSTRUMENT:
             item.setTextAlignment(
                 col_idx,
                 Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
@@ -124,7 +124,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 
     gid = id_str.strip() or new_id("grp")
 
-    row_kind = RowKind.NON_INVESTABLE_BUCKET.name if id_str == NON_INVESTABLE_BUCKET_ID else RowKind.GROUP.name
+    row_kind = RowKind.NON_INVESTABLE_BUCKET if id_str == NON_INVESTABLE_BUCKET_ID else RowKind.GROUP
 
     set_item_meta(gitem, row_kind, gid)
     disable_edits_to_row(gitem)
@@ -145,7 +145,7 @@ def add_instrument_item_to_group(
     item.setText(Col.TARGET_PCT.value, in_group_pct)
 
     iid = id_str.strip() or new_id("ins")
-    set_item_meta(item, RowKind.INSTRUMENT.name, iid)
+    set_item_meta(item, RowKind.INSTRUMENT, iid)
 
     apply_row_alignment(item)
 
@@ -216,12 +216,12 @@ def set_cell_readonly_look(item, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
 
-def _is_cell_editable(kind: str, col: int) -> bool:
+def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
     """Return whether a cell is user-editable for a given row kind/column."""
-    if kind == RowKind.GROUP.name:
+    if kind == RowKind.GROUP:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
-    if kind == RowKind.INSTRUMENT.name:
+    if kind == RowKind.INSTRUMENT:
         return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.TARGET_PCT.value)
 
     # bucket
