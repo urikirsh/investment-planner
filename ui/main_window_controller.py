@@ -185,17 +185,10 @@ class MainWindow(QMainWindow):
         self.screen_main.open_btn.clicked.connect(self._on_open_clicked)
         self.screen_main.new_btn.clicked.connect(self._on_new_clicked)
 
-        self.tree.items_reordered.connect(self._after_tree_reorder)
-        self.tree.itemChanged.connect(self._refresh_total_portfolio)
-        self.cash_value_edit.textChanged.connect(self._refresh_total_portfolio)
-        self.cash_reserve_edit.textChanged.connect(self._refresh_total_portfolio)
-        self.future_tax_edit.textChanged.connect(self._refresh_total_portfolio)
-        self.cash_value_edit.textChanged.connect(self._update_investable_balance_visual_state)
-        self.cash_reserve_edit.textChanged.connect(self._update_investable_balance_visual_state)
-        self.future_tax_edit.textChanged.connect(self._update_investable_balance_visual_state)
-        self.cash_value_edit.textChanged.connect(self._recalc_totals_and_pcts)
-        self.future_tax_edit.textChanged.connect(self._recalc_totals_and_pcts)
-        self.future_tax_edit.textChanged.connect(self._update_future_tax_visual_state)
+        self.tree.items_reordered.connect(self._on_main_refresh_requested)
+        self.cash_value_edit.textChanged.connect(self._on_main_refresh_requested)
+        self.cash_reserve_edit.textChanged.connect(self._on_main_refresh_requested)
+        self.future_tax_edit.textChanged.connect(self._on_main_refresh_requested)
         self.future_tax_edit.editingFinished.connect(self._normalize_future_tax_input)
 
     def _on_item_changed_guard_and_recalc(self, item, column: int):
@@ -285,10 +278,15 @@ class MainWindow(QMainWindow):
         self._refresh_data()
         self._update_file_context_ui()
 
+    def _on_main_refresh_requested(self, *_args) -> None:
+        """Single dispatcher for main-screen refresh requests from signals."""
+        self._refresh_data()
+
     def _refresh_data(self):
-        """Refresh all derived UI values after any editable input change."""
+        """Refresh all derived main-screen values and visuals from current inputs."""
         self._refresh_total_portfolio()
         self._update_investable_balance_visual_state()
+        self._update_future_tax_visual_state()
         self._recalc_totals_and_pcts()
 
     def _refresh_total_portfolio(self):
@@ -830,10 +828,6 @@ class MainWindow(QMainWindow):
             future_tax_text=self.future_tax_edit.text(),
         )
         return snapshot, item_by_key
-
-    def _after_tree_reorder(self, *args):
-        """Refresh derived values after drag-and-drop reordering/moves."""
-        self._refresh_data()
 
     def _on_item_double_clicked(self, item, column):
         """
