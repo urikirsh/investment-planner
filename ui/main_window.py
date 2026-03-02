@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
@@ -31,9 +31,12 @@ from investment_planner.use_cases import (
 )
 
 from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
-from ui.ui_utils import d_from_text, set_item_meta, get_item_kind, get_item_id, new_id, \
-    set_group_tree_item, add_instrument_item_to_group, parse_value_cell
+from ui.ui_utils import d_from_text, get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
+from ui.portfolio_tree_adapter import (
+    build_portfolio_data_from_main_editor,
+    populate_main_editor_from_portfolio,
+)
 
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
@@ -132,7 +135,16 @@ class MainWindow(QMainWindow):
     def _load_portfolio_from_file(self, path: Path):
         """Load a portfolio from disk into editor state and refresh UI context."""
         p = load_document(self.session, path)
-        self._populate_main_from_portfolio(p)
+        populate_main_editor_from_portfolio(
+            tree=self.tree,
+            cash_value_edit=self.cash_value_edit,
+            cash_reserve_edit=self.cash_reserve_edit,
+            future_tax_edit=self.future_tax_edit,
+            portfolio=p,
+            non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
+            non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
+            on_future_tax_value_set=self._update_future_tax_visual_state,
+        )
         self._refresh_data()
         self._update_file_context_ui()
 
@@ -248,72 +260,18 @@ class MainWindow(QMainWindow):
                 self.session.set_active_file_path(None)
 
         p = create_new_default_document(self.session)
-        self._populate_main_from_portfolio(p)
+        populate_main_editor_from_portfolio(
+            tree=self.tree,
+            cash_value_edit=self.cash_value_edit,
+            cash_reserve_edit=self.cash_reserve_edit,
+            future_tax_edit=self.future_tax_edit,
+            portfolio=p,
+            non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
+            non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
+            on_future_tax_value_set=self._update_future_tax_visual_state,
+        )
         self._refresh_data()
         self._update_file_context_ui()
-
-    def _populate_main_from_portfolio(self, p) -> None:
-        self.tree.blockSignals(True)
-        try:
-            self.tree.clear()
-            self.cash_value_edit.setText(str(p.cash.value))
-            self.cash_reserve_edit.setText(str(p.cash.min_reserve))
-            self.future_tax_edit.setText(str(p.cash.future_tax))
-            self._update_future_tax_visual_state()
-
-            # group -> list instruments (keep input order as stored)
-            ins_by_group: Dict[str, List[Dict[str, Any]]] = {}
-            non_investable: List[Dict[str, Any]] = []
-
-            for ins in p.instruments:
-                row = {
-                    "id": ins.id,
-                    "name": ins.name,
-                    "value": str(ins.value),
-                    "investable": ins.investable,
-                    "groupId": ins.asset_group_id,
-                    "targetInGroupPercentage": str(ins.target_in_group_pct),
-                }
-                if ins.investable and ins.asset_group_id:
-                    ins_by_group.setdefault(ins.asset_group_id, []).append(row)
-                else:
-                    non_investable.append(row)
-
-            for g in p.asset_groups:
-                gitem = QTreeWidgetItem(self.tree)
-                set_group_tree_item(gitem, g.name, g.target_pct, g.id)
-
-                for ins in ins_by_group.get(g.id, []):
-                    add_instrument_item_to_group(
-                        gitem,
-                        ins["name"],
-                        ins["value"],
-                        ins["targetInGroupPercentage"],
-                        ins["id"],
-                    )
-
-            # Non-investable section is always present and always added, even if it is empty.
-            # It does not exist in the JSON, it is purely in the UI
-            non_investable_bucket = QTreeWidgetItem(self.tree)
-            set_group_tree_item(
-                non_investable_bucket,
-                NON_INVESTABLE_BUCKET_TITLE,
-                0,
-                NON_INVESTABLE_BUCKET_ID,
-            )
-
-            for ins in non_investable:
-                add_instrument_item_to_group(
-                    non_investable_bucket,
-                    ins["name"],
-                    ins["value"],
-                    "",
-                    ins["id"],
-                )
-
-            self.tree.expandAll()
-        finally:
-            self.tree.blockSignals(False)
 
     def _refresh_data(self):
         """Refresh all derived UI values after any editable input change."""
@@ -328,7 +286,13 @@ class MainWindow(QMainWindow):
         Uses partial parsing (invalid/empty values degrade gracefully to placeholder).
         """
         try:
-            data = self._build_data_from_main_ui(allow_partial=True)
+            data = build_portfolio_data_from_main_editor(
+                tree=self.tree,
+                cash_value_edit=self.cash_value_edit,
+                cash_reserve_edit=self.cash_reserve_edit,
+                future_tax_edit=self.future_tax_edit,
+                allow_partial=True,
+            )
             # Total portfolio = cash + all instrument values - future tax
             cash_amt = D(str(data["cash"]["value"]))
             future_tax = D(str(data["cash"]["future_tax"]))
@@ -339,102 +303,6 @@ class MainWindow(QMainWindow):
             self.total_label.setText(f"Total portfolio: {total}")
         except Exception:
             self.total_label.setText("Total portfolio: -")
-
-
-    def _build_data_from_main_ui(self, allow_partial: bool = False)\
-            -> Dict[str, Any]:
-        """
-        Convert current main-screen widgets into the JSON-like data schema.
-
-        Parameters
-        ----------
-        allow_partial:
-            If ``True``, empty numeric fields are normalized to ``"0"`` so live
-            recalculation can continue while editing.
-        """
-        cash_value = self.cash_value_edit.text().strip()
-        cash_reserve = self.cash_reserve_edit.text().strip()
-        future_tax = self.future_tax_edit.text().strip()
-
-        if not allow_partial:
-            if not cash_value or not cash_reserve:
-                raise ValueError("Cash value and reserve must be filled")
-
-        # In allow_partial, default to "0" if empty for total display
-        cash_value = cash_value or "0"
-        cash_reserve = cash_reserve or "0"
-        future_tax = future_tax or "0"
-
-        groups: List[Dict[str, Any]] = []
-        instruments: List[Dict[str, Any]] = []
-
-        top_count = self.tree.topLevelItemCount()
-        for i in range(top_count):
-            gitem = self.tree.topLevelItem(i)
-            if gitem is None:
-                continue
-
-            kind = get_item_kind(gitem)
-            if kind == RowKind.INSTRUMENT.name:
-                continue
-
-            gid = get_item_id(gitem) or new_id("grp")
-
-            gname = gitem.text(Col.NAME.value).strip()
-            target_pct = gitem.text(Col.TARGET_PCT.value).strip() or "0"
-
-            # This top-level bucket exists only in UI and is not serialized as a strategy group.
-            is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET.name
-
-            if not is_non_investable_bucket:
-                groups.append(
-                    {
-                        "id": gid,
-                        "name": gname,
-                        "targetPercentage": target_pct,
-                    }
-                )
-
-            # children instruments
-            for j in range(gitem.childCount()):
-                ins = gitem.child(j)
-
-                if ins.parent() is None:  # not an instrument
-                    continue
-
-                iid = get_item_id(ins)
-                if not iid:
-                    iid = new_id("ins")
-                    set_item_meta(ins, RowKind.INSTRUMENT.name, iid)
-
-                iname = ins.text(Col.NAME.value).strip()
-                tot_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
-
-                if is_non_investable_bucket:
-                    investable = False
-                    group_id = None
-                    target_in_group_pct = "0"
-                else:
-                    investable = True
-                    group_id = gid
-                    target_in_group_pct = ins.text(Col.TARGET_PCT.value).strip() or "0"
-
-                instruments.append(
-                    {
-                        "id": iid,
-                        "name": iname,
-                        "value": tot_value,
-                        "investable": investable,
-                        "targetInGroupPercentage": target_in_group_pct,
-                        **({"groupId": group_id} if group_id is not None else {}),
-                    }
-                )
-
-        return {
-            "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": future_tax},
-            "groups": groups,
-            "instruments": instruments,
-        }
 
     def _save_from_main_ui(self, target_path: Path) -> None:
         """
@@ -447,7 +315,13 @@ class MainWindow(QMainWindow):
             (`Save` or `Save As`). The validated portfolio is written to this
             exact path and then marked as the active session file.
         """
-        data = self._build_data_from_main_ui(allow_partial=False)
+        data = build_portfolio_data_from_main_editor(
+            tree=self.tree,
+            cash_value_edit=self.cash_value_edit,
+            cash_reserve_edit=self.cash_reserve_edit,
+            future_tax_edit=self.future_tax_edit,
+            allow_partial=False,
+        )
         save_document_from_data(self.session, data, target_path)
         self._update_file_context_ui()
 
@@ -550,7 +424,16 @@ class MainWindow(QMainWindow):
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
         p = create_new_default_document(self.session)
-        self._populate_main_from_portfolio(p)
+        populate_main_editor_from_portfolio(
+            tree=self.tree,
+            cash_value_edit=self.cash_value_edit,
+            cash_reserve_edit=self.cash_reserve_edit,
+            future_tax_edit=self.future_tax_edit,
+            portfolio=p,
+            non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
+            non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
+            on_future_tax_value_set=self._update_future_tax_visual_state,
+        )
         self._refresh_data()
         self._update_file_context_ui()
 
@@ -575,7 +458,13 @@ class MainWindow(QMainWindow):
         """
         # If current UI state cannot be parsed, treat it as unsaved changes.
         try:
-            current_data = self._build_data_from_main_ui(allow_partial=True)
+            current_data = build_portfolio_data_from_main_editor(
+                tree=self.tree,
+                cash_value_edit=self.cash_value_edit,
+                cash_reserve_edit=self.cash_reserve_edit,
+                future_tax_edit=self.future_tax_edit,
+                allow_partial=True,
+            )
             sync_document_from_data(self.session, current_data)
         except Exception:
             return True
@@ -751,7 +640,16 @@ class MainWindow(QMainWindow):
             # Return to main with the current in-memory portfolio state.
             current = self.session.document.current_portfolio
             assert current is not None
-            self._populate_main_from_portfolio(current)
+            populate_main_editor_from_portfolio(
+                tree=self.tree,
+                cash_value_edit=self.cash_value_edit,
+                cash_reserve_edit=self.cash_reserve_edit,
+                future_tax_edit=self.future_tax_edit,
+                portfolio=current,
+                non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
+                non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
+                on_future_tax_value_set=self._update_future_tax_visual_state,
+            )
             self.stack.setCurrentWidget(self.screen_main)
         else:
             self._show_current_wizard_step()
