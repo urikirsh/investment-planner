@@ -13,7 +13,7 @@ from decimal import Decimal
 from investment_planner.calc_stock_units import BuyCalculation
 from investment_planner.planning_types import PlanningMode
 from investment_planner.use_cases import PlanStep
-from ui.ui_state import PlanningState, WizardState
+from ui.ui_state import PlanningState, UnsavedChangesDecision, WizardState
 
 D = Decimal
 
@@ -65,3 +65,10 @@ def test_wizard_state_stores_last_calc() -> None:
     state = WizardState(last_calc=calc)
 
     assert state.last_calc is calc
+
+
+def test_unsaved_changes_decision_members_are_stable() -> None:
+    """Unsaved decision enum exposes explicit semantic options."""
+    assert UnsavedChangesDecision.SAVE.value == "save"
+    assert UnsavedChangesDecision.DISCARD.value == "discard"
+    assert UnsavedChangesDecision.CANCEL.value == "cancel"

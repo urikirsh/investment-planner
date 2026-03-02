@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
@@ -48,7 +48,7 @@ from ui.portfolio_metrics import (
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.ui_state import PlanningState, WizardState
+from ui.ui_state import PlanningState, UnsavedChangesDecision, WizardState
 
 """
 main_window_controller.py
@@ -414,7 +414,7 @@ class MainWindow(QMainWindow):
             return False
         return self._open_portfolio_from_path(path)
 
-    def _prompt_unsaved_changes_decision(self, action_text: str) -> Literal["save", "discard", "cancel"]:
+    def _prompt_unsaved_changes_decision(self, action_text: str) -> UnsavedChangesDecision:
         """Prompt unsaved-changes decision and return semantic choice token."""
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
@@ -429,18 +429,18 @@ class MainWindow(QMainWindow):
 
         clicked = box.clickedButton()
         if clicked == save_btn:
-            return "save"
+            return UnsavedChangesDecision.SAVE
         if clicked == dont_save_btn:
-            return "discard"
+            return UnsavedChangesDecision.DISCARD
         if clicked == cancel_btn:
-            return "cancel"
-        return "cancel"
+            return UnsavedChangesDecision.CANCEL
+        return UnsavedChangesDecision.CANCEL
 
-    def _resolve_unsaved_changes_decision(self, decision: Literal["save", "discard", "cancel"]) -> bool:
+    def _resolve_unsaved_changes_decision(self, decision: UnsavedChangesDecision) -> bool:
         """Apply unsaved-changes decision without showing additional decision UI."""
-        if decision == "save":
+        if decision == UnsavedChangesDecision.SAVE:
             return self._save_current_or_save_as(show_success=False)
-        if decision == "discard":
+        if decision == UnsavedChangesDecision.DISCARD:
             return True
         return False
 

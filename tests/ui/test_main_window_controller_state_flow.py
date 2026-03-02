@@ -15,6 +15,7 @@ from investment_planner.planning_types import PlanningMode
 from investment_planner.use_cases import PlanStep
 import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
+from ui.ui_state import UnsavedChangesDecision
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -131,6 +132,6 @@ def test_confirm_unsaved_changes_splits_decision_prompt_from_action_resolution(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(window, "_has_unsaved_main_changes", lambda: True)
-    monkeypatch.setattr(window, "_prompt_unsaved_changes_decision", lambda _: "discard")
+    monkeypatch.setattr(window, "_prompt_unsaved_changes_decision", lambda _: UnsavedChangesDecision.DISCARD)
 
     assert window._confirm_continue_with_unsaved_changes("opening another portfolio") is True
