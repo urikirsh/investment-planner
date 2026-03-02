@@ -36,7 +36,7 @@ def d_from_text(txt: str, field: str) -> D:
 
 def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     """Attach semantic row metadata (kind/id) to a tree item."""
-    item.setData(0, ROLE_KIND, kind.value)
+    item.setData(0, ROLE_KIND, kind)
     item.setData(0, ROLE_ID, _id)
 
 def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:

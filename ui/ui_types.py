@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum
+from enum import Enum, StrEnum
 
 from PySide6.QtCore import Qt
 
@@ -25,7 +25,7 @@ ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
 ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
 ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
 
-class RowKind(Enum):
+class RowKind(StrEnum):
     """
     Identifies the semantic role of a row in the main tree UI.
 
