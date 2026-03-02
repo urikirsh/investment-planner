@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+"""
+Unit tests for `ui.portfolio_editor_adapter`.
+
+These tests validate adapter-level mapping behavior independently from
+`MainWindow` orchestration:
+- model -> widget population
+- widget -> payload serialization
+- partial/strict mode handling for required cash fields
+"""
+
 import os
 from typing import Any
 
@@ -21,6 +31,7 @@ NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
 @pytest.fixture(scope="module")
 def qapp():
+    """Provide a reusable QApplication instance for widget-based tests."""
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
@@ -28,6 +39,7 @@ def qapp():
 
 
 def _sample_payload() -> dict[str, Any]:
+    """Return a representative payload including investable and non-investable rows."""
     return {
         "cash": {"value": "12000", "min_reserve": "2000", "future_tax": "123"},
         "groups": [
@@ -63,6 +75,7 @@ def _sample_payload() -> dict[str, Any]:
 
 
 def test_adapter_populate_and_build_round_trip(qapp) -> None:
+    """Populate widgets from portfolio and verify serialization returns the same payload."""
     _ = qapp
     payload = _sample_payload()
     portfolio = load_portfolio(payload)
@@ -98,6 +111,7 @@ def test_adapter_populate_and_build_round_trip(qapp) -> None:
 
 
 def test_build_data_partial_mode_defaults_empty_cash_fields(qapp) -> None:
+    """Verify strict-mode validation and partial-mode defaulting for empty cash inputs."""
     _ = qapp
     screen = MainEditorScreen()
     screen.cash_value_edit.setText("")

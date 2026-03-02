@@ -1,13 +1,17 @@
 """
 Main-editor UI <-> portfolio payload adapter.
 
-This module maps between:
-- current main-editor widget state (cash inputs + tree rows)
-- the JSON-like payload shape expected by use-cases/io layer
-- `Portfolio` models loaded from domain/persistence
+This module centralizes conversion rules between:
+- main-editor widgets (`QTreeWidget` + cash `QLineEdit`s)
+- domain model (`Portfolio`)
+- JSON-like payloads used by application use-cases
 
-The functions are intentionally UI-focused and deterministic so they can be
-tested independently from `MainWindow` orchestration.
+Why this module exists
+----------------------
+`MainWindow` coordinates flow and user actions. Mapping logic is kept here so:
+- schema details do not leak across UI orchestration code
+- conversion behavior is testable in isolation
+- UI serialization/deserialization rules have a single source of truth
 """
 
 from __future__ import annotations
@@ -40,7 +44,7 @@ def populate_main_editor_from_portfolio(
     on_future_tax_value_set: Callable[[], None],
 ) -> None:
     """
-    Populate main-editor widgets from a loaded `Portfolio`.
+    Render a `Portfolio` into main-editor widgets.
 
     Parameters
     ----------
@@ -53,6 +57,14 @@ def populate_main_editor_from_portfolio(
     on_future_tax_value_set:
         Callback invoked after setting `future_tax_edit`, typically used to
         refresh visual state (coloring).
+
+    Notes
+    -----
+    - Tree signals are blocked during population to avoid intermediate
+      recalculation/validation side effects.
+    - A non-investable bucket row is always present in the tree, even when
+      there are no non-investable instruments.
+    - Input order from the portfolio model is preserved for deterministic UI.
     """
     tree.blockSignals(True)
     try:
@@ -131,6 +143,24 @@ def build_portfolio_data_from_main_editor(
     allow_partial:
         If ``True``, empty numeric cash fields are normalized to ``"0"``.
         If ``False``, required cash fields must be non-empty.
+
+    Returns
+    -------
+    dict[str, Any]
+        Payload with `cash`, `groups`, and `instruments` keys that matches
+        the shape expected by parsing/saving use-cases.
+
+    Raises
+    ------
+    ValueError
+        If `allow_partial` is ``False`` and required cash fields are empty.
+
+    Behavior notes
+    --------------
+    - The non-investable top-level bucket is not emitted as a strategy group.
+    - Missing instrument ids are generated and written back into row metadata.
+    - Non-investable instruments are serialized with `investable=False`,
+      `targetInGroupPercentage="0"`, and without `groupId`.
     """
     cash_value = cash_value_edit.text().strip()
     cash_reserve = cash_reserve_edit.text().strip()
