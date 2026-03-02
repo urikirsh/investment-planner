@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 class SummaryScreen(QWidget):
     """
-    Summary UI (screen 2) extracted from MainWindow.
+    Summary UI (screen 2).
 
     Exposes controls so the coordinator can wire behavior without owning
     layout construction details.

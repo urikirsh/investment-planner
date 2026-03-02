@@ -32,7 +32,7 @@ from ui.ui_types import Col
 
 class MainEditorScreen(QWidget):
     """
-    Main editor UI (screen 1) extracted from MainWindow.
+    Main editor UI (screen 1).
 
     This widget owns the main editor controls and exposes child widgets
     so the coordinator can connect behavior and orchestrate workflow.

@@ -1,5 +1,5 @@
 """
-UI construction tests for extracted screen widgets.
+UI construction tests for screen widgets.
 
 These tests verify that each screen module builds the expected controls,
 defaults, and static configuration. They intentionally focus on structure

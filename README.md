@@ -86,7 +86,7 @@ The application never executes trades automatically. All actions are explicit an
   - screen 3 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
 - `ui/test_screens.py`:
-  - structural tests for extracted screen modules (defaults, controls, static setup)
+  - structural tests for screen modules (defaults, controls, static setup)
 
 ---
 

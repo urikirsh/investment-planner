@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 class WizardScreen(QWidget):
     """
-    Wizard UI (screen 3) extracted from MainWindow.
+    Wizard UI (screen 3).
 
     Exposes controls so the coordinator can attach flow behavior.
     """
