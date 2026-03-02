@@ -27,12 +27,12 @@ def test_compute_portfolio_metrics_group_and_non_investable_rows() -> None:
         groups=(
             MetricGroupRow(
                 key="g1",
-                kind=RowKind.GROUP.name,
+                kind=RowKind.GROUP,
                 target_pct_text="60",
                 instruments=(
                     MetricInstrumentRow(
                         key="i1",
-                        kind=RowKind.INSTRUMENT.name,
+                        kind=RowKind.INSTRUMENT,
                         value_text="600",
                         target_pct_text="100",
                     ),
@@ -40,12 +40,12 @@ def test_compute_portfolio_metrics_group_and_non_investable_rows() -> None:
             ),
             MetricGroupRow(
                 key="bucket",
-                kind=RowKind.NON_INVESTABLE_BUCKET.name,
+                kind=RowKind.NON_INVESTABLE_BUCKET,
                 target_pct_text="0",
                 instruments=(
                     MetricInstrumentRow(
                         key="i2",
-                        kind=RowKind.INSTRUMENT.name,
+                        kind=RowKind.INSTRUMENT,
                         value_text="400",
                         target_pct_text="",
                     ),
@@ -92,12 +92,12 @@ def test_compute_portfolio_metrics_handles_zero_denominators() -> None:
         groups=(
             MetricGroupRow(
                 key="g1",
-                kind=RowKind.GROUP.name,
+                kind=RowKind.GROUP,
                 target_pct_text="50",
                 instruments=(
                     MetricInstrumentRow(
                         key="i1",
-                        kind=RowKind.INSTRUMENT.name,
+                        kind=RowKind.INSTRUMENT,
                         value_text="0",
                         target_pct_text="100",
                     ),

@@ -27,9 +27,10 @@ class InvestmentTreeWidget(QTreeWidget):
         """
         Return the semantic row kind stored in item metadata.
 
-        Row kind is stored in the NAME column under `ROLE_KIND`.
+        Row kind is stored in the NAME column under `ROLE_KIND` and parsed via
+        `RowKind.from_raw` to tolerate missing/invalid metadata.
         """
-        return item.data(Col.NAME.value, ROLE_KIND)
+        return RowKind.from_raw(item.data(Col.NAME.value, ROLE_KIND))
 
     def dropEvent(self, event):
         """
@@ -61,7 +62,7 @@ class InvestmentTreeWidget(QTreeWidget):
 
         # If dropping on empty viewport => would make item top-level (bad for instruments)
         if target is None:
-            if dragged_kind == RowKind.INSTRUMENT.name:
+            if dragged_kind == RowKind.INSTRUMENT:
                 event.ignore()
                 return
             # For groups, dropping to empty means reorder top-level, which is OK
@@ -73,8 +74,8 @@ class InvestmentTreeWidget(QTreeWidget):
         # ---- Allow ON-ITEM only for instrument -> (group or bucket) ----
         if pos_kind == QTreeWidget.OnItem:
             if (
-                dragged_kind == RowKind.INSTRUMENT.name
-                and target_kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name)
+                dragged_kind == RowKind.INSTRUMENT
+                and target_kind in (RowKind.GROUP, RowKind.NON_INVESTABLE_BUCKET)
             ):
                 # Allowed: move instrument into that group/bucket
                 super().dropEvent(event)
@@ -91,14 +92,14 @@ class InvestmentTreeWidget(QTreeWidget):
         target_parent = target.parent()
 
         # Instruments must always have a parent (cannot become top-level)
-        if dragged_kind == RowKind.INSTRUMENT.name:
+        if dragged_kind == RowKind.INSTRUMENT:
             if target_parent is None:
                 # Above/below a top-level item would make it top-level => forbid
                 event.ignore()
                 return
 
         # Groups/bucket must stay top-level (reorder among top-level only)
-        if dragged_kind in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
+        if dragged_kind in (RowKind.GROUP, RowKind.NON_INVESTABLE_BUCKET):
             if target_parent is not None:
                 # can't reorder groups inside a group's children
                 event.ignore()

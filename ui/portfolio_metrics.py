@@ -27,20 +27,30 @@ D = Decimal
 
 @dataclass(frozen=True)
 class MetricInstrumentRow:
-    """One instrument-row snapshot used for metrics computation."""
+    """
+    One instrument-row snapshot used for metrics computation.
+
+    `kind` may be `None` for malformed/partial UI snapshots; such rows are
+    ignored by computation logic.
+    """
 
     key: str
-    kind: str
+    kind: RowKind | None
     value_text: str
     target_pct_text: str
 
 
 @dataclass(frozen=True)
 class MetricGroupRow:
-    """One top-level row snapshot plus its instrument children."""
+    """
+    One top-level row snapshot plus its instrument children.
+
+    `kind` may be `None` for malformed/partial UI snapshots; such rows are
+    ignored by computation logic.
+    """
 
     key: str
-    kind: str
+    kind: RowKind | None
     target_pct_text: str
     instruments: tuple[MetricInstrumentRow, ...]
 
@@ -101,12 +111,12 @@ def compute_portfolio_metrics(snapshot: MetricsSnapshot) -> MetricsResult:
     group_keys: list[str] = []
 
     for top in snapshot.groups:
-        if top.kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
+        if top.kind not in (RowKind.GROUP, RowKind.NON_INVESTABLE_BUCKET):
             continue
 
         total = D("0")
         for child in top.instruments:
-            if child.kind != RowKind.INSTRUMENT.name:
+            if child.kind != RowKind.INSTRUMENT:
                 continue
             child_value = parse_value_cell(child.value_text)
             total += child_value
@@ -115,7 +125,7 @@ def compute_portfolio_metrics(snapshot: MetricsSnapshot) -> MetricsResult:
 
         top_total_by_key[top.key] = total
         row_values[top.key] = total
-        if top.kind == RowKind.GROUP.name:
+        if top.kind == RowKind.GROUP:
             group_keys.append(top.key)
             strategy_total += total
 
@@ -139,17 +149,17 @@ def compute_portfolio_metrics(snapshot: MetricsSnapshot) -> MetricsResult:
                 drift = sp - target
                 drift_text_by_key[top.key] = fmt_pp(drift)
                 drift_value_by_key[top.key] = drift
-        elif top.kind == RowKind.NON_INVESTABLE_BUCKET.name:
+        elif top.kind == RowKind.NON_INVESTABLE_BUCKET:
             target_pct_text_overrides_by_key[top.key] = ""
             strategy_pct_text_by_key[top.key] = ""
             drift_text_by_key[top.key] = ""
 
         group_total = row_values.get(top.key, D("0"))
         for child in top.instruments:
-            if child.kind != RowKind.INSTRUMENT.name:
+            if child.kind != RowKind.INSTRUMENT:
                 continue
 
-            if top.kind != RowKind.GROUP.name:
+            if top.kind != RowKind.GROUP:
                 target_pct_text_overrides_by_key[child.key] = ""
                 strategy_pct_text_by_key[child.key] = ""
                 drift_text_by_key[child.key] = ""

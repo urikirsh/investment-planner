@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum, auto
+from enum import Enum, StrEnum
 
 from PySide6.QtCore import Qt
 
@@ -25,17 +25,53 @@ ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
 ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
 ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
 
-class RowKind(Enum):
+class RowKind(StrEnum):
     """
     Identifies the semantic role of a row in the main tree UI.
 
     RowKind is used to distinguish between asset groups, instruments,
     and special structural rows (such as the non-investable bucket),
     and drives editing rules, drag-and-drop behavior, and calculations.
+
+    Notes
+    -----
+    `RowKind` extends `StrEnum` so values can cross Qt item-data boundaries
+    safely while remaining type-checkable in Python code.
     """
-    GROUP = auto()
-    INSTRUMENT = auto()
-    NON_INVESTABLE_BUCKET = auto()
+    GROUP = "GROUP"
+    INSTRUMENT = "INSTRUMENT"
+    NON_INVESTABLE_BUCKET = "NON_INVESTABLE_BUCKET"
+
+    @classmethod
+    def from_raw(cls, raw: object) -> "RowKind | None":
+        """
+        Coerce raw metadata into a `RowKind` when possible.
+
+        Parameters
+        ----------
+        raw:
+            Value read from Qt item metadata (`QTreeWidgetItem.data`), which may
+            already be a `RowKind`, a plain string, or an unexpected value type.
+
+        Returns
+        -------
+        RowKind | None
+            Parsed enum member on success; `None` for missing/unknown values.
+
+        Why this helper exists
+        ----------------------
+        UI item metadata can be absent or mutated by external code/tests. This
+        method centralizes defensive parsing so callers can handle invalid data
+        consistently instead of raising conversion errors in many places.
+        """
+        if isinstance(raw, cls):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return cls(raw)
+            except ValueError:
+                return None
+        return None
 
 class Col(Enum):
     """

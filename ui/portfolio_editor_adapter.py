@@ -182,13 +182,13 @@ def build_portfolio_data_from_main_editor(
             continue
 
         kind = get_item_kind(group_item)
-        if kind == RowKind.INSTRUMENT.name:
+        if kind == RowKind.INSTRUMENT:
             continue
 
         group_id = get_item_id(group_item) or new_id("grp")
         group_name = group_item.text(Col.NAME.value).strip()
         target_pct = group_item.text(Col.TARGET_PCT.value).strip() or "0"
-        is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET.name
+        is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET
 
         if not is_non_investable_bucket:
             groups.append(
@@ -207,7 +207,7 @@ def build_portfolio_data_from_main_editor(
             instrument_id = get_item_id(ins)
             if not instrument_id:
                 instrument_id = new_id("ins")
-                set_item_meta(ins, RowKind.INSTRUMENT.name, instrument_id)
+                set_item_meta(ins, RowKind.INSTRUMENT, instrument_id)
 
             instrument_name = ins.text(Col.NAME.value).strip()
             total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
