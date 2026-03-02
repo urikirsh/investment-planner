@@ -32,10 +32,16 @@ from investment_planner.use_cases import (
 
 from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
 from ui.ui_utils import d_from_text, get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
-from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
+from ui.ui_utils import apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
     populate_main_editor_from_portfolio,
+)
+from ui.portfolio_metrics import (
+    MetricGroupRow,
+    MetricInstrumentRow,
+    MetricsSnapshot,
+    compute_portfolio_metrics,
 )
 
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -670,15 +676,26 @@ class MainWindow(QMainWindow):
         """
         self._suppress_item_changed = True
         try:
-            group_items, row_values, portfolio_instruments_total, strategy_total = self._collect_row_values_and_totals()
-            cash_value = parse_value_cell(self.cash_value_edit.text())
-            future_tax = parse_value_cell(self.future_tax_edit.text())
-            portfolio_total = cash_value + portfolio_instruments_total - future_tax
+            snapshot, item_by_key = self._build_metrics_snapshot()
+            metrics = compute_portfolio_metrics(snapshot)
 
-            self._apply_portfolio_pct(row_values, portfolio_total)
-            self._apply_group_strategy_and_drift(group_items, row_values, strategy_total)
-            self._apply_instrument_strategy_and_drift(row_values)
-            self._clear_non_investable_bucket_group_columns()
+            for key, total in metrics.top_total_by_key.items():
+                item_by_key[key].setText(Col.TOT_VALUE.value, str(total))
+
+            for key, text in metrics.portfolio_pct_text_by_key.items():
+                item_by_key[key].setText(Col.PORTFOLIO_PCT.value, text)
+
+            for key, text in metrics.strategy_pct_text_by_key.items():
+                item_by_key[key].setText(Col.STRATEGY_PCT.value, text)
+
+            for key, text in metrics.drift_text_by_key.items():
+                item_by_key[key].setText(Col.DRIFT_PP.value, text)
+
+            for key, text in metrics.target_pct_text_overrides_by_key.items():
+                item_by_key[key].setText(Col.TARGET_PCT.value, text)
+
+            for key, drift in metrics.drift_value_by_key.items():
+                apply_drift_color(item_by_key[key], Col.DRIFT_PP.value, drift)
 
         finally:
             self._suppress_item_changed = False
@@ -711,154 +728,52 @@ class MainWindow(QMainWindow):
         else:
             self.investable_balance_label.setStyleSheet("color: #777777;")
 
-    def _collect_row_values_and_totals(self) -> tuple[list[QTreeWidgetItem], dict[QTreeWidgetItem, D], D, D]:
-        """
-        Collect per-row numeric values and aggregate totals used by recalculation steps.
-
-        Parameters
-        ----------
-        None
-            Uses the current state of `self.tree`.
-
-        Returns
-        -------
-        tuple[list[QTreeWidgetItem], dict[QTreeWidgetItem, Decimal], Decimal, Decimal]
-            (group_items, row_values, portfolio_instruments_total, strategy_total)
-            - group_items:
-              Top-level rows that are real asset groups (excludes the non-investable bucket).
-            - row_values:
-              Mapping from each processed row item (group and instrument rows) to its numeric value.
-            - portfolio_instruments_total:
-              Sum of all instrument values (investable + non-investable).
-            - strategy_total:
-              Sum of investable group totals only.
-        """
-        group_items: list[QTreeWidgetItem] = []
-        row_values: dict[QTreeWidgetItem, D] = {}
-        portfolio_instruments_total = D("0")
-        strategy_total = D("0")
+    def _build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
+        """Build pure metrics input plus key->item lookup for UI render updates."""
+        groups: list[MetricGroupRow] = []
+        item_by_key: dict[str, QTreeWidgetItem] = {}
 
         for i in range(self.tree.topLevelItemCount()):
             top = self.tree.topLevelItem(i)
             if top is None:
                 continue
-            kind = get_item_kind(top)
-            if kind not in (RowKind.GROUP.name, RowKind.NON_INVESTABLE_BUCKET.name):
-                continue
 
-            total = D("0")
-            for j in range(top.childCount()):
-                child = top.child(j)
-                if child is None:
-                    continue
-                if get_item_kind(child) != RowKind.INSTRUMENT.name:
-                    continue
-                v = parse_value_cell(child.text(Col.TOT_VALUE.value))
-                total += v
-                row_values[child] = v
-                portfolio_instruments_total += v
-
-            top.setText(Col.TOT_VALUE.value, str(total))
-            row_values[top] = total
-            if kind == RowKind.GROUP.name:
-                group_items.append(top)
-                strategy_total += total
-
-        return group_items, row_values, portfolio_instruments_total, strategy_total
-
-    def _apply_portfolio_pct(self, row_values: dict[QTreeWidgetItem, D], portfolio_total: D) -> None:
-        """Populate Portfolio % column for all rows from current row values."""
-        for item, v in row_values.items():
-            pct = safe_pct(v, portfolio_total)
-            item.setText(Col.PORTFOLIO_PCT.value, "" if pct is None else fmt_pct(pct))
-
-    def _apply_group_strategy_and_drift(
-        self,
-        group_items: list[QTreeWidgetItem],
-        row_values: dict[QTreeWidgetItem, D],
-        strategy_total: D,
-    ) -> None:
-        """
-        Fill Strategy % and Drift for top-level asset-group rows.
-
-        Strategy % for a group = group_value / total_investable_strategy_value.
-        Drift(pp) = actual_strategy_pct - target_pct.
-        """
-        for g in group_items:
-            gval = row_values.get(g, D("0"))
-            sp = safe_pct(gval, strategy_total)
-            if sp is None:
-                g.setText(Col.STRATEGY_PCT.value, "")
-                g.setText(Col.DRIFT_PP.value, "")
-                continue
-
-            g.setText(Col.STRATEGY_PCT.value, fmt_pct(sp))
-            target = parse_value_cell(g.text(Col.TARGET_PCT.value))
-            drift = sp - target
-            g.setText(Col.DRIFT_PP.value, fmt_pp(drift))
-            apply_drift_color(g, Col.DRIFT_PP.value, drift)
-
-    def _apply_instrument_strategy_and_drift(self, row_values: dict[QTreeWidgetItem, D]) -> None:
-        """
-        Fill Strategy % and Drift for instrument rows using within-group scope.
-
-        For instruments under asset groups:
-        - Strategy % = instrument_value / parent_group_total
-        - Drift(pp) = actual_within_group_pct - instrument_target_pct
-
-        For instruments under the non-investable bucket:
-        - Target/Strategy/Drift are cleared because these rows are out of strategy scope.
-        """
-        for i in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(i)
-            if top is None:
-                continue
+            top_key = f"top:{i}"
+            item_by_key[top_key] = top
             top_kind = get_item_kind(top)
-            group_total = row_values.get(top, D("0"))
 
+            instruments: list[MetricInstrumentRow] = []
             for j in range(top.childCount()):
                 child = top.child(j)
                 if child is None:
                     continue
-                if get_item_kind(child) != RowKind.INSTRUMENT.name:
-                    continue
 
-                if top_kind != RowKind.GROUP.name:
-                    child.setText(Col.TARGET_PCT.value, "")
-                    child.setText(Col.STRATEGY_PCT.value, "")
-                    child.setText(Col.DRIFT_PP.value, "")
-                    apply_drift_color(child, Col.DRIFT_PP.value, D("0"))
-                    continue
+                child_key = f"top:{i}:child:{j}"
+                item_by_key[child_key] = child
+                instruments.append(
+                    MetricInstrumentRow(
+                        key=child_key,
+                        kind=get_item_kind(child),
+                        value_text=child.text(Col.TOT_VALUE.value),
+                        target_pct_text=child.text(Col.TARGET_PCT.value),
+                    )
+                )
 
-                child_sp = safe_pct(row_values.get(child, D("0")), group_total)
-                if child_sp is None:
-                    child.setText(Col.STRATEGY_PCT.value, "")
-                    child.setText(Col.DRIFT_PP.value, "")
-                    apply_drift_color(child, Col.DRIFT_PP.value, D("0"))
-                    continue
+            groups.append(
+                MetricGroupRow(
+                    key=top_key,
+                    kind=top_kind,
+                    target_pct_text=top.text(Col.TARGET_PCT.value),
+                    instruments=tuple(instruments),
+                )
+            )
 
-                child.setText(Col.STRATEGY_PCT.value, fmt_pct(child_sp))
-                child_target = parse_value_cell(child.text(Col.TARGET_PCT.value))
-                child_drift = child_sp - child_target
-                child.setText(Col.DRIFT_PP.value, fmt_pp(child_drift))
-                apply_drift_color(child, Col.DRIFT_PP.value, child_drift)
-
-    def _clear_non_investable_bucket_group_columns(self) -> None:
-        """
-        Clear group-only columns for the non-investable bucket top-level row.
-
-        We intentionally scan all top-level rows (without early break) so the UI
-        self-heals even if multiple non-investable buckets are present due to
-        malformed input or manual tree edits.
-        """
-        for i in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(i)
-            if top is None:
-                continue
-            if get_item_kind(top) == RowKind.NON_INVESTABLE_BUCKET.name:
-                top.setText(Col.TARGET_PCT.value, "")
-                top.setText(Col.STRATEGY_PCT.value, "")
-                top.setText(Col.DRIFT_PP.value, "")
+        snapshot = MetricsSnapshot(
+            groups=tuple(groups),
+            cash_value_text=self.cash_value_edit.text(),
+            future_tax_text=self.future_tax_edit.text(),
+        )
+        return snapshot, item_by_key
 
     def _after_tree_reorder(self, *args):
         """Refresh derived values after drag-and-drop reordering/moves."""
