@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Planning algorithm behavior tests.
+
+Includes invest-only and rebalance allocation behavior plus group->instrument
+delta split semantics and defensive edge-path coverage.
+"""
+
 import pytest
 
 import investment_planner.planning as planning_mod
@@ -170,4 +177,3 @@ def test_map_asset_group_deltas_to_instruments_uses_post_target_solver_for_zero_
         )
     ]
     assert map_asset_group_deltas_to_instruments(p, negative_plan) == [("g1", "Asset 1", "i1", D("-100"))]
-

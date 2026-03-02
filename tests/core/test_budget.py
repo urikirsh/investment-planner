@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Invest-budget focused planning tests.
+
+Covers budget computation and a representative end-to-end unit-calculation
+path using future-tax-adjusted investable cash.
+"""
+
 from investment_planner.calc_stock_units import calculate_buy_units
 from investment_planner.io_json import load_portfolio
 from investment_planner.planning import compute_invest_budget, plan_invest_no_sell
@@ -47,4 +54,3 @@ def test_stock_unit_calculation_uses_budget_reduced_by_future_tax():
     assert calc.units == 2
     assert calc.spent == D("600")
     assert calc.leftover == D("100")
-

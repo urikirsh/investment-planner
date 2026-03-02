@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Unit-level tests for stock unit and trade-commit helpers.
+
+These tests cover floor rounding, invalid-price guards, and buy/sell mutation
+effects on cash/instrument values.
+"""
+
 import pytest
 
 from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
@@ -53,4 +60,3 @@ def test_commit_sell_cannot_sell_more_than_value():
 def test_commit_sell_non_positive_proceeds_does_nothing(proceeds: D):
     p = make_portfolio()
     assert commit_sell(p=p, instrument_id="i1", proceeds=proceeds) == p
-

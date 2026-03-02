@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Session/document and application use-case tests.
+
+Covers persistence-path behavior, dirty-state tracking, and planning/wizard
+use-case orchestration around `PortfolioSession`.
+"""
+
 from investment_planner.io_json import load_portfolio, save_portfolio_file
 from investment_planner.planning_types import PlanningMode
 from investment_planner.portfolio_document import PortfolioDocument
@@ -190,4 +197,3 @@ def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
     applied = apply_wizard_step(session, step, calc_units=0, spent=D("0"))
     assert applied is False
     assert session.document.current_portfolio == before
-

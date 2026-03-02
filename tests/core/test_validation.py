@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Validation and JSON round-trip tests for the domain layer.
+
+These tests verify portfolio invariants and serialization behavior without
+Qt/UI involvement.
+"""
+
 import pytest
 
 from investment_planner.io_json import dump_portfolio, load_portfolio
@@ -239,4 +246,3 @@ def test_validation_instrument_names_duplicate_in_non_investable_bucket_has_deta
         match=r"Duplicate instrument name 'DUP' in the non-investable bucket.*Rename one of the instruments to a unique name",
     ):
         validate_portfolio(p)
-

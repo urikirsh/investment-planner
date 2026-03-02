@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Shared builders for core/domain tests.
+
+This module centralizes fixture-like payload builders so core tests can
+focus on behavior assertions instead of repeating portfolio JSON setup.
+"""
+
 from decimal import Decimal
 
 from investment_planner.io_json import load_portfolio
@@ -15,7 +22,12 @@ def make_valid_data(
     group_targets: tuple[tuple[str, str, str], ...] = (("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "40.0")),
     instruments: list[dict] | None = None,
 ) -> dict:
-    """Build a valid JSON-like portfolio payload for tests."""
+    """
+    Build a valid JSON-like portfolio payload for tests.
+
+    Callers can override cash/group/instrument parts to target specific
+    validation or planning scenarios while preserving required defaults.
+    """
     if instruments is None:
         instruments = [
             {
@@ -82,4 +94,3 @@ def make_portfolio():
         ],
     }
     return load_portfolio(data)
-
