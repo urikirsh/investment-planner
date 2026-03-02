@@ -7,6 +7,8 @@ Covers persistence-path behavior, dirty-state tracking, and planning/wizard
 use-case orchestration around `PortfolioSession`.
 """
 
+import pytest
+
 from investment_planner.io_json import load_portfolio, save_portfolio_file
 from investment_planner.planning_types import PlanningMode
 from investment_planner.portfolio_document import PortfolioDocument
@@ -81,11 +83,8 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
 
 def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
     doc = PortfolioDocument()
-    try:
+    with pytest.raises(ValueError, match="No current portfolio to save"):
         doc.save_to_path(tmp_path / "x.json")
-        assert False, "Expected ValueError"
-    except ValueError as e:
-        assert "No current portfolio to save" in str(e)
 
 
 def test_build_default_portfolio_returns_valid_portfolio():
