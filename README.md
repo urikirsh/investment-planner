@@ -74,7 +74,7 @@ The application never executes trades automatically. All actions are explicit an
   - move instruments into or out of the non-investable bucket
 
 ### UI module structure
-- `ui/main_window.py`:
+- `ui/main_window_controller.py`:
   - coordinator for screen transitions, planning flow, and persistence actions
 - `ui/portfolio_editor_adapter.py`:
   - UI/domain mapping layer for the main editor

@@ -8,7 +8,8 @@ of the application flow. It is responsible for:
 - applying static UI setup (column headers, delegates, tooltips)
 
 The class intentionally contains no business logic, persistence logic, or
-navigation flow control. Those concerns stay in `ui.main_window.MainWindow`.
+navigation flow control. Those concerns stay in
+`ui.main_window_controller.MainWindow`.
 """
 
 from __future__ import annotations

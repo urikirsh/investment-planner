@@ -43,7 +43,7 @@ from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
 
 """
-main_window.py
+main_window_controller.py
 
 Primary GUI implementation for the investment planner application.
 
