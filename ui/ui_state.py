@@ -38,9 +38,6 @@ from investment_planner.use_cases import PlanStep
 class UnsavedChangesDecision(str, Enum):
     """
     Decision outcomes for unsaved-changes confirmation flows.
-
-    This enum replaces ad-hoc string tokens so controller methods can use
-    explicit, type-checked decision values.
     """
 
     SAVE = "save"
