@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
@@ -91,3 +92,45 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     assert window.planning_state.step_index == 1
     assert window.wizard_state.last_calc is None
     assert "Step 2/2" in window.wiz_info.text()
+
+
+def test_save_flow_uses_resolved_target_and_action_methods_without_dialogs(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    target = tmp_path / "saved.json"
+    calls: list[Path] = []
+    info_calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(window, "_resolve_save_target", lambda **_: target)
+    monkeypatch.setattr(window, "_save_from_main_ui", lambda path: calls.append(path))
+    monkeypatch.setattr(window, "_show_info", lambda title, message: info_calls.append((title, message)))
+
+    assert window._save_current_or_save_as(show_success=True) is True
+    assert calls == [target]
+    assert info_calls and info_calls[0][0] == "Saved"
+
+
+def test_open_from_picker_delegates_prompt_result_to_open_action(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    target = tmp_path / "to_open.json"
+    received: list[Path] = []
+
+    def fake_open(path: Path) -> bool:
+        received.append(path)
+        return True
+
+    monkeypatch.setattr(window, "_prompt_select_open_path", lambda: target)
+    monkeypatch.setattr(window, "_open_portfolio_from_path", fake_open)
+
+    assert window._open_portfolio_from_picker() is True
+    assert received == [target]
+
+
+def test_confirm_unsaved_changes_splits_decision_prompt_from_action_resolution(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(window, "_has_unsaved_main_changes", lambda: True)
+    monkeypatch.setattr(window, "_prompt_unsaved_changes_decision", lambda _: "discard")
+
+    assert window._confirm_continue_with_unsaved_changes("opening another portfolio") is True

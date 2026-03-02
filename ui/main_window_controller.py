@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
@@ -21,6 +21,7 @@ from investment_planner.calc_stock_units import calculate_buy_units
 from investment_planner.planning_types import PlanningMode
 from investment_planner.portfolio_session import PortfolioSession
 from investment_planner.use_cases import (
+    PlanBuildResult,
     PlanStep,
     apply_wizard_step,
     build_plan_for_current_document,
@@ -331,8 +332,16 @@ class MainWindow(QMainWindow):
         save_document_from_data(self.session, data, target_path)
         self._update_file_context_ui()
 
-    def _select_save_path(self) -> Optional[Path]:
-        """Open Save As picker and return normalized target path, or ``None`` if canceled."""
+    def _show_info(self, title: str, message: str) -> None:
+        """Show informational feedback (extractable for tests)."""
+        QMessageBox.information(self, title, message)
+
+    def _show_error(self, title: str, message: str) -> None:
+        """Show error feedback (extractable for tests)."""
+        QMessageBox.critical(self, title, message)
+
+    def _prompt_select_save_path(self) -> Optional[Path]:
+        """Prompt for save location and return normalized target path, or ``None`` if canceled."""
         start_path = self.session.current_file_path or self.session.default_json_path
         selected, _ = QFileDialog.getSaveFileName(
             self,
@@ -347,28 +356,8 @@ class MainWindow(QMainWindow):
             chosen = chosen.with_suffix(".json")
         return chosen
 
-    def _save_current_or_save_as(self, *, show_success: bool, force_save_as: bool = False) -> bool:
-        """
-        Save current editor state to active file or a newly selected file.
-
-        Returns ``True`` only when save completed successfully.
-        """
-        target = None if force_save_as else self.session.current_file_path
-        if target is None:
-            target = self._select_save_path()
-            if target is None:
-                return False
-        try:
-            self._save_from_main_ui(target)
-            if show_success:
-                QMessageBox.information(self, "Saved", f"Portfolio saved to:\n{target}")
-            return True
-        except Exception as e:
-            QMessageBox.critical(self, "Validation / Save failed", str(e))
-            return False
-
-    def _open_portfolio_from_picker(self) -> bool:
-        """Open file picker, load selected portfolio, and return success status."""
+    def _prompt_select_open_path(self) -> Optional[Path]:
+        """Prompt for portfolio file to open, or return ``None`` if canceled."""
         start_path = self.session.current_file_path or self.session.default_json_path
         selected, _ = QFileDialog.getOpenFileName(
             self,
@@ -377,20 +366,56 @@ class MainWindow(QMainWindow):
             "Portfolio JSON (*.json);;JSON files (*.json);;All files (*)",
         )
         if not selected:
+            return None
+        return Path(selected).expanduser()
+
+    def _resolve_save_target(self, *, force_save_as: bool) -> Optional[Path]:
+        """Resolve destination path for save flows without performing UI write actions."""
+        target = None if force_save_as else self.session.current_file_path
+        if target is None:
+            target = self._prompt_select_save_path()
+        return target
+
+    def _execute_save_to_target(self, target: Path, *, show_success: bool) -> bool:
+        """Execute save action for a resolved path and emit user feedback."""
+        try:
+            self._save_from_main_ui(target)
+            if show_success:
+                self._show_info("Saved", f"Portfolio saved to:\n{target}")
+            return True
+        except Exception as e:
+            self._show_error("Validation / Save failed", str(e))
             return False
-        path = Path(selected).expanduser()
+
+    def _save_current_or_save_as(self, *, show_success: bool, force_save_as: bool = False) -> bool:
+        """
+        Save current editor state to active file or a newly selected file.
+
+        Returns ``True`` only when save completed successfully.
+        """
+        target = self._resolve_save_target(force_save_as=force_save_as)
+        if target is None:
+            return False
+        return self._execute_save_to_target(target, show_success=show_success)
+
+    def _open_portfolio_from_path(self, path: Path) -> bool:
+        """Load selected portfolio path and report success."""
         try:
             self._load_portfolio_from_file(path)
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Load failed", f"Failed loading JSON:\n{e}")
+            self._show_error("Load failed", f"Failed loading JSON:\n{e}")
             return False
 
-    def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool:
-        """Prompt user to save/discard/cancel when unsaved edits exist."""
-        if not self._has_unsaved_main_changes():
-            return True
+    def _open_portfolio_from_picker(self) -> bool:
+        """Prompt for a portfolio path, then execute open action."""
+        path = self._prompt_select_open_path()
+        if path is None:
+            return False
+        return self._open_portfolio_from_path(path)
 
+    def _prompt_unsaved_changes_decision(self, action_text: str) -> Literal["save", "discard", "cancel"]:
+        """Prompt unsaved-changes decision and return semantic choice token."""
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle("Unsaved changes")
@@ -404,12 +429,28 @@ class MainWindow(QMainWindow):
 
         clicked = box.clickedButton()
         if clicked == save_btn:
-            return self._save_current_or_save_as(show_success=False)
+            return "save"
         if clicked == dont_save_btn:
-            return True
+            return "discard"
         if clicked == cancel_btn:
-            return False
+            return "cancel"
+        return "cancel"
+
+    def _resolve_unsaved_changes_decision(self, decision: Literal["save", "discard", "cancel"]) -> bool:
+        """Apply unsaved-changes decision without showing additional decision UI."""
+        if decision == "save":
+            return self._save_current_or_save_as(show_success=False)
+        if decision == "discard":
+            return True
         return False
+
+    def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool:
+        """Prompt user to save/discard/cancel when unsaved edits exist."""
+        if not self._has_unsaved_main_changes():
+            return True
+
+        decision = self._prompt_unsaved_changes_decision(action_text)
+        return self._resolve_unsaved_changes_decision(decision)
 
     def _on_save_clicked(self):
         """Handle `Save` action from main screen."""
@@ -486,9 +527,9 @@ class MainWindow(QMainWindow):
         try:
             if not self._save_current_or_save_as(show_success=False):
                 return
-            plan_result = build_plan_for_current_document(self.session, mode)
+            plan_result: PlanBuildResult = build_plan_for_current_document(self.session, mode)
             if plan_result.budget <= 0:
-                QMessageBox.information(self, "No budget", "No investable cash")
+                self._show_info("No budget", "No investable cash")
                 return
             self.planning_state.plan_steps = plan_result.steps
             self.planning_state.step_index = 0
@@ -498,7 +539,7 @@ class MainWindow(QMainWindow):
             self._populate_summary(plan_result.portfolio, plan_result.steps, mode)
             self.stack.setCurrentWidget(self.screen_summary)
         except Exception as e:
-            QMessageBox.critical(self, "Plan failed", str(e))
+            self._show_error("Plan failed", str(e))
 
     # -------------------------
     # Screen 2 (Summary)
