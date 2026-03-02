@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""
+Focused controller-flow tests for `MainWindow`.
+
+These tests validate state transitions and prompt/action seams introduced by
+the controller refactor, without invoking modal dialogs.
+"""
+
 import os
 from collections.abc import Iterator
 from decimal import Decimal

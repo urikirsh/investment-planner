@@ -63,6 +63,11 @@ and execution logic.
 The main window acts as an orchestrator between the UI components and
 the underlying domain logic, while keeping calculation, validation,
 and persistence responsibilities in their respective modules.
+
+Prompting/UI decision points (message boxes and file pickers) are kept in
+dedicated helpers (`_prompt_*`, `_show_*`) and action methods perform the
+underlying save/open/plan work. This split keeps behavior testable without
+driving interactive dialogs.
 """
 
 D = Decimal
@@ -333,11 +338,11 @@ class MainWindow(QMainWindow):
         self._update_file_context_ui()
 
     def _show_info(self, title: str, message: str) -> None:
-        """Show informational feedback (extractable for tests)."""
+        """Show informational feedback via one overridable wrapper."""
         QMessageBox.information(self, title, message)
 
     def _show_error(self, title: str, message: str) -> None:
-        """Show error feedback (extractable for tests)."""
+        """Show error feedback via one overridable wrapper."""
         QMessageBox.critical(self, title, message)
 
     def _prompt_select_save_path(self) -> Optional[Path]:
@@ -370,14 +375,19 @@ class MainWindow(QMainWindow):
         return Path(selected).expanduser()
 
     def _resolve_save_target(self, *, force_save_as: bool) -> Optional[Path]:
-        """Resolve destination path for save flows without performing UI write actions."""
+        """
+        Resolve destination path for save flows before executing write action.
+
+        This method decides which path to use (current path vs prompted path)
+        but does not mutate portfolio/session data.
+        """
         target = None if force_save_as else self.session.current_file_path
         if target is None:
             target = self._prompt_select_save_path()
         return target
 
     def _execute_save_to_target(self, target: Path, *, show_success: bool) -> bool:
-        """Execute save action for a resolved path and emit user feedback."""
+        """Execute save action for a resolved path and emit success/error feedback."""
         try:
             self._save_from_main_ui(target)
             if show_success:
@@ -415,7 +425,11 @@ class MainWindow(QMainWindow):
         return self._open_portfolio_from_path(path)
 
     def _prompt_unsaved_changes_decision(self, action_text: str) -> UnsavedChangesDecision:
-        """Prompt unsaved-changes decision and return semantic choice token."""
+        """
+        Prompt unsaved-changes confirmation and return typed decision outcome.
+
+        Returns one of `UnsavedChangesDecision.SAVE`, `.DISCARD`, `.CANCEL`.
+        """
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle("Unsaved changes")
@@ -437,7 +451,7 @@ class MainWindow(QMainWindow):
         return UnsavedChangesDecision.CANCEL
 
     def _resolve_unsaved_changes_decision(self, decision: UnsavedChangesDecision) -> bool:
-        """Apply unsaved-changes decision without showing additional decision UI."""
+        """Apply typed unsaved-changes decision without opening prompt dialogs."""
         if decision == UnsavedChangesDecision.SAVE:
             return self._save_current_or_save_as(show_success=False)
         if decision == UnsavedChangesDecision.DISCARD:
@@ -445,7 +459,7 @@ class MainWindow(QMainWindow):
         return False
 
     def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool:
-        """Prompt user to save/discard/cancel when unsaved edits exist."""
+        """Run unsaved-changes prompt + action resolution, returning continuation intent."""
         if not self._has_unsaved_main_changes():
             return True
 
