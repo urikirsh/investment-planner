@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+"""
+Unit tests for `ui.portfolio_metrics`.
+
+These tests validate pure recalculation behavior independently from Qt:
+- normal group + non-investable rendering semantics
+- denominator edge cases (zero totals)
+"""
+
 from decimal import Decimal
 
 from ui.portfolio_metrics import (
@@ -14,6 +22,7 @@ D = Decimal
 
 
 def test_compute_portfolio_metrics_group_and_non_investable_rows() -> None:
+    """Verify strategy/portfolio/drift output for mixed investable and non-investable rows."""
     snapshot = MetricsSnapshot(
         groups=(
             MetricGroupRow(
@@ -78,6 +87,7 @@ def test_compute_portfolio_metrics_group_and_non_investable_rows() -> None:
 
 
 def test_compute_portfolio_metrics_handles_zero_denominators() -> None:
+    """Ensure empty denominators yield blank percentage/drift text safely."""
     snapshot = MetricsSnapshot(
         groups=(
             MetricGroupRow(
@@ -110,4 +120,3 @@ def test_compute_portfolio_metrics_handles_zero_denominators() -> None:
     assert result.strategy_pct_text_by_key["i1"] == ""
     assert result.drift_text_by_key["i1"] == ""
     assert result.drift_value_by_key["i1"] == D("0")
-

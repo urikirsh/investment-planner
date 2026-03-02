@@ -79,6 +79,9 @@ The application never executes trades automatically. All actions are explicit an
 - `ui/portfolio_editor_adapter.py`:
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
+- `ui/portfolio_metrics.py`:
+  - pure recalculation service for derived table values
+  - computes totals, portfolio %, strategy %, and drift from row snapshots
 - `ui/screens/main_editor_screen.py`:
   - screen 1 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for coordinator signal wiring
@@ -90,6 +93,8 @@ The application never executes trades automatically. All actions are explicit an
   - exposes price input, calculation feedback, and step action controls
 - `ui/test_portfolio_editor_adapter.py`:
   - unit tests for adapter mapping behavior and partial/strict input handling
+- `ui/test_portfolio_metrics.py`:
+  - unit tests for pure recalculation rules and zero-denominator edge cases
 - `ui/test_screens.py`:
   - structural tests for screen modules (defaults, controls, static setup)
 

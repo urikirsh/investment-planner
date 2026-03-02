@@ -4,6 +4,14 @@ Pure metrics service for main-editor derived columns.
 This module computes totals, percentages, and drift values from a snapshot of
 main-editor rows. It contains no Qt dependencies and returns render-ready
 strings plus numeric drift values for caller-managed styling.
+
+Design notes
+------------
+- Input uses plain dataclasses and text values to mirror current UI cell state.
+- Output is render-oriented and includes both formatted strings and raw drift
+  decimals so callers can style cells consistently without recomputing values.
+- Behavior for non-investable rows is encoded here to keep UI orchestration
+  focused on widget updates only.
 """
 
 from __future__ import annotations
@@ -19,6 +27,8 @@ D = Decimal
 
 @dataclass(frozen=True)
 class MetricInstrumentRow:
+    """One instrument-row snapshot used for metrics computation."""
+
     key: str
     kind: str
     value_text: str
@@ -27,6 +37,8 @@ class MetricInstrumentRow:
 
 @dataclass(frozen=True)
 class MetricGroupRow:
+    """One top-level row snapshot plus its instrument children."""
+
     key: str
     kind: str
     target_pct_text: str
@@ -35,6 +47,8 @@ class MetricGroupRow:
 
 @dataclass(frozen=True)
 class MetricsSnapshot:
+    """Immutable input payload for one metrics computation pass."""
+
     groups: tuple[MetricGroupRow, ...]
     cash_value_text: str
     future_tax_text: str
@@ -42,6 +56,13 @@ class MetricsSnapshot:
 
 @dataclass(frozen=True)
 class MetricsResult:
+    """
+    Render-ready metrics output.
+
+    Dictionaries are keyed by the caller-provided row keys so UI code can map
+    values back to concrete widgets/items without relying on object identity.
+    """
+
     top_total_by_key: dict[str, D]
     portfolio_pct_text_by_key: dict[str, str]
     strategy_pct_text_by_key: dict[str, str]
@@ -54,7 +75,19 @@ class MetricsResult:
 
 
 def compute_portfolio_metrics(snapshot: MetricsSnapshot) -> MetricsResult:
-    """Compute all derived main-editor values from immutable input rows."""
+    """
+    Compute all derived main-editor values from immutable input rows.
+
+    Rules implemented
+    -----------------
+    - Top-level totals are sums of instrument values per group/bucket.
+    - Portfolio % uses:
+      `portfolio_total = cash + all instruments - future_tax`.
+    - Group Strategy % / Drift are computed only for real strategy groups.
+    - Instrument Strategy % / Drift are computed within parent group scope.
+    - Non-investable bucket rows and their instruments have strategy fields
+      blanked and instrument target % blanked for UI display.
+    """
     row_values: dict[str, D] = {}
     top_total_by_key: dict[str, D] = {}
     portfolio_pct_text_by_key: dict[str, str] = {}
@@ -147,4 +180,3 @@ def compute_portfolio_metrics(snapshot: MetricsSnapshot) -> MetricsResult:
         portfolio_instruments_total=portfolio_instruments_total,
         strategy_total=strategy_total,
     )
-
