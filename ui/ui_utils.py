@@ -104,7 +104,7 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
 def set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
-                         target_pct: int,
+                         target_pct: Decimal | int | str,
                          id_str: str = "") -> None:
     """
     Initialize a top-level group/bucket row with metadata, style and defaults.

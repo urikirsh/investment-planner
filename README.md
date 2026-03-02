@@ -74,8 +74,11 @@ The application never executes trades automatically. All actions are explicit an
   - move instruments into or out of the non-investable bucket
 
 ### UI module structure
-- `ui/main_window.py`:
+- `ui/main_window_controller.py`:
   - coordinator for screen transitions, planning flow, and persistence actions
+- `ui/portfolio_editor_adapter.py`:
+  - UI/domain mapping layer for the main editor
+  - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
 - `ui/screens/main_editor_screen.py`:
   - screen 1 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for coordinator signal wiring
@@ -85,6 +88,8 @@ The application never executes trades automatically. All actions are explicit an
 - `ui/screens/wizard_screen.py`:
   - screen 3 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
+- `ui/test_portfolio_editor_adapter.py`:
+  - unit tests for adapter mapping behavior and partial/strict input handling
 - `ui/test_screens.py`:
   - structural tests for screen modules (defaults, controls, static setup)
 
