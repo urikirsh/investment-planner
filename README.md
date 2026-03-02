@@ -111,7 +111,7 @@ The application never executes trades automatically. All actions are explicit an
 - `tests/ui/test_screens.py`:
   - structural tests for screen modules (defaults, controls, static setup)
 - `tests/ui/test_ui_state.py`:
-  - unit tests for explicit planning/wizard UI state defaults and behavior, plus `UnsavedChangesDecision`
+  - unit tests for explicit planning/wizard UI state defaults and behavior
 - `tests/ui/test_main_window_controller_state_flow.py`:
   - focused tests for planning/wizard state transitions and prompt/action split points in `MainWindow`
 
