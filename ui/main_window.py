@@ -33,7 +33,7 @@ from investment_planner.use_cases import (
 from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
 from ui.ui_utils import d_from_text, get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import safe_pct, fmt_pct, fmt_pp, apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
-from ui.portfolio_tree_adapter import (
+from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
     populate_main_editor_from_portfolio,
 )
