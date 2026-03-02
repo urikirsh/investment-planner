@@ -32,6 +32,11 @@ class RowKind(StrEnum):
     RowKind is used to distinguish between asset groups, instruments,
     and special structural rows (such as the non-investable bucket),
     and drives editing rules, drag-and-drop behavior, and calculations.
+
+    Notes
+    -----
+    `RowKind` extends `StrEnum` so values can cross Qt item-data boundaries
+    safely while remaining type-checkable in Python code.
     """
     GROUP = "GROUP"
     INSTRUMENT = "INSTRUMENT"
@@ -39,7 +44,26 @@ class RowKind(StrEnum):
 
     @classmethod
     def from_raw(cls, raw: object) -> "RowKind | None":
-        """Coerce stored item metadata into a RowKind when possible."""
+        """
+        Coerce raw metadata into a `RowKind` when possible.
+
+        Parameters
+        ----------
+        raw:
+            Value read from Qt item metadata (`QTreeWidgetItem.data`), which may
+            already be a `RowKind`, a plain string, or an unexpected value type.
+
+        Returns
+        -------
+        RowKind | None
+            Parsed enum member on success; `None` for missing/unknown values.
+
+        Why this helper exists
+        ----------------------
+        UI item metadata can be absent or mutated by external code/tests. This
+        method centralizes defensive parsing so callers can handle invalid data
+        consistently instead of raising conversion errors in many places.
+        """
         if isinstance(raw, cls):
             return raw
         if isinstance(raw, str):

@@ -35,12 +35,22 @@ def d_from_text(txt: str, field: str) -> D:
         raise ValueError(f"{field} must be a number, got: {txt!r}")
 
 def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
-    """Attach semantic row metadata (kind/id) to a tree item."""
+    """
+    Attach semantic row metadata (kind/id) to a tree item.
+
+    `kind` is stored directly as `RowKind` (a `StrEnum`) rather than as an
+    untyped token, which keeps downstream reads type-safe.
+    """
     item.setData(0, ROLE_KIND, kind)
     item.setData(0, ROLE_ID, _id)
 
 def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
-    """Return stored row kind as typed enum, or ``None`` if missing/invalid."""
+    """
+    Return stored row kind as typed enum.
+
+    Returns `None` if metadata is missing/corrupt so call sites can fail-soft
+    in UI paths instead of throwing during enum conversion.
+    """
     return RowKind.from_raw(item.data(0, ROLE_KIND))
 
 def get_item_id(item: QTreeWidgetItem) -> str:

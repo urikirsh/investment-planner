@@ -27,7 +27,8 @@ class InvestmentTreeWidget(QTreeWidget):
         """
         Return the semantic row kind stored in item metadata.
 
-        Row kind is stored in the NAME column under `ROLE_KIND`.
+        Row kind is stored in the NAME column under `ROLE_KIND` and parsed via
+        `RowKind.from_raw` to tolerate missing/invalid metadata.
         """
         return RowKind.from_raw(item.data(Col.NAME.value, ROLE_KIND))
 

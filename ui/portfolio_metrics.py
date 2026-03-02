@@ -27,7 +27,12 @@ D = Decimal
 
 @dataclass(frozen=True)
 class MetricInstrumentRow:
-    """One instrument-row snapshot used for metrics computation."""
+    """
+    One instrument-row snapshot used for metrics computation.
+
+    `kind` may be `None` for malformed/partial UI snapshots; such rows are
+    ignored by computation logic.
+    """
 
     key: str
     kind: RowKind | None
@@ -37,7 +42,12 @@ class MetricInstrumentRow:
 
 @dataclass(frozen=True)
 class MetricGroupRow:
-    """One top-level row snapshot plus its instrument children."""
+    """
+    One top-level row snapshot plus its instrument children.
+
+    `kind` may be `None` for malformed/partial UI snapshots; such rows are
+    ignored by computation logic.
+    """
 
     key: str
     kind: RowKind | None
