@@ -13,9 +13,11 @@ the underlying domain logic, while keeping calculation, validation,
 and persistence responsibilities in their respective modules.
 
 File-oriented save/open/new action flows are extracted into
-`ui.main_window_actions.MainWindowActionsMixin`, while this controller keeps
-screen wiring, refresh orchestration, and wizard flow coordination. Concrete
-Qt dialog primitives are centralized in `ui.dialogs` wrappers.
+`ui.main_window_actions.MainWindowActionsMixin`, and wizard step flow is
+extracted into `ui.main_window_wizard.MainWindowWizardMixin`.
+This controller keeps screen wiring, refresh orchestration, and summary flow
+coordination. Concrete Qt dialog primitives are centralized in `ui.dialogs`
+wrappers.
 """
 
 from decimal import Decimal
@@ -32,22 +34,21 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
 )
 
-from portfolio_core.calc_stock_units import calculate_buy_units
 from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import (
     PlanBuildResult,
     PlanStep,
-    apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
     load_document,
 )
 
 from ui.main_window_actions import MainWindowActionsMixin
+from ui.main_window_wizard import MainWindowWizardMixin
 from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
-from ui.ui_utils import d_from_text, get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
+from ui.ui_utils import get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
@@ -62,7 +63,6 @@ from ui.portfolio_metrics import (
 
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
-from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, WizardState
 from ui.dialogs import show_error, show_warning
 
@@ -71,7 +71,7 @@ D = Decimal
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
 
-class MainWindow(MainWindowActionsMixin, QMainWindow):
+class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
     """
     3-screen flow:
       1) main editor
@@ -398,116 +398,6 @@ class MainWindow(MainWindowActionsMixin, QMainWindow):
     def _summary_back(self) -> None:
         """Return from summary screen to main editor."""
         self.stack.setCurrentWidget(self.screen_main)
-
-    # -------------------------
-    # Screen 3 (Wizard)
-    # -------------------------
-
-    def _init_wizard_screen(self) -> None:
-        """Build screen-3 widget and wire wizard actions."""
-        self.screen_wizard = WizardScreen(self)
-        self.wiz_info = self.screen_wizard.wiz_info
-        self.price_edit = self.screen_wizard.price_edit
-        self.wiz_result = self.screen_wizard.wiz_result
-        self.screen_wizard.calculate_btn.clicked.connect(self._wizard_calculate)
-        self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
-        self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
-        self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
-
-    def _show_current_wizard_step(self) -> None:
-        """Render current wizard step details and reset last calculation state."""
-        s = self.planning_state.plan_steps[self.planning_state.step_index]
-        idx = self.planning_state.step_index + 1
-        total = len(self.planning_state.plan_steps)
-
-        action = "BUY" if s.planned_delta_money > 0 else "SELL"
-        self.wiz_info.setText(
-            f"Step {idx}/{total}\n"
-            f"Asset group: {s.asset_group_name}\n"
-            f"Instrument: {s.instrument_name}\n"
-            f"Planned {action} value: {abs(s.planned_delta_money)}"
-        )
-        self.price_edit.setText("")
-        self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
-
-        # store last calculation
-        self.wizard_state.last_calc = None
-
-    def _wizard_calculate(self) -> None:
-        """Calculate units/spend for the current wizard step from entered price."""
-        try:
-            s = self.planning_state.plan_steps[self.planning_state.step_index]
-            price = d_from_text(self.price_edit.text(), "price")
-
-            planned = abs(s.planned_delta_money)
-            calc = calculate_buy_units(
-                instrument_id=s.instrument_id,
-                planned_money=planned,
-                price_ag=price,
-            )
-            self.wizard_state.last_calc = calc
-
-            label_money = "Spent" if s.planned_delta_money > 0 else "Proceeds"
-            self.wiz_result.setText(
-                f"Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
-            )
-        except Exception as e:
-            show_error(self, "Calculation failed", str(e))
-
-    def _wizard_save_continue(self) -> None:
-        """Apply current step trade (if valid), persist, and move to next step."""
-        try:
-            if self.session.document.current_portfolio is None:
-                raise ValueError("No portfolio loaded")
-
-            s = self.planning_state.plan_steps[self.planning_state.step_index]
-
-            # If user didn't calculate, treat as 0 units (skip saving)
-            if self.wizard_state.last_calc is None:
-                calc_units = 0
-                spent = D("0")
-            else:
-                calc_units = self.wizard_state.last_calc.units
-                spent = self.wizard_state.last_calc.spent
-
-            applied = apply_wizard_step(self.session, s, calc_units, spent)
-            if applied:
-                self._update_file_context_ui()
-
-            self._advance_wizard_step()
-        except Exception as e:
-            show_error(self, "Save failed", str(e))
-
-    def _wizard_continue_without_saving(self) -> None:
-        """Skip current step without mutating portfolio and move forward."""
-        try:
-            if self.session.document.current_portfolio is None:
-                raise ValueError("No portfolio loaded")
-            self._advance_wizard_step()
-        except Exception as e:
-            show_error(self, "Continue failed", str(e))
-
-    def _advance_wizard_step(self) -> None:
-        """Move to next wizard step or return to main when flow is complete."""
-        # Next step or back to main
-        self.planning_state.step_index += 1
-        if self.planning_state.step_index >= len(self.planning_state.plan_steps):
-            # Return to main with the current in-memory portfolio state.
-            current = self.session.document.current_portfolio
-            assert current is not None
-            populate_main_editor_from_portfolio(
-                tree=self.tree,
-                cash_value_edit=self.cash_value_edit,
-                cash_reserve_edit=self.cash_reserve_edit,
-                future_tax_edit=self.future_tax_edit,
-                portfolio=current,
-                non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
-                non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
-                on_future_tax_value_set=self._update_future_tax_visual_state,
-            )
-            self.stack.setCurrentWidget(self.screen_main)
-        else:
-            self._show_current_wizard_step()
 
     def _recalc_totals_and_pcts(self) -> None:
         """
