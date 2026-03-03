@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Callable
 
 import pytest
 
+from portfolio_core.use_cases import PlanStep
 import ui.main_window_wizard as wizard_mod
 from ui.main_window_wizard import MainWindowWizardMixin
 
@@ -57,7 +58,7 @@ class _FakeHost(MainWindowWizardMixin):
     _file_context_updates: int
     _future_tax_updates: int
 
-    def __init__(self, *, steps: list[SimpleNamespace], step_index: int = 0, current_portfolio: object | None = object()) -> None:
+    def __init__(self, *, steps: list[PlanStep], step_index: int = 0, current_portfolio: object | None = object()) -> None:
         self.session = SimpleNamespace(document=SimpleNamespace(current_portfolio=current_portfolio))
         self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
         self.wizard_state = SimpleNamespace(last_calc=SimpleNamespace(unused=True))
@@ -83,19 +84,8 @@ class _FakeHost(MainWindowWizardMixin):
 
     def _update_future_tax_visual_state(self) -> None:
         self._future_tax_updates += 1
-
-
-def _step(*, delta: str, instrument_id: str = "ins-1", group: str = "Group A", name: str = "ETF A") -> SimpleNamespace:
-    return SimpleNamespace(
-        planned_delta_money=Decimal(delta),
-        instrument_id=instrument_id,
-        asset_group_name=group,
-        instrument_name=name,
-    )
-
-
-def test_show_current_wizard_step_updates_labels_and_resets_calc() -> None:
-    host = _FakeHost(steps=[_step(delta="125")])
+def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="125")])
     host.wizard_state.last_calc = SimpleNamespace(units=9)
 
     host._show_current_wizard_step()
@@ -107,8 +97,10 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc() -> None:
     assert host.wizard_state.last_calc is None
 
 
-def test_wizard_calculate_sets_last_calc_and_result_text(monkeypatch: pytest.MonkeyPatch) -> None:
-    host = _FakeHost(steps=[_step(delta="-50")])
+def test_wizard_calculate_sets_last_calc_and_result_text(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="-50")])
     host.price_edit = _FakeLineEdit("10")
 
     fake_calc = SimpleNamespace(units=5, spent=Decimal("50"), leftover=Decimal("0"))
@@ -127,8 +119,10 @@ def test_wizard_calculate_sets_last_calc_and_result_text(monkeypatch: pytest.Mon
     assert host.wiz_result.value == "Units: 5 | Proceeds: 50 | Leftover vs plan: 0"
 
 
-def test_wizard_save_continue_uses_zero_when_no_last_calc(monkeypatch: pytest.MonkeyPatch) -> None:
-    host = _FakeHost(steps=[_step(delta="10")])
+def test_wizard_save_continue_uses_zero_when_no_last_calc(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="10")])
     host.wizard_state.last_calc = None
 
     apply_calls: list[dict[str, Any]] = []
@@ -156,8 +150,10 @@ def test_wizard_save_continue_uses_zero_when_no_last_calc(monkeypatch: pytest.Mo
     assert advance_calls == 1
 
 
-def test_advance_wizard_step_shows_next_step_when_more_steps(monkeypatch: pytest.MonkeyPatch) -> None:
-    host = _FakeHost(steps=[_step(delta="10"), _step(delta="20")], step_index=0)
+def test_advance_wizard_step_shows_next_step_when_more_steps(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="10"), make_plan_step(delta="20")], step_index=0)
     show_calls = 0
 
     def fake_show() -> None:
@@ -173,9 +169,11 @@ def test_advance_wizard_step_shows_next_step_when_more_steps(monkeypatch: pytest
     assert host.stack.current_widget is None
 
 
-def test_advance_wizard_step_returns_to_main_and_populates_editor(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_advance_wizard_step_returns_to_main_and_populates_editor(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
     current_portfolio = object()
-    host = _FakeHost(steps=[_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
+    host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
     populate_calls: list[dict[str, Any]] = []
 
     def fake_populate_main_editor_from_portfolio(**kwargs: Any) -> None:

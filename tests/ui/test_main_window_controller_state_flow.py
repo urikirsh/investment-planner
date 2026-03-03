@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Callable
 
 import pytest
 
@@ -34,21 +35,23 @@ def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[
 
 
 def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
-    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
 ) -> None:
-    step_1 = PlanStep(
-        asset_group_id="g_equity",
-        asset_group_name="Equity",
+    step_1 = make_plan_step(
+        delta="120",
+        group_id="g_equity",
+        group_name="Equity",
         instrument_id="i_world",
         instrument_name="World ETF",
-        planned_delta_money=D("120"),
     )
-    step_2 = PlanStep(
-        asset_group_id="g_bonds",
-        asset_group_name="Bonds",
+    step_2 = make_plan_step(
+        delta="80",
+        group_id="g_bonds",
+        group_name="Bonds",
         instrument_id="i_bond",
         instrument_name="Bond Fund",
-        planned_delta_money=D("80"),
     )
     calc = BuyCalculation(
         instrument_id="i_world",
