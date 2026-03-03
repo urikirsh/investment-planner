@@ -68,6 +68,13 @@ def test_resolve_save_target_uses_prompt_when_forced_or_missing(monkeypatch: pyt
     assert host_forced._resolve_save_target(force_save_as=True) == prompted
 
 
+def test_resolve_save_target_returns_none_when_prompt_canceled(monkeypatch: pytest.MonkeyPatch) -> None:
+    host = _FakeHost(current_file_path=None)
+    monkeypatch.setattr(host, "_prompt_select_save_path", lambda: None)
+
+    assert host._resolve_save_target(force_save_as=False) is None
+
+
 @pytest.mark.parametrize(
     ("decision", "save_result", "expected", "save_calls"),
     [
@@ -101,6 +108,7 @@ def test_resolve_unsaved_changes_decision(
 
 def test_has_unsaved_main_changes_handles_parse_failure_and_dirty_state(monkeypatch: pytest.MonkeyPatch) -> None:
     host = _FakeHost(current_file_path=Path("active.json"))
+    sync_calls: list[dict[str, Any]] = []
 
     # Parse failure should be treated as unsaved changes.
     monkeypatch.setattr(
@@ -111,10 +119,19 @@ def test_has_unsaved_main_changes_handles_parse_failure_and_dirty_state(monkeypa
     assert host._has_unsaved_main_changes() is True
 
     # Successful parse should defer to document dirty state.
-    monkeypatch.setattr(actions_mod, "build_portfolio_data_from_main_editor", lambda **kwargs: {"ok": True})
-    monkeypatch.setattr(actions_mod, "sync_document_from_data", lambda session, data: None)
+    parsed_payload = {"ok": True}
+    monkeypatch.setattr(actions_mod, "build_portfolio_data_from_main_editor", lambda **kwargs: parsed_payload)
+
+    def fake_sync_document_from_data(session: Any, data: dict[str, Any]) -> None:
+        sync_calls.append({"session": session, "data": data})
+
+    monkeypatch.setattr(actions_mod, "sync_document_from_data", fake_sync_document_from_data)
     host.session.document = SimpleNamespace(is_dirty=lambda: True)
     assert host._has_unsaved_main_changes() is True
+    assert sync_calls and sync_calls[0]["session"] is host.session
+    assert sync_calls[0]["data"] == parsed_payload
 
+    sync_calls.clear()
     host.session.document = SimpleNamespace(is_dirty=lambda: False)
     assert host._has_unsaved_main_changes() is False
+    assert sync_calls and sync_calls[0]["data"] == parsed_payload
