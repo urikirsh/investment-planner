@@ -75,8 +75,14 @@ The application never executes trades automatically. All actions are explicit an
 
 ### UI module structure
 - `ui/main_window_controller.py`:
-  - coordinator for screen transitions, planning flow, and persistence actions
-  - separates UI prompting (`QMessageBox` / `QFileDialog`) from save/open/plan action methods for easier testing
+  - top-level coordinator for screen wiring, transitions, and summary/planning orchestration
+  - composes focused mixins for file actions and wizard step flow
+- `ui/main_window_actions.py`:
+  - save/open/new action flows and unsaved-changes decision handling
+  - wraps dialog interactions behind typed helper methods to keep action logic testable
+- `ui/main_window_wizard.py`:
+  - wizard screen wiring and per-step calculate/save/advance behavior
+  - handles transition back to main editor when wizard execution completes
 - `ui/portfolio_editor_adapter.py`:
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -114,6 +120,10 @@ The application never executes trades automatically. All actions are explicit an
   - unit tests for explicit planning/wizard UI state defaults and behavior
 - `tests/ui/test_main_window_controller_state_flow.py`:
   - focused tests for planning/wizard state transitions and prompt/action split points in `MainWindow`
+- `tests/ui/test_main_window_actions.py`:
+  - focused tests for save-target resolution and unsaved-changes action decisions
+- `tests/ui/test_main_window_wizard.py`:
+  - focused tests for wizard step rendering, calculation flow, and step advancement behavior
 - `tests/core/helpers.py`:
   - shared builders for core/domain tests (`make_valid_data`, `make_portfolio`)
 - `tests/core/test_validation.py`:

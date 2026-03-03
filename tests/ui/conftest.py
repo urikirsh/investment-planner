@@ -7,9 +7,13 @@ behavior rather than process-level initialization details.
 """
 
 import os
+from collections.abc import Callable
+from decimal import Decimal
 
 import pytest
 from PySide6.QtWidgets import QApplication
+
+from portfolio_core.use_cases import PlanStep
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
 # headless environments (e.g., CI runners without an active display server).
@@ -29,3 +33,26 @@ def qapp() -> QApplication:
         app = QApplication([])
     assert isinstance(app, QApplication)
     return app
+
+
+@pytest.fixture
+def make_plan_step() -> Callable[..., PlanStep]:
+    """Return a helper that builds ``PlanStep`` objects with sane defaults."""
+
+    def _make_plan_step(
+        *,
+        delta: str,
+        instrument_id: str = "ins-1",
+        group_id: str = "g-1",
+        group_name: str = "Group A",
+        instrument_name: str = "ETF A",
+    ) -> PlanStep:
+        return PlanStep(
+            asset_group_id=group_id,
+            asset_group_name=group_name,
+            instrument_id=instrument_id,
+            instrument_name=instrument_name,
+            planned_delta_money=Decimal(delta),
+        )
+
+    return _make_plan_step
