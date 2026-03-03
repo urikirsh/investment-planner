@@ -25,10 +25,9 @@ from portfolio_core.use_cases import (
     build_plan_for_current_document,
     create_new_default_document,
     load_document,
-    save_document_from_data,
-    sync_document_from_data,
 )
 
+from ui.main_window_actions import MainWindowActionsMixin
 from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
 from ui.ui_utils import d_from_text, get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
@@ -46,8 +45,8 @@ from ui.portfolio_metrics import (
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.ui_state import PlanningState, UnsavedChangesDecision, WizardState
-from ui.dialogs import choose_open_path, choose_save_path, confirm_unsaved_changes, show_error, show_info, show_warning
+from ui.ui_state import PlanningState, WizardState
+from ui.dialogs import show_error, show_warning
 
 """
 main_window_controller.py
@@ -75,7 +74,7 @@ D = Decimal
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
 
-class MainWindow(QMainWindow):
+class MainWindow(MainWindowActionsMixin, QMainWindow):
     """
     3-screen flow:
       1) main editor
@@ -94,6 +93,8 @@ class MainWindow(QMainWindow):
         self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
         self.planning_state = PlanningState()
         self.wizard_state = WizardState()
+        self._non_investable_bucket_id = NON_INVESTABLE_BUCKET_ID
+        self._non_investable_bucket_title = NON_INVESTABLE_BUCKET_TITLE
 
         # Screens
         self.stack = QStackedWidget()
@@ -314,151 +315,6 @@ class MainWindow(QMainWindow):
         except Exception:
             self.total_label.setText("Total portfolio: -")
 
-    def _save_from_main_ui(self, target_path: Path) -> None:
-        """
-        Build, parse, validate and persist current main-screen portfolio state.
-
-        Parameters
-        ----------
-        target_path:
-            Destination portfolio JSON file path chosen by the current save flow
-            (`Save` or `Save As`). The validated portfolio is written to this
-            exact path and then marked as the active session file.
-        """
-        data = build_portfolio_data_from_main_editor(
-            tree=self.tree,
-            cash_value_edit=self.cash_value_edit,
-            cash_reserve_edit=self.cash_reserve_edit,
-            future_tax_edit=self.future_tax_edit,
-            allow_partial=False,
-        )
-        save_document_from_data(self.session, data, target_path)
-        self._update_file_context_ui()
-
-    def _show_info(self, title: str, message: str) -> None:
-        """Show informational feedback via one overridable wrapper."""
-        show_info(self, title, message)
-
-    def _show_error(self, title: str, message: str) -> None:
-        """Show error feedback via one overridable wrapper."""
-        show_error(self, title, message)
-
-    def _prompt_select_save_path(self) -> Optional[Path]:
-        """Prompt for save location and return normalized target path, or ``None`` if canceled."""
-        start_path = self.session.current_file_path or self.session.default_json_path
-        return choose_save_path(self, start_path=start_path)
-
-    def _prompt_select_open_path(self) -> Optional[Path]:
-        """Prompt for portfolio file to open, or return ``None`` if canceled."""
-        start_path = self.session.current_file_path or self.session.default_json_path
-        return choose_open_path(self, start_dir=start_path.parent)
-
-    def _resolve_save_target(self, *, force_save_as: bool) -> Optional[Path]:
-        """
-        Resolve destination path for save flows before executing write action.
-
-        This method decides which path to use (current path vs prompted path)
-        but does not mutate portfolio/session data.
-        """
-        target = None if force_save_as else self.session.current_file_path
-        if target is None:
-            target = self._prompt_select_save_path()
-        return target
-
-    def _execute_save_to_target(self, target: Path, *, show_success: bool) -> bool:
-        """Execute save action for a resolved path and emit success/error feedback."""
-        try:
-            self._save_from_main_ui(target)
-            if show_success:
-                self._show_info("Saved", f"Portfolio saved to:\n{target}")
-            return True
-        except Exception as e:
-            self._show_error("Validation / Save failed", str(e))
-            return False
-
-    def _save_current_or_save_as(self, *, show_success: bool, force_save_as: bool = False) -> bool:
-        """
-        Save current editor state to active file or a newly selected file.
-
-        Returns ``True`` only when save completed successfully.
-        """
-        target = self._resolve_save_target(force_save_as=force_save_as)
-        if target is None:
-            return False
-        return self._execute_save_to_target(target, show_success=show_success)
-
-    def _open_portfolio_from_path(self, path: Path) -> bool:
-        """Load selected portfolio path and report success."""
-        try:
-            self._load_portfolio_from_file(path)
-            return True
-        except Exception as e:
-            self._show_error("Load failed", f"Failed loading JSON:\n{e}")
-            return False
-
-    def _open_portfolio_from_picker(self) -> bool:
-        """Prompt for a portfolio path, then execute open action."""
-        path = self._prompt_select_open_path()
-        if path is None:
-            return False
-        return self._open_portfolio_from_path(path)
-
-    def _prompt_unsaved_changes_decision(self, action_text: str) -> UnsavedChangesDecision:
-        """
-        Prompt unsaved-changes confirmation and return typed decision outcome.
-
-        Returns one of `UnsavedChangesDecision.SAVE`, `.DISCARD`, `.CANCEL`.
-        """
-        return confirm_unsaved_changes(self, action_text=action_text)
-
-    def _resolve_unsaved_changes_decision(self, decision: UnsavedChangesDecision) -> bool:
-        """Apply typed unsaved-changes decision without opening prompt dialogs."""
-        if decision == UnsavedChangesDecision.SAVE:
-            return self._save_current_or_save_as(show_success=False)
-        if decision == UnsavedChangesDecision.DISCARD:
-            return True
-        return False
-
-    def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool:
-        """Run unsaved-changes prompt + action resolution, returning continuation intent."""
-        if not self._has_unsaved_main_changes():
-            return True
-
-        decision = self._prompt_unsaved_changes_decision(action_text)
-        return self._resolve_unsaved_changes_decision(decision)
-
-    def _on_save_clicked(self) -> None:
-        """Handle `Save` action from main screen."""
-        self._save_current_or_save_as(show_success=True)
-
-    def _on_save_as_clicked(self) -> None:
-        """Handle `Save As` action from main screen."""
-        self._save_current_or_save_as(show_success=True, force_save_as=True)
-
-    def _on_open_clicked(self) -> None:
-        """Handle `Open` action with unsaved-changes safeguard."""
-        if not self._confirm_continue_with_unsaved_changes("opening another portfolio"):
-            return
-        self._open_portfolio_from_picker()
-
-    def _on_new_clicked(self) -> None:
-        """Handle `New` action by loading default portfolio after confirmation."""
-        if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
-            return
-        p = create_new_default_document(self.session)
-        populate_main_editor_from_portfolio(
-            tree=self.tree,
-            cash_value_edit=self.cash_value_edit,
-            cash_reserve_edit=self.cash_reserve_edit,
-            future_tax_edit=self.future_tax_edit,
-            portfolio=p,
-            non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
-            non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
-            on_future_tax_value_set=self._update_future_tax_visual_state,
-        )
-        self._refresh_data()
-        self._update_file_context_ui()
-
     def _on_invest_clicked(self) -> None:
         self._run_planning(mode=PlanningMode.INVEST)
 
@@ -471,27 +327,6 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app is not None:
             app.quit()
-
-    def _has_unsaved_main_changes(self) -> bool:
-        """
-        Compare current UI state against the last loaded/saved snapshot.
-
-        Any parse/load failure is treated as unsaved changes to avoid accidental data loss.
-        """
-        # If current UI state cannot be parsed, treat it as unsaved changes.
-        try:
-            current_data = build_portfolio_data_from_main_editor(
-                tree=self.tree,
-                cash_value_edit=self.cash_value_edit,
-                cash_reserve_edit=self.cash_reserve_edit,
-                future_tax_edit=self.future_tax_edit,
-                allow_partial=True,
-            )
-            sync_document_from_data(self.session, current_data)
-        except Exception:
-            return True
-
-        return self.session.document.is_dirty()
 
     def _run_planning(self, mode: PlanningMode) -> None:
         """
