@@ -160,7 +160,7 @@ pip install PySide6
 Run the app:
 
 ```bash
-python app.py
+python investment_planner.py
 ```
 
 ---
