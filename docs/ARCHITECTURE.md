@@ -67,6 +67,42 @@ Main user flow:
   - screen 3 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
 
+## portfolio_core module map
+- `portfolio_core/models.py`
+  - core immutable domain models (`Cash`, `AssetGroup`, `Instrument`, `Portfolio`)
+  - planning output model `AssetGroupPlanRow`
+- `portfolio_core/validation.py`
+  - portfolio business-rule validation pipeline
+  - validates cash constraints, allocation sums, instrument mapping, and naming/identity invariants
+- `portfolio_core/io_json.py`
+  - JSON parsing/serialization boundary for `Portfolio`
+  - handles structural parsing and decimal conversion, but not strategy validation
+- `portfolio_core/planning_types.py`
+  - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
+- `portfolio_core/planning.py`
+  - pure planning logic:
+    - invest budget calculation
+    - group-level deltas (`plan_invest_no_sell`, `plan_rebalance`)
+    - group-to-instrument delta splitting (`map_asset_group_deltas_to_instruments`)
+- `portfolio_core/calc_stock_units.py`
+  - unit-level trade math:
+    - agorot-to-ILS conversion and unit flooring (`calculate_buy_units`)
+    - immutable portfolio mutation helpers for buy/sell commits (`commit_buy`, `commit_sell`)
+- `portfolio_core/portfolio_document.py`
+  - in-memory editable document state:
+    - current model
+    - saved snapshot
+    - active file path
+    - dirty-state detection
+- `portfolio_core/portfolio_session.py`
+  - session-level file context and config-backed startup path behavior
+  - coordinates `PortfolioDocument` load/save/new workflows
+  - defines minimal default in-memory portfolio builder
+- `portfolio_core/use_cases.py`
+  - application workflow orchestration between UI and domain services
+  - parses/validates/syncs/saves document data
+  - builds plan results and applies wizard steps with persistence behavior
+
 ## Test map
 UI-focused tests:
 - `tests/ui/test_main_window_controller_state_flow.py`
@@ -102,4 +138,5 @@ Core/domain tests:
 Update this file when:
 - flow ownership moves between controller/mixins/adapters,
 - a new top-level `ui/*` module is introduced,
+- a new top-level `portfolio_core/*` module is introduced or ownership changes,
 - major test responsibilities move between test modules.
