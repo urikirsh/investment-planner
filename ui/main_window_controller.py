@@ -62,11 +62,10 @@ The main window acts as an orchestrator between the UI components and
 the underlying domain logic, while keeping calculation, validation,
 and persistence responsibilities in their respective modules.
 
-Prompting/UI decision points (message boxes and file pickers) are kept in
-dedicated helpers (`_prompt_*`, `_show_*`) and action methods perform the
-underlying save/open/plan work. This split keeps behavior testable without
-driving interactive dialogs. Concrete Qt dialog primitives are further
-centralized in `ui.dialogs` wrappers.
+File-oriented save/open/new action flows are extracted into
+`ui.main_window_actions.MainWindowActionsMixin`, while this controller keeps
+screen wiring, refresh orchestration, and wizard flow coordination. Concrete
+Qt dialog primitives are centralized in `ui.dialogs` wrappers.
 """
 
 D = Decimal
