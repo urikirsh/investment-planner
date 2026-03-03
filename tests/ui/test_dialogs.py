@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""Unit tests for ``ui.dialogs`` wrappers.
+
+These tests validate wrapper behavior without opening real modal dialogs by
+patching Qt dialog primitives at the module boundary.
+"""
+
 from pathlib import Path
 from typing import Protocol
 
@@ -16,12 +22,14 @@ class FakeMessageBoxClass(Protocol):
 
 @pytest.fixture()
 def parent_widget(qapp: object) -> QWidget:
+    """Provide a QWidget parent after ensuring a QApplication exists."""
     _ = qapp
     return QWidget()
 
 
 @pytest.fixture()
 def fake_message_box_cls() -> FakeMessageBoxClass:
+    """Return a configurable QMessageBox test double for decision mapping."""
     class FakeMessageBox:
         class Icon:
             Warning = object()

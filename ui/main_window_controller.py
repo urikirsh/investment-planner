@@ -66,7 +66,8 @@ and persistence responsibilities in their respective modules.
 Prompting/UI decision points (message boxes and file pickers) are kept in
 dedicated helpers (`_prompt_*`, `_show_*`) and action methods perform the
 underlying save/open/plan work. This split keeps behavior testable without
-driving interactive dialogs.
+driving interactive dialogs. Concrete Qt dialog primitives are further
+centralized in `ui.dialogs` wrappers.
 """
 
 D = Decimal

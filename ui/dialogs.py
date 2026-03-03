@@ -5,6 +5,12 @@ from __future__ import annotations
 This module centralizes common QMessageBox/QFileDialog interactions so
 controller logic can be tested with narrower seams and fewer Qt-specific
 details.
+
+Design notes
+------------
+- Wrappers keep controller methods focused on workflow orchestration.
+- Return values are intentionally typed (`Path | None`, `UnsavedChangesDecision`)
+  to make caller logic explicit and test-friendly.
 """
 
 from pathlib import Path
@@ -15,22 +21,25 @@ from ui.ui_state import UnsavedChangesDecision
 
 
 def show_info(parent: QWidget, title: str, message: str) -> None:
-    """Show informational feedback."""
+    """Show informational feedback using ``QMessageBox.information``."""
     QMessageBox.information(parent, title, message)
 
 
 def show_error(parent: QWidget, title: str, message: str) -> None:
-    """Show error feedback."""
+    """Show error feedback using ``QMessageBox.critical``."""
     QMessageBox.critical(parent, title, message)
 
 
 def show_warning(parent: QWidget, title: str, message: str) -> None:
-    """Show warning feedback."""
+    """Show warning feedback using ``QMessageBox.warning``."""
     QMessageBox.warning(parent, title, message)
 
 
 def choose_save_path(parent: QWidget, *, start_path: Path) -> Path | None:
-    """Prompt for save destination and normalize suffix to ``.json``."""
+    """Prompt for save destination and normalize suffix to ``.json``.
+
+    Returns ``None`` when the user cancels the picker.
+    """
     selected, _ = QFileDialog.getSaveFileName(
         parent,
         "Save Portfolio As",
@@ -46,7 +55,10 @@ def choose_save_path(parent: QWidget, *, start_path: Path) -> Path | None:
 
 
 def choose_open_path(parent: QWidget, *, start_dir: Path) -> Path | None:
-    """Prompt for a portfolio file path to open."""
+    """Prompt for a portfolio file path to open.
+
+    Returns ``None`` when the user cancels the picker.
+    """
     selected, _ = QFileDialog.getOpenFileName(
         parent,
         "Open Portfolio",
@@ -59,7 +71,11 @@ def choose_open_path(parent: QWidget, *, start_dir: Path) -> Path | None:
 
 
 def confirm_unsaved_changes(parent: QWidget, *, action_text: str) -> UnsavedChangesDecision:
-    """Prompt unsaved-changes decision and return typed user choice."""
+    """Prompt unsaved-changes decision and return typed user choice.
+
+    The fallback/default path returns ``UnsavedChangesDecision.CANCEL`` to
+    avoid accidental destructive continuation if button resolution fails.
+    """
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Warning)
     box.setWindowTitle("Unsaved changes")
