@@ -16,7 +16,7 @@ Why this module exists
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Callable, NotRequired, TypedDict
 
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
@@ -30,6 +30,42 @@ from ui.ui_utils import (
     set_group_tree_item,
     set_item_meta,
 )
+
+
+class CashPayload(TypedDict):
+    value: str
+    min_reserve: str
+    future_tax: str
+
+
+class GroupPayload(TypedDict):
+    id: str
+    name: str
+    targetPercentage: str
+
+
+class InstrumentPayload(TypedDict):
+    id: str
+    name: str
+    value: str
+    investable: bool
+    targetInGroupPercentage: str
+    groupId: NotRequired[str]
+
+
+class PortfolioPayload(TypedDict):
+    cash: CashPayload
+    groups: list[GroupPayload]
+    instruments: list[InstrumentPayload]
+
+
+class InstrumentUiRow(TypedDict):
+    id: str
+    name: str
+    value: str
+    investable: bool
+    groupId: str | None
+    targetInGroupPercentage: str
 
 
 def populate_main_editor_from_portfolio(
@@ -75,11 +111,11 @@ def populate_main_editor_from_portfolio(
         on_future_tax_value_set()
 
         # group -> instruments (preserve stored order)
-        instruments_by_group: dict[str, list[dict[str, Any]]] = {}
-        non_investable_rows: list[dict[str, Any]] = []
+        instruments_by_group: dict[str, list[InstrumentUiRow]] = {}
+        non_investable_rows: list[InstrumentUiRow] = []
 
         for ins in portfolio.instruments:
-            row = {
+            row: InstrumentUiRow = {
                 "id": ins.id,
                 "name": ins.name,
                 "value": str(ins.value),
@@ -134,7 +170,7 @@ def build_portfolio_data_from_main_editor(
     cash_reserve_edit: QLineEdit,
     future_tax_edit: QLineEdit,
     allow_partial: bool = False,
-) -> dict[str, Any]:
+) -> PortfolioPayload:
     """
     Build JSON-like portfolio payload from current main-editor widgets.
 
@@ -146,7 +182,7 @@ def build_portfolio_data_from_main_editor(
 
     Returns
     -------
-    dict[str, Any]
+    PortfolioPayload
         Payload with `cash`, `groups`, and `instruments` keys that matches
         the shape expected by parsing/saving use-cases.
 
@@ -173,8 +209,8 @@ def build_portfolio_data_from_main_editor(
     cash_reserve = cash_reserve or "0"
     future_tax = future_tax or "0"
 
-    groups: list[dict[str, Any]] = []
-    instruments: list[dict[str, Any]] = []
+    groups: list[GroupPayload] = []
+    instruments: list[InstrumentPayload] = []
 
     for i in range(tree.topLevelItemCount()):
         group_item = tree.topLevelItem(i)
@@ -191,13 +227,7 @@ def build_portfolio_data_from_main_editor(
         is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET
 
         if not is_non_investable_bucket:
-            groups.append(
-                {
-                    "id": group_id,
-                    "name": group_name,
-                    "targetPercentage": target_pct,
-                }
-            )
+            groups.append({"id": group_id, "name": group_name, "targetPercentage": target_pct})
 
         for j in range(group_item.childCount()):
             ins = group_item.child(j)
@@ -213,24 +243,24 @@ def build_portfolio_data_from_main_editor(
             total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
 
             if is_non_investable_bucket:
-                investable = False
-                target_in_group_pct = "0"
-                group_id_for_ins = None
-            else:
-                investable = True
-                target_in_group_pct = ins.text(Col.TARGET_PCT.value).strip() or "0"
-                group_id_for_ins = group_id
-
-            instruments.append(
-                {
+                instrument: InstrumentPayload = {
                     "id": instrument_id,
                     "name": instrument_name,
                     "value": total_value,
-                    "investable": investable,
-                    "targetInGroupPercentage": target_in_group_pct,
-                    **({"groupId": group_id_for_ins} if group_id_for_ins is not None else {}),
+                    "investable": False,
+                    "targetInGroupPercentage": "0",
                 }
-            )
+            else:
+                instrument = {
+                    "id": instrument_id,
+                    "name": instrument_name,
+                    "value": total_value,
+                    "investable": True,
+                    "targetInGroupPercentage": ins.text(Col.TARGET_PCT.value).strip() or "0",
+                }
+                instrument["groupId"] = group_id
+
+            instruments.append(instrument)
 
     return {
         "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": future_tax},
