@@ -3,7 +3,7 @@ from pathlib import Path
 from decimal import Decimal, InvalidOperation, getcontext
 from typing import Any, Dict, Optional
 
-from investment_planner.models import Cash, AssetGroup, Instrument, Portfolio
+from portfolio_core.models import Cash, AssetGroup, Instrument, Portfolio
 
 """
 io_json.py

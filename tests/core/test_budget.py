@@ -7,9 +7,9 @@ Covers budget computation and a representative end-to-end unit-calculation
 path using future-tax-adjusted investable cash.
 """
 
-from investment_planner.calc_stock_units import calculate_buy_units
-from investment_planner.io_json import load_portfolio
-from investment_planner.planning import compute_invest_budget, plan_invest_no_sell
+from portfolio_core.calc_stock_units import calculate_buy_units
+from portfolio_core.io_json import load_portfolio
+from portfolio_core.planning import compute_invest_budget, plan_invest_no_sell
 from tests.core.helpers import D, make_valid_data
 
 

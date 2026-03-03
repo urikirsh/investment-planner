@@ -17,10 +17,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from investment_planner.calc_stock_units import calculate_buy_units
-from investment_planner.planning_types import PlanningMode
-from investment_planner.portfolio_session import PortfolioSession
-from investment_planner.use_cases import (
+from portfolio_core.calc_stock_units import calculate_buy_units
+from portfolio_core.planning_types import PlanningMode
+from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.use_cases import (
     PlanBuildResult,
     PlanStep,
     apply_wizard_step,

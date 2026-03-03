@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from investment_planner.io_json import load_portfolio_file, save_portfolio_file
-from investment_planner.models import Portfolio
+from portfolio_core.io_json import load_portfolio_file, save_portfolio_file
+from portfolio_core.models import Portfolio
 
 """
 portfolio_document.py

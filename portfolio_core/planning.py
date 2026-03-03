@@ -3,8 +3,8 @@ from __future__ import annotations
 from decimal import Decimal, getcontext
 from typing import Dict, List
 
-from investment_planner.models import Portfolio, AssetGroupPlanRow
-from investment_planner.validation import validate_portfolio
+from portfolio_core.models import Portfolio, AssetGroupPlanRow
+from portfolio_core.validation import validate_portfolio
 
 """
 planning.py

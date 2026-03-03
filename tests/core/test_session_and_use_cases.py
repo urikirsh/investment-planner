@@ -9,11 +9,11 @@ use-case orchestration around `PortfolioSession`.
 
 import pytest
 
-from investment_planner.io_json import load_portfolio, save_portfolio_file
-from investment_planner.planning_types import PlanningMode
-from investment_planner.portfolio_document import PortfolioDocument
-from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
-from investment_planner.use_cases import (
+from portfolio_core.io_json import load_portfolio, save_portfolio_file
+from portfolio_core.planning_types import PlanningMode
+from portfolio_core.portfolio_document import PortfolioDocument
+from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.use_cases import (
     PlanStep,
     apply_wizard_step,
     build_plan_for_current_document,
@@ -21,7 +21,7 @@ from investment_planner.use_cases import (
     save_document_from_data,
     sync_document_from_data,
 )
-from investment_planner.validation import validate_portfolio
+from portfolio_core.validation import validate_portfolio
 from tests.core.helpers import D, make_valid_data
 
 

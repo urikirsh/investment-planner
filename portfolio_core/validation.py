@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from investment_planner.models import Portfolio
+from portfolio_core.models import Portfolio
 
 """
 validation.py

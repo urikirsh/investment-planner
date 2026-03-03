@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from investment_planner.io_json import load_portfolio
-from investment_planner.portfolio_document import PortfolioDocument
-from investment_planner.models import Portfolio
+from portfolio_core.io_json import load_portfolio
+from portfolio_core.portfolio_document import PortfolioDocument
+from portfolio_core.models import Portfolio
 
 """
 portfolio_session.py

@@ -9,7 +9,7 @@ focus on behavior assertions instead of repeating portfolio JSON setup.
 
 from decimal import Decimal
 
-from investment_planner.io_json import load_portfolio
+from portfolio_core.io_json import load_portfolio
 
 D = Decimal
 
