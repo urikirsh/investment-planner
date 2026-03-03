@@ -30,9 +30,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from investment_planner.calc_stock_units import BuyCalculation
-from investment_planner.planning_types import PlanningMode
-from investment_planner.use_cases import PlanStep
+from portfolio_core.calc_stock_units import BuyCalculation
+from portfolio_core.planning_types import PlanningMode
+from portfolio_core.use_cases import PlanStep
 
 
 class UnsavedChangesDecision(str, Enum):

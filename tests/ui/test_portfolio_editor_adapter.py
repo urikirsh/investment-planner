@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from investment_planner.io_json import load_portfolio
+from portfolio_core.io_json import load_portfolio
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
     populate_main_editor_from_portfolio,

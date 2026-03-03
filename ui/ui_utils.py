@@ -205,7 +205,7 @@ def safe_pct(numer: D, denom: D) -> D | None:
         return None
     return (numer * D("100")) / denom
 
-def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
+def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) -> None:
     """
     Color-code drift (percentage points):
     - Negative (under target): red
@@ -222,7 +222,7 @@ def apply_drift_color(item, col_index: int, drift_pp: Decimal) -> None:
         # Neutral -> default
         set_cell_readonly_look(item, col_index)
 
-def set_cell_readonly_look(item, col: int) -> None:
+def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
 

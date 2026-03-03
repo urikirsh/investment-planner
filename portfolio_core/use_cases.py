@@ -5,18 +5,18 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List
 
-from investment_planner.calc_stock_units import commit_buy, commit_sell
-from investment_planner.io_json import load_portfolio
-from investment_planner.models import AssetGroupPlanRow, Portfolio
-from investment_planner.planning_types import PlanningMode
-from investment_planner.planning import (
+from portfolio_core.calc_stock_units import commit_buy, commit_sell
+from portfolio_core.io_json import load_portfolio
+from portfolio_core.models import AssetGroupPlanRow, Portfolio
+from portfolio_core.planning_types import PlanningMode
+from portfolio_core.planning import (
     compute_invest_budget,
     map_asset_group_deltas_to_instruments,
     plan_invest_no_sell,
     plan_rebalance,
 )
-from investment_planner.portfolio_session import PortfolioSession, build_default_portfolio
-from investment_planner.validation import validate_portfolio
+from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.validation import validate_portfolio
 
 """
 use_cases.py

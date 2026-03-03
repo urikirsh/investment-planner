@@ -9,7 +9,7 @@ effects on cash/instrument values.
 
 import pytest
 
-from investment_planner.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
+from portfolio_core.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
 from tests.core.helpers import D, make_portfolio
 
 

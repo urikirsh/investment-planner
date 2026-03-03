@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QTreeWidget
+from PySide6.QtGui import QDropEvent
+from PySide6.QtWidgets import QAbstractItemView, QTreeWidget, QTreeWidgetItem, QWidget
 from PySide6.QtCore import Qt, Signal
 
 from ui.ui_types import RowKind, Col, ROLE_KIND
@@ -16,14 +17,14 @@ class InvestmentTreeWidget(QTreeWidget):
 
     items_reordered = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize tree widget with internal drag-and-drop behavior."""
         super().__init__(parent)
-        self.setDragDropMode(QTreeWidget.InternalMove)
-        self.setDefaultDropAction(Qt.MoveAction)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.setDropIndicatorShown(True)
 
-    def _kind_of(self, item) -> RowKind | None:
+    def _kind_of(self, item: QTreeWidgetItem) -> RowKind | None:
         """
         Return the semantic row kind stored in item metadata.
 
@@ -32,7 +33,7 @@ class InvestmentTreeWidget(QTreeWidget):
         """
         return RowKind.from_raw(item.data(Col.NAME.value, ROLE_KIND))
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent) -> None:
         """
         Enforce portfolio-tree structural invariants during drag-and-drop.
 
@@ -72,7 +73,7 @@ class InvestmentTreeWidget(QTreeWidget):
         target_kind = self._kind_of(target)
 
         # ---- Allow ON-ITEM only for instrument -> (group or bucket) ----
-        if pos_kind == QTreeWidget.OnItem:
+        if pos_kind == QAbstractItemView.DropIndicatorPosition.OnItem:
             if (
                 dragged_kind == RowKind.INSTRUMENT
                 and target_kind in (RowKind.GROUP, RowKind.NON_INVESTABLE_BUCKET)

@@ -9,8 +9,8 @@ Qt/UI involvement.
 
 import pytest
 
-from investment_planner.io_json import dump_portfolio, load_portfolio
-from investment_planner.validation import validate_portfolio
+from portfolio_core.io_json import dump_portfolio, load_portfolio
+from portfolio_core.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
 
 

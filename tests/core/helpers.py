@@ -8,8 +8,9 @@ focus on behavior assertions instead of repeating portfolio JSON setup.
 """
 
 from decimal import Decimal
+from typing import Any
 
-from investment_planner.io_json import load_portfolio
+from portfolio_core.io_json import load_portfolio
 
 D = Decimal
 
@@ -20,8 +21,8 @@ def make_valid_data(
     cash_reserve: str = "2000",
     cash_future_tax: str = "0",
     group_targets: tuple[tuple[str, str, str], ...] = (("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "40.0")),
-    instruments: list[dict] | None = None,
-) -> dict:
+    instruments: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """
     Build a valid JSON-like portfolio payload for tests.
 

@@ -17,10 +17,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from investment_planner.calc_stock_units import calculate_buy_units
-from investment_planner.planning_types import PlanningMode
-from investment_planner.portfolio_session import PortfolioSession
-from investment_planner.use_cases import (
+from portfolio_core.calc_stock_units import calculate_buy_units
+from portfolio_core.models import Portfolio
+from portfolio_core.planning_types import PlanningMode
+from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.use_cases import (
     PlanBuildResult,
     PlanStep,
     apply_wizard_step,
@@ -144,7 +145,7 @@ class MainWindow(QMainWindow):
         bar.addPermanentWidget(self.file_context_label, 1)
         self.setStatusBar(bar)
 
-    def _load_portfolio_from_file(self, path: Path):
+    def _load_portfolio_from_file(self, path: Path) -> None:
         """Load a portfolio from disk into editor state and refresh UI context."""
         p = load_document(self.session, path)
         populate_main_editor_from_portfolio(
@@ -191,7 +192,7 @@ class MainWindow(QMainWindow):
         self.future_tax_edit.textChanged.connect(self._on_main_refresh_requested)
         self.future_tax_edit.editingFinished.connect(self._normalize_future_tax_input)
 
-    def _on_item_changed_guard_and_recalc(self, item, column: int):
+    def _on_item_changed_guard_and_recalc(self, item: QTreeWidgetItem, column: int) -> None:
         if self._suppress_item_changed:
             return
 
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_data()
 
-    def _add_asset_group(self):
+    def _add_asset_group(self) -> None:
         # gid = _new_id("grp")
         gitem = QTreeWidgetItem(self.tree)
 
@@ -216,7 +217,7 @@ class MainWindow(QMainWindow):
         self.tree.expandAll()
         self._refresh_data()
 
-    def _add_instrument(self):
+    def _add_instrument(self) -> None:
         sel = self.tree.currentItem()
         if sel is None:
             QMessageBox.warning(self, "Add instrument", "Select a group (or an instrument under a group) first.")
@@ -235,7 +236,7 @@ class MainWindow(QMainWindow):
         self.tree.expandAll()
         self._refresh_data()
 
-    def _delete_selected_row(self):
+    def _delete_selected_row(self) -> None:
         sel = self.tree.currentItem()
         if sel is None:
             return
@@ -253,7 +254,7 @@ class MainWindow(QMainWindow):
             parent.removeChild(sel)
         self._refresh_data()
 
-    def _load_or_init(self):
+    def _load_or_init(self) -> None:
         startup_path = self.session.resolve_startup_path()
 
         if startup_path is not None:
@@ -278,18 +279,18 @@ class MainWindow(QMainWindow):
         self._refresh_data()
         self._update_file_context_ui()
 
-    def _on_main_refresh_requested(self, *_args) -> None:
+    def _on_main_refresh_requested(self, *_args: object) -> None:
         """Single dispatcher for main-screen refresh requests from signals."""
         self._refresh_data()
 
-    def _refresh_data(self):
+    def _refresh_data(self) -> None:
         """Refresh all derived main-screen values and visuals from current inputs."""
         self._refresh_total_portfolio()
         self._update_investable_balance_visual_state()
         self._update_future_tax_visual_state()
         self._recalc_totals_and_pcts()
 
-    def _refresh_total_portfolio(self):
+    def _refresh_total_portfolio(self) -> None:
         """
         Update total-portfolio label from current editable UI values.
 
@@ -464,21 +465,21 @@ class MainWindow(QMainWindow):
         decision = self._prompt_unsaved_changes_decision(action_text)
         return self._resolve_unsaved_changes_decision(decision)
 
-    def _on_save_clicked(self):
+    def _on_save_clicked(self) -> None:
         """Handle `Save` action from main screen."""
         self._save_current_or_save_as(show_success=True)
 
-    def _on_save_as_clicked(self):
+    def _on_save_as_clicked(self) -> None:
         """Handle `Save As` action from main screen."""
         self._save_current_or_save_as(show_success=True, force_save_as=True)
 
-    def _on_open_clicked(self):
+    def _on_open_clicked(self) -> None:
         """Handle `Open` action with unsaved-changes safeguard."""
         if not self._confirm_continue_with_unsaved_changes("opening another portfolio"):
             return
         self._open_portfolio_from_picker()
 
-    def _on_new_clicked(self):
+    def _on_new_clicked(self) -> None:
         """Handle `New` action by loading default portfolio after confirmation."""
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
@@ -496,13 +497,13 @@ class MainWindow(QMainWindow):
         self._refresh_data()
         self._update_file_context_ui()
 
-    def _on_invest_clicked(self):
+    def _on_invest_clicked(self) -> None:
         self._run_planning(mode=PlanningMode.INVEST)
 
-    def _on_rebalance_clicked(self):
+    def _on_rebalance_clicked(self) -> None:
         self._run_planning(mode=PlanningMode.REBALANCE)
 
-    def _on_main_quit_clicked(self):
+    def _on_main_quit_clicked(self) -> None:
         if not self._confirm_continue_with_unsaved_changes("quitting"):
             return
         app = QApplication.instance()
@@ -530,7 +531,7 @@ class MainWindow(QMainWindow):
 
         return self.session.document.is_dirty()
 
-    def _run_planning(self, mode: PlanningMode):
+    def _run_planning(self, mode: PlanningMode) -> None:
         """
         Execute planning flow from current UI state and open summary screen.
 
@@ -565,7 +566,7 @@ class MainWindow(QMainWindow):
         self.screen_summary.back_btn.clicked.connect(self._summary_back)
         self.screen_summary.next_btn.clicked.connect(self._summary_next)
 
-    def _populate_summary(self, p, steps: List[PlanStep], mode: PlanningMode):
+    def _populate_summary(self, p: Portfolio, steps: List[PlanStep], mode: PlanningMode) -> None:
         budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
         if budget < 0:
             budget = D("0")
@@ -591,7 +592,7 @@ class MainWindow(QMainWindow):
 
         self.summary_text.setText("\n".join(lines))
 
-    def _summary_next(self):
+    def _summary_next(self) -> None:
         """Advance from summary to wizard, or return to main if no steps exist."""
         if not self.planning_state.plan_steps:
             # Nothing to do -> go back to main
@@ -600,7 +601,7 @@ class MainWindow(QMainWindow):
         self._show_current_wizard_step()
         self.stack.setCurrentWidget(self.screen_wizard)
 
-    def _summary_back(self):
+    def _summary_back(self) -> None:
         """Return from summary screen to main editor."""
         self.stack.setCurrentWidget(self.screen_main)
 
@@ -619,7 +620,7 @@ class MainWindow(QMainWindow):
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
 
-    def _show_current_wizard_step(self):
+    def _show_current_wizard_step(self) -> None:
         """Render current wizard step details and reset last calculation state."""
         s = self.planning_state.plan_steps[self.planning_state.step_index]
         idx = self.planning_state.step_index + 1
@@ -638,7 +639,7 @@ class MainWindow(QMainWindow):
         # store last calculation
         self.wizard_state.last_calc = None
 
-    def _wizard_calculate(self):
+    def _wizard_calculate(self) -> None:
         """Calculate units/spend for the current wizard step from entered price."""
         try:
             s = self.planning_state.plan_steps[self.planning_state.step_index]
@@ -659,7 +660,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Calculation failed", str(e))
 
-    def _wizard_save_continue(self):
+    def _wizard_save_continue(self) -> None:
         """Apply current step trade (if valid), persist, and move to next step."""
         try:
             if self.session.document.current_portfolio is None:
@@ -683,7 +684,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Save failed", str(e))
 
-    def _wizard_continue_without_saving(self):
+    def _wizard_continue_without_saving(self) -> None:
         """Skip current step without mutating portfolio and move forward."""
         try:
             if self.session.document.current_portfolio is None:
@@ -692,7 +693,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Continue failed", str(e))
 
-    def _advance_wizard_step(self):
+    def _advance_wizard_step(self) -> None:
         """Move to next wizard step or return to main when flow is complete."""
         # Next step or back to main
         self.planning_state.step_index += 1
@@ -829,7 +830,7 @@ class MainWindow(QMainWindow):
         )
         return snapshot, item_by_key
 
-    def _on_item_double_clicked(self, item, column):
+    def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         """
         Start guarded cell editing on double-click for editable cells only.
 
@@ -858,7 +859,7 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.quit()
 
-    def _validate_target_pct_cell_or_revert(self, item) -> bool:
+    def _validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         """
         Validates the group's Target % cell. Returns True if OK, False if reverted.
         """
@@ -878,7 +879,7 @@ class MainWindow(QMainWindow):
 
         return True
 
-    def _validate_instrument_target_pct_cell_or_revert(self, item) -> bool:
+    def _validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         """
         Validates an instrument row's Target % (in-group target) cell.
         Returns True if accepted, False if reverted/ignored.
@@ -911,7 +912,7 @@ class MainWindow(QMainWindow):
 
         return True
 
-    def _warn_and_revert(self, item, col: int, bad: str, prev: str, msg: str) -> None:
+    def _warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
         """Show validation warning and revert edited cell to previous value."""
         self._suppress_item_changed = True
         try:

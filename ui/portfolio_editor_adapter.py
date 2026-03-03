@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
-from investment_planner.models import Portfolio
+from portfolio_core.models import Portfolio
 from ui.ui_types import Col, RowKind
 from ui.ui_utils import (
     add_instrument_item_to_group,
