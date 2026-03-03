@@ -10,13 +10,9 @@ These tests validate adapter-level mapping behavior independently from
 - partial/strict mode handling for required cash fields
 """
 
-import os
 from typing import Any
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
 import pytest
-from PySide6.QtWidgets import QApplication
 
 from investment_planner.io_json import load_portfolio
 from ui.portfolio_editor_adapter import (
@@ -27,15 +23,6 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.ui_utils import NON_INVESTABLE_BUCKET_ID
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    """Provide a reusable QApplication instance for widget-based tests."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    return app
 
 
 def _sample_payload() -> dict[str, Any]:

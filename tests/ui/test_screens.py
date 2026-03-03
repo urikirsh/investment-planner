@@ -9,27 +9,11 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
-import os
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-import pytest
-from PySide6.QtWidgets import QApplication
-
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_types import Col
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    """Provide a shared QApplication instance for widget construction tests."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    return app
 
 
 def test_main_editor_screen_builds_expected_controls(qapp) -> None:
