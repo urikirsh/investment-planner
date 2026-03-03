@@ -7,14 +7,11 @@ from typing import List, Optional
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
     QLabel,
     QMainWindow,
-    QMessageBox,
     QStackedWidget,
     QStatusBar,
     QTreeWidgetItem,
-    QWidget,
 )
 
 from portfolio_core.calc_stock_units import calculate_buy_units
@@ -50,6 +47,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, UnsavedChangesDecision, WizardState
+from ui.dialogs import choose_open_path, choose_save_path, confirm_unsaved_changes, show_error, show_info, show_warning
 
 """
 main_window_controller.py
@@ -220,7 +218,7 @@ class MainWindow(QMainWindow):
     def _add_instrument(self) -> None:
         sel = self.tree.currentItem()
         if sel is None:
-            QMessageBox.warning(self, "Add instrument", "Select a group (or an instrument under a group) first.")
+            show_warning(self, "Add instrument", "Select a group (or an instrument under a group) first.")
             return
 
         # If instrument selected, use its parent group
@@ -242,7 +240,7 @@ class MainWindow(QMainWindow):
             return
 
         if get_item_kind(sel) == RowKind.NON_INVESTABLE_BUCKET:
-            QMessageBox.warning(self, "Not allowed", "The non-investable bucket cannot be deleted.")
+            show_warning(self, "Not allowed", "The non-investable bucket cannot be deleted.")
             return
 
         parent = sel.parent()
@@ -262,7 +260,7 @@ class MainWindow(QMainWindow):
                 self._load_portfolio_from_file(startup_path)
                 return
             except Exception as e:
-                QMessageBox.critical(self, "Load failed", f"Failed loading JSON:\n{e}")
+                show_error(self, "Load failed", f"Failed loading JSON:\n{e}")
                 self.session.set_active_file_path(None)
 
         p = create_new_default_document(self.session)
@@ -338,40 +336,21 @@ class MainWindow(QMainWindow):
 
     def _show_info(self, title: str, message: str) -> None:
         """Show informational feedback via one overridable wrapper."""
-        QMessageBox.information(self, title, message)
+        show_info(self, title, message)
 
     def _show_error(self, title: str, message: str) -> None:
         """Show error feedback via one overridable wrapper."""
-        QMessageBox.critical(self, title, message)
+        show_error(self, title, message)
 
     def _prompt_select_save_path(self) -> Optional[Path]:
         """Prompt for save location and return normalized target path, or ``None`` if canceled."""
         start_path = self.session.current_file_path or self.session.default_json_path
-        selected, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Portfolio As",
-            str(start_path),
-            "Portfolio JSON (*.json);;JSON files (*.json);;All files (*)",
-        )
-        if not selected:
-            return None
-        chosen = Path(selected).expanduser()
-        if chosen.suffix.lower() != ".json":
-            chosen = chosen.with_suffix(".json")
-        return chosen
+        return choose_save_path(self, start_path=start_path)
 
     def _prompt_select_open_path(self) -> Optional[Path]:
         """Prompt for portfolio file to open, or return ``None`` if canceled."""
         start_path = self.session.current_file_path or self.session.default_json_path
-        selected, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Portfolio",
-            str(start_path.parent),
-            "Portfolio JSON (*.json);;JSON files (*.json);;All files (*)",
-        )
-        if not selected:
-            return None
-        return Path(selected).expanduser()
+        return choose_open_path(self, start_dir=start_path.parent)
 
     def _resolve_save_target(self, *, force_save_as: bool) -> Optional[Path]:
         """
@@ -429,25 +408,7 @@ class MainWindow(QMainWindow):
 
         Returns one of `UnsavedChangesDecision.SAVE`, `.DISCARD`, `.CANCEL`.
         """
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Unsaved changes")
-        box.setText("Your current changes are not saved.")
-        box.setInformativeText(f"Do you want to save before {action_text}?")
-        save_btn = box.addButton("Save", QMessageBox.ButtonRole.AcceptRole)
-        dont_save_btn = box.addButton("Don't Save", QMessageBox.ButtonRole.DestructiveRole)
-        cancel_btn = box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(save_btn)
-        box.exec()
-
-        clicked = box.clickedButton()
-        if clicked == save_btn:
-            return UnsavedChangesDecision.SAVE
-        if clicked == dont_save_btn:
-            return UnsavedChangesDecision.DISCARD
-        if clicked == cancel_btn:
-            return UnsavedChangesDecision.CANCEL
-        return UnsavedChangesDecision.CANCEL
+        return confirm_unsaved_changes(self, action_text=action_text)
 
     def _resolve_unsaved_changes_decision(self, decision: UnsavedChangesDecision) -> bool:
         """Apply typed unsaved-changes decision without opening prompt dialogs."""
@@ -658,7 +619,7 @@ class MainWindow(QMainWindow):
                 f"Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
             )
         except Exception as e:
-            QMessageBox.critical(self, "Calculation failed", str(e))
+            show_error(self, "Calculation failed", str(e))
 
     def _wizard_save_continue(self) -> None:
         """Apply current step trade (if valid), persist, and move to next step."""
@@ -682,7 +643,7 @@ class MainWindow(QMainWindow):
 
             self._advance_wizard_step()
         except Exception as e:
-            QMessageBox.critical(self, "Save failed", str(e))
+            show_error(self, "Save failed", str(e))
 
     def _wizard_continue_without_saving(self) -> None:
         """Skip current step without mutating portfolio and move forward."""
@@ -691,7 +652,7 @@ class MainWindow(QMainWindow):
                 raise ValueError("No portfolio loaded")
             self._advance_wizard_step()
         except Exception as e:
-            QMessageBox.critical(self, "Continue failed", str(e))
+            show_error(self, "Continue failed", str(e))
 
     def _advance_wizard_step(self) -> None:
         """Move to next wizard step or return to main when flow is complete."""
@@ -916,11 +877,7 @@ class MainWindow(QMainWindow):
         """Show validation warning and revert edited cell to previous value."""
         self._suppress_item_changed = True
         try:
-            QMessageBox.warning(
-                self,
-                "Invalid input",
-                f"{msg}\n\nYou entered: {bad}\nReverting to previous value: {prev}"
-            )
+            show_warning(self, "Invalid input", f"{msg}\n\nYou entered: {bad}\nReverting to previous value: {prev}")
             item.setText(col, prev if prev is not None else "")
         finally:
             self._suppress_item_changed = False
