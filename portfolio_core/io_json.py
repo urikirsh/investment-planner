@@ -52,9 +52,9 @@ def _parse_decimal(value: Any, field: str) -> D:
 
 def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     """
-    Parse a raw JSON-decoded dictionary into a strongly-typed Portfolio model.
+    Parse a raw JSON-decoded mapping into a strongly-typed Portfolio model.
 
-    Expects a dict with:
+    Expects a mapping with:
     - "cash": object with "value", "min_reserve", and "future_tax"
       (all parsed as Decimal, in ILS)
     - "groups": list of asset group objects containing id, name, targetPercentage
