@@ -3,8 +3,9 @@ from __future__ import annotations
 """
 Focused controller-flow tests for `MainWindow`.
 
-These tests validate state transitions and prompt/action seams introduced by
-the controller refactor, without invoking modal dialogs.
+These tests validate cross-screen state transitions and prompt/action seams
+after extracting action and wizard flows into mixins, without invoking modal
+dialogs.
 """
 
 from collections.abc import Iterator

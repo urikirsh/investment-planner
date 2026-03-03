@@ -24,7 +24,11 @@ D = Decimal
 
 
 class MainWindowWizardMixin:
-    """Mixin containing wizard screen setup and per-step execution flow."""
+    """Mixin containing wizard screen setup and per-step execution flow.
+
+    Host methods declared with ``...`` are intentional interface stubs that
+    the concrete ``MainWindow`` provides.
+    """
 
     session: PortfolioSession
     planning_state: PlanningState
@@ -43,15 +47,15 @@ class MainWindowWizardMixin:
     _non_investable_bucket_title: str
 
     def _quit_app(self) -> None:
-        """Quit application if a Qt application instance exists."""
+        """Quit the Qt application from wizard controls."""
         ...
 
     def _update_file_context_ui(self) -> None:
-        """Refresh file-related UI context after load/save/new flows."""
+        """Refresh file-related UI context after wizard save side effects."""
         ...
 
     def _update_future_tax_visual_state(self) -> None:
-        """Apply visual cues for current future-tax value."""
+        """Apply visual cues when the editor is repopulated after wizard completion."""
         ...
 
     def _init_wizard_screen(self) -> None:
@@ -137,7 +141,7 @@ class MainWindowWizardMixin:
             show_error(cast(QWidget, self), "Continue failed", str(e))
 
     def _advance_wizard_step(self) -> None:
-        """Move to next wizard step or return to main when flow is complete."""
+        """Move to next step, or repopulate main editor and return when complete."""
         self.planning_state.step_index += 1
         if self.planning_state.step_index >= len(self.planning_state.plan_steps):
             current = self.session.document.current_portfolio

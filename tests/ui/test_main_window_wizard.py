@@ -14,6 +14,8 @@ from ui.main_window_wizard import MainWindowWizardMixin
 
 
 class _FakeLabel:
+    """Minimal label double with a ``setText`` sink used by assertions."""
+
     def __init__(self) -> None:
         self.value = ""
 
@@ -22,6 +24,8 @@ class _FakeLabel:
 
 
 class _FakeLineEdit:
+    """Minimal line-edit double supporting read/write text operations."""
+
     def __init__(self, text: str = "") -> None:
         self._text = text
 
@@ -33,6 +37,8 @@ class _FakeLineEdit:
 
 
 class _FakeStack:
+    """Minimal stack double capturing the last requested current widget."""
+
     def __init__(self) -> None:
         self.current_widget: object | None = None
 
@@ -84,6 +90,8 @@ class _FakeHost(MainWindowWizardMixin):
 
     def _update_future_tax_visual_state(self) -> None:
         self._future_tax_updates += 1
+
+
 def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="125")])
     host.wizard_state.last_calc = SimpleNamespace(units=9)
