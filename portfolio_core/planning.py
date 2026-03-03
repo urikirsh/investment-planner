@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal, getcontext
 from typing import Dict, List
 
-from portfolio_core.models import Portfolio, AssetGroupPlanRow
+from portfolio_core.models import AssetGroupPlanRow, Instrument, Portfolio
 from portfolio_core.validation import validate_portfolio
 
 """
@@ -183,12 +183,12 @@ def map_asset_group_deltas_to_instruments(
         ``(asset_group_id, asset_group_name, instrument_id, planned_delta_money)``.
         Zero deltas are omitted.
     """
-    instruments_by_group: Dict[str, list] = {g.id: [] for g in p.asset_groups}
+    instruments_by_group: Dict[str, list[Instrument]] = {g.id: [] for g in p.asset_groups}
     for ins in p.instruments:
         if ins.investable and ins.asset_group_id:
             instruments_by_group[ins.asset_group_id].append(ins)
 
-    def _split_positive_delta_no_sell(group_instruments: list, group_delta: D) -> Dict[str, D]:
+    def _split_positive_delta_no_sell(group_instruments: list[Instrument], group_delta: D) -> Dict[str, D]:
         """
         Allocate a positive group delta across instruments while forbidding per-instrument sells.
 
@@ -233,7 +233,7 @@ def map_asset_group_deltas_to_instruments(
             if not active_ids:
                 return {ins.id: D("0") for ins in group_instruments}
 
-    def _split_by_post_target(group_instruments: list, group_delta: D) -> Dict[str, D]:
+    def _split_by_post_target(group_instruments: list[Instrument], group_delta: D) -> Dict[str, D]:
         """
         Solve directly for per-instrument deltas from desired post-investment percentages.
 
