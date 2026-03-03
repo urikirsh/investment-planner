@@ -10,8 +10,16 @@ norecursedirs = [".git", ".idea", ".mypy_cache", ".pytest_cache", "__pycache__"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["portfolio_core"]
+files = ["portfolio_core", "ui"]
 warn_unused_configs = true
 strict = true
 pretty = true
 show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["ui.*"]
+check_untyped_defs = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disable_error_code = ["attr-defined"]
