@@ -19,7 +19,11 @@ from ui.ui_state import UnsavedChangesDecision
 
 
 class MainWindowActionsMixin:
-    """Mixin containing save/open/new actions and unsaved-change handling."""
+    """Mixin containing save/open/new actions and unsaved-change handling.
+
+    Host methods declared with ``...`` are intentionally interface stubs:
+    the concrete ``MainWindow`` implementation provides them.
+    """
 
     session: PortfolioSession
     tree: QTreeWidget
@@ -29,13 +33,21 @@ class MainWindowActionsMixin:
     _non_investable_bucket_id: str
     _non_investable_bucket_title: str
 
-    def _update_file_context_ui(self) -> None: ...
+    def _update_file_context_ui(self) -> None:
+        """Refresh file-related UI context after load/save/new flows."""
+        ...
 
-    def _load_portfolio_from_file(self, path: Path) -> None: ...
+    def _load_portfolio_from_file(self, path: Path) -> None:
+        """Load portfolio at ``path`` into the main editor state."""
+        ...
 
-    def _refresh_data(self) -> None: ...
+    def _refresh_data(self) -> None:
+        """Recompute and rerender derived values on the main screen."""
+        ...
 
-    def _update_future_tax_visual_state(self) -> None: ...
+    def _update_future_tax_visual_state(self) -> None:
+        """Apply visual cues for current future-tax value."""
+        ...
 
     def _save_from_main_ui(self, target_path: Path) -> None:
         """Build, parse, validate and persist current main-screen portfolio state."""

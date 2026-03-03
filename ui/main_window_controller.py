@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+"""
+Primary GUI implementation for the investment planner application.
+
+This module defines the main application window and coordinates all
+user interaction, including portfolio editing, validation feedback,
+navigation through the investment workflow, and triggering planning
+and execution logic.
+
+The main window acts as an orchestrator between the UI components and
+the underlying domain logic, while keeping calculation, validation,
+and persistence responsibilities in their respective modules.
+
+File-oriented save/open/new action flows are extracted into
+`ui.main_window_actions.MainWindowActionsMixin`, while this controller keeps
+screen wiring, refresh orchestration, and wizard flow coordination. Concrete
+Qt dialog primitives are centralized in `ui.dialogs` wrappers.
+"""
+
 from decimal import Decimal
 from pathlib import Path
 from typing import List, Optional
@@ -47,26 +65,6 @@ from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, WizardState
 from ui.dialogs import show_error, show_warning
-
-"""
-main_window_controller.py
-
-Primary GUI implementation for the investment planner application.
-
-This module defines the main application window and coordinates all
-user interaction, including portfolio editing, validation feedback,
-navigation through the investment workflow, and triggering planning
-and execution logic.
-
-The main window acts as an orchestrator between the UI components and
-the underlying domain logic, while keeping calculation, validation,
-and persistence responsibilities in their respective modules.
-
-File-oriented save/open/new action flows are extracted into
-`ui.main_window_actions.MainWindowActionsMixin`, while this controller keeps
-screen wiring, refresh orchestration, and wizard flow coordination. Concrete
-Qt dialog primitives are centralized in `ui.dialogs` wrappers.
-"""
 
 D = Decimal
 
