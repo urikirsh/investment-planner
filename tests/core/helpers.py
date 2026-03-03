@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+"""
+Shared builders for core/domain tests.
+
+This module centralizes fixture-like payload builders so core tests can
+focus on behavior assertions instead of repeating portfolio JSON setup.
+"""
+
+from decimal import Decimal
+
+from investment_planner.io_json import load_portfolio
+
+D = Decimal
+
+
+def make_valid_data(
+    *,
+    cash_value: str = "12000",
+    cash_reserve: str = "2000",
+    cash_future_tax: str = "0",
+    group_targets: tuple[tuple[str, str, str], ...] = (("g1", "Asset 1", "60.0"), ("g2", "Asset 2", "40.0")),
+    instruments: list[dict] | None = None,
+) -> dict:
+    """
+    Build a valid JSON-like portfolio payload for tests.
+
+    Callers can override cash/group/instrument parts to target specific
+    validation or planning scenarios while preserving required defaults.
+    """
+    if instruments is None:
+        instruments = [
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "4000",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i3",
+                "name": "Parking",
+                "value": "1000",
+                "investable": False,
+                "targetInGroupPercentage": "0",
+            },
+        ]
+
+    seen_by_group: dict[str, bool] = {}
+    for ins in instruments:
+        if "targetInGroupPercentage" in ins:
+            continue
+        if ins.get("investable") and ins.get("groupId"):
+            gid = ins["groupId"]
+            if gid not in seen_by_group:
+                ins["targetInGroupPercentage"] = "100"
+                seen_by_group[gid] = True
+            else:
+                ins["targetInGroupPercentage"] = "0"
+        else:
+            ins["targetInGroupPercentage"] = "0"
+
+    groups = [{"id": gid, "name": name, "targetPercentage": pct} for gid, name, pct in group_targets]
+    return {
+        "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": cash_future_tax},
+        "groups": groups,
+        "instruments": instruments,
+    }
+
+
+def make_portfolio():
+    """Build a compact one-group/one-instrument portfolio for stock-unit tests."""
+    data = {
+        "cash": {"value": "1000", "min_reserve": "100", "future_tax": "0"},
+        "groups": [{"id": "g1", "name": "Asset", "targetPercentage": "100"}],
+        "instruments": [
+            {
+                "id": "i1",
+                "name": "Inst",
+                "value": "500",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            }
+        ],
+    }
+    return load_portfolio(data)

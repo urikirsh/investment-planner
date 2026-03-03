@@ -114,6 +114,18 @@ The application never executes trades automatically. All actions are explicit an
   - unit tests for explicit planning/wizard UI state defaults and behavior
 - `tests/ui/test_main_window_controller_state_flow.py`:
   - focused tests for planning/wizard state transitions and prompt/action split points in `MainWindow`
+- `tests/core/helpers.py`:
+  - shared builders for core/domain tests (`make_valid_data`, `make_portfolio`)
+- `tests/core/test_validation.py`:
+  - portfolio validation invariants and JSON round-trip stability tests
+- `tests/core/test_budget.py`:
+  - invest-budget and future-tax-aware unit-calculation behavior tests
+- `tests/core/test_planning.py`:
+  - invest/rebalance planning behavior and group->instrument split tests
+- `tests/core/test_calc_stock_units.py`:
+  - unit-calculation and buy/sell commit mutation tests
+- `tests/core/test_session_and_use_cases.py`:
+  - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration tests
 
 ---
 

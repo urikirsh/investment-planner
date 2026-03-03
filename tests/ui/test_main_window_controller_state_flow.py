@@ -7,15 +7,12 @@ These tests validate state transitions and prompt/action seams introduced by
 the controller refactor, without invoking modal dialogs.
 """
 
-import os
 from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
 
 import pytest
-from PySide6.QtWidgets import QApplication
 
 from investment_planner.calc_stock_units import BuyCalculation
 from investment_planner.planning_types import PlanningMode
@@ -24,21 +21,11 @@ import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
 from ui.ui_state import UnsavedChangesDecision
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
 D = Decimal
 
 
-@pytest.fixture(scope="module")
-def qapp() -> QApplication:
-    app = cast(QApplication | None, QApplication.instance())
-    if app is None:
-        app = QApplication([])
-    return app
-
-
 @pytest.fixture()
-def window(monkeypatch: pytest.MonkeyPatch, qapp: QApplication, tmp_path) -> Iterator[MainWindow]:
+def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[MainWindow]:
     _ = qapp
     monkeypatch.setattr(MainWindow, "_load_or_init", lambda self: None)
     win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
