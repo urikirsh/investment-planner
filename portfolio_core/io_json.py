@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from decimal import Decimal, InvalidOperation, getcontext
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from portfolio_core.models import Cash, AssetGroup, Instrument, Portfolio
 
@@ -50,7 +50,7 @@ def _parse_decimal(value: Any, field: str) -> D:
         raise ValueError(f"Field '{field}' must be a number, got: {value!r}")
 
 
-def load_portfolio(data: Dict[str, Any]) -> Portfolio:
+def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     """
     Parse a raw JSON-decoded dictionary into a strongly-typed Portfolio model.
 
@@ -70,7 +70,7 @@ def load_portfolio(data: Dict[str, Any]) -> Portfolio:
     Parameters
     ----------
     data:
-        A dictionary produced by json.load()/json.loads().
+        A mapping produced by json.load()/json.loads().
 
     Returns
     -------

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List, Mapping
 
 from portfolio_core.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio
@@ -79,7 +79,7 @@ class PlanBuildResult:
     mode: PlanningMode
 
 
-def parse_portfolio_data(data: Dict[str, Any]) -> Portfolio:
+def parse_portfolio_data(data: Mapping[str, Any]) -> Portfolio:
     """
     Parse raw JSON-like payload into a `Portfolio`.
 
@@ -115,7 +115,7 @@ def create_new_default_document(session: PortfolioSession) -> Portfolio:
     return portfolio
 
 
-def save_document_from_data(session: PortfolioSession, data: Dict[str, Any], target_path: Path) -> Portfolio:
+def save_document_from_data(session: PortfolioSession, data: Mapping[str, Any], target_path: Path) -> Portfolio:
     """
     Parse, validate, and persist editor data to `target_path`.
 
@@ -138,7 +138,7 @@ def save_document_from_data(session: PortfolioSession, data: Dict[str, Any], tar
     return portfolio
 
 
-def sync_document_from_data(session: PortfolioSession, data: Dict[str, Any]) -> Portfolio:
+def sync_document_from_data(session: PortfolioSession, data: Mapping[str, Any]) -> Portfolio:
     """
     Parse UI payload and update only the in-memory current document.
 

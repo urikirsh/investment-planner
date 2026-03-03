@@ -16,7 +16,7 @@ Why this module exists
 
 from __future__ import annotations
 
-from typing import Any, Callable, NotRequired, TypedDict, cast
+from typing import Callable, NotRequired, TypedDict
 
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
@@ -170,7 +170,7 @@ def build_portfolio_data_from_main_editor(
     cash_reserve_edit: QLineEdit,
     future_tax_edit: QLineEdit,
     allow_partial: bool = False,
-) -> dict[str, Any]:
+) -> PortfolioPayload:
     """
     Build JSON-like portfolio payload from current main-editor widgets.
 
@@ -182,7 +182,7 @@ def build_portfolio_data_from_main_editor(
 
     Returns
     -------
-    dict[str, Any]
+    PortfolioPayload
         Payload with `cash`, `groups`, and `instruments` keys that matches
         the shape expected by parsing/saving use-cases.
 
@@ -262,9 +262,8 @@ def build_portfolio_data_from_main_editor(
 
             instruments.append(instrument)
 
-    payload: PortfolioPayload = {
+    return {
         "cash": {"value": cash_value, "min_reserve": cash_reserve, "future_tax": future_tax},
         "groups": groups,
         "instruments": instruments,
     }
-    return cast(dict[str, Any], payload)
