@@ -39,6 +39,7 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
+    make_buy_calculation: Callable[..., BuyCalculation],
 ) -> None:
     step_1 = make_plan_step(
         delta="120",
@@ -54,13 +55,13 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
         instrument_id="i_bond",
         instrument_name="Bond Fund",
     )
-    calc = BuyCalculation(
+    calc = make_buy_calculation(
         instrument_id="i_world",
-        price=D("10"),
-        planned_money=D("120"),
+        price="10",
+        planned_money="120",
         units=12,
-        spent=D("120"),
-        leftover=D("0"),
+        spent="120",
+        leftover="0",
     )
 
     fake_plan_result = SimpleNamespace(

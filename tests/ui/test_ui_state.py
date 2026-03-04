@@ -9,6 +9,7 @@ reintroduce implicit/dynamic state behavior.
 """
 
 from decimal import Decimal
+from typing import Callable
 
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.planning_types import PlanningMode
@@ -27,20 +28,12 @@ def test_planning_state_defaults() -> None:
     assert state.mode == PlanningMode.INVEST
 
 
-def test_planning_state_list_default_is_not_shared() -> None:
+def test_planning_state_list_default_is_not_shared(make_plan_step: Callable[..., PlanStep]) -> None:
     """Each state instance should get its own `plan_steps` list."""
     first = PlanningState()
     second = PlanningState()
 
-    first.plan_steps.append(
-        PlanStep(
-            asset_group_id="g1",
-            asset_group_name="Group 1",
-            instrument_id="i1",
-            instrument_name="Instrument 1",
-            planned_delta_money=D("100"),
-        )
-    )
+    first.plan_steps.append(make_plan_step(delta="100", group_id="g1", group_name="Group 1"))
 
     assert len(first.plan_steps) == 1
     assert second.plan_steps == []
@@ -52,16 +45,9 @@ def test_wizard_state_defaults() -> None:
     assert state.last_calc is None
 
 
-def test_wizard_state_stores_last_calc() -> None:
+def test_wizard_state_stores_last_calc(make_buy_calculation: Callable[..., BuyCalculation]) -> None:
     """`WizardState` can hold and expose the latest `BuyCalculation`."""
-    calc = BuyCalculation(
-        instrument_id="i1",
-        price=D("10"),
-        planned_money=D("100"),
-        units=10,
-        spent=D("100"),
-        leftover=D("0"),
-    )
+    calc = make_buy_calculation()
     state = WizardState(last_calc=calc)
 
     assert state.last_calc is calc
