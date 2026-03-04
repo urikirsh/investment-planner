@@ -3,7 +3,9 @@ from __future__ import annotations
 """Pytest configuration and shared fixtures for UI/widget test modules.
 
 This file centralizes Qt test setup so individual tests can focus on widget
-behavior rather than process-level initialization details.
+behavior rather than process-level initialization details. It also provides
+shared builders (`make_plan_step`, `make_buy_calculation`) for common UI test
+object setup.
 """
 
 import os

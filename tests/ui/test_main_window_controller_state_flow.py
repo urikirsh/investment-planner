@@ -38,6 +38,7 @@ def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[
 def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
+    # Shared builders are provided by tests/ui/conftest.py.
     make_plan_step: Callable[..., PlanStep],
     make_buy_calculation: Callable[..., BuyCalculation],
 ) -> None:
