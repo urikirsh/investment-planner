@@ -128,7 +128,8 @@ class WizardScreen(QWidget):
         manual_visible:
             Whether manual USD/ILS override controls should be shown.
         manual_value:
-            Optional prefilled override value.
+            Optional prefilled override value. When controls are visible this
+            is always applied, including empty string, to avoid stale values.
         """
         self.fx_info_label.setVisible(visible)
         self.fx_error_label.setVisible(visible)
@@ -138,7 +139,8 @@ class WizardScreen(QWidget):
         self.fx_info_label.setText(info_text)
         self.fx_error_label.setText(error_text)
 
-        if manual_visible and manual_value:
+        if manual_visible:
+            # Always set explicitly while visible to avoid stale previous-run values.
             self.manual_rate_edit.setText(manual_value)
-        elif not manual_visible:
+        else:
             self.manual_rate_edit.setText("")

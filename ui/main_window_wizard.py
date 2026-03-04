@@ -183,7 +183,7 @@ class MainWindowWizardMixin:
         self.wizard_state.usd_ils_fetch_error = None
 
     def _reset_wizard_fx_state_for_new_run(self) -> None:
-        """Reset transient USD/ILS state when a new plan run starts."""
+        """Reset transient USD/ILS state and clear manual FX input for a new run."""
         self.wizard_state.usd_ils_rate = None
         self.wizard_state.usd_ils_rate_date = None
         self.wizard_state.usd_ils_source = None
@@ -191,6 +191,9 @@ class MainWindowWizardMixin:
         self.wizard_state.usd_ils_fetch_attempted = False
         self.wizard_state.usd_ils_fetch_error = None
         self.wizard_state.manual_override_usd_ils_rate = None
+        # Clear manual input widget to prevent value carry-over across runs.
+        if hasattr(self, "manual_rate_edit"):
+            self.manual_rate_edit.setText("")
 
     def _render_fx_panel_for_current_step(self) -> None:
         """Render FX quote/fallback/override status for the active step."""

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+import portfolio_core.fx_service as fx_service
 from portfolio_core.fx_service import fetch_latest_usd_ils_rate
 
 
@@ -43,3 +44,26 @@ def test_fetch_latest_usd_ils_rate_marks_last_published_when_date_is_before_toda
     assert str(quote.effective_date) == "2026-03-03"
     assert quote.used_last_published is True
     assert "Bank of Israel" in quote.source
+
+
+def test_fetch_latest_usd_ils_rate_fallback_uses_payload_timezone_when_tzdata_missing(monkeypatch) -> None:
+    payload = {
+        "exchangeRates": [
+            {
+                "key": "USD",
+                "currentExchangeRate": "3.55",
+                "lastUpdate": "2026-03-03T23:30:00+03:00",
+            }
+        ]
+    }
+    body = json.dumps(payload).encode("utf-8")
+    monkeypatch.setattr(
+        "portfolio_core.fx_service.urlopen",
+        lambda *_args, **_kwargs: _FakeResponse(body),
+    )
+    monkeypatch.setattr(fx_service, "_JERUSALEM_TZ", None)
+
+    quote = fetch_latest_usd_ils_rate(now=datetime.fromisoformat("2026-03-03T22:30:00+00:00"))
+
+    # now(+03) is already 2026-03-04 while effective date is 2026-03-03.
+    assert quote.used_last_published is True

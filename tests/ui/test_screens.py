@@ -76,3 +76,19 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.quit_btn.text() == "Quit"
     assert screen.save_continue_btn.text() == "Save and continue"
     assert screen.continue_without_save_btn.text() == "Continue without saving"
+
+
+def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value(qapp) -> None:
+    _ = qapp
+    screen = WizardScreen()
+    screen.manual_rate_edit.setText("3.77")
+
+    screen.set_fx_panel(
+        visible=True,
+        info_text="",
+        error_text="fetch failed",
+        manual_visible=True,
+        manual_value="",
+    )
+
+    assert screen.manual_rate_edit.text() == ""

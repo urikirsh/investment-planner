@@ -12,11 +12,13 @@ Design notes
 - Returns a typed quote object (`UsdIlsRateQuote`) for downstream use.
 - Treats BOI's latest published quote as authoritative; callers can decide
   how to display "last published day" behavior in UX.
+- Uses `Asia/Jerusalem` calendar-day comparison when tzdata is available.
+  If not, falls back to the BOI payload timestamp timezone.
 """
 
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone, tzinfo
 from decimal import Decimal, InvalidOperation
 from urllib.request import urlopen
 from zoneinfo import ZoneInfo
@@ -25,10 +27,11 @@ from zoneinfo import ZoneInfo
 BOI_EXCHANGE_RATES_URL = "https://boi.org.il/PublicApi/GetExchangeRates"
 BOI_SOURCE_LABEL = "Bank of Israel (representative)"
 try:
-    _JERUSALEM_TZ = ZoneInfo("Asia/Jerusalem")
+    _JERUSALEM_TZ: tzinfo | None = ZoneInfo("Asia/Jerusalem")
 except Exception:
     # Fallback for environments without IANA tzdata (e.g., bare Windows Python).
-    _JERUSALEM_TZ = timezone(timedelta(hours=2), name="UTC+02")
+    # In this case we compare "today" in the API timestamp timezone.
+    _JERUSALEM_TZ = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,7 @@ class UsdIlsRateQuote:
 
 
 def _parse_last_update(raw: object) -> datetime:
+    """Parse BOI ``lastUpdate`` into an aware datetime in comparison timezone."""
     if not isinstance(raw, str) or not raw.strip():
         raise ValueError("BOI payload missing USD lastUpdate")
     text = raw.strip().replace("Z", "+00:00")
@@ -51,7 +55,9 @@ def _parse_last_update(raw: object) -> datetime:
         raise ValueError(f"Invalid BOI lastUpdate value: {raw!r}") from exc
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(_JERUSALEM_TZ)
+    if _JERUSALEM_TZ is not None:
+        return dt.astimezone(_JERUSALEM_TZ)
+    return dt
 
 
 def _parse_rate(raw: object) -> Decimal:
@@ -77,11 +83,17 @@ def fetch_latest_usd_ils_rate(*, timeout_seconds: float = 10.0, now: datetime | 
         HTTP timeout passed to `urlopen`.
     now:
         Optional injection point used by tests to control "today" comparison.
+        Naive values are interpreted as UTC.
 
     Raises
     ------
     ValueError
         If BOI payload is missing expected fields or has invalid values.
+
+    Notes
+    -----
+    "Today" comparison uses `Asia/Jerusalem` when available. If local tzdata
+    is unavailable, it compares in the BOI payload timestamp timezone.
     """
 
     with urlopen(BOI_EXCHANGE_RATES_URL, timeout=timeout_seconds) as response:
@@ -103,7 +115,11 @@ def fetch_latest_usd_ils_rate(*, timeout_seconds: float = 10.0, now: datetime | 
     updated_at = _parse_last_update(usd_entry.get("lastUpdate"))
     effective_date = updated_at.date()
 
-    now_local = (now or datetime.now(_JERUSALEM_TZ)).astimezone(_JERUSALEM_TZ)
+    now_ref = now or datetime.now(timezone.utc)
+    if now_ref.tzinfo is None:
+        now_ref = now_ref.replace(tzinfo=timezone.utc)
+    comparison_tz = _JERUSALEM_TZ or updated_at.tzinfo or timezone.utc
+    now_local = now_ref.astimezone(comparison_tz)
     used_last_published = effective_date < now_local.date()
 
     return UsdIlsRateQuote(

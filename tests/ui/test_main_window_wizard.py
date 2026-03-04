@@ -289,6 +289,19 @@ def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
     assert host.wizard_state.usd_ils_fetch_attempted is False
 
 
+def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
+    host.wizard_state.usd_ils_fetch_attempted = True
+    host.manual_rate_edit.setText("3.4")
+
+    host._reset_wizard_fx_state_for_new_run()
+
+    assert host.wizard_state.manual_override_usd_ils_rate is None
+    assert host.wizard_state.usd_ils_fetch_attempted is False
+    assert host.manual_rate_edit.text() == ""
+
+
 def test_wizard_save_continue_uses_zero_when_no_last_calc(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
