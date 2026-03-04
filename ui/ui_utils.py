@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QBrush
 
-from ui.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
+from ui.ui_types import ROLE_CURRENCY, ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
 ui_utils.py
@@ -56,6 +56,14 @@ def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
 def get_item_id(item: QTreeWidgetItem) -> str:
     """Return stored internal id string, or empty string if missing."""
     return item.data(0, ROLE_ID) or ""
+
+
+def get_item_currency(item: QTreeWidgetItem) -> str:
+    """Return stored instrument currency, defaulting to ILS."""
+    raw = item.data(0, ROLE_CURRENCY)
+    if raw in ("ILS", "USD"):
+        return raw
+    return "ILS"
 
 def new_id(prefix: str) -> str:
     """Generate a short, pseudo-random id with a stable prefix."""
@@ -144,7 +152,12 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 
 
 def add_instrument_item_to_group(
-        gitem: QTreeWidgetItem, name: str, value: str, in_group_pct: str, id_str: str = ""
+        gitem: QTreeWidgetItem,
+        name: str,
+        value: str,
+        in_group_pct: str,
+        id_str: str = "",
+        currency: str = "ILS",
 ) \
         -> None:
     """Create and initialize an instrument child row under the given parent group."""
@@ -156,6 +169,7 @@ def add_instrument_item_to_group(
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
+    item.setData(0, ROLE_CURRENCY, currency if currency in ("ILS", "USD") else "ILS")
 
     apply_row_alignment(item)
 

@@ -142,6 +142,7 @@ The app reads and writes a JSON portfolio file with this shape:
       "id": "i_world_etf",
       "name": "World ETF",
       "value": "8000",
+      "currency": "ILS",
       "investable": true,
       "groupId": "g_equity",
       "targetInGroupPercentage": "100"
@@ -150,6 +151,7 @@ The app reads and writes a JSON portfolio file with this shape:
       "id": "i_bond_fund",
       "name": "Bond Fund",
       "value": "3000",
+      "currency": "USD",
       "investable": true,
       "groupId": "g_bonds",
       "targetInGroupPercentage": "100"
@@ -158,6 +160,7 @@ The app reads and writes a JSON portfolio file with this shape:
       "id": "i_legacy_holding",
       "name": "Legacy Holding",
       "value": "1200",
+      "currency": "ILS",
       "investable": false,
       "targetInGroupPercentage": "0"
     }
@@ -167,6 +170,7 @@ The app reads and writes a JSON portfolio file with this shape:
 
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
+- `instruments[*].currency` is required and must be `ILS` or `USD`.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.

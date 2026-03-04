@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from portfolio_core.models import Portfolio
+from portfolio_core.models import Currency, Portfolio
 
 """
 validation.py
@@ -171,6 +171,9 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
     for ins in p.instruments:
         if ins.value < 0:
             raise ValueError(f"Instrument '{ins.name}' value cannot be negative")
+
+        if ins.currency not in (Currency.ILS, Currency.USD):
+            raise ValueError(f"Instrument '{ins.name}' currency must be one of ILS, USD")
 
         if ins.target_in_group_pct < 0 or ins.target_in_group_pct > D("100"):
             raise ValueError(

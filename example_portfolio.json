@@ -1,0 +1,80 @@
+﻿{
+    "cash":  {
+                 "value":  "15000",
+                 "min_reserve":  "2500",
+                 "future_tax":  "500"
+             },
+    "groups":  [
+                   {
+                       "id":  "g_equity",
+                       "name":  "Global Equity",
+                       "targetPercentage":  "60"
+                   },
+                   {
+                       "id":  "g_fixed_income",
+                       "name":  "Fixed Income",
+                       "targetPercentage":  "30"
+                   },
+                   {
+                       "id":  "g_alternatives",
+                       "name":  "Alternatives",
+                       "targetPercentage":  "10"
+                   }
+               ],
+    "instruments":  [
+                        {
+                            "id":  "i_world_etf",
+                            "name":  "World ETF",
+                            "value":  "6200",
+                            "investable":  true,
+                            "groupId":  "g_equity",
+                            "targetInGroupPercentage":  "70",
+                            "currency":  "ILS"
+                        },
+                        {
+                            "id":  "i_emerging_etf",
+                            "name":  "Emerging ETF",
+                            "value":  "1800",
+                            "investable":  true,
+                            "groupId":  "g_equity",
+                            "targetInGroupPercentage":  "30",
+                            "currency":  "ILS"
+                        },
+                        {
+                            "id":  "i_bond_fund_short",
+                            "name":  "Bond Fund Short",
+                            "value":  "2200",
+                            "investable":  true,
+                            "groupId":  "g_fixed_income",
+                            "targetInGroupPercentage":  "40",
+                            "currency":  "ILS"
+                        },
+                        {
+                            "id":  "i_bond_fund_total",
+                            "name":  "Bond Fund Total",
+                            "value":  "3300",
+                            "investable":  true,
+                            "groupId":  "g_fixed_income",
+                            "targetInGroupPercentage":  "60",
+                            "currency":  "ILS"
+                        },
+                        {
+                            "id":  "i_gold_etf",
+                            "name":  "Gold ETF",
+                            "value":  "1200",
+                            "investable":  true,
+                            "groupId":  "g_alternatives",
+                            "targetInGroupPercentage":  "100",
+                            "currency":  "ILS"
+                        },
+                        {
+                            "id":  "i_legacy_position",
+                            "name":  "Legacy Position",
+                            "value":  "900",
+                            "investable":  false,
+                            "targetInGroupPercentage":  "0",
+                            "currency":  "ILS"
+                        }
+                    ]
+}
+

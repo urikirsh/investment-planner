@@ -34,6 +34,7 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
             "id": "spx_a",
             "name": "SPX 500",
             "value": "1",
+            "currency": "ILS",
             "investable": True,
             "groupId": "sp500",
             "targetInGroupPercentage": "100",
