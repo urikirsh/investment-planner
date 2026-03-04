@@ -28,12 +28,35 @@ class _FakeLineEdit:
 
     def __init__(self, text: str = "") -> None:
         self._text = text
+        self._placeholder = ""
 
     def text(self) -> str:
         return self._text
 
     def setText(self, text: str) -> None:
         self._text = text
+
+    def setPlaceholderText(self, text: str) -> None:
+        self._placeholder = text
+
+    def placeholderText(self) -> str:
+        return self._placeholder
+
+
+class _FakeWizardScreen:
+    """Minimal wizard-screen double exposing price-mode behavior."""
+
+    def __init__(self, price_label: _FakeLabel, price_edit: _FakeLineEdit) -> None:
+        self._price_label = price_label
+        self._price_edit = price_edit
+
+    def set_price_mode(self, currency: str) -> None:
+        if currency == "USD":
+            self._price_label.setText("Price (USD):")
+            self._price_edit.setPlaceholderText("Enter unit price in USD (e.g. 12.34)")
+            return
+        self._price_label.setText("Price (Agorot):")
+        self._price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
 
 
 class _FakeStack:
@@ -59,6 +82,7 @@ class _FakeHost(MainWindowWizardMixin):
     cash_reserve_edit: Any
     future_tax_edit: Any
     price_edit: Any
+    price_label: Any
     wiz_info: Any
     wiz_result: Any
     _file_context_updates: int
@@ -75,6 +99,8 @@ class _FakeHost(MainWindowWizardMixin):
         self.cash_reserve_edit = object()
         self.future_tax_edit = object()
         self.price_edit = _FakeLineEdit()
+        self.price_label = _FakeLabel()
+        self.screen_wizard = _FakeWizardScreen(self.price_label, self.price_edit)
         self.wiz_info = _FakeLabel()
         self.wiz_result = _FakeLabel()
         self._non_investable_bucket_id = "non_investable_bucket"
@@ -100,6 +126,7 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
 
     assert "Step 1/1" in host.wiz_info.value
     assert "Planned BUY value: 125" in host.wiz_info.value
+    assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
     assert host.wiz_result.value == "Units: - | Spent/Proceeds: - | Leftover vs plan: -"
     assert host.wizard_state.last_calc is None
@@ -125,6 +152,25 @@ def test_wizard_calculate_sets_last_calc_and_result_text(
     assert calls == [{"instrument_id": "ins-1", "planned_money": Decimal("50"), "price_ag": Decimal("10")}]
     assert host.wizard_state.last_calc is fake_calc
     assert host.wiz_result.value == "Units: 5 | Proceeds: 50 | Leftover vs plan: 0"
+
+
+def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.price_edit = _FakeLineEdit("10")
+    host.price_label = _FakeLabel()
+    host.screen_wizard = _FakeWizardScreen(host.price_label, host.price_edit)
+
+    host._show_current_wizard_step()
+    host.price_edit.setText("10")
+    host._wizard_calculate()
+
+    assert host.wizard_state.last_calc is not None
+    assert host.wizard_state.last_calc.units == 1
+    assert host.wizard_state.last_calc.spent == Decimal("31")
+    assert host.wizard_state.last_calc.leftover == Decimal("19")
+    assert host.price_label.value == "Price (USD):"
+    assert "Converted: 10 USD x 3.1 = 31.0 ILS" in host.wiz_result.value
+    assert "Units: 1 | Spent: 31" in host.wiz_result.value
 
 
 def test_wizard_save_continue_uses_zero_when_no_last_calc(

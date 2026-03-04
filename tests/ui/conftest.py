@@ -49,12 +49,14 @@ def make_plan_step() -> Callable[..., PlanStep]:
         group_id: str = "g-1",
         group_name: str = "Group A",
         instrument_name: str = "ETF A",
+        currency: str = "ILS",
     ) -> PlanStep:
         return PlanStep(
             asset_group_id=group_id,
             asset_group_name=group_name,
             instrument_id=instrument_id,
             instrument_name=instrument_name,
+            currency=currency,
             planned_delta_money=Decimal(delta),
         )
 

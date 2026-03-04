@@ -11,7 +11,7 @@ from typing import cast
 
 from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
 
-from portfolio_core.calc_stock_units import calculate_buy_units
+from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import apply_wizard_step
 from ui.dialogs import show_error
@@ -21,6 +21,7 @@ from ui.ui_state import PlanningState, WizardState
 from ui.ui_utils import d_from_text
 
 D = Decimal
+WIZARD_FIXED_USD_ILS_RATE = D("3.1")
 
 
 class MainWindowWizardMixin:
@@ -41,6 +42,7 @@ class MainWindowWizardMixin:
     screen_main: QWidget
     screen_wizard: WizardScreen
     wiz_info: QLabel
+    price_label: QLabel
     price_edit: QLineEdit
     wiz_result: QLabel
     _non_investable_bucket_id: str
@@ -62,6 +64,7 @@ class MainWindowWizardMixin:
         """Build screen-3 widget and wire wizard actions."""
         self.screen_wizard = WizardScreen(cast(QWidget, self))
         self.wiz_info = self.screen_wizard.wiz_info
+        self.price_label = self.screen_wizard.price_label
         self.price_edit = self.screen_wizard.price_edit
         self.wiz_result = self.screen_wizard.wiz_result
         self.screen_wizard.calculate_btn.clicked.connect(self._wizard_calculate)
@@ -82,6 +85,8 @@ class MainWindowWizardMixin:
             f"Instrument: {s.instrument_name}\n"
             f"Planned {action} value: {abs(s.planned_delta_money)}"
         )
+        if hasattr(self, "screen_wizard"):
+            self.screen_wizard.set_price_mode(s.currency)
         self.price_edit.setText("")
         self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
 
@@ -91,19 +96,31 @@ class MainWindowWizardMixin:
         """Calculate units/spend for the current wizard step from entered price."""
         try:
             s = self.planning_state.plan_steps[self.planning_state.step_index]
-            price = d_from_text(self.price_edit.text(), "price")
+            entered_price = d_from_text(self.price_edit.text(), "price")
 
             planned = abs(s.planned_delta_money)
-            calc = calculate_buy_units(
-                instrument_id=s.instrument_id,
-                planned_money=planned,
-                price_ag=price,
-            )
+            conversion_info = ""
+            if s.currency == "USD":
+                price_ils = entered_price * WIZARD_FIXED_USD_ILS_RATE
+                calc = calculate_buy_units_from_ils_price(
+                    instrument_id=s.instrument_id,
+                    planned_money=planned,
+                    price_ils=price_ils,
+                )
+                conversion_info = (
+                    f"Converted: {entered_price} USD x {WIZARD_FIXED_USD_ILS_RATE} = {price_ils} ILS | "
+                )
+            else:
+                calc = calculate_buy_units(
+                    instrument_id=s.instrument_id,
+                    planned_money=planned,
+                    price_ag=entered_price,
+                )
             self.wizard_state.last_calc = calc
 
             label_money = "Spent" if s.planned_delta_money > 0 else "Proceeds"
             self.wiz_result.setText(
-                f"Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
+                f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
             )
         except Exception as e:
             show_error(cast(QWidget, self), "Calculation failed", str(e))

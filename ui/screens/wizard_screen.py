@@ -45,9 +45,10 @@ class WizardScreen(QWidget):
 
         form = QWidget(self)
         form_layout = QFormLayout(form)
+        self.price_label = QLabel("Price (Agorot):")
         self.price_edit = QLineEdit()
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
-        form_layout.addRow("Price (Agorot):", self.price_edit)
+        form_layout.addRow(self.price_label, self.price_edit)
         layout.addWidget(form)
 
         calc_row = QWidget(self)
@@ -74,3 +75,13 @@ class WizardScreen(QWidget):
 
         btns_layout.addStretch(1)
         layout.addWidget(btns)
+
+    def set_price_mode(self, currency: str) -> None:
+        """Configure price-label context for the current instrument currency."""
+        if currency == "USD":
+            self.price_label.setText("Price (USD):")
+            self.price_edit.setPlaceholderText("Enter unit price in USD (e.g. 12.34)")
+            return
+
+        self.price_label.setText("Price (Agorot):")
+        self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")

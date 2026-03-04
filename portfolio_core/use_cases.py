@@ -50,6 +50,7 @@ class PlanStep:
     asset_group_name: str
     instrument_id: str
     instrument_name: str
+    currency: str
     planned_delta_money: D
 
 
@@ -204,6 +205,7 @@ def build_plan_for_current_document(session: PortfolioSession, mode: PlanningMod
                 asset_group_name=group_name,
                 instrument_id=instrument_id,
                 instrument_name=instrument.name,
+                currency=instrument.currency.value,
                 planned_delta_money=planned_delta,
             )
         )

@@ -179,6 +179,7 @@ def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
+        currency="ILS",
         planned_delta_money=D("500"),
     )
     applied = apply_wizard_step(session, step, calc_units=2, spent=D("200"))
@@ -201,6 +202,7 @@ def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
+        currency="ILS",
         planned_delta_money=D("500"),
     )
     applied = apply_wizard_step(session, step, calc_units=0, spent=D("0"))
