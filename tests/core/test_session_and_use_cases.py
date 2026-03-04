@@ -8,8 +8,9 @@ use-case orchestration around `PortfolioSession`.
 """
 
 import pytest
+import json
 
-from portfolio_core.io_json import load_portfolio, save_portfolio_file
+from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_document import PortfolioDocument
 from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
@@ -79,6 +80,15 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     assert session.document.current_portfolio == p1
     assert session.document.saved_snapshot == p1
     assert session.document.is_dirty() is False
+
+
+def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
+    target = tmp_path / "bom_portfolio.json"
+    payload = make_valid_data()
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8-sig")
+
+    loaded = load_portfolio_file(target)
+    assert loaded == load_portfolio(payload)
 
 
 def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):

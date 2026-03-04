@@ -13,6 +13,7 @@ These tests validate adapter-level mapping behavior independently from
 from typing import Any
 
 import pytest
+from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.io_json import load_portfolio
 from ui.portfolio_editor_adapter import (
@@ -20,7 +21,8 @@ from ui.portfolio_editor_adapter import (
     populate_main_editor_from_portfolio,
 )
 from ui.screens.main_editor_screen import MainEditorScreen
-from ui.ui_utils import NON_INVESTABLE_BUCKET_ID
+from ui.ui_types import Col
+from ui.ui_utils import NON_INVESTABLE_BUCKET_ID, add_instrument_item_to_group, set_group_tree_item
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
@@ -125,3 +127,86 @@ def test_build_data_partial_mode_defaults_empty_cash_fields(qapp) -> None:
             future_tax_edit=screen.future_tax_edit,
             allow_partial=False,
         )
+
+
+def test_new_instrument_defaults_to_ils_currency_in_payload(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+
+    g = QTreeWidgetItem(screen.tree)
+    set_group_tree_item(g, "Group 1", "100", "g1")
+    add_instrument_item_to_group(g, "New Instrument", "100", "100")
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=True,
+    )
+
+    assert built["instruments"][0]["currency"] == "ILS"
+
+
+def test_edited_currency_persists_through_adapter_save_load_cycle(qapp) -> None:
+    _ = qapp
+    payload = _sample_payload()
+    portfolio = load_portfolio(payload)
+    screen = MainEditorScreen()
+
+    populate_main_editor_from_portfolio(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        portfolio=portfolio,
+        non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
+        non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
+        on_future_tax_value_set=lambda: None,
+    )
+
+    group1 = screen.tree.topLevelItem(0)
+    investable = group1.child(0)
+    investable.setText(Col.CURRENCY.value, "USD")
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=False,
+    )
+    reloaded = load_portfolio(built)
+
+    assert built["instruments"][0]["currency"] == "USD"
+    assert reloaded.instruments[0].currency.value == "USD"
+
+
+def test_planning_payload_includes_currency_per_instrument(qapp) -> None:
+    _ = qapp
+    payload = _sample_payload()
+    portfolio = load_portfolio(payload)
+    screen = MainEditorScreen()
+
+    populate_main_editor_from_portfolio(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        portfolio=portfolio,
+        non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
+        non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
+        on_future_tax_value_set=lambda: None,
+    )
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=False,
+    )
+
+    by_id = {i["id"]: i["currency"] for i in built["instruments"]}
+    assert by_id["i1"] == "ILS"
+    assert by_id["i2"] == "USD"

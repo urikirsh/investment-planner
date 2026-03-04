@@ -183,7 +183,8 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
         If JSON structure/types are invalid for portfolio parsing.
     """
     path = Path(path)
-    with path.open("r", encoding="utf-8") as f:
+    # Accept optional UTF-8 BOM to support files saved by some Windows editors.
+    with path.open("r", encoding="utf-8-sig") as f:
         data = json.load(f)
     return load_portfolio(data)
 

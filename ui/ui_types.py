@@ -88,3 +88,4 @@ class Col(Enum):
     TARGET_PCT = 3
     STRATEGY_PCT = 4
     DRIFT_PP = 5
+    CURRENCY = 6

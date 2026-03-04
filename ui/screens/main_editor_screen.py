@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.decimal_input_delegate import DecimalInputDelegate
+from ui.currency_delegate import CurrencyDelegate
 from ui.tree_widget import InvestmentTreeWidget
 from ui.ui_types import Col
 
@@ -61,23 +62,23 @@ class MainEditorScreen(QWidget):
         cash_box = QWidget(self)
         cash_layout = QHBoxLayout(cash_box)
 
-        cash_layout.addWidget(QLabel("Cash value:"))
+        cash_layout.addWidget(QLabel("Cash value (ILS):"))
         self.cash_value_edit = QLineEdit()
         self.cash_value_edit.setPlaceholderText("e.g. 1000")
         cash_layout.addWidget(self.cash_value_edit)
 
-        cash_layout.addWidget(QLabel("Minimal cash reserve:"))
+        cash_layout.addWidget(QLabel("Minimal cash reserve (ILS):"))
         self.cash_reserve_edit = QLineEdit()
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
         cash_layout.addWidget(self.cash_reserve_edit)
 
-        cash_layout.addWidget(QLabel("Future tax:"))
+        cash_layout.addWidget(QLabel("Future tax (ILS):"))
         self.future_tax_edit = QLineEdit()
         self.future_tax_edit.setPlaceholderText("e.g. 0")
         self.future_tax_edit.setText("0")
         cash_layout.addWidget(self.future_tax_edit)
 
-        self.investable_balance_label = QLabel("Investable balance: 0")
+        self.investable_balance_label = QLabel("Investable balance (ILS): 0")
         cash_layout.addWidget(self.investable_balance_label)
 
         cash_layout.addStretch(1)
@@ -94,6 +95,7 @@ class MainEditorScreen(QWidget):
                 "Target %",
                 "Strategy %",
                 "Drift (pp)",
+                "Currency",
             ]
         )
         tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -107,13 +109,17 @@ class MainEditorScreen(QWidget):
         for col in Col:
             if col == Col.NAME:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
+            elif col == Col.CURRENCY:
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             elif col == Col.DRIFT_PP:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             else:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
 
+        tree.setColumnWidth(Col.CURRENCY.value, 84)
         tree.setColumnWidth(Col.DRIFT_PP.value, 78)
         tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
+        tree.headerItem().setTextAlignment(Col.CURRENCY.value, Qt.AlignmentFlag.AlignCenter)
         tree.setItemDelegateForColumn(
             Col.TOT_VALUE.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
@@ -122,6 +128,7 @@ class MainEditorScreen(QWidget):
             Col.TARGET_PCT.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
         )
+        tree.setItemDelegateForColumn(Col.CURRENCY.value, CurrencyDelegate(parent=tree))
         self._set_tree_header_tooltips(tree)
         return tree
 
@@ -133,9 +140,14 @@ class MainEditorScreen(QWidget):
         )
         header_item.setToolTip(
             Col.TOT_VALUE.value,
-            "Current value for this row.\n"
+            "Current value for this row in ILS.\n"
             "For an asset group: sum of its instruments.\n"
             "For an instrument: the instrument's own value.",
+        )
+        header_item.setToolTip(
+            Col.CURRENCY.value,
+            "Instrument price currency used by the wizard (ILS or USD).\n"
+            "Portfolio value and all totals remain in ILS.",
         )
         header_item.setToolTip(
             Col.PORTFOLIO_PCT.value,
@@ -178,7 +190,7 @@ class MainEditorScreen(QWidget):
     def _build_totals_row(self) -> QWidget:
         totals = QWidget(self)
         totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio value: -")
+        self.total_label = QLabel("Total portfolio (ILS): -")
         totals_layout.addWidget(self.total_label)
         totals_layout.addStretch(1)
         return totals

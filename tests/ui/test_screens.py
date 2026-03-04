@@ -9,6 +9,7 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
+from ui.currency_delegate import CurrencyDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
@@ -23,20 +24,22 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.cash_value_edit.placeholderText() == "e.g. 1000"
     assert screen.cash_reserve_edit.placeholderText() == "e.g. 20000"
     assert screen.future_tax_edit.text() == "0"
-    assert screen.investable_balance_label.text() == "Investable balance: 0"
+    assert screen.investable_balance_label.text() == "Investable balance (ILS): 0"
 
     assert screen.tree.columnCount() == len(Col)
     assert screen.tree.headerItem().text(Col.NAME.value) == "Name"
+    assert screen.tree.headerItem().text(Col.CURRENCY.value) == "Currency"
     assert screen.tree.headerItem().text(Col.DRIFT_PP.value) == "Drift (pp)"
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
 
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TOT_VALUE.value), DecimalInputDelegate)
+    assert isinstance(screen.tree.itemDelegateForColumn(Col.CURRENCY.value), CurrencyDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
 
     assert screen.add_group_btn.text() == "Add Asset Group"
     assert screen.add_instrument_btn.text() == "Add Instrument"
     assert screen.delete_row_btn.text() == "Delete Selected"
-    assert screen.total_label.text() == "Total portfolio value: -"
+    assert screen.total_label.text() == "Total portfolio (ILS): -"
     assert screen.rebalance_btn.text() == "Invest & Rebalance"
 
 
@@ -45,6 +48,8 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     screen = MainEditorScreen()
 
     assert "asset group or instrument name" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
+    assert "ils" in screen.tree.headerItem().toolTip(Col.TOT_VALUE.value).lower()
+    assert "wizard" in screen.tree.headerItem().toolTip(Col.CURRENCY.value).lower()
     assert "full portfolio value" in screen.tree.headerItem().toolTip(Col.PORTFOLIO_PCT.value).lower()
     assert "how far you are from your goal" in screen.tree.headerItem().toolTip(Col.DRIFT_PP.value).lower()
 

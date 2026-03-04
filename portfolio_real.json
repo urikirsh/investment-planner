@@ -1,155 +1,154 @@
-﻿{
-    "cash":  {
-                 "value":  "354622",
-                 "min_reserve":  "1000",
-                 "future_tax":  "0"
-             },
-    "groups":  [
-                   {
-                       "id":  "grp_43307589",
-                       "name":  "Bitcoin",
-                       "targetPercentage":  "1"
-                   },
-                   {
-                       "id":  "grp_58521ac8",
-                       "name":  "Emerging markets",
-                       "targetPercentage":  "14"
-                   },
-                   {
-                       "id":  "grp_0756bb56",
-                       "name":  "Europe",
-                       "targetPercentage":  "14"
-                   },
-                   {
-                       "id":  "grp_c2ecfa88",
-                       "name":  "NASDAQ",
-                       "targetPercentage":  "20"
-                   },
-                   {
-                       "id":  "sp500",
-                       "name":  "S\u0026P 500",
-                       "targetPercentage":  "25"
-                   },
-                   {
-                       "id":  "grp_9527c762",
-                       "name":  "Bonds",
-                       "targetPercentage":  "20"
-                   },
-                   {
-                       "id":  "grp_73b46444",
-                       "name":  "Ethereum",
-                       "targetPercentage":  "1"
-                   },
-                   {
-                       "id":  "grp_3fe5fbb4",
-                       "name":  "Gold A",
-                       "targetPercentage":  "2.5"
-                   },
-                   {
-                       "id":  "grp_b51e6b6f",
-                       "name":  "Gold B",
-                       "targetPercentage":  "2.5"
-                   }
-               ],
-    "instruments":  [
-                        {
-                            "id":  "ins_055274f6",
-                            "name":  "Bitcoin P\u0026S 5139910",
-                            "value":  "5237",
-                            "investable":  true,
-                            "groupId":  "grp_43307589",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_08a47779",
-                            "name":  "MSCI EM 1159169",
-                            "value":  "112095",
-                            "investable":  true,
-                            "groupId":  "grp_58521ac8",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_2fadda9e",
-                            "name":  "MSCI EURO 1159094",
-                            "value":  "104086",
-                            "investable":  true,
-                            "groupId":  "grp_0756bb56",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_07a17717",
-                            "name":  "NASDAQ 1186063",
-                            "value":  "141519",
-                            "investable":  true,
-                            "groupId":  "grp_c2ecfa88",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_1abc5853",
-                            "name":  "Invesco S\u0026P 500 1183441",
-                            "value":  "0",
-                            "investable":  true,
-                            "groupId":  "sp500",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "SPX 500",
-                            "name":  "SPX 500 1159250",
-                            "value":  "0",
-                            "investable":  true,
-                            "groupId":  "sp500",
-                            "targetInGroupPercentage":  "0",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_43acc252",
-                            "name":  "SPBDUS3T 1157908",
-                            "value":  "224013",
-                            "investable":  true,
-                            "groupId":  "grp_9527c762",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_da912e74",
-                            "name":  "21Shares Ethereum Etf TETH (NYSE)",
-                            "value":  "8302",
-                            "investable":  true,
-                            "groupId":  "grp_73b46444",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_7c23ef56",
-                            "name":  "D4 5123211",
-                            "value":  "6820",
-                            "investable":  true,
-                            "groupId":  "grp_3fe5fbb4",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_9f6d66a1",
-                            "name":  "D5 5100961",
-                            "value":  "6793",
-                            "investable":  true,
-                            "groupId":  "grp_b51e6b6f",
-                            "targetInGroupPercentage":  "100",
-                            "currency":  "ILS"
-                        },
-                        {
-                            "id":  "ins_4ec3df30",
-                            "name":  "Keren Kaspit 5137732",
-                            "value":  "99275",
-                            "investable":  false,
-                            "targetInGroupPercentage":  "0",
-                            "currency":  "ILS"
-                        }
-                    ]
+{
+  "cash": {
+    "value": "354622",
+    "min_reserve": "1000",
+    "future_tax": "0"
+  },
+  "groups": [
+    {
+      "id": "grp_43307589",
+      "name": "Bitcoin",
+      "targetPercentage": "1"
+    },
+    {
+      "id": "grp_58521ac8",
+      "name": "Emerging markets",
+      "targetPercentage": "14"
+    },
+    {
+      "id": "grp_0756bb56",
+      "name": "Europe",
+      "targetPercentage": "14"
+    },
+    {
+      "id": "grp_c2ecfa88",
+      "name": "NASDAQ",
+      "targetPercentage": "20"
+    },
+    {
+      "id": "sp500",
+      "name": "S&P 500",
+      "targetPercentage": "25"
+    },
+    {
+      "id": "grp_9527c762",
+      "name": "Bonds",
+      "targetPercentage": "20"
+    },
+    {
+      "id": "grp_73b46444",
+      "name": "Ethereum",
+      "targetPercentage": "1"
+    },
+    {
+      "id": "grp_3fe5fbb4",
+      "name": "Gold A",
+      "targetPercentage": "2.5"
+    },
+    {
+      "id": "grp_b51e6b6f",
+      "name": "Gold B",
+      "targetPercentage": "2.5"
+    }
+  ],
+  "instruments": [
+    {
+      "id": "ins_055274f6",
+      "name": "Bitcoin P&S 5139910",
+      "value": "5237",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_43307589"
+    },
+    {
+      "id": "ins_08a47779",
+      "name": "MSCI EM 1159169",
+      "value": "112095",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_58521ac8"
+    },
+    {
+      "id": "ins_2fadda9e",
+      "name": "MSCI EURO 1159094",
+      "value": "104086",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_0756bb56"
+    },
+    {
+      "id": "ins_07a17717",
+      "name": "NASDAQ 1186063",
+      "value": "141519",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_c2ecfa88"
+    },
+    {
+      "id": "ins_1abc5853",
+      "name": "Invesco S&P 500 1183441",
+      "value": "0",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "sp500"
+    },
+    {
+      "id": "SPX 500",
+      "name": "SPX 500 1159250",
+      "value": "0",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "0",
+      "groupId": "sp500"
+    },
+    {
+      "id": "ins_43acc252",
+      "name": "SPBDUS3T 1157908",
+      "value": "224013",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_9527c762"
+    },
+    {
+      "id": "ins_da912e74",
+      "name": "21Shares Ethereum Etf TETH (NYSE)",
+      "value": "8302",
+      "currency": "USD",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_73b46444"
+    },
+    {
+      "id": "ins_7c23ef56",
+      "name": "D4 5123211",
+      "value": "6820",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_3fe5fbb4"
+    },
+    {
+      "id": "ins_9f6d66a1",
+      "name": "D5 5100961",
+      "value": "6793",
+      "currency": "ILS",
+      "investable": true,
+      "targetInGroupPercentage": "100",
+      "groupId": "grp_b51e6b6f"
+    },
+    {
+      "id": "ins_4ec3df30",
+      "name": "Keren Kaspit 5137732",
+      "value": "99275",
+      "currency": "ILS",
+      "investable": false,
+      "targetInGroupPercentage": "0"
+    }
+  ]
 }
-

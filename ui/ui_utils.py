@@ -60,6 +60,9 @@ def get_item_id(item: QTreeWidgetItem) -> str:
 
 def get_item_currency(item: QTreeWidgetItem) -> str:
     """Return stored instrument currency, defaulting to ILS."""
+    text_value = (item.text(Col.CURRENCY.value) or "").strip()
+    if text_value in ("ILS", "USD"):
+        return text_value
     raw = item.data(0, ROLE_CURRENCY)
     if raw in ("ILS", "USD"):
         return raw
@@ -85,6 +88,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
 
     for c in (
         Col.TOT_VALUE.value,
+        Col.CURRENCY.value,
         Col.PORTFOLIO_PCT.value,
         Col.STRATEGY_PCT.value,
         Col.DRIFT_PP.value,
@@ -113,6 +117,11 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             )
 
+    item.setTextAlignment(
+        Col.CURRENCY.value,
+        Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
+    )
+
     # Text left-aligned
     item.setTextAlignment(
         Col.NAME.value,
@@ -138,6 +147,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     )
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
+    gitem.setText(Col.CURRENCY.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
     gid = id_str.strip() or new_id("grp")
@@ -165,11 +175,13 @@ def add_instrument_item_to_group(
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
+    currency_value = currency if currency in ("ILS", "USD") else "ILS"
+    item.setText(Col.CURRENCY.value, currency_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
-    item.setData(0, ROLE_CURRENCY, currency if currency in ("ILS", "USD") else "ILS")
+    item.setData(0, ROLE_CURRENCY, currency_value)
 
     apply_row_alignment(item)
 
@@ -246,7 +258,7 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT:
-        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.TARGET_PCT.value)
+        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.CURRENCY.value, Col.TARGET_PCT.value)
 
     # bucket
     return False

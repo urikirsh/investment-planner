@@ -47,7 +47,7 @@ from portfolio_core.use_cases import (
 
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
-from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
+from ui.ui_types import RowKind, Col, ROLE_CURRENCY, ROLE_PREV_TEXT
 from ui.ui_utils import get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
 from ui.ui_utils import apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 from ui.portfolio_editor_adapter import (
@@ -193,6 +193,13 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if self._suppress_item_changed:
             return
 
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
+            raw = item.text(column).strip().upper()
+            if raw not in ("ILS", "USD"):
+                raw = "ILS"
+                item.setText(column, raw)
+            item.setData(0, ROLE_CURRENCY, raw)
+
         # Only business-rule validate relevant cells
         if get_item_kind(item) == RowKind.GROUP and column == Col.TARGET_PCT.value:
             if not self._validate_target_pct_cell_or_revert(item):
@@ -308,9 +315,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             for ins in data.get("instruments", []):
                 total += D(str(ins["value"]))
             total -= future_tax
-            self.total_label.setText(f"Total portfolio: {total}")
+            self.total_label.setText(f"Total portfolio (ILS): {total}")
         except Exception:
-            self.total_label.setText("Total portfolio: -")
+            self.total_label.setText("Total portfolio (ILS): -")
 
     def _on_invest_clicked(self) -> None:
         self._run_planning(mode=PlanningMode.INVEST)
@@ -461,7 +468,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if investable_balance < 0:
             investable_balance = D("0")
 
-        self.investable_balance_label.setText(f"Investable balance: {investable_balance}")
+        self.investable_balance_label.setText(f"Investable balance (ILS): {investable_balance}")
         if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
             self.investable_balance_label.setStyleSheet("color: #1b5e20;")
         else:
@@ -523,6 +530,10 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         kind = get_item_kind(item)
 
         if kind == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
+            parent = item.parent()
+            if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
+                return
+        if kind == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
             parent = item.parent()
             if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
                 return
