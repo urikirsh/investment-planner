@@ -3,7 +3,9 @@ from __future__ import annotations
 """Pytest configuration and shared fixtures for UI/widget test modules.
 
 This file centralizes Qt test setup so individual tests can focus on widget
-behavior rather than process-level initialization details.
+behavior rather than process-level initialization details. It also provides
+shared builders (`make_plan_step`, `make_buy_calculation`) for common UI test
+object setup.
 """
 
 import os
@@ -13,6 +15,7 @@ from decimal import Decimal
 import pytest
 from PySide6.QtWidgets import QApplication
 
+from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.use_cases import PlanStep
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
@@ -56,3 +59,28 @@ def make_plan_step() -> Callable[..., PlanStep]:
         )
 
     return _make_plan_step
+
+
+@pytest.fixture
+def make_buy_calculation() -> Callable[..., BuyCalculation]:
+    """Return a helper that builds ``BuyCalculation`` objects with sane defaults."""
+
+    def _make_buy_calculation(
+        *,
+        instrument_id: str = "i1",
+        price: str = "10",
+        planned_money: str = "100",
+        units: int = 10,
+        spent: str = "100",
+        leftover: str = "0",
+    ) -> BuyCalculation:
+        return BuyCalculation(
+            instrument_id=instrument_id,
+            price=Decimal(price),
+            planned_money=Decimal(planned_money),
+            units=units,
+            spent=Decimal(spent),
+            leftover=Decimal(leftover),
+        )
+
+    return _make_buy_calculation
