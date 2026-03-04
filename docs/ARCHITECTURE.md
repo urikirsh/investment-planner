@@ -40,7 +40,12 @@ Main user flow:
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
+  - owns transient FX orchestration for USD-priced steps:
+    - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
+    - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
   - handles transition back to main editor when wizard execution completes
+- `ui/currency_delegate.py`
+  - combo-box delegate for instrument currency editing in the main tree (`ILS`/`USD`)
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -56,7 +61,7 @@ Main user flow:
   - typed mutable workflow state shared by controller logic
   - `UnsavedChangesDecision`: typed save/discard/cancel prompt result
   - `PlanningState`: generated steps, active wizard index, and planning mode
-  - `WizardState`: per-step transient calculation cache
+  - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
 - `ui/screens/main_editor_screen.py`
   - screen 1 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
@@ -87,7 +92,11 @@ Main user flow:
 - `portfolio_core/calc_stock_units.py`
   - unit-level trade math:
     - agorot-to-ILS conversion and unit flooring (`calculate_buy_units`)
+    - direct ILS-price unit flooring (`calculate_buy_units_from_ils_price`)
     - immutable portfolio mutation helpers for buy/sell commits (`commit_buy`, `commit_sell`)
+- `portfolio_core/fx_service.py`
+  - Bank of Israel USD/ILS fetch boundary and response parsing
+  - normalizes BOI payload into a typed quote object used by wizard flow
 - `portfolio_core/portfolio_document.py`
   - in-memory editable document state:
     - current model

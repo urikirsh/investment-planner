@@ -3,7 +3,8 @@ Wizard screen UI.
 
 This module defines `WizardScreen`, the per-instrument execution view
 (screen 3) used after summary review. It provides layout and widget creation
-for step information, price entry, calculation feedback, and step actions.
+for step information, price entry, FX status/override inputs, calculation
+feedback, and step actions.
 
 All trade execution behavior is intentionally delegated to the coordinator.
 """
@@ -113,7 +114,22 @@ class WizardScreen(QWidget):
         manual_visible: bool,
         manual_value: str = "",
     ) -> None:
-        """Render USD FX status and manual-override controls."""
+        """
+        Render USD FX status and manual-override controls.
+
+        Parameters
+        ----------
+        visible:
+            Controls whether FX panel rows are shown at all.
+        info_text:
+            Informational FX text (rate/date/source and fallback notes).
+        error_text:
+            Error message displayed when official FX fetch fails.
+        manual_visible:
+            Whether manual USD/ILS override controls should be shown.
+        manual_value:
+            Optional prefilled override value.
+        """
         self.fx_info_label.setVisible(visible)
         self.fx_error_label.setVisible(visible)
         self.manual_rate_label.setVisible(visible and manual_visible)

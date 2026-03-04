@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+"""
+Bank of Israel FX service helpers.
+
+This module provides a narrow boundary for fetching and parsing the latest
+representative USD/ILS quote from the BOI public API.
+
+Design notes
+------------
+- Keeps HTTP/parsing concerns out of UI and planning modules.
+- Returns a typed quote object (`UsdIlsRateQuote`) for downstream use.
+- Treats BOI's latest published quote as authoritative; callers can decide
+  how to display "last published day" behavior in UX.
+"""
+
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -56,6 +70,18 @@ def fetch_latest_usd_ils_rate(*, timeout_seconds: float = 10.0, now: datetime | 
 
     If BOI has not published a rate for today (Israel time), the returned quote
     represents the latest published business-day rate.
+
+    Parameters
+    ----------
+    timeout_seconds:
+        HTTP timeout passed to `urlopen`.
+    now:
+        Optional injection point used by tests to control "today" comparison.
+
+    Raises
+    ------
+    ValueError
+        If BOI payload is missing expected fields or has invalid values.
     """
 
     with urlopen(BOI_EXCHANGE_RATES_URL, timeout=timeout_seconds) as response:

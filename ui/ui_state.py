@@ -82,11 +82,25 @@ class WizardState:
     last_calc:
         Latest units/spend calculation for the current step, or ``None`` when
         no calculation has been performed yet for the active step.
+    usd_ils_rate:
+        Cached BOI USD/ILS rate for the current wizard run, when fetch succeeds.
+    usd_ils_rate_date:
+        Effective date of `usd_ils_rate`.
+    usd_ils_source:
+        Source label displayed in wizard FX panel.
+    usd_ils_used_last_published:
+        Indicates that BOI returned a prior published business-day quote.
+    usd_ils_fetch_attempted:
+        Guard to ensure BOI fetch is attempted at most once per wizard run.
+    usd_ils_fetch_error:
+        Captured fetch/parsing error shown to the user when quote retrieval fails.
+    manual_override_usd_ils_rate:
+        User-entered USD/ILS override reused across USD steps in the same wizard run.
 
     Notes
     -----
-    `last_calc` is step-local transient state and should be reset when moving
-    to another wizard step.
+    All fields here are transient UI-only state and are never persisted to
+    the portfolio model/JSON.
     """
 
     last_calc: BuyCalculation | None = None

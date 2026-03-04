@@ -4,6 +4,10 @@ from __future__ import annotations
 
 This mixin encapsulates wizard screen wiring plus step calculation/save/advance
 behavior so `MainWindow` can remain focused on high-level orchestration.
+
+It also owns wizard-run-scoped FX handling for USD-priced instruments:
+- one-at-most BOI fetch attempt per run (only when USD steps exist)
+- manual USD/ILS override fallback (transient, never persisted)
 """
 
 from decimal import Decimal

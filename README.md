@@ -31,6 +31,7 @@ The application never executes trades automatically. All actions are explicit an
 ### Portfolio structure
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
+- Per-instrument `currency` (`ILS` or `USD`) for wizard price-entry semantics
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
@@ -55,8 +56,11 @@ The application never executes trades automatically. All actions are explicit an
   - `cash - minimal reserve - future tax` (floored at zero)
 - Step-by-step investment flow:
   - per-instrument allocation based on desired post-investment in-group targets
-  - price input exactly as shown in the broker (agorot)
-  - automatic conversion to ILS
+  - dynamic price input mode:
+    - `ILS` instruments: price entered in agorot
+    - `USD` instruments: price entered in USD
+  - USD/ILS conversion fetched from Bank of Israel representative rates (latest published)
+  - if official fetch fails, a temporary manual USD/ILS override can be entered in the wizard
   - integer unit calculation (rounded down)
 - Wizard actions:
   - Save and continue
@@ -69,6 +73,8 @@ The application never executes trades automatically. All actions are explicit an
 - Main screen shows your live investable balance, with color feedback:
   - green when you have enough to invest
   - gray when you do not
+- Main editor includes a `Currency` column (instrument rows) with dropdown editing
+- Wizard displays all planned/spent/proceeds amounts explicitly in ILS
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket
@@ -174,6 +180,7 @@ Notes:
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.
+- JSON files with or without UTF-8 BOM are supported on load.
 
 See [`example_portfolio.json`](example_portfolio.json) for a full synthetic example.
 

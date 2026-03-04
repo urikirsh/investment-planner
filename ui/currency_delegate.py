@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+"""Qt delegate for controlled instrument-currency editing."""
+
 from PySide6.QtCore import QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
 
 class CurrencyDelegate(QStyledItemDelegate):
-    """Dropdown editor delegate for instrument currency cells."""
+    """
+    Dropdown editor delegate for instrument currency cells.
+
+    Keeping currency choices in a delegate prevents free-text drift and keeps
+    cell editing aligned with domain validation constraints.
+    """
 
     _choices = ("ILS", "USD")
 
