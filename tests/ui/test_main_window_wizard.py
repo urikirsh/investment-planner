@@ -49,6 +49,10 @@ class _FakeWizardScreen:
     def __init__(self, price_label: _FakeLabel, price_edit: _FakeLineEdit) -> None:
         self._price_label = price_label
         self._price_edit = price_edit
+        self.fx_visible = False
+        self.fx_info_text = ""
+        self.fx_error_text = ""
+        self.manual_visible = False
 
     def set_price_mode(self, currency: str) -> None:
         if currency == "USD":
@@ -57,6 +61,23 @@ class _FakeWizardScreen:
             return
         self._price_label.setText("Price (Agorot):")
         self._price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
+
+    def set_fx_panel(
+        self,
+        *,
+        visible: bool,
+        info_text: str,
+        error_text: str,
+        manual_visible: bool,
+        manual_value: str = "",
+    ) -> None:
+        self.fx_visible = visible
+        self.fx_info_text = info_text
+        self.fx_error_text = error_text
+        self.manual_visible = manual_visible
+        if manual_visible and manual_value:
+            self._price_edit.setText(self._price_edit.text())
+        _ = manual_value
 
 
 class _FakeStack:
@@ -83,6 +104,7 @@ class _FakeHost(MainWindowWizardMixin):
     future_tax_edit: Any
     price_edit: Any
     price_label: Any
+    manual_rate_edit: Any
     wiz_info: Any
     wiz_result: Any
     _file_context_updates: int
@@ -91,7 +113,16 @@ class _FakeHost(MainWindowWizardMixin):
     def __init__(self, *, steps: list[PlanStep], step_index: int = 0, current_portfolio: object | None = object()) -> None:
         self.session = SimpleNamespace(document=SimpleNamespace(current_portfolio=current_portfolio))
         self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
-        self.wizard_state = SimpleNamespace(last_calc=SimpleNamespace(unused=True))
+        self.wizard_state = SimpleNamespace(
+            last_calc=None,
+            usd_ils_rate=None,
+            usd_ils_rate_date=None,
+            usd_ils_source=None,
+            usd_ils_used_last_published=False,
+            usd_ils_fetch_attempted=False,
+            usd_ils_fetch_error=None,
+            manual_override_usd_ils_rate=None,
+        )
         self.stack = _FakeStack()
         self.screen_main = object()
         self.tree = object()
@@ -99,6 +130,7 @@ class _FakeHost(MainWindowWizardMixin):
         self.cash_reserve_edit = object()
         self.future_tax_edit = object()
         self.price_edit = _FakeLineEdit()
+        self.manual_rate_edit = _FakeLineEdit()
         self.price_label = _FakeLabel()
         self.screen_wizard = _FakeWizardScreen(self.price_label, self.price_edit)
         self.wiz_info = _FakeLabel()
@@ -125,7 +157,7 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     host._show_current_wizard_step()
 
     assert "Step 1/1" in host.wiz_info.value
-    assert "Planned BUY value: 125" in host.wiz_info.value
+    assert "Planned BUY value (ILS): 125" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
     assert host.wiz_result.value == "Units: - | Spent/Proceeds: - | Leftover vs plan: -"
@@ -151,14 +183,18 @@ def test_wizard_calculate_sets_last_calc_and_result_text(
 
     assert calls == [{"instrument_id": "ins-1", "planned_money": Decimal("50"), "price_ag": Decimal("10")}]
     assert host.wizard_state.last_calc is fake_calc
-    assert host.wiz_result.value == "Units: 5 | Proceeds: 50 | Leftover vs plan: 0"
+    assert host.wiz_result.value == "Units: 5 | Proceeds (ILS): 50 | Leftover vs plan: 0"
 
 
 def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
     host.price_edit = _FakeLineEdit("10")
+    host.manual_rate_edit = _FakeLineEdit("")
     host.price_label = _FakeLabel()
     host.screen_wizard = _FakeWizardScreen(host.price_label, host.price_edit)
+    host.wizard_state.usd_ils_rate = Decimal("3.1")
+    host.wizard_state.usd_ils_source = "Bank of Israel"
+    host.wizard_state.usd_ils_rate_date = None
 
     host._show_current_wizard_step()
     host.price_edit.setText("10")
@@ -170,7 +206,87 @@ def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_pla
     assert host.wizard_state.last_calc.leftover == Decimal("19")
     assert host.price_label.value == "Price (USD):"
     assert "Converted: 10 USD x 3.1 = 31.0 ILS" in host.wiz_result.value
-    assert "Units: 1 | Spent: 31" in host.wiz_result.value
+    assert "Units: 1 | Spent (ILS): 31" in host.wiz_result.value
+
+
+def test_wizard_calculate_usd_uses_manual_override_when_fetch_failed(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.price_edit = _FakeLineEdit("10")
+    host.manual_rate_edit = _FakeLineEdit("3.2")
+    host.price_label = _FakeLabel()
+    host.screen_wizard = _FakeWizardScreen(host.price_label, host.price_edit)
+    host.wizard_state.usd_ils_fetch_error = "network"
+
+    host._show_current_wizard_step()
+    host.price_edit.setText("10")
+    host._wizard_calculate()
+
+    assert host.wizard_state.manual_override_usd_ils_rate == Decimal("3.2")
+    assert host.wizard_state.last_calc is not None
+    assert host.wizard_state.last_calc.spent == Decimal("32")
+
+
+def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.price_edit = _FakeLineEdit("10")
+    host.manual_rate_edit = _FakeLineEdit("")
+    host.wizard_state.usd_ils_fetch_error = "network"
+    errors: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: errors.append((t, m)))
+
+    host._wizard_calculate()
+
+    assert host.wizard_state.last_calc is None
+    assert errors
+    assert errors[0][0] == "Calculation failed"
+    assert "USD/ILS rate unavailable" in errors[0][1]
+
+
+def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    calls = 0
+
+    def fake_fetch_latest_usd_ils_rate():
+        nonlocal calls
+        calls += 1
+        return SimpleNamespace(
+            rate=Decimal("3.9"),
+            effective_date=SimpleNamespace(__str__=lambda: "2026-03-01"),
+            source="Bank of Israel",
+            used_last_published=False,
+        )
+
+    monkeypatch.setattr(wizard_mod, "fetch_latest_usd_ils_rate", fake_fetch_latest_usd_ils_rate)
+
+    host._prepare_wizard_fx_rate_cache()
+    host._prepare_wizard_fx_rate_cache()
+
+    assert calls == 1
+    assert host.wizard_state.usd_ils_rate == Decimal("3.9")
+
+
+def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="ILS")])
+    calls = 0
+
+    def fake_fetch_latest_usd_ils_rate():
+        nonlocal calls
+        calls += 1
+        raise AssertionError("should not be called")
+
+    monkeypatch.setattr(wizard_mod, "fetch_latest_usd_ils_rate", fake_fetch_latest_usd_ils_rate)
+
+    host._prepare_wizard_fx_rate_cache()
+
+    assert calls == 0
+    assert host.wizard_state.usd_ils_fetch_attempted is False
 
 
 def test_wizard_save_continue_uses_zero_when_no_last_calc(

@@ -49,6 +49,24 @@ class WizardScreen(QWidget):
         self.price_edit = QLineEdit()
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
         form_layout.addRow(self.price_label, self.price_edit)
+
+        self.fx_info_label = QLabel("")
+        self.fx_info_label.setWordWrap(True)
+        self.fx_info_label.setVisible(False)
+        form_layout.addRow(self.fx_info_label)
+
+        self.fx_error_label = QLabel("")
+        self.fx_error_label.setWordWrap(True)
+        self.fx_error_label.setStyleSheet("color: #b00020;")
+        self.fx_error_label.setVisible(False)
+        form_layout.addRow(self.fx_error_label)
+
+        self.manual_rate_label = QLabel("Manual USD/ILS rate:")
+        self.manual_rate_label.setVisible(False)
+        self.manual_rate_edit = QLineEdit()
+        self.manual_rate_edit.setPlaceholderText("e.g. 3.65")
+        self.manual_rate_edit.setVisible(False)
+        form_layout.addRow(self.manual_rate_label, self.manual_rate_edit)
         layout.addWidget(form)
 
         calc_row = QWidget(self)
@@ -85,3 +103,26 @@ class WizardScreen(QWidget):
 
         self.price_label.setText("Price (Agorot):")
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
+
+    def set_fx_panel(
+        self,
+        *,
+        visible: bool,
+        info_text: str,
+        error_text: str,
+        manual_visible: bool,
+        manual_value: str = "",
+    ) -> None:
+        """Render USD FX status and manual-override controls."""
+        self.fx_info_label.setVisible(visible)
+        self.fx_error_label.setVisible(visible)
+        self.manual_rate_label.setVisible(visible and manual_visible)
+        self.manual_rate_edit.setVisible(visible and manual_visible)
+
+        self.fx_info_label.setText(info_text)
+        self.fx_error_label.setText(error_text)
+
+        if manual_visible and manual_value:
+            self.manual_rate_edit.setText(manual_value)
+        elif not manual_visible:
+            self.manual_rate_edit.setText("")

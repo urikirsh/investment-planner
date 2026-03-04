@@ -28,6 +28,8 @@ Lifecycle
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
+from decimal import Decimal
 from enum import Enum
 
 from portfolio_core.calc_stock_units import BuyCalculation
@@ -88,3 +90,10 @@ class WizardState:
     """
 
     last_calc: BuyCalculation | None = None
+    usd_ils_rate: Decimal | None = None
+    usd_ils_rate_date: date | None = None
+    usd_ils_source: str | None = None
+    usd_ils_used_last_published: bool = False
+    usd_ils_fetch_attempted: bool = False
+    usd_ils_fetch_error: str | None = None
+    manual_override_usd_ils_rate: Decimal | None = None

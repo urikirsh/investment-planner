@@ -348,6 +348,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             self.planning_state.plan_steps = plan_result.steps
             self.planning_state.step_index = 0
             self.planning_state.mode = mode
+            self._reset_wizard_fx_state_for_new_run()
             self.wizard_state.last_calc = None
 
             self._populate_summary(plan_result.portfolio, plan_result.steps, mode)
@@ -399,6 +400,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             # Nothing to do -> go back to main
             self.stack.setCurrentWidget(self.screen_main)
             return
+        self._prepare_wizard_fx_rate_cache()
         self._show_current_wizard_step()
         self.stack.setCurrentWidget(self.screen_wizard)
 
