@@ -16,7 +16,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_types import Col
-from ui.ui_utils import DEFAULT_CURRENCY
+from ui.ui_utils import DEFAULT_CURRENCY, currency_choices
 
 
 def test_main_editor_screen_builds_expected_controls(qapp) -> None:
@@ -50,11 +50,12 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     screen = MainEditorScreen()
 
     assert "asset group or instrument name" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
-    assert "ils" in screen.tree.headerItem().toolTip(Col.TOT_VALUE.value).lower()
+    total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)
+    assert DEFAULT_CURRENCY.value in total_value_tooltip
     currency_tooltip = screen.tree.headerItem().toolTip(Col.CURRENCY.value)
     assert "wizard" in currency_tooltip.lower()
-    for currency in Currency:
-        assert currency.value in currency_tooltip
+    for currency_code in currency_choices():
+        assert currency_code in currency_tooltip
     assert f"default: {DEFAULT_CURRENCY.value}" in currency_tooltip
     assert "full portfolio value" in screen.tree.headerItem().toolTip(Col.PORTFOLIO_PCT.value).lower()
     assert "how far you are from your goal" in screen.tree.headerItem().toolTip(Col.DRIFT_PP.value).lower()

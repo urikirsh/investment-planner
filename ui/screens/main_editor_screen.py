@@ -141,7 +141,7 @@ class MainEditorScreen(QWidget):
         )
         header_item.setToolTip(
             Col.TOT_VALUE.value,
-            "Current value for this row in ILS.\n"
+            f"Current value for this row in {DEFAULT_CURRENCY.value}.\n"
             "For an asset group: sum of its instruments.\n"
             "For an instrument: the instrument's own value.",
         )
