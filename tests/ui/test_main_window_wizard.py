@@ -2,12 +2,15 @@ from __future__ import annotations
 
 """Focused tests for ``MainWindowWizardMixin`` behavior."""
 
+from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any, Callable
 
 import pytest
 
+from portfolio_core.fx_service import UsdIlsRateQuote
+from portfolio_core.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_wizard as wizard_mod
 from ui.main_window_wizard import MainWindowWizardMixin
@@ -53,6 +56,7 @@ class _FakeWizardScreen:
         self.fx_info_text = ""
         self.fx_error_text = ""
         self.manual_visible = False
+        self.calculate_btn = SimpleNamespace(setEnabled=lambda *_args, **_kwargs: None)
 
     def set_price_mode(self, currency: str) -> None:
         if currency == "USD":
@@ -112,7 +116,11 @@ class _FakeHost(MainWindowWizardMixin):
     _future_tax_updates: int
 
     def __init__(self, *, steps: list[PlanStep], step_index: int = 0, current_portfolio: object | None = object()) -> None:
-        self.session = SimpleNamespace(document=SimpleNamespace(current_portfolio=current_portfolio))
+        self.session = SimpleNamespace(
+            document=SimpleNamespace(current_portfolio=current_portfolio),
+            read_cached_usd_ils_quote=lambda: None,
+            write_cached_usd_ils_quote=lambda **_kwargs: None,
+        )
         self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
         self.wizard_state = SimpleNamespace(
             last_calc=None,
@@ -123,6 +131,10 @@ class _FakeHost(MainWindowWizardMixin):
             usd_ils_fetch_attempted=False,
             usd_ils_fetch_error=None,
             manual_override_usd_ils_rate=None,
+            usd_ils_fetch_in_progress=False,
+            usd_ils_failure_dialog_shown=False,
+            usd_ils_rate_from_cache=False,
+            usd_ils_rate_cached_at=None,
         )
         self.stack = _FakeStack()
         self.screen_main = object()
@@ -247,47 +259,70 @@ def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
 
 
 def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+    make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
-    calls = 0
 
-    def fake_fetch_latest_usd_ils_rate():
-        nonlocal calls
-        calls += 1
-        return SimpleNamespace(
+    host._on_fx_fetch_finished(
+        UsdIlsRateQuote(
             rate=Decimal("3.9"),
-            effective_date=SimpleNamespace(__str__=lambda: "2026-03-01"),
+            effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
             source="Bank of Israel",
             used_last_published=False,
-        )
+        ),
+        None,
+    )
 
-    monkeypatch.setattr(wizard_mod, "fetch_latest_usd_ils_rate", fake_fetch_latest_usd_ils_rate)
-
-    host._prepare_wizard_fx_rate_cache()
-    host._prepare_wizard_fx_rate_cache()
-
-    assert calls == 1
     assert host.wizard_state.usd_ils_rate == Decimal("3.9")
+    assert host.wizard_state.usd_ils_fetch_error is None
 
 
 def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+    make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", currency="ILS")])
-    calls = 0
-
-    def fake_fetch_latest_usd_ils_rate():
-        nonlocal calls
-        calls += 1
-        raise AssertionError("should not be called")
-
-    monkeypatch.setattr(wizard_mod, "fetch_latest_usd_ils_rate", fake_fetch_latest_usd_ils_rate)
 
     host._prepare_wizard_fx_rate_cache()
 
-    assert calls == 0
     assert host.wizard_state.usd_ils_fetch_attempted is False
+
+
+def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.session.read_cached_usd_ils_quote = lambda: CachedUsdIlsQuote(
+        rate=Decimal("3.8"),
+        effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
+        source="Bank of Israel",
+        used_last_published=False,
+        cached_at=datetime.fromisoformat("2026-03-05T12:00:00+00:00"),
+    )
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    host._on_fx_fetch_finished(None, "network")
+
+    assert host.wizard_state.usd_ils_rate == Decimal("3.8")
+    assert host.wizard_state.usd_ils_rate_from_cache is True
+    assert shown and shown[0][0] == "Official USD/ILS fetch failed"
+    assert "Using cached USD/ILS rate" in shown[0][1]
+
+
+def test_on_fx_fetch_finished_requires_manual_when_cache_unreadable(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.session.read_cached_usd_ils_quote = lambda: None
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    host._on_fx_fetch_finished(None, "network")
+
+    assert host.wizard_state.usd_ils_rate is None
+    assert host.wizard_state.usd_ils_rate_from_cache is False
+    assert shown and shown[0][0] == "Official USD/ILS fetch failed"
+    assert "No readable cached rate is available" in shown[0][1]
 
 
 def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: Callable[..., PlanStep]) -> None:

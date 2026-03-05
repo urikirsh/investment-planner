@@ -10,14 +10,16 @@ It also owns wizard-run-scoped FX handling for USD-priced instruments:
 - manual USD/ILS override fallback (transient, never persisted)
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import cast
 
+from PySide6.QtCore import QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
-from portfolio_core.fx_service import fetch_latest_usd_ils_rate
-from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
+from portfolio_core.portfolio_session import CachedUsdIlsQuote, PortfolioSession
 from portfolio_core.use_cases import apply_wizard_step
 from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
@@ -26,6 +28,24 @@ from ui.ui_state import PlanningState, WizardState
 from ui.ui_utils import d_from_text
 
 D = Decimal
+
+
+class _FxFetchWorker(QObject):
+    """Background BOI fetch worker."""
+
+    finished = Signal(object, object)  # (UsdIlsRateQuote | None, error_text | None)
+
+    def __init__(self, *, timeout_seconds: float = 10.0) -> None:
+        super().__init__()
+        self._timeout_seconds = timeout_seconds
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
+            self.finished.emit(quote, None)
+        except Exception as exc:
+            self.finished.emit(None, str(exc))
 
 
 class MainWindowWizardMixin:
@@ -52,6 +72,8 @@ class MainWindowWizardMixin:
     wiz_result: QLabel
     _non_investable_bucket_id: str
     _non_investable_bucket_title: str
+    _fx_fetch_thread: QThread | None
+    _fx_fetch_worker: _FxFetchWorker | None
 
     def _quit_app(self) -> None:
         """Quit the Qt application from wizard controls."""
@@ -77,6 +99,8 @@ class MainWindowWizardMixin:
         self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
+        self._fx_fetch_thread = None
+        self._fx_fetch_worker = None
 
     def _show_current_wizard_step(self) -> None:
         """Render current wizard step details and reset last calculation state."""
@@ -137,6 +161,8 @@ class MainWindowWizardMixin:
         """Return USD/ILS rate for current wizard run, with override fallback."""
         if self.wizard_state.usd_ils_rate is not None:
             return self.wizard_state.usd_ils_rate
+        if self.wizard_state.usd_ils_fetch_in_progress:
+            raise ValueError("Still fetching official USD/ILS rate (can take up to 10 seconds). Please wait.")
         if self.wizard_state.manual_override_usd_ils_rate is not None:
             return self.wizard_state.manual_override_usd_ils_rate
 
@@ -159,28 +185,96 @@ class MainWindowWizardMixin:
         return any(step.currency == "USD" for step in self.planning_state.plan_steps)
 
     def _prepare_wizard_fx_rate_cache(self) -> None:
-        """Fetch BOI USD/ILS once per wizard run when USD steps exist."""
+        """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed."""
         if self.wizard_state.usd_ils_fetch_attempted:
             return
         if not self._wizard_has_usd_steps():
             return
 
         self.wizard_state.usd_ils_fetch_attempted = True
-        try:
-            quote = fetch_latest_usd_ils_rate()
-        except Exception as exc:
-            self.wizard_state.usd_ils_fetch_error = str(exc)
-            self.wizard_state.usd_ils_rate = None
-            self.wizard_state.usd_ils_rate_date = None
-            self.wizard_state.usd_ils_source = None
-            self.wizard_state.usd_ils_used_last_published = False
+        self.wizard_state.usd_ils_fetch_in_progress = True
+        self.wizard_state.usd_ils_fetch_error = None
+
+        if hasattr(self, "screen_wizard"):
+            self._render_fx_panel_for_current_step()
+
+        parent = cast(QObject, self)
+        self._fx_fetch_thread = QThread(parent)
+        self._fx_fetch_worker = _FxFetchWorker(timeout_seconds=10.0)
+        self._fx_fetch_worker.moveToThread(self._fx_fetch_thread)
+        self._fx_fetch_thread.started.connect(self._fx_fetch_worker.run)
+        self._fx_fetch_worker.finished.connect(self._on_fx_fetch_finished)
+        self._fx_fetch_worker.finished.connect(self._fx_fetch_thread.quit)
+        self._fx_fetch_worker.finished.connect(self._fx_fetch_worker.deleteLater)
+        self._fx_fetch_thread.finished.connect(self._fx_fetch_thread.deleteLater)
+        self._fx_fetch_thread.start()
+
+    @Slot(object, object)
+    def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object) -> None:
+        """Handle completion of asynchronous BOI fetch."""
+        self.wizard_state.usd_ils_fetch_in_progress = False
+        self._fx_fetch_worker = None
+        self._fx_fetch_thread = None
+
+        quote = quote_obj if isinstance(quote_obj, UsdIlsRateQuote) else None
+        error_text = str(error_obj) if isinstance(error_obj, str) else ""
+
+        if quote is not None and not error_text:
+            self.wizard_state.usd_ils_rate = quote.rate
+            self.wizard_state.usd_ils_rate_date = quote.effective_date
+            self.wizard_state.usd_ils_source = quote.source
+            self.wizard_state.usd_ils_used_last_published = quote.used_last_published
+            self.wizard_state.usd_ils_fetch_error = None
+            self.wizard_state.usd_ils_rate_from_cache = False
+            self.wizard_state.usd_ils_rate_cached_at = None
+            try:
+                self.session.write_cached_usd_ils_quote(
+                    rate=quote.rate,
+                    effective_date=quote.effective_date,
+                    source=quote.source,
+                    used_last_published=quote.used_last_published,
+                )
+            except Exception:
+                pass
+            self._render_fx_panel_for_current_step()
             return
 
-        self.wizard_state.usd_ils_rate = quote.rate
-        self.wizard_state.usd_ils_rate_date = quote.effective_date
-        self.wizard_state.usd_ils_source = quote.source
-        self.wizard_state.usd_ils_used_last_published = quote.used_last_published
-        self.wizard_state.usd_ils_fetch_error = None
+        self.wizard_state.usd_ils_fetch_error = error_text or "Unknown fetch failure"
+        self.wizard_state.usd_ils_rate = None
+        self.wizard_state.usd_ils_rate_date = None
+        self.wizard_state.usd_ils_source = None
+        self.wizard_state.usd_ils_used_last_published = False
+        self.wizard_state.usd_ils_rate_from_cache = False
+        self.wizard_state.usd_ils_rate_cached_at = None
+
+        cached = self.session.read_cached_usd_ils_quote()
+        if isinstance(cached, CachedUsdIlsQuote):
+            self.wizard_state.usd_ils_rate = cached.rate
+            self.wizard_state.usd_ils_rate_date = cached.effective_date
+            self.wizard_state.usd_ils_source = f"{cached.source} (cached)"
+            self.wizard_state.usd_ils_used_last_published = cached.used_last_published
+            self.wizard_state.usd_ils_rate_from_cache = True
+            self.wizard_state.usd_ils_rate_cached_at = cached.cached_at
+
+        if not self.wizard_state.usd_ils_failure_dialog_shown:
+            self.wizard_state.usd_ils_failure_dialog_shown = True
+            if self.wizard_state.usd_ils_rate_from_cache:
+                show_error(
+                    cast(QWidget, self),
+                    "Official USD/ILS fetch failed",
+                    "Could not fetch official USD/ILS rate within 10 seconds.\n"
+                    f"Using cached USD/ILS rate: {self.wizard_state.usd_ils_rate} "
+                    f"(cached at: {self.wizard_state.usd_ils_rate_cached_at}).",
+                )
+            else:
+                show_error(
+                    cast(QWidget, self),
+                    "Official USD/ILS fetch failed",
+                    "Could not fetch official USD/ILS rate within 10 seconds.\n"
+                    "No readable cached rate is available. Enter manual USD/ILS rate to continue.",
+                )
+
+        self._render_fx_panel_for_current_step()
 
     def _reset_wizard_fx_state_for_new_run(self) -> None:
         """Reset transient USD/ILS state and clear manual FX input for a new run."""
@@ -191,6 +285,10 @@ class MainWindowWizardMixin:
         self.wizard_state.usd_ils_fetch_attempted = False
         self.wizard_state.usd_ils_fetch_error = None
         self.wizard_state.manual_override_usd_ils_rate = None
+        self.wizard_state.usd_ils_fetch_in_progress = False
+        self.wizard_state.usd_ils_failure_dialog_shown = False
+        self.wizard_state.usd_ils_rate_from_cache = False
+        self.wizard_state.usd_ils_rate_cached_at = None
         # Clear manual input widget to prevent value carry-over across runs.
         if hasattr(self, "manual_rate_edit"):
             self.manual_rate_edit.setText("")
@@ -201,6 +299,7 @@ class MainWindowWizardMixin:
             return
         s = self.planning_state.plan_steps[self.planning_state.step_index]
         if s.currency != "USD":
+            self.screen_wizard.calculate_btn.setEnabled(True)
             self.screen_wizard.set_fx_panel(
                 visible=False,
                 info_text="",
@@ -210,6 +309,9 @@ class MainWindowWizardMixin:
             return
 
         info_lines: list[str] = []
+        if self.wizard_state.usd_ils_fetch_in_progress:
+            info_lines.append("Fetching official USD/ILS rate (can take up to 10 seconds)...")
+
         if self.wizard_state.usd_ils_rate is not None:
             info_lines.append(
                 f"USD/ILS rate: {self.wizard_state.usd_ils_rate} | "
@@ -218,6 +320,10 @@ class MainWindowWizardMixin:
             )
             if self.wizard_state.usd_ils_used_last_published:
                 info_lines.append("No new official rate for today; using last published rate.")
+            if self.wizard_state.usd_ils_rate_from_cache:
+                info_lines.append(
+                    f"Official fetch failed. Using cached rate saved at: {self.wizard_state.usd_ils_rate_cached_at}."
+                )
 
         if self.wizard_state.manual_override_usd_ils_rate is not None:
             info_lines.append(f"Using manual override USD/ILS rate: {self.wizard_state.manual_override_usd_ils_rate}")
@@ -225,21 +331,26 @@ class MainWindowWizardMixin:
         error_text = self.wizard_state.usd_ils_fetch_error or ""
         if error_text:
             error_text = (
-                f"Could not fetch official USD/ILS rate ({error_text}). "
-                "Enter manual USD/ILS rate."
+                f"Official USD/ILS fetch failed after up to 10 seconds ({error_text}). "
+                + (
+                    "Using cached rate shown above."
+                    if self.wizard_state.usd_ils_rate_from_cache
+                    else "No readable cached rate available. Enter manual USD/ILS rate."
+                )
             )
 
+        self.screen_wizard.calculate_btn.setEnabled(not self.wizard_state.usd_ils_fetch_in_progress)
         self.screen_wizard.set_fx_panel(
             visible=True,
             info_text="\n".join(info_lines),
             error_text=error_text,
-            manual_visible=bool(error_text),
+            manual_visible=bool(error_text and not self.wizard_state.usd_ils_rate_from_cache),
             manual_value=(
                 str(self.wizard_state.manual_override_usd_ils_rate)
                 if self.wizard_state.manual_override_usd_ils_rate is not None
                 else ""
             ),
-        )
+            )
 
     def _wizard_save_continue(self) -> None:
         """Apply current step trade (if valid), persist, and move to next step."""

@@ -9,6 +9,7 @@ use-case orchestration around `PortfolioSession`.
 
 import pytest
 import json
+from datetime import date
 
 from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
 from portfolio_core.planning_types import PlanningMode
@@ -95,6 +96,27 @@ def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
     doc = PortfolioDocument()
     with pytest.raises(ValueError, match="No current portfolio to save"):
         doc.save_to_path(tmp_path / "x.json")
+
+
+def test_portfolio_session_persists_and_reads_cached_usd_ils_quote(tmp_path):
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target_path = tmp_path / "portfolio.json"
+    target_path.write_text("{}", encoding="utf-8")
+    session.set_active_file_path(target_path)
+
+    session.write_cached_usd_ils_quote(
+        rate=D("3.77"),
+        effective_date=date.fromisoformat("2026-03-05"),
+        source="Bank of Israel (representative)",
+        used_last_published=False,
+    )
+
+    reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    assert reloaded.resolve_startup_path() == target_path
+    cached = reloaded.read_cached_usd_ils_quote()
+    assert cached is not None
+    assert cached.rate == D("3.77")
+    assert str(cached.effective_date) == "2026-03-05"
 
 
 def test_build_default_portfolio_returns_valid_portfolio():

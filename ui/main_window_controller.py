@@ -400,9 +400,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             # Nothing to do -> go back to main
             self.stack.setCurrentWidget(self.screen_main)
             return
-        self._prepare_wizard_fx_rate_cache()
         self._show_current_wizard_step()
         self.stack.setCurrentWidget(self.screen_wizard)
+        self._prepare_wizard_fx_rate_cache()
 
     def _summary_back(self) -> None:
         """Return from summary screen to main editor."""

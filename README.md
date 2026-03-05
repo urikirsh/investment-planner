@@ -60,7 +60,11 @@ The application never executes trades automatically. All actions are explicit an
     - `ILS` instruments: price entered in agorot
     - `USD` instruments: price entered in USD
   - USD/ILS conversion fetched from Bank of Israel representative rates (latest published)
+  - fetch runs in the background and can take up to 10 seconds; wizard opens immediately
+  - during fetch, USD-step `Calculate` is disabled with a visible loading notice
   - if official fetch fails, a temporary manual USD/ILS override can be entered in the wizard
+  - if official fetch fails but a readable cached rate exists, the cached rate is used and its cache timestamp is shown
+  - if official fetch fails and cached rate is unavailable/unreadable, wizard prompts for manual USD/ILS input
   - integer unit calculation (rounded down)
 - Wizard actions:
   - Save and continue

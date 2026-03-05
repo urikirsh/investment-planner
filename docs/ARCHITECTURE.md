@@ -42,6 +42,8 @@ Main user flow:
   - wizard screen wiring and per-step calculate/save/advance behavior
   - owns transient FX orchestration for USD-priced steps:
     - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
+    - non-blocking background BOI fetch (wizard opens immediately)
+    - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
   - handles transition back to main editor when wizard execution completes
 - `ui/currency_delegate.py`
@@ -105,6 +107,7 @@ Main user flow:
     - dirty-state detection
 - `portfolio_core/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
+  - persists/reads cached last successful USD/ILS quote in the same user config
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder
 - `portfolio_core/use_cases.py`

@@ -28,7 +28,7 @@ Lifecycle
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
@@ -96,6 +96,14 @@ class WizardState:
         Captured fetch/parsing error shown to the user when quote retrieval fails.
     manual_override_usd_ils_rate:
         User-entered USD/ILS override reused across USD steps in the same wizard run.
+    usd_ils_fetch_in_progress:
+        True while background BOI fetch is active (can take up to 10 seconds).
+    usd_ils_failure_dialog_shown:
+        Guard to show loud fetch-failure modal at most once per wizard run.
+    usd_ils_rate_from_cache:
+        True when the effective rate currently comes from local cache.
+    usd_ils_rate_cached_at:
+        Timestamp when the cached rate was stored locally.
 
     Notes
     -----
@@ -111,3 +119,7 @@ class WizardState:
     usd_ils_fetch_attempted: bool = False
     usd_ils_fetch_error: str | None = None
     manual_override_usd_ils_rate: Decimal | None = None
+    usd_ils_fetch_in_progress: bool = False
+    usd_ils_failure_dialog_shown: bool = False
+    usd_ils_rate_from_cache: bool = False
+    usd_ils_rate_cached_at: datetime | None = None
