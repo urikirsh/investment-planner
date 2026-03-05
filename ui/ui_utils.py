@@ -28,6 +28,7 @@ D = Decimal
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
+BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
 
 
 def currency_choices() -> tuple[str, ...]:

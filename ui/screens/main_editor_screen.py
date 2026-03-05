@@ -30,6 +30,7 @@ from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.currency_delegate import CurrencyDelegate
 from ui.tree_widget import InvestmentTreeWidget
 from ui.ui_types import Col
+from ui.ui_utils import BASE_CURRENCY_SUFFIX
 
 
 class MainEditorScreen(QWidget):
@@ -62,23 +63,23 @@ class MainEditorScreen(QWidget):
         cash_box = QWidget(self)
         cash_layout = QHBoxLayout(cash_box)
 
-        cash_layout.addWidget(QLabel("Cash value (ILS):"))
+        cash_layout.addWidget(QLabel(f"Cash value {BASE_CURRENCY_SUFFIX}:"))
         self.cash_value_edit = QLineEdit()
         self.cash_value_edit.setPlaceholderText("e.g. 1000")
         cash_layout.addWidget(self.cash_value_edit)
 
-        cash_layout.addWidget(QLabel("Minimal cash reserve (ILS):"))
+        cash_layout.addWidget(QLabel(f"Minimal cash reserve {BASE_CURRENCY_SUFFIX}:"))
         self.cash_reserve_edit = QLineEdit()
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
         cash_layout.addWidget(self.cash_reserve_edit)
 
-        cash_layout.addWidget(QLabel("Future tax (ILS):"))
+        cash_layout.addWidget(QLabel(f"Future tax {BASE_CURRENCY_SUFFIX}:"))
         self.future_tax_edit = QLineEdit()
         self.future_tax_edit.setPlaceholderText("e.g. 0")
         self.future_tax_edit.setText("0")
         cash_layout.addWidget(self.future_tax_edit)
 
-        self.investable_balance_label = QLabel("Investable balance (ILS): 0")
+        self.investable_balance_label = QLabel(f"Investable balance {BASE_CURRENCY_SUFFIX}: 0")
         cash_layout.addWidget(self.investable_balance_label)
 
         cash_layout.addStretch(1)
@@ -190,7 +191,7 @@ class MainEditorScreen(QWidget):
     def _build_totals_row(self) -> QWidget:
         totals = QWidget(self)
         totals_layout = QHBoxLayout(totals)
-        self.total_label = QLabel("Total portfolio (ILS): -")
+        self.total_label = QLabel(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
         totals_layout.addWidget(self.total_label)
         totals_layout.addStretch(1)
         return totals

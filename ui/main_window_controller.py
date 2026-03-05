@@ -50,6 +50,7 @@ from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.ui_types import RowKind, Col, ROLE_CURRENCY, ROLE_PREV_TEXT
 from ui.ui_utils import (
+    BASE_CURRENCY_SUFFIX,
     DEFAULT_CURRENCY,
     add_instrument_item_to_group,
     get_item_kind,
@@ -338,9 +339,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             for ins in data.get("instruments", []):
                 total += D(str(ins["value"]))
             total -= future_tax
-            self.total_label.setText(f"Total portfolio (ILS): {total}")
+            self.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
         except Exception:
-            self.total_label.setText("Total portfolio (ILS): -")
+            self.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
     def _on_invest_clicked(self) -> None:
         self._run_planning(mode=PlanningMode.INVEST)
@@ -497,7 +498,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if investable_balance < 0:
             investable_balance = D("0")
 
-        self.investable_balance_label.setText(f"Investable balance (ILS): {investable_balance}")
+        self.investable_balance_label.setText(f"Investable balance {BASE_CURRENCY_SUFFIX}: {investable_balance}")
         if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
             self.investable_balance_label.setStyleSheet("color: #1b5e20;")
         else:

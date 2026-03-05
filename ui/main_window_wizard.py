@@ -28,7 +28,7 @@ from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, WizardState
-from ui.ui_utils import d_from_text
+from ui.ui_utils import BASE_CURRENCY_SUFFIX, d_from_text
 
 D = Decimal
 
@@ -122,7 +122,7 @@ class MainWindowWizardMixin:
             f"Step {idx}/{total}\n"
             f"Asset group: {s.asset_group_name}\n"
             f"Instrument: {s.instrument_name}\n"
-            f"Planned {action} value (ILS): {abs(s.planned_delta_money)}"
+            f"Planned {action} value {BASE_CURRENCY_SUFFIX}: {abs(s.planned_delta_money)}"
         )
         if hasattr(self, "screen_wizard"):
             self.screen_wizard.set_price_mode(s.currency)
@@ -159,7 +159,11 @@ class MainWindowWizardMixin:
                 )
             self.wizard_state.last_calc = calc
 
-            label_money = "Spent (ILS)" if s.planned_delta_money > 0 else "Proceeds (ILS)"
+            label_money = (
+                f"Spent {BASE_CURRENCY_SUFFIX}"
+                if s.planned_delta_money > 0
+                else f"Proceeds {BASE_CURRENCY_SUFFIX}"
+            )
             self.wiz_result.setText(
                 f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
             )
