@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Qt delegate for controlled instrument-currency editing."""
 
-from PySide6.QtCore import QModelIndex, QPersistentModelIndex
+from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
 
@@ -38,11 +38,9 @@ class CurrencyDelegate(QStyledItemDelegate):
     def setModelData(
         self,
         editor: QWidget,
-        model: object,
+        model: QAbstractItemModel,
         index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         if not isinstance(editor, QComboBox):
             return
-        # Qt model has setData; keep typed loosely to avoid importing Qt model classes.
-        if hasattr(model, "setData"):
-            model.setData(index, editor.currentText())  # type: ignore[attr-defined]
+        model.setData(index, editor.currentText())

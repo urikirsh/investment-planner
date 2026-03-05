@@ -64,7 +64,7 @@ def get_item_currency(item: QTreeWidgetItem) -> str:
     if text_value in ("ILS", "USD"):
         return text_value
     raw = item.data(0, ROLE_CURRENCY)
-    if raw in ("ILS", "USD"):
+    if isinstance(raw, str) and raw in ("ILS", "USD"):
         return raw
     return "ILS"
 

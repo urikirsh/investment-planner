@@ -98,6 +98,7 @@ class _FakeHost(MainWindowWizardMixin):
     wizard_state: Any
     stack: Any
     screen_main: Any
+    screen_wizard: Any
     tree: Any
     cash_value_edit: Any
     cash_reserve_edit: Any

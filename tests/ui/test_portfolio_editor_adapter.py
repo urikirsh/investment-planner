@@ -166,6 +166,7 @@ def test_edited_currency_persists_through_adapter_save_load_cycle(qapp) -> None:
     )
 
     group1 = screen.tree.topLevelItem(0)
+    assert group1 is not None
     investable = group1.child(0)
     investable.setText(Col.CURRENCY.value, "USD")
 
