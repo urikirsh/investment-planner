@@ -71,7 +71,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "65",
                             "groupId":  "grp_7a17a4c9",
-                            "currency":  "ILS"
+                            "currency":  "USD"
                         },
                         {
                             "id":  "ins_43acc252",
@@ -128,4 +128,3 @@
                         }
                     ]
 }
-
