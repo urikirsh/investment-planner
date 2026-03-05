@@ -127,57 +127,8 @@ python investment_planner.py
 
 ## Data file format
 
-The app reads and writes a JSON portfolio file with this shape:
-
-```json
-{
-  "cash": {
-    "value": "12000",
-    "min_reserve": "2000",
-    "future_tax": "0"
-  },
-  "groups": [
-    {
-      "id": "g_equity",
-      "name": "Global Equity",
-      "targetPercentage": "70"
-    },
-    {
-      "id": "g_bonds",
-      "name": "Bonds",
-      "targetPercentage": "30"
-    }
-  ],
-  "instruments": [
-    {
-      "id": "i_world_etf",
-      "name": "World ETF",
-      "value": "8000",
-      "currency": "ILS",
-      "investable": true,
-      "groupId": "g_equity",
-      "targetInGroupPercentage": "100"
-    },
-    {
-      "id": "i_bond_fund",
-      "name": "Bond Fund",
-      "value": "3000",
-      "currency": "USD",
-      "investable": true,
-      "groupId": "g_bonds",
-      "targetInGroupPercentage": "100"
-    },
-    {
-      "id": "i_legacy_holding",
-      "name": "Legacy Holding",
-      "value": "1200",
-      "currency": "ILS",
-      "investable": false,
-      "targetInGroupPercentage": "0"
-    }
-  ]
-}
-```
+The app reads and writes a JSON portfolio file. The canonical schema/example is
+maintained in [`example_portfolio.json`](example_portfolio.json).
 
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
@@ -186,8 +137,6 @@ Notes:
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.
 - JSON files with or without UTF-8 BOM are supported on load.
-
-See [`example_portfolio.json`](example_portfolio.json) for a full synthetic example.
 
 ---
 
