@@ -130,12 +130,11 @@ class PortfolioSession:
         raw_rate = payload.get("rate")
         raw_effective_date = payload.get("effective_date")
         raw_cached_at = payload.get("cached_at")
-        raw_source = payload.get("source")
         raw_last_published = payload.get("used_last_published")
 
         if not isinstance(raw_rate, str) or not isinstance(raw_effective_date, str):
             return None
-        if not isinstance(raw_cached_at, str) or not isinstance(raw_source, str):
+        if not isinstance(raw_cached_at, str):
             return None
 
         try:
@@ -160,7 +159,6 @@ class PortfolioSession:
         return CachedUsdIlsQuote(
             rate=rate,
             effective_date=effective_date,
-            source=raw_source,
             used_last_published=bool(raw_last_published),
             cached_at=cached_at,
         )
@@ -170,7 +168,6 @@ class PortfolioSession:
         *,
         rate: Decimal,
         effective_date: date,
-        source: str,
         used_last_published: bool,
         cached_at: datetime | None = None,
     ) -> None:
@@ -187,7 +184,6 @@ class PortfolioSession:
         payload["last_usd_ils_quote"] = {
             "rate": str(rate),
             "effective_date": effective_date.isoformat(),
-            "source": source,
             "used_last_published": bool(used_last_published),
             "cached_at": now.isoformat(),
         }
@@ -242,13 +238,11 @@ class CachedUsdIlsQuote:
     Fields:
     - `rate`: quote numeric value
     - `effective_date`: BOI quote effective date
-    - `source`: human-readable source label
     - `used_last_published`: whether BOI fell back to latest published day
     - `cached_at`: local timestamp when cache was written
     """
 
     rate: Decimal
     effective_date: date
-    source: str
     used_last_published: bool
     cached_at: datetime

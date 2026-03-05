@@ -107,7 +107,6 @@ def test_portfolio_session_persists_and_reads_cached_usd_ils_quote(tmp_path):
     session.write_cached_usd_ils_quote(
         rate=D("3.77"),
         effective_date=date.fromisoformat("2026-03-05"),
-        source="Bank of Israel (representative)",
         used_last_published=False,
     )
 

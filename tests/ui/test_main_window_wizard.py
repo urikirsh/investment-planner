@@ -126,7 +126,6 @@ class _FakeHost(MainWindowWizardMixin):
             last_calc=None,
             usd_ils_rate=None,
             usd_ils_rate_date=None,
-            usd_ils_source=None,
             usd_ils_used_last_published=False,
             usd_ils_fetch_attempted=False,
             usd_ils_fetch_error=None,
@@ -210,7 +209,6 @@ def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_pla
     host.price_label = _FakeLabel()
     host.screen_wizard = _FakeWizardScreen(host.price_label, host.price_edit)
     host.wizard_state.usd_ils_rate = Decimal("3.1")
-    host.wizard_state.usd_ils_source = "Bank of Israel"
     host.wizard_state.usd_ils_rate_date = None
 
     host._show_current_wizard_step()
@@ -313,7 +311,6 @@ def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
     host.session.read_cached_usd_ils_quote = lambda: CachedUsdIlsQuote(
         rate=Decimal("3.8"),
         effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
-        source="Bank of Israel",
         used_last_published=False,
         cached_at=datetime.fromisoformat("2026-03-05T12:00:00+00:00"),
     )

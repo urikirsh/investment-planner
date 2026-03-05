@@ -269,7 +269,6 @@ class MainWindowWizardMixin:
         if quote is not None and not error_text:
             self.wizard_state.usd_ils_rate = quote.rate
             self.wizard_state.usd_ils_rate_date = quote.effective_date
-            self.wizard_state.usd_ils_source = quote.source
             self.wizard_state.usd_ils_used_last_published = quote.used_last_published
             self.wizard_state.usd_ils_fetch_error = None
             self.wizard_state.usd_ils_rate_from_cache = False
@@ -278,7 +277,6 @@ class MainWindowWizardMixin:
                 self.session.write_cached_usd_ils_quote(
                     rate=quote.rate,
                     effective_date=quote.effective_date,
-                    source=quote.source,
                     used_last_published=quote.used_last_published,
                 )
             except Exception:
@@ -289,7 +287,6 @@ class MainWindowWizardMixin:
         self.wizard_state.usd_ils_fetch_error = error_text or "Unknown fetch failure"
         self.wizard_state.usd_ils_rate = None
         self.wizard_state.usd_ils_rate_date = None
-        self.wizard_state.usd_ils_source = None
         self.wizard_state.usd_ils_used_last_published = False
         self.wizard_state.usd_ils_rate_from_cache = False
         self.wizard_state.usd_ils_rate_cached_at = None
@@ -298,7 +295,6 @@ class MainWindowWizardMixin:
         if isinstance(cached, CachedUsdIlsQuote):
             self.wizard_state.usd_ils_rate = cached.rate
             self.wizard_state.usd_ils_rate_date = cached.effective_date
-            self.wizard_state.usd_ils_source = f"{cached.source} (cached)"
             self.wizard_state.usd_ils_used_last_published = cached.used_last_published
             self.wizard_state.usd_ils_rate_from_cache = True
             self.wizard_state.usd_ils_rate_cached_at = cached.cached_at
@@ -333,7 +329,6 @@ class MainWindowWizardMixin:
             return False
         self.wizard_state.usd_ils_rate = None
         self.wizard_state.usd_ils_rate_date = None
-        self.wizard_state.usd_ils_source = None
         self.wizard_state.usd_ils_used_last_published = False
         self.wizard_state.usd_ils_fetch_attempted = False
         self.wizard_state.usd_ils_fetch_error = None
@@ -374,7 +369,7 @@ class MainWindowWizardMixin:
 
         For USD steps this method is the single source of truth for:
         - loading message ("can take up to 10 seconds"),
-        - official/cached/manual source disclosures,
+        - official/cached/manual rate disclosures,
         - whether calculate is temporarily disabled,
         - whether manual override controls should be shown.
         """
@@ -398,8 +393,7 @@ class MainWindowWizardMixin:
         if self.wizard_state.usd_ils_rate is not None:
             info_lines.append(
                 f"USD/ILS rate: {self.wizard_state.usd_ils_rate} | "
-                f"Effective date: {self.wizard_state.usd_ils_rate_date} | "
-                f"Source: {self.wizard_state.usd_ils_source}"
+                f"Effective date: {self.wizard_state.usd_ils_rate_date}"
             )
             if self.wizard_state.usd_ils_used_last_published:
                 info_lines.append("No new official rate for today; using last published rate.")

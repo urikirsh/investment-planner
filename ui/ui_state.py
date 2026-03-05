@@ -87,8 +87,6 @@ class WizardState:
         Cached BOI USD/ILS rate for the current wizard run, when fetch succeeds.
     usd_ils_rate_date:
         Effective date of `usd_ils_rate`.
-    usd_ils_source:
-        Source label displayed in wizard FX panel.
     usd_ils_used_last_published:
         Indicates that BOI returned a prior published business-day quote.
     usd_ils_fetch_attempted:
@@ -119,7 +117,6 @@ class WizardState:
     last_calc: BuyCalculation | None = None
     usd_ils_rate: Decimal | None = None
     usd_ils_rate_date: date | None = None
-    usd_ils_source: str | None = None
     usd_ils_used_last_published: bool = False
     usd_ils_fetch_attempted: bool = False
     usd_ils_fetch_error: str | None = None
