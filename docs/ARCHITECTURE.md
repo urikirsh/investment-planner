@@ -41,14 +41,16 @@ Main user flow:
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
-  - owns transient FX orchestration for USD-priced steps:
+  - handles transition back to main editor when wizard execution completes
+- `ui/wizard_fx_coordinator.py`
+  - extracted FX-only coordinator used by `MainWindowWizardMixin`
+  - owns transient USD/ILS FX orchestration for wizard runs:
     - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
     - non-blocking background BOI fetch (wizard opens immediately)
     - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
     - generation-token guard so stale async completions are ignored
     - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
-  - handles transition back to main editor when wizard execution completes
 - `ui/currency_delegate.py`
   - combo-box delegate for instrument currency editing in the main tree (`ILS`/`USD`)
 - `ui/portfolio_editor_adapter.py`
