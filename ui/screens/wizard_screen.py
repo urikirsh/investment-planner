@@ -7,7 +7,7 @@ for step information, price entry, FX status/override inputs, calculation
 feedback, and step actions.
 
 Price-entry semantics:
-- non-USD steps use agorot input (`Price (Agorot)`), matching
+- ILS steps use agorot input (`Price (Agorot)`), matching
   `portfolio_core.calc_stock_units.calculate_buy_units`.
 - USD steps use USD unit-price input (`Price (USD)`), with conversion handled
   by the wizard FX coordinator before calculation.
