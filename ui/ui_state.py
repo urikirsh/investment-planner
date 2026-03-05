@@ -19,8 +19,9 @@ Lifecycle
 ---------
 - `PlanningState` is updated when a new plan is generated and while navigating
   summary/wizard steps.
-- `WizardState` is reset per step and stores only the latest calculation
-  relevant to the active step.
+- `WizardState` is reset per wizard run and stores:
+  - step-local transient calculation output, and
+  - run-scoped USD/ILS fetch/cache/failure state for USD-priced steps.
 - `UnsavedChangesDecision` encodes save/discard/cancel outcomes for
   unsaved-changes confirmation flows.
 """

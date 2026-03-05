@@ -20,6 +20,7 @@ This module centralizes:
 - startup path resolution from global user config
 - a PortfolioDocument with current portfolio model, active file path,
   saved snapshot, and dirty-state
+- config-backed cache for last successful USD/ILS quote (used by wizard fallback)
 - building the minimal default in-memory portfolio
 
 Important startup behavior:
@@ -91,7 +92,13 @@ class PortfolioSession:
         self._write_config_payload(payload)
 
     def _read_config_payload(self) -> dict[str, Any]:
-        """Best-effort read of full session config payload."""
+        """Best-effort read of full session config payload.
+
+        The payload currently stores (when available):
+        - `last_portfolio_path`: absolute path string for startup restore
+        - `last_usd_ils_quote`: last successful BOI quote cache used for
+          wizard fallback when network fetch fails
+        """
         if not self._config_path.exists():
             return {}
         try:
@@ -111,7 +118,11 @@ class PortfolioSession:
         )
 
     def read_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
-        """Read last successful USD/ILS quote cache from session config."""
+        """Read last successful USD/ILS quote cache from session config.
+
+        Returns ``None`` for any missing/corrupt/incomplete payload so callers
+        can treat cache as optional and fail soft to manual entry.
+        """
         payload = self._read_config_payload().get("last_usd_ils_quote")
         if not isinstance(payload, dict):
             return None
@@ -163,7 +174,11 @@ class PortfolioSession:
         used_last_published: bool,
         cached_at: datetime | None = None,
     ) -> None:
-        """Persist last successful USD/ILS quote cache to session config."""
+        """Persist last successful USD/ILS quote cache to session config.
+
+        This intentionally writes only successful official fetches. Manual
+        overrides are transient wizard state and are never persisted.
+        """
         now = cached_at or datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
@@ -222,7 +237,15 @@ class PortfolioSession:
 
 @dataclass(frozen=True)
 class CachedUsdIlsQuote:
-    """Typed representation of cached USD/ILS quote stored in config."""
+    """Typed representation of cached USD/ILS quote stored in config.
+
+    Fields:
+    - `rate`: quote numeric value
+    - `effective_date`: BOI quote effective date
+    - `source`: human-readable source label
+    - `used_last_published`: whether BOI fell back to latest published day
+    - `cached_at`: local timestamp when cache was written
+    """
 
     rate: Decimal
     effective_date: date

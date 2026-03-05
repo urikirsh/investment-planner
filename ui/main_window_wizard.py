@@ -7,6 +7,8 @@ behavior so `MainWindow` can remain focused on high-level orchestration.
 
 It also owns wizard-run-scoped FX handling for USD-priced instruments:
 - one-at-most BOI fetch attempt per run (only when USD steps exist)
+- non-blocking BOI fetch (up to 10s timeout) so wizard transition never blocks
+- loud failure UX on fetch error, with cache fallback when available
 - manual USD/ILS override fallback (transient, never persisted)
 """
 
@@ -31,7 +33,12 @@ D = Decimal
 
 
 class _FxFetchWorker(QObject):
-    """Background BOI fetch worker."""
+    """Background BOI fetch worker.
+
+    Runs inside a dedicated `QThread` and emits a single completion signal with:
+    - parsed quote object on success, or
+    - human-readable error text on failure.
+    """
 
     finished = Signal(object, object)  # (UsdIlsRateQuote | None, error_text | None)
 
@@ -185,7 +192,13 @@ class MainWindowWizardMixin:
         return any(step.currency == "USD" for step in self.planning_state.plan_steps)
 
     def _prepare_wizard_fx_rate_cache(self) -> None:
-        """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed."""
+        """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed.
+
+        This method is intentionally side-effectful for UI responsiveness:
+        - marks fetch as in-progress immediately,
+        - renders loading state in the wizard,
+        - starts worker thread and returns without blocking.
+        """
         if self.wizard_state.usd_ils_fetch_attempted:
             return
         if not self._wizard_has_usd_steps():
@@ -211,7 +224,19 @@ class MainWindowWizardMixin:
 
     @Slot(object, object)
     def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object) -> None:
-        """Handle completion of asynchronous BOI fetch."""
+        """Handle completion of asynchronous BOI fetch.
+
+        Success path:
+        - stores official quote in run state,
+        - persists quote to session config cache,
+        - clears error/loud-failure state.
+
+        Failure path:
+        - records explicit fetch error,
+        - tries local cached quote fallback,
+        - shows one loud failure modal per run,
+        - requires manual entry when no readable cache exists.
+        """
         self.wizard_state.usd_ils_fetch_in_progress = False
         self._fx_fetch_worker = None
         self._fx_fetch_thread = None
@@ -294,7 +319,14 @@ class MainWindowWizardMixin:
             self.manual_rate_edit.setText("")
 
     def _render_fx_panel_for_current_step(self) -> None:
-        """Render FX quote/fallback/override status for the active step."""
+        """Render FX quote/fallback/override status for the active step.
+
+        For USD steps this method is the single source of truth for:
+        - loading message ("can take up to 10 seconds"),
+        - official/cached/manual source disclosures,
+        - whether calculate is temporarily disabled,
+        - whether manual override controls should be shown.
+        """
         if not hasattr(self, "screen_wizard"):
             return
         s = self.planning_state.plan_steps[self.planning_state.step_index]
