@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QW
 
 from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
+from portfolio_core.models import Currency
 from portfolio_core.portfolio_session import CachedUsdIlsQuote, PortfolioSession
 from portfolio_core.use_cases import apply_wizard_step
 from ui.dialogs import show_error
@@ -139,7 +140,7 @@ class MainWindowWizardMixin:
 
             planned = abs(s.planned_delta_money)
             conversion_info = ""
-            if s.currency == "USD":
+            if s.currency == Currency.USD.value:
                 usd_ils_rate = self._get_effective_usd_ils_rate()
                 price_ils = entered_price * usd_ils_rate
                 calc = calculate_buy_units_from_ils_price(
@@ -190,7 +191,7 @@ class MainWindowWizardMixin:
 
     def _wizard_has_usd_steps(self) -> bool:
         """Return whether current plan includes at least one USD-priced step."""
-        return any(step.currency == "USD" for step in self.planning_state.plan_steps)
+        return any(step.currency == Currency.USD.value for step in self.planning_state.plan_steps)
 
     def _prepare_wizard_fx_rate_cache(self) -> None:
         """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed.
@@ -380,7 +381,7 @@ class MainWindowWizardMixin:
         if not hasattr(self, "screen_wizard"):
             return
         s = self.planning_state.plan_steps[self.planning_state.step_index]
-        if s.currency != "USD":
+        if s.currency != Currency.USD.value:
             self.screen_wizard.calculate_btn.setEnabled(True)
             self.screen_wizard.set_fx_panel(
                 visible=False,

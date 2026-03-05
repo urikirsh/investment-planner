@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
-from ui.ui_utils import currency_choices
+from ui.ui_utils import DEFAULT_CURRENCY, currency_choices
 
 
 class CurrencyDelegate(QStyledItemDelegate):
@@ -33,7 +33,7 @@ class CurrencyDelegate(QStyledItemDelegate):
     def setEditorData(self, editor: QWidget, index: QModelIndex | QPersistentModelIndex) -> None:
         if not isinstance(editor, QComboBox):
             return
-        current = str(index.data() or "ILS")
+        current = str(index.data() or DEFAULT_CURRENCY.value)
         pos = editor.findText(current)
         editor.setCurrentIndex(pos if pos >= 0 else 0)
 
