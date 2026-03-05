@@ -30,7 +30,7 @@ from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.currency_delegate import CurrencyDelegate
 from ui.tree_widget import InvestmentTreeWidget
 from ui.ui_types import Col
-from ui.ui_utils import BASE_CURRENCY_SUFFIX
+from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, currency_choices
 
 
 class MainEditorScreen(QWidget):
@@ -147,8 +147,9 @@ class MainEditorScreen(QWidget):
         )
         header_item.setToolTip(
             Col.CURRENCY.value,
-            "Instrument price currency used by the wizard (ILS or USD).\n"
-            "Portfolio value and all totals remain in ILS.",
+            "Instrument price currency used by the wizard "
+            f"(allowed: {', '.join(currency_choices())}; default: {DEFAULT_CURRENCY.value}).\n"
+            f"Portfolio value and all totals remain in {DEFAULT_CURRENCY.value}.",
         )
         header_item.setToolTip(
             Col.PORTFOLIO_PCT.value,
