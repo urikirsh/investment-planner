@@ -31,6 +31,11 @@ Main user flow:
 5. Wizard execution is managed by `MainWindowWizardMixin`.
 6. Completed wizard flow repopulates the main editor and returns to screen 1.
 
+FX thread-safety guards in this flow:
+- Wizard FX fetch uses generation tokens so stale async completions are ignored.
+- Starting a new wizard run requires successful cancellation of any previous in-flight FX thread.
+- Window close waits for FX-thread shutdown (up to 12 seconds); close is blocked with a user-visible message if shutdown does not complete in time.
+
 ## UI module map
 - `ui/main_window_controller.py`
   - top-level coordinator for screen wiring, transitions, and summary/planning orchestration
@@ -136,6 +141,10 @@ UI-focused tests:
   - structural tests for screen modules (defaults, controls, static setup)
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
+- `tests/ui/test_ui_utils.py`
+  - currency parsing/default fallback and UI helper behavior
+- `tests/ui/test_wizard_fx_coordinator.py`
+  - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)
 
 Core/domain tests:
 - `tests/core/helpers.py`
@@ -150,6 +159,8 @@ Core/domain tests:
   - unit-calculation and buy/sell commit mutation behavior
 - `tests/core/test_session_and_use_cases.py`
   - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
+- `tests/core/test_fx_service.py`
+  - BOI USD/ILS payload parsing and "last published day" detection behavior
 
 ## Updating this document
 Update this file when:

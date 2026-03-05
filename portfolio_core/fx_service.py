@@ -14,6 +14,10 @@ Design notes
   how to display "last published day" behavior in UX.
 - Uses `Asia/Jerusalem` calendar-day comparison when tzdata is available.
   If not, falls back to the BOI payload timestamp timezone.
+- Current BOI payload fields relied on:
+  - `exchangeRates[*].key` (`"USD"` row selection)
+  - `exchangeRates[*].currentExchangeRate` (numeric rate)
+  - `exchangeRates[*].lastUpdate` (effective date/timestamp)
 """
 
 import json

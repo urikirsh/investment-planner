@@ -122,6 +122,9 @@ class PortfolioSession:
 
         Returns ``None`` for any missing/corrupt/incomplete payload so callers
         can treat cache as optional and fail soft to manual entry.
+
+        This method is intentionally fail-soft: unreadable or partially-invalid
+        cache payloads are treated as "no cache" instead of raising.
         """
         payload = self._read_config_payload().get("last_usd_ils_quote")
         if not isinstance(payload, dict):
