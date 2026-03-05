@@ -7,9 +7,13 @@ These tests verify portfolio invariants and serialization behavior without
 Qt/UI involvement.
 """
 
+from decimal import Decimal
+from typing import cast
+
 import pytest
 
 from portfolio_core.io_json import dump_portfolio, load_portfolio
+from portfolio_core.models import AssetGroup, Cash, Currency, Instrument, Portfolio
 from portfolio_core.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
 
@@ -335,4 +339,24 @@ def test_validation_instrument_names_duplicate_in_non_investable_bucket_has_deta
         ValueError,
         match=r"Duplicate instrument name 'DUP' in the non-investable bucket.*Rename one of the instruments to a unique name",
     ):
+        validate_portfolio(p)
+
+
+def test_validation_rejects_non_enum_currency() -> None:
+    p = Portfolio(
+        cash=Cash(value=Decimal("1000"), min_reserve=Decimal("0"), future_tax=Decimal("0")),
+        asset_groups=[AssetGroup(id="g1", name="Asset 1", target_pct=Decimal("100"))],
+        instruments=[
+            Instrument(
+                id="i1",
+                name="Inst 1",
+                value=Decimal("1000"),
+                currency=cast(Currency, "EUR"),
+                investable=True,
+                asset_group_id="g1",
+                target_in_group_pct=Decimal("100"),
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="currency must be one of"):
         validate_portfolio(p)
