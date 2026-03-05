@@ -25,7 +25,6 @@ from zoneinfo import ZoneInfo
 
 
 BOI_EXCHANGE_RATES_URL = "https://boi.org.il/PublicApi/GetExchangeRates"
-BOI_SOURCE_LABEL = "Bank of Israel (representative)"
 try:
     _JERUSALEM_TZ: tzinfo | None = ZoneInfo("Asia/Jerusalem")
 except Exception:
@@ -40,7 +39,6 @@ class UsdIlsRateQuote:
 
     rate: Decimal
     effective_date: date
-    source: str
     used_last_published: bool
 
 
@@ -125,6 +123,5 @@ def fetch_latest_usd_ils_rate(*, timeout_seconds: float = 10.0, now: datetime | 
     return UsdIlsRateQuote(
         rate=rate,
         effective_date=effective_date,
-        source=BOI_SOURCE_LABEL,
         used_last_published=used_last_published,
     )

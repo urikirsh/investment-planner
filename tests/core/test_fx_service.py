@@ -43,7 +43,6 @@ def test_fetch_latest_usd_ils_rate_marks_last_published_when_date_is_before_toda
     assert str(quote.rate) == "3.55"
     assert str(quote.effective_date) == "2026-03-03"
     assert quote.used_last_published is True
-    assert "Bank of Israel" in quote.source
 
 
 def test_fetch_latest_usd_ils_rate_fallback_uses_payload_timezone_when_tzdata_missing(monkeypatch) -> None:

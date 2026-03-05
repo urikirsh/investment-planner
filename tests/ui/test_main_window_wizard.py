@@ -269,7 +269,6 @@ def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
         UsdIlsRateQuote(
             rate=Decimal("3.9"),
             effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
-            source="Bank of Israel",
             used_last_published=False,
         ),
         None,
@@ -376,7 +375,6 @@ def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[
         UsdIlsRateQuote(
             rate=Decimal("3.9"),
             effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
-            source="Bank of Israel",
             used_last_published=False,
         ),
         None,
