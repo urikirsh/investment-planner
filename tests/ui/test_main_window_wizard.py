@@ -292,6 +292,20 @@ def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
     assert host.wizard_state.usd_ils_fetch_attempted is False
 
 
+def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    host._prepare_wizard_fx_rate_cache()
+
+    assert host.wizard_state.usd_ils_fetch_attempted is False
+    assert shown and shown[0][0] == "Please wait"
+
+
 def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
@@ -336,11 +350,24 @@ def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: 
     host.wizard_state.usd_ils_fetch_attempted = True
     host.manual_rate_edit.setText("3.4")
 
-    host._reset_wizard_fx_state_for_new_run()
+    result = host._reset_wizard_fx_state_for_new_run()
 
+    assert result is True
     assert host.wizard_state.manual_override_usd_ils_rate is None
     assert host.wizard_state.usd_ils_fetch_attempted is False
     assert host.manual_rate_edit.text() == ""
+
+
+def test_reset_wizard_fx_state_returns_false_when_cancel_fails(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
+    host.manual_rate_edit.setText("3.4")
+    setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
+
+    result = host._reset_wizard_fx_state_for_new_run()
+
+    assert result is False
+    assert host.wizard_state.manual_override_usd_ils_rate == Decimal("3.4")
 
 
 def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[..., PlanStep]) -> None:
@@ -430,3 +457,18 @@ def test_advance_wizard_step_returns_to_main_and_populates_editor(
     assert len(populate_calls) == 1
     assert populate_calls[0]["portfolio"] is current_portfolio
     assert host.stack.current_widget is host.screen_main
+
+
+def test_advance_wizard_step_blocks_finish_when_cancel_fails(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    current_portfolio = object()
+    host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
+    setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    host._advance_wizard_step()
+
+    assert host.planning_state.step_index == 0
+    assert shown and shown[0][0] == "Please wait"

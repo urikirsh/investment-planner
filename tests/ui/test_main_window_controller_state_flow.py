@@ -95,6 +95,28 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     assert "Step 2/2" in window.wiz_info.text()
 
 
+def test_run_planning_aborts_when_wizard_fx_reset_cannot_cancel(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+) -> None:
+    fake_plan_result = SimpleNamespace(
+        budget=D("200"),
+        steps=[make_plan_step(delta="120")],
+        portfolio=SimpleNamespace(),
+    )
+    errors: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(window, "_save_current_or_save_as", lambda **_: True)
+    monkeypatch.setattr(main_window_controller, "build_plan_for_current_document", lambda *_: fake_plan_result)
+    monkeypatch.setattr(window, "_reset_wizard_fx_state_for_new_run", lambda: False)
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+
+    window._run_planning(PlanningMode.INVEST)
+
+    assert errors and errors[0][0] == "Please wait"
+
+
 def test_save_flow_uses_resolved_target_and_action_methods_without_dialogs(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
@@ -139,12 +161,16 @@ def test_confirm_unsaved_changes_splits_decision_prompt_from_action_resolution(
 
 def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
+    seen_timeout: list[int] = []
 
-    def fake_cancel() -> None:
+    def fake_cancel(*, wait_timeout_ms: int = 0) -> bool:
         nonlocal calls
         calls += 1
+        seen_timeout.append(wait_timeout_ms)
+        return True
 
     monkeypatch.setattr(window, "_cancel_wizard_fx_fetch", fake_cancel)
     window.close()
 
     assert calls >= 1
+    assert seen_timeout and seen_timeout[0] == 12000

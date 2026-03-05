@@ -118,7 +118,15 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure background FX thread is stopped before window teardown."""
-        self._cancel_wizard_fx_fetch()
+        stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
+        if not stopped:
+            show_error(
+                self,
+                "Please wait",
+                "Still finishing background USD/ILS fetch. Try closing again in a few seconds.",
+            )
+            event.ignore()
+            return
         super().closeEvent(event)
 
     def _current_file_display_name(self) -> str:
@@ -354,7 +362,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             self.planning_state.plan_steps = plan_result.steps
             self.planning_state.step_index = 0
             self.planning_state.mode = mode
-            self._reset_wizard_fx_state_for_new_run()
+            if not self._reset_wizard_fx_state_for_new_run():
+                self._show_error("Please wait", "Still finishing background USD/ILS fetch. Try again in a few seconds.")
+                return
             self.wizard_state.last_calc = None
 
             self._populate_summary(plan_result.portfolio, plan_result.steps, mode)

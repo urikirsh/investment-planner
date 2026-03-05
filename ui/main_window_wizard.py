@@ -205,7 +205,13 @@ class MainWindowWizardMixin:
         if not self._wizard_has_usd_steps():
             return
 
-        self._cancel_wizard_fx_fetch()
+        if not self._cancel_wizard_fx_fetch():
+            show_error(
+                cast(QWidget, self),
+                "Please wait",
+                "Still finishing background USD/ILS fetch. Try again in a few seconds.",
+            )
+            return
         self.wizard_state.usd_ils_fetch_attempted = True
         self.wizard_state.usd_ils_fetch_in_progress = True
         self.wizard_state.usd_ils_fetch_error = None
@@ -243,6 +249,9 @@ class MainWindowWizardMixin:
         - requires manual entry when no readable cache exists.
         """
         if generation != self.wizard_state.usd_ils_active_fetch_generation:
+            if self._fx_fetch_thread is not None and not self._fx_fetch_thread.isRunning():
+                self._fx_fetch_worker = None
+                self._fx_fetch_thread = None
             return
 
         self.wizard_state.usd_ils_fetch_in_progress = False
@@ -310,9 +319,14 @@ class MainWindowWizardMixin:
 
         self._render_fx_panel_for_current_step()
 
-    def _reset_wizard_fx_state_for_new_run(self) -> None:
-        """Reset transient USD/ILS state and clear manual FX input for a new run."""
-        self._cancel_wizard_fx_fetch()
+    def _reset_wizard_fx_state_for_new_run(self) -> bool:
+        """Reset transient USD/ILS state and clear manual FX input for a new run.
+
+        Returns ``False`` when a prior fetch thread is still running and reset
+        is therefore not safe to apply yet.
+        """
+        if not self._cancel_wizard_fx_fetch():
+            return False
         self.wizard_state.usd_ils_rate = None
         self.wizard_state.usd_ils_rate_date = None
         self.wizard_state.usd_ils_source = None
@@ -328,18 +342,28 @@ class MainWindowWizardMixin:
         # Clear manual input widget to prevent value carry-over across runs.
         if hasattr(self, "manual_rate_edit"):
             self.manual_rate_edit.setText("")
+        return True
 
-    def _cancel_wizard_fx_fetch(self) -> None:
-        """Stop and detach the in-flight FX fetch thread, if any."""
+    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
+        """Stop and detach the in-flight FX fetch thread, if any.
+
+        Returns
+        -------
+        bool
+            ``True`` when no thread is running after cancellation attempt.
+            ``False`` when a thread is still running after waiting.
+        """
         thread = self._fx_fetch_thread
         worker = self._fx_fetch_worker
         if thread is not None and thread.isRunning():
             thread.quit()
-            thread.wait(1000)
+            if not thread.wait(wait_timeout_ms):
+                return False
         if worker is not None:
             worker.deleteLater()
         self._fx_fetch_worker = None
         self._fx_fetch_thread = None
+        return True
 
     def _render_fx_panel_for_current_step(self) -> None:
         """Render FX quote/fallback/override status for the active step.
@@ -443,7 +467,14 @@ class MainWindowWizardMixin:
         """Move to next step, or repopulate main editor and return when complete."""
         self.planning_state.step_index += 1
         if self.planning_state.step_index >= len(self.planning_state.plan_steps):
-            self._cancel_wizard_fx_fetch()
+            if not self._cancel_wizard_fx_fetch():
+                self.planning_state.step_index -= 1
+                show_error(
+                    cast(QWidget, self),
+                    "Please wait",
+                    "Still finishing background USD/ILS fetch. Try again in a few seconds.",
+                )
+                return
             self.wizard_state.usd_ils_fetch_in_progress = False
             self.wizard_state.usd_ils_active_fetch_generation = None
             current = self.session.document.current_portfolio
