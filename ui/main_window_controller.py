@@ -117,7 +117,11 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self._refresh_data()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Ensure background FX thread is stopped before window teardown."""
+        """Ensure background FX thread is stopped before window teardown.
+
+        If the fetch thread does not stop within the shutdown wait window,
+        close is ignored and the user is asked to retry shortly.
+        """
         stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
         if not stopped:
             show_error(
@@ -351,6 +355,8 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         Execute planning flow from current UI state and open summary screen.
 
         ``mode`` selects either invest-only or invest-and-rebalance strategy.
+        If prior wizard FX fetch cleanup is still in progress, this flow aborts
+        with an explicit "please wait" error to avoid overlapping runs.
         """
         try:
             if not self._save_current_or_save_as(show_success=False):

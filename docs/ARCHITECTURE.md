@@ -35,6 +35,7 @@ Main user flow:
 - `ui/main_window_controller.py`
   - top-level coordinator for screen wiring, transitions, and summary/planning orchestration
   - composes focused mixins for file actions and wizard step flow
+  - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
@@ -44,6 +45,8 @@ Main user flow:
     - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
     - non-blocking background BOI fetch (wizard opens immediately)
     - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
+    - generation-token guard so stale async completions are ignored
+    - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
   - handles transition back to main editor when wizard execution completes
 - `ui/currency_delegate.py`

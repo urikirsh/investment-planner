@@ -199,6 +199,9 @@ class MainWindowWizardMixin:
         - marks fetch as in-progress immediately,
         - renders loading state in the wizard,
         - starts worker thread and returns without blocking.
+
+        If an older fetch cannot be cancelled yet, no new fetch is started and
+        an explicit "please wait" message is shown.
         """
         if self.wizard_state.usd_ils_fetch_attempted:
             return
@@ -464,7 +467,12 @@ class MainWindowWizardMixin:
             show_error(cast(QWidget, self), "Continue failed", str(e))
 
     def _advance_wizard_step(self) -> None:
-        """Move to next step, or repopulate main editor and return when complete."""
+        """Move to next step, or repopulate main editor and return when complete.
+
+        Final-step transition is guarded by FX-thread cancellation; if cleanup
+        cannot complete yet, the method keeps the current step active and
+        informs the user to retry shortly.
+        """
         self.planning_state.step_index += 1
         if self.planning_state.step_index >= len(self.planning_state.plan_steps):
             if not self._cancel_wizard_fx_fetch():

@@ -65,6 +65,7 @@ The application never executes trades automatically. All actions are explicit an
   - if official fetch fails, a temporary manual USD/ILS override can be entered in the wizard
   - if official fetch fails but a readable cached rate exists, the cached rate is used and its cache timestamp is shown
   - if official fetch fails and cached rate is unavailable/unreadable, wizard prompts for manual USD/ILS input
+  - stale async fetch completions are ignored (wizard-run generation guard) to avoid cross-run state leaks
   - integer unit calculation (rounded down)
 - Wizard actions:
   - Save and continue
@@ -194,6 +195,7 @@ See [`example_portfolio.json`](example_portfolio.json) for a full synthetic exam
 
 - The app remembers the last portfolio file you worked on and reopens it next time.
 - If that file is missing, the app starts with a small default portfolio so you can keep working.
+- The app also stores the last successful USD/ILS quote in the same user config for fetch-failure fallback.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.
