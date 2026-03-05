@@ -7,9 +7,13 @@ These tests verify portfolio invariants and serialization behavior without
 Qt/UI involvement.
 """
 
+from decimal import Decimal
+from typing import cast
+
 import pytest
 
 from portfolio_core.io_json import dump_portfolio, load_portfolio
+from portfolio_core.models import AssetGroup, Cash, Currency, Instrument, Portfolio
 from portfolio_core.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
 
@@ -17,6 +21,34 @@ from tests.core.helpers import make_valid_data
 def test_validate_portfolio_happy_path():
     p = load_portfolio(make_valid_data())
     validate_portfolio(p)
+
+
+def test_parse_succeeds_with_valid_currency_values():
+    data = make_valid_data(
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000",
+                "currency": "USD",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "4000",
+                "currency": "ILS",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+        ],
+    )
+    p = load_portfolio(data)
+    assert p.instruments[0].currency.value == "USD"
+    assert p.instruments[1].currency.value == "ILS"
 
 
 def test_validation_cash_reserve_must_not_exceed_cash_value():
@@ -61,6 +93,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i1",
                 "name": "Inst 1",
                 "value": "6000.25",
+                "currency": "ILS",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "70",
@@ -69,6 +102,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i2",
                 "name": "Inst 2",
                 "value": "2575.42",
+                "currency": "USD",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "30",
@@ -77,6 +111,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i3",
                 "name": "Inst 3",
                 "value": "3500.00",
+                "currency": "ILS",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
@@ -85,6 +120,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i4",
                 "name": "Parking",
                 "value": "1000",
+                "currency": "ILS",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
@@ -106,6 +142,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i1",
                 "name": "Inst 1",
                 "value": "6000.25",
+                "currency": "ILS",
                 "investable": True,
                 "targetInGroupPercentage": "70",
                 "groupId": "g1",
@@ -114,6 +151,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i2",
                 "name": "Inst 2",
                 "value": "2575.42",
+                "currency": "USD",
                 "investable": True,
                 "targetInGroupPercentage": "30",
                 "groupId": "g1",
@@ -122,6 +160,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i3",
                 "name": "Inst 3",
                 "value": "3500.00",
+                "currency": "ILS",
                 "investable": True,
                 "targetInGroupPercentage": "100",
                 "groupId": "g2",
@@ -130,11 +169,66 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "id": "i4",
                 "name": "Parking",
                 "value": "1000",
+                "currency": "ILS",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
         ],
     }
+
+
+def test_parse_fails_when_currency_is_missing():
+    data = make_valid_data(
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "4000",
+                "currency": "ILS",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+        ],
+    )
+    data["instruments"][0].pop("currency", None)
+    with pytest.raises(ValueError, match=r"Missing required field 'instruments\[0\]\.currency'"):
+        load_portfolio(data)
+
+
+def test_parse_fails_when_currency_is_invalid():
+    data = make_valid_data(
+        instruments=[
+            {
+                "id": "i1",
+                "name": "Inst 1",
+                "value": "6000",
+                "currency": "EUR",
+                "investable": True,
+                "groupId": "g1",
+                "targetInGroupPercentage": "100",
+            },
+            {
+                "id": "i2",
+                "name": "Inst 2",
+                "value": "4000",
+                "currency": "ILS",
+                "investable": True,
+                "groupId": "g2",
+                "targetInGroupPercentage": "100",
+            },
+        ],
+    )
+    with pytest.raises(ValueError, match=r"instruments\[0\]\.currency"):
+        load_portfolio(data)
 
 
 def test_validation_value_cannot_be_negative():
@@ -245,4 +339,24 @@ def test_validation_instrument_names_duplicate_in_non_investable_bucket_has_deta
         ValueError,
         match=r"Duplicate instrument name 'DUP' in the non-investable bucket.*Rename one of the instruments to a unique name",
     ):
+        validate_portfolio(p)
+
+
+def test_validation_rejects_non_enum_currency() -> None:
+    p = Portfolio(
+        cash=Cash(value=Decimal("1000"), min_reserve=Decimal("0"), future_tax=Decimal("0")),
+        asset_groups=[AssetGroup(id="g1", name="Asset 1", target_pct=Decimal("100"))],
+        instruments=[
+            Instrument(
+                id="i1",
+                name="Inst 1",
+                value=Decimal("1000"),
+                currency=cast(Currency, "EUR"),
+                investable=True,
+                asset_group_id="g1",
+                target_in_group_pct=Decimal("100"),
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="currency must be one of"):
         validate_portfolio(p)

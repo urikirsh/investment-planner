@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from enum import StrEnum
 from typing import Optional
 
 """
@@ -16,6 +17,13 @@ and are used throughout the application as the source of truth.
 """
 
 D = Decimal
+
+
+class Currency(StrEnum):
+    """Allowed instrument price currencies."""
+
+    ILS = "ILS"
+    USD = "USD"
 
 
 @dataclass(frozen=True)
@@ -65,6 +73,7 @@ class Instrument:
 
     Invariants (enforced by validation):
     - ``value`` is non-negative
+    - ``currency`` is one of ``ILS`` or ``USD``
     - ``target_in_group_pct`` is in [0, 100]
     - investable instruments must reference a valid ``asset_group_id``
     - non-investable instruments must have ``asset_group_id is None``
@@ -72,6 +81,7 @@ class Instrument:
     id: str
     name: str
     value: D  # current market value
+    currency: Currency
     investable: bool
     asset_group_id: Optional[str]  # None for non-investable instruments
     target_in_group_pct: D  # must sum to 100 per investable group
