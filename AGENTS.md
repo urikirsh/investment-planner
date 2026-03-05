@@ -49,3 +49,7 @@ Do not report completion if either command fails.
 - For branch reviews, review changes relative to the branch merge-base with `main`.
 - After fixing review findings, do a quick follow-up self-review of touched areas before handing off.
 - For documentation-only changes, verify claims map to current code paths and avoid redundant repetition.
+
+## PR Writing
+
+- When asked for a PR title and description, provide a short description written in Markdown.
