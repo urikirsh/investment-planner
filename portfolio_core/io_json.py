@@ -3,7 +3,7 @@ from pathlib import Path
 from decimal import Decimal, InvalidOperation, getcontext
 from typing import Any, Dict, Mapping, Optional
 
-from portfolio_core.models import Cash, AssetGroup, Instrument, Portfolio
+from portfolio_core.models import Cash, AssetGroup, Currency, Instrument, Portfolio
 
 """
 io_json.py
@@ -20,6 +20,18 @@ or UI behavior belongs in this module.
 
 getcontext().prec = 28
 D = Decimal
+
+
+def _parse_currency(value: Any, field: str) -> Currency:
+    """Parse a required instrument currency enum."""
+    if value is None:
+        raise ValueError(f"Missing required field '{field}'")
+    try:
+        return Currency(str(value))
+    except ValueError:
+        raise ValueError(
+            f"Field '{field}' must be one of {[c.value for c in Currency]}, got: {value!r}"
+        )
 
 
 def _parse_decimal(value: Any, field: str) -> D:
@@ -59,7 +71,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
       (all parsed as Decimal, in ILS)
     - "groups": list of asset group objects containing id, name, targetPercentage
     - "instruments": list of instrument objects containing id, name, value, investable,
-      group reference ("groupId" or legacy "assetGroupId"), and required
+      required "currency" ("ILS"/"USD"), group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
 
     This function performs structural/type validation and raises ValueError with a
@@ -132,6 +144,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
                 id=str(ins.get("id", "")).strip(),
                 name=str(ins.get("name", "")).strip(),
                 value=_parse_decimal(ins.get("value"), f"instruments[{i}].value"),
+                currency=_parse_currency(ins.get("currency"), f"instruments[{i}].currency"),
                 investable=bool(ins.get("investable")),
                 asset_group_id=asset_group_id,
                 target_in_group_pct=_parse_decimal(
@@ -170,7 +183,8 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
         If JSON structure/types are invalid for portfolio parsing.
     """
     path = Path(path)
-    with path.open("r", encoding="utf-8") as f:
+    # Accept optional UTF-8 BOM to support files saved by some Windows editors.
+    with path.open("r", encoding="utf-8-sig") as f:
         data = json.load(f)
     return load_portfolio(data)
 
@@ -214,6 +228,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
                 "id": ins.id,
                 "name": ins.name,
                 "value": str(ins.value),
+                "currency": ins.currency.value,
                 "investable": bool(ins.investable),
                 "targetInGroupPercentage": str(ins.target_in_group_pct),
                 **({"groupId": ins.asset_group_id} if ins.asset_group_id is not None else {}),

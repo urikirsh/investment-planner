@@ -31,6 +31,7 @@ The application never executes trades automatically. All actions are explicit an
 ### Portfolio structure
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
+- Per-instrument `currency` (`ILS` or `USD`) for wizard price-entry semantics
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
@@ -55,8 +56,17 @@ The application never executes trades automatically. All actions are explicit an
   - `cash - minimal reserve - future tax` (floored at zero)
 - Step-by-step investment flow:
   - per-instrument allocation based on desired post-investment in-group targets
-  - price input exactly as shown in the broker (agorot)
-  - automatic conversion to ILS
+  - dynamic price input mode:
+    - `ILS` instruments: price entered in agorot
+    - `USD` instruments: price entered in USD
+    - ILS wizard label is `Price (Agorot)`, and input is converted with `agorot / 100` to ILS before unit calculation
+  - USD/ILS conversion fetched from Bank of Israel representative rates (latest published)
+  - fetch runs in the background and can take up to 10 seconds; wizard opens immediately
+  - during fetch, USD-step `Calculate` is disabled with a visible loading notice
+  - if official fetch fails, a temporary manual USD/ILS override can be entered in the wizard
+  - if official fetch fails but a readable cached rate exists, the cached rate is used and its cache timestamp is shown
+  - if official fetch fails and cached rate is unavailable/unreadable, wizard prompts for manual USD/ILS input
+  - stale async fetch completions are ignored (wizard-run generation guard) to avoid cross-run state leaks
   - integer unit calculation (rounded down)
 - Wizard actions:
   - Save and continue
@@ -69,6 +79,8 @@ The application never executes trades automatically. All actions are explicit an
 - Main screen shows your live investable balance, with color feedback:
   - green when you have enough to invest
   - gray when you do not
+- Main editor includes a `Currency` column (instrument rows) with dropdown editing
+- Wizard displays all planned/spent/proceeds amounts explicitly in ILS
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket
@@ -116,62 +128,16 @@ python investment_planner.py
 
 ## Data file format
 
-The app reads and writes a JSON portfolio file with this shape:
-
-```json
-{
-  "cash": {
-    "value": "12000",
-    "min_reserve": "2000",
-    "future_tax": "0"
-  },
-  "groups": [
-    {
-      "id": "g_equity",
-      "name": "Global Equity",
-      "targetPercentage": "70"
-    },
-    {
-      "id": "g_bonds",
-      "name": "Bonds",
-      "targetPercentage": "30"
-    }
-  ],
-  "instruments": [
-    {
-      "id": "i_world_etf",
-      "name": "World ETF",
-      "value": "8000",
-      "investable": true,
-      "groupId": "g_equity",
-      "targetInGroupPercentage": "100"
-    },
-    {
-      "id": "i_bond_fund",
-      "name": "Bond Fund",
-      "value": "3000",
-      "investable": true,
-      "groupId": "g_bonds",
-      "targetInGroupPercentage": "100"
-    },
-    {
-      "id": "i_legacy_holding",
-      "name": "Legacy Holding",
-      "value": "1200",
-      "investable": false,
-      "targetInGroupPercentage": "0"
-    }
-  ]
-}
-```
+The app reads and writes a JSON portfolio file. The canonical schema/example is
+maintained in [`example_portfolio.json`](example_portfolio.json).
 
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
+- `instruments[*].currency` is required and must be `ILS` or `USD`.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.
-
-See [`example_portfolio.json`](example_portfolio.json) for a full synthetic example.
+- JSON files with or without UTF-8 BOM are supported on load.
 
 ---
 
@@ -179,6 +145,7 @@ See [`example_portfolio.json`](example_portfolio.json) for a full synthetic exam
 
 - The app remembers the last portfolio file you worked on and reopens it next time.
 - If that file is missing, the app starts with a small default portfolio so you can keep working.
+- The app also stores the last successful USD/ILS quote in the same user config for fetch-failure fallback.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.

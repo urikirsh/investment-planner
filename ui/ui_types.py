@@ -23,6 +23,7 @@ D = Decimal
 # These extend Qt.UserRole to avoid collisions with built-in Qt roles.
 ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
 ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
+ROLE_CURRENCY = int(Qt.ItemDataRole.UserRole) + 3    # instrument currency ("ILS"/"USD")
 ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
 
 class RowKind(StrEnum):
@@ -87,3 +88,4 @@ class Col(Enum):
     TARGET_PCT = 3
     STRATEGY_PCT = 4
     DRIFT_PP = 5
+    CURRENCY = 6

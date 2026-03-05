@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import Qt, QStandardPaths
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -47,8 +48,16 @@ from portfolio_core.use_cases import (
 
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
-from ui.ui_types import RowKind, Col, ROLE_PREV_TEXT
-from ui.ui_utils import get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
+from ui.ui_types import RowKind, Col, ROLE_CURRENCY, ROLE_PREV_TEXT
+from ui.ui_utils import (
+    BASE_CURRENCY_SUFFIX,
+    DEFAULT_CURRENCY,
+    add_instrument_item_to_group,
+    get_item_kind,
+    parse_currency_code,
+    parse_value_cell,
+    set_group_tree_item,
+)
 from ui.ui_utils import apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
@@ -114,6 +123,23 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         self._refresh_data()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Ensure background FX thread is stopped before window teardown.
+
+        If the fetch thread does not stop within the shutdown wait window,
+        close is ignored and the user is asked to retry shortly.
+        """
+        stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
+        if not stopped:
+            show_error(
+                self,
+                "Please wait",
+                "Still finishing background USD/ILS fetch. Try closing again in a few seconds.",
+            )
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def _current_file_display_name(self) -> str:
         """Return short file label for UI chrome (filename or ``Untitled``)."""
@@ -192,6 +218,11 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
     def _on_item_changed_guard_and_recalc(self, item: QTreeWidgetItem, column: int) -> None:
         if self._suppress_item_changed:
             return
+
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
+            raw = parse_currency_code(item.text(column)) or DEFAULT_CURRENCY.value
+            item.setText(column, raw)
+            item.setData(0, ROLE_CURRENCY, raw)
 
         # Only business-rule validate relevant cells
         if get_item_kind(item) == RowKind.GROUP and column == Col.TARGET_PCT.value:
@@ -308,9 +339,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             for ins in data.get("instruments", []):
                 total += D(str(ins["value"]))
             total -= future_tax
-            self.total_label.setText(f"Total portfolio: {total}")
+            self.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
         except Exception:
-            self.total_label.setText("Total portfolio: -")
+            self.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
     def _on_invest_clicked(self) -> None:
         self._run_planning(mode=PlanningMode.INVEST)
@@ -330,6 +361,8 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         Execute planning flow from current UI state and open summary screen.
 
         ``mode`` selects either invest-only or invest-and-rebalance strategy.
+        If prior wizard FX fetch cleanup is still in progress, this flow aborts
+        with an explicit "please wait" error to avoid overlapping runs.
         """
         try:
             if not self._save_current_or_save_as(show_success=False):
@@ -341,6 +374,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             self.planning_state.plan_steps = plan_result.steps
             self.planning_state.step_index = 0
             self.planning_state.mode = mode
+            if not self._reset_wizard_fx_state_for_new_run():
+                self._show_error("Please wait", "Still finishing background USD/ILS fetch. Try again in a few seconds.")
+                return
             self.wizard_state.last_calc = None
 
             self._populate_summary(plan_result.portfolio, plan_result.steps, mode)
@@ -394,6 +430,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             return
         self._show_current_wizard_step()
         self.stack.setCurrentWidget(self.screen_wizard)
+        self._prepare_wizard_fx_rate_cache()
 
     def _summary_back(self) -> None:
         """Return from summary screen to main editor."""
@@ -461,7 +498,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if investable_balance < 0:
             investable_balance = D("0")
 
-        self.investable_balance_label.setText(f"Investable balance: {investable_balance}")
+        self.investable_balance_label.setText(f"Investable balance {BASE_CURRENCY_SUFFIX}: {investable_balance}")
         if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
             self.investable_balance_label.setStyleSheet("color: #1b5e20;")
         else:
@@ -523,6 +560,10 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         kind = get_item_kind(item)
 
         if kind == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
+            parent = item.parent()
+            if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
+                return
+        if kind == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
             parent = item.parent()
             if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
                 return

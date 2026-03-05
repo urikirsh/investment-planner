@@ -19,8 +19,9 @@ Lifecycle
 ---------
 - `PlanningState` is updated when a new plan is generated and while navigating
   summary/wizard steps.
-- `WizardState` is reset per step and stores only the latest calculation
-  relevant to the active step.
+- `WizardState` is reset per wizard run and stores:
+  - step-local transient calculation output, and
+  - run-scoped USD/ILS fetch/cache/failure state for USD-priced steps.
 - `UnsavedChangesDecision` encodes save/discard/cancel outcomes for
   unsaved-changes confirmation flows.
 """
@@ -28,6 +29,8 @@ Lifecycle
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 
 from portfolio_core.calc_stock_units import BuyCalculation
@@ -80,11 +83,47 @@ class WizardState:
     last_calc:
         Latest units/spend calculation for the current step, or ``None`` when
         no calculation has been performed yet for the active step.
+    usd_ils_rate:
+        Cached BOI USD/ILS rate for the current wizard run, when fetch succeeds.
+    usd_ils_rate_date:
+        Effective date of `usd_ils_rate`.
+    usd_ils_used_last_published:
+        Indicates that BOI returned a prior published business-day quote.
+    usd_ils_fetch_attempted:
+        Guard to ensure BOI fetch is attempted at most once per wizard run.
+    usd_ils_fetch_error:
+        Captured fetch/parsing error shown to the user when quote retrieval fails.
+    manual_override_usd_ils_rate:
+        User-entered USD/ILS override reused across USD steps in the same wizard run.
+    usd_ils_fetch_in_progress:
+        True while background BOI fetch is active (can take up to 10 seconds).
+    usd_ils_failure_dialog_shown:
+        Guard to show loud fetch-failure modal at most once per wizard run.
+    usd_ils_rate_from_cache:
+        True when the effective rate currently comes from local cache.
+    usd_ils_rate_cached_at:
+        Timestamp when the cached rate was stored locally.
+    usd_ils_fetch_generation:
+        Monotonic generation id incremented for each started async fetch.
+    usd_ils_active_fetch_generation:
+        Generation id of the currently active fetch, if any.
 
     Notes
     -----
-    `last_calc` is step-local transient state and should be reset when moving
-    to another wizard step.
+    All fields here are transient UI-only state and are never persisted to
+    the portfolio model/JSON.
     """
 
     last_calc: BuyCalculation | None = None
+    usd_ils_rate: Decimal | None = None
+    usd_ils_rate_date: date | None = None
+    usd_ils_used_last_published: bool = False
+    usd_ils_fetch_attempted: bool = False
+    usd_ils_fetch_error: str | None = None
+    manual_override_usd_ils_rate: Decimal | None = None
+    usd_ils_fetch_in_progress: bool = False
+    usd_ils_failure_dialog_shown: bool = False
+    usd_ils_rate_from_cache: bool = False
+    usd_ils_rate_cached_at: datetime | None = None
+    usd_ils_fetch_generation: int = 0
+    usd_ils_active_fetch_generation: int | None = None

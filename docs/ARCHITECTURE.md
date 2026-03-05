@@ -31,16 +31,33 @@ Main user flow:
 5. Wizard execution is managed by `MainWindowWizardMixin`.
 6. Completed wizard flow repopulates the main editor and returns to screen 1.
 
+FX thread-safety guards in this flow:
+- Wizard FX fetch uses generation tokens so stale async completions are ignored.
+- Starting a new wizard run requires successful cancellation of any previous in-flight FX thread.
+- Window close waits for FX-thread shutdown (up to 12 seconds); close is blocked with a user-visible message if shutdown does not complete in time.
+
 ## UI module map
 - `ui/main_window_controller.py`
   - top-level coordinator for screen wiring, transitions, and summary/planning orchestration
   - composes focused mixins for file actions and wizard step flow
+  - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
   - handles transition back to main editor when wizard execution completes
+- `ui/wizard_fx_coordinator.py`
+  - extracted FX-only coordinator used by `MainWindowWizardMixin`
+  - owns transient USD/ILS FX orchestration for wizard runs:
+    - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
+    - non-blocking background BOI fetch (wizard opens immediately)
+    - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
+    - generation-token guard so stale async completions are ignored
+    - explicit cancel-failure handling before starting new fetch/reset/finish transitions
+    - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
+- `ui/currency_delegate.py`
+  - combo-box delegate for instrument currency editing in the main tree (`ILS`/`USD`)
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -56,7 +73,7 @@ Main user flow:
   - typed mutable workflow state shared by controller logic
   - `UnsavedChangesDecision`: typed save/discard/cancel prompt result
   - `PlanningState`: generated steps, active wizard index, and planning mode
-  - `WizardState`: per-step transient calculation cache
+  - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
 - `ui/screens/main_editor_screen.py`
   - screen 1 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
@@ -87,7 +104,11 @@ Main user flow:
 - `portfolio_core/calc_stock_units.py`
   - unit-level trade math:
     - agorot-to-ILS conversion and unit flooring (`calculate_buy_units`)
+    - direct ILS-price unit flooring (`calculate_buy_units_from_ils_price`)
     - immutable portfolio mutation helpers for buy/sell commits (`commit_buy`, `commit_sell`)
+- `portfolio_core/fx_service.py`
+  - Bank of Israel USD/ILS fetch boundary and response parsing
+  - normalizes BOI payload into a typed quote object used by wizard flow
 - `portfolio_core/portfolio_document.py`
   - in-memory editable document state:
     - current model
@@ -96,6 +117,7 @@ Main user flow:
     - dirty-state detection
 - `portfolio_core/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
+  - persists/reads cached last successful USD/ILS quote in the same user config
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder
 - `portfolio_core/use_cases.py`
@@ -119,6 +141,10 @@ UI-focused tests:
   - structural tests for screen modules (defaults, controls, static setup)
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
+- `tests/ui/test_ui_utils.py`
+  - currency parsing/default fallback and UI helper behavior
+- `tests/ui/test_wizard_fx_coordinator.py`
+  - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)
 
 Core/domain tests:
 - `tests/core/helpers.py`
@@ -133,6 +159,8 @@ Core/domain tests:
   - unit-calculation and buy/sell commit mutation behavior
 - `tests/core/test_session_and_use_cases.py`
   - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
+- `tests/core/test_fx_service.py`
+  - BOI USD/ILS payload parsing and "last published day" detection behavior
 
 ## Updating this document
 Update this file when:

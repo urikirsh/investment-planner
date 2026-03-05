@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QBrush
 
-from ui.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
+from portfolio_core.models import Currency
+from ui.ui_types import ROLE_CURRENCY, ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
 ui_utils.py
@@ -26,6 +27,28 @@ No business logic or persistence logic belongs in this module.
 D = Decimal
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
+DEFAULT_CURRENCY = Currency.ILS
+BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
+
+
+def currency_choices() -> tuple[str, ...]:
+    """Return allowed currency codes for UI editors and validations."""
+    return tuple(currency.value for currency in Currency)
+
+
+def parse_currency_code(raw: object) -> str | None:
+    """Parse a raw value into a supported currency code, or ``None``."""
+    if isinstance(raw, Currency):
+        return raw.value
+    if not isinstance(raw, str):
+        return None
+    normalized = raw.strip().upper()
+    if not normalized:
+        return None
+    try:
+        return Currency(normalized).value
+    except ValueError:
+        return None
 
 def d_from_text(txt: str, field: str) -> D:
     """Parse a required Decimal from text and include field name in errors."""
@@ -57,6 +80,28 @@ def get_item_id(item: QTreeWidgetItem) -> str:
     """Return stored internal id string, or empty string if missing."""
     return item.data(0, ROLE_ID) or ""
 
+
+def get_item_currency(item: QTreeWidgetItem) -> str:
+    """
+    Return a valid instrument currency code with deterministic fallbacks.
+
+    Resolution order:
+    1. Parse the visible currency cell text.
+    2. If that cannot be parsed (empty/invalid mid-edit), parse ``ROLE_CURRENCY`` metadata.
+    3. If both are unreadable, return ``ILS`` as a safe default.
+
+    We intentionally fail soft here because this helper is used while users edit
+    rows interactively, and temporary invalid text should not crash UI refresh or
+    data extraction paths.
+    """
+    parsed_text = parse_currency_code(item.text(Col.CURRENCY.value))
+    if parsed_text is not None:
+        return parsed_text
+    parsed_meta = parse_currency_code(item.data(0, ROLE_CURRENCY))
+    if parsed_meta is not None:
+        return parsed_meta
+    return DEFAULT_CURRENCY.value
+
 def new_id(prefix: str) -> str:
     """Generate a short, pseudo-random id with a stable prefix."""
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
@@ -77,6 +122,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
 
     for c in (
         Col.TOT_VALUE.value,
+        Col.CURRENCY.value,
         Col.PORTFOLIO_PCT.value,
         Col.STRATEGY_PCT.value,
         Col.DRIFT_PP.value,
@@ -105,6 +151,11 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             )
 
+    item.setTextAlignment(
+        Col.CURRENCY.value,
+        Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
+    )
+
     # Text left-aligned
     item.setTextAlignment(
         Col.NAME.value,
@@ -130,6 +181,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     )
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
+    gitem.setText(Col.CURRENCY.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
     gid = id_str.strip() or new_id("grp")
@@ -144,7 +196,12 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 
 
 def add_instrument_item_to_group(
-        gitem: QTreeWidgetItem, name: str, value: str, in_group_pct: str, id_str: str = ""
+        gitem: QTreeWidgetItem,
+        name: str,
+        value: str,
+        in_group_pct: str,
+        id_str: str = "",
+        currency: str = DEFAULT_CURRENCY.value,
 ) \
         -> None:
     """Create and initialize an instrument child row under the given parent group."""
@@ -152,10 +209,13 @@ def add_instrument_item_to_group(
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
+    currency_value = parse_currency_code(currency) or DEFAULT_CURRENCY.value
+    item.setText(Col.CURRENCY.value, currency_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
+    item.setData(0, ROLE_CURRENCY, currency_value)
 
     apply_row_alignment(item)
 
@@ -232,7 +292,7 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT:
-        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.TARGET_PCT.value)
+        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.CURRENCY.value, Col.TARGET_PCT.value)
 
     # bucket
     return False

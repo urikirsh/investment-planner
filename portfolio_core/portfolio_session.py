@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.portfolio_document import PortfolioDocument
-from portfolio_core.models import Portfolio
+from portfolio_core.models import Currency, Portfolio
 
 """
 portfolio_session.py
@@ -17,6 +20,7 @@ This module centralizes:
 - startup path resolution from global user config
 - a PortfolioDocument with current portfolio model, active file path,
   saved snapshot, and dirty-state
+- config-backed cache for last successful USD/ILS quote (used by wizard fallback)
 - building the minimal default in-memory portfolio
 
 Important startup behavior:
@@ -34,6 +38,7 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
             "id": "spx_a",
             "name": "SPX 500",
             "value": "1",
+            "currency": Currency.ILS.value,
             "investable": True,
             "groupId": "sp500",
             "targetInGroupPercentage": "100",
@@ -74,12 +79,7 @@ class PortfolioSession:
 
     def _read_last_loaded_path_from_config(self) -> Optional[Path]:
         """Read and parse the remembered portfolio path from config, if any."""
-        if not self._config_path.exists():
-            return None
-        try:
-            raw = json.loads(self._config_path.read_text(encoding="utf-8"))
-        except Exception:
-            return None
+        raw = self._read_config_payload()
         path_str = raw.get("last_portfolio_path")
         if not isinstance(path_str, str) or not path_str.strip():
             return None
@@ -87,12 +87,110 @@ class PortfolioSession:
 
     def _write_last_loaded_path_to_config(self, path: Optional[Path]) -> None:
         """Persist the currently active file path to global user config."""
+        payload = self._read_config_payload()
+        payload["last_portfolio_path"] = str(path.resolve()) if path is not None else ""
+        self._write_config_payload(payload)
+
+    def _read_config_payload(self) -> dict[str, Any]:
+        """Best-effort read of full session config payload.
+
+        The payload currently stores (when available):
+        - `last_portfolio_path`: absolute path string for startup restore
+        - `last_usd_ils_quote`: last successful BOI quote cache used for
+          wizard fallback when network fetch fails
+        """
+        if not self._config_path.exists():
+            return {}
+        try:
+            raw = json.loads(self._config_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        return raw
+
+    def _write_config_payload(self, payload: dict[str, Any]) -> None:
+        """Persist full session config payload."""
         self._config_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"last_portfolio_path": str(path.resolve()) if path is not None else ""}
         self._config_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+
+    def read_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
+        """Read last successful USD/ILS quote cache from session config.
+
+        Returns ``None`` for any missing/corrupt/incomplete payload so callers
+        can treat cache as optional and fail soft to manual entry.
+
+        This method is intentionally fail-soft: unreadable or partially-invalid
+        cache payloads are treated as "no cache" instead of raising.
+        """
+        payload = self._read_config_payload().get("last_usd_ils_quote")
+        if not isinstance(payload, dict):
+            return None
+
+        raw_rate = payload.get("rate")
+        raw_effective_date = payload.get("effective_date")
+        raw_cached_at = payload.get("cached_at")
+        raw_last_published = payload.get("used_last_published")
+
+        if not isinstance(raw_rate, str) or not isinstance(raw_effective_date, str):
+            return None
+        if not isinstance(raw_cached_at, str):
+            return None
+
+        try:
+            rate = Decimal(raw_rate)
+        except (InvalidOperation, ValueError):
+            return None
+        if rate <= 0:
+            return None
+
+        try:
+            effective_date = date.fromisoformat(raw_effective_date)
+        except ValueError:
+            return None
+
+        try:
+            cached_at = datetime.fromisoformat(raw_cached_at)
+        except ValueError:
+            return None
+        if cached_at.tzinfo is None:
+            cached_at = cached_at.replace(tzinfo=timezone.utc)
+
+        return CachedUsdIlsQuote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=bool(raw_last_published),
+            cached_at=cached_at,
+        )
+
+    def write_cached_usd_ils_quote(
+        self,
+        *,
+        rate: Decimal,
+        effective_date: date,
+        used_last_published: bool,
+        cached_at: datetime | None = None,
+    ) -> None:
+        """Persist last successful USD/ILS quote cache to session config.
+
+        This intentionally writes only successful official fetches. Manual
+        overrides are transient wizard state and are never persisted.
+        """
+        now = cached_at or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+
+        payload = self._read_config_payload()
+        payload["last_usd_ils_quote"] = {
+            "rate": str(rate),
+            "effective_date": effective_date.isoformat(),
+            "used_last_published": bool(used_last_published),
+            "cached_at": now.isoformat(),
+        }
+        self._write_config_payload(payload)
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""
@@ -134,3 +232,20 @@ class PortfolioSession:
         """Initialize a new unsaved document and clear active path in config."""
         self.document.mark_new_unsaved(portfolio)
         self.set_active_file_path(None)
+
+
+@dataclass(frozen=True)
+class CachedUsdIlsQuote:
+    """Typed representation of cached USD/ILS quote stored in config.
+
+    Fields:
+    - `rate`: quote numeric value
+    - `effective_date`: BOI quote effective date
+    - `used_last_published`: whether BOI fell back to latest published day
+    - `cached_at`: local timestamp when cache was written
+    """
+
+    rate: Decimal
+    effective_date: date
+    used_last_published: bool
+    cached_at: datetime

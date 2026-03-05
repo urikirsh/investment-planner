@@ -127,6 +127,31 @@ def calculate_buy_units(*, instrument_id: str, planned_money: D, price_ag: D) ->
     - Units are always rounded down (never over-spend planned money).
     """
     price_ils = price_ag / Decimal("100")      # conversion
+    return calculate_buy_units_from_ils_price(
+        instrument_id=instrument_id,
+        planned_money=planned_money,
+        price_ils=price_ils,
+    )
+
+
+def calculate_buy_units_from_ils_price(*, instrument_id: str, planned_money: D, price_ils: D) -> BuyCalculation:
+    """
+    Translate a value allocation into an executable buy order using ILS unit price.
+
+    Parameters
+    ----------
+    instrument_id:
+        Target instrument identifier.
+    planned_money:
+        Planned allocation in ILS.
+    price_ils:
+        Unit price already expressed in ILS.
+
+    Returns
+    -------
+    BuyCalculation
+        Includes units to buy (floored), actual spent amount, and leftover cash.
+    """
     units = _floor_units(planned_money, price_ils)
     spent = price_ils * D(units)
     leftover = planned_money - spent
@@ -199,6 +224,7 @@ def commit_buy(
         id=ins.id,
         name=ins.name,
         value=ins.value + spent,
+        currency=ins.currency,
         investable=ins.investable,
         asset_group_id=ins.asset_group_id,
         target_in_group_pct=ins.target_in_group_pct,
@@ -254,6 +280,7 @@ def commit_sell(
         id=ins.id,
         name=ins.name,
         value=ins.value - proceeds,
+        currency=ins.currency,
         investable=ins.investable,
         asset_group_id=ins.asset_group_id,
         target_in_group_pct=ins.target_in_group_pct,

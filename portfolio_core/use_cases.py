@@ -44,12 +44,19 @@ class PlanStep:
 
     A `PlanStep` is generated from group-level plan rows and tells the caller
     which instrument should be bought or sold and by how much planned value.
+
+    Notes
+    -----
+    - `planned_delta_money` is always expressed in ILS.
+    - `currency` describes the instrument's wizard price-entry currency
+      (`ILS` agorot input or `USD` unit-price input).
     """
 
     asset_group_id: str
     asset_group_name: str
     instrument_id: str
     instrument_name: str
+    currency: str
     planned_delta_money: D
 
 
@@ -204,6 +211,7 @@ def build_plan_for_current_document(session: PortfolioSession, mode: PlanningMod
                 asset_group_name=group_name,
                 instrument_id=instrument_id,
                 instrument_name=instrument.name,
+                currency=instrument.currency.value,
                 planned_delta_money=planned_delta,
             )
         )

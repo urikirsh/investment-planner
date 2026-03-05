@@ -8,8 +8,10 @@ use-case orchestration around `PortfolioSession`.
 """
 
 import pytest
+import json
+from datetime import date
 
-from portfolio_core.io_json import load_portfolio, save_portfolio_file
+from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_document import PortfolioDocument
 from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
@@ -81,10 +83,39 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     assert session.document.is_dirty() is False
 
 
+def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
+    target = tmp_path / "bom_portfolio.json"
+    payload = make_valid_data()
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8-sig")
+
+    loaded = load_portfolio_file(target)
+    assert loaded == load_portfolio(payload)
+
+
 def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
     doc = PortfolioDocument()
     with pytest.raises(ValueError, match="No current portfolio to save"):
         doc.save_to_path(tmp_path / "x.json")
+
+
+def test_portfolio_session_persists_and_reads_cached_usd_ils_quote(tmp_path):
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target_path = tmp_path / "portfolio.json"
+    target_path.write_text("{}", encoding="utf-8")
+    session.set_active_file_path(target_path)
+
+    session.write_cached_usd_ils_quote(
+        rate=D("3.77"),
+        effective_date=date.fromisoformat("2026-03-05"),
+        used_last_published=False,
+    )
+
+    reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    assert reloaded.resolve_startup_path() == target_path
+    cached = reloaded.read_cached_usd_ils_quote()
+    assert cached is not None
+    assert cached.rate == D("3.77")
+    assert str(cached.effective_date) == "2026-03-05"
 
 
 def test_build_default_portfolio_returns_valid_portfolio():
@@ -169,6 +200,7 @@ def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
+        currency="ILS",
         planned_delta_money=D("500"),
     )
     applied = apply_wizard_step(session, step, calc_units=2, spent=D("200"))
@@ -191,6 +223,7 @@ def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
+        currency="ILS",
         planned_delta_money=D("500"),
     )
     applied = apply_wizard_step(session, step, calc_units=0, spent=D("0"))

@@ -9,7 +9,12 @@ effects on cash/instrument values.
 
 import pytest
 
-from portfolio_core.calc_stock_units import calculate_buy_units, commit_buy, commit_sell
+from portfolio_core.calc_stock_units import (
+    calculate_buy_units,
+    calculate_buy_units_from_ils_price,
+    commit_buy,
+    commit_sell,
+)
 from tests.core.helpers import D, make_portfolio
 
 
@@ -18,6 +23,13 @@ def test_calculate_buy_units_floor():
     assert calc.units == 3
     assert calc.spent == D("99")
     assert calc.leftover == D("1")
+
+
+def test_calculate_buy_units_from_ils_price_floor():
+    calc = calculate_buy_units_from_ils_price(instrument_id="i1", planned_money=D("50"), price_ils=D("31"))
+    assert calc.units == 1
+    assert calc.spent == D("31")
+    assert calc.leftover == D("19")
 
 
 @pytest.mark.parametrize("price_ag", [D("0"), D("-1")])
