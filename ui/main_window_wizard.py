@@ -40,19 +40,20 @@ class _FxFetchWorker(QObject):
     - human-readable error text on failure.
     """
 
-    finished = Signal(object, object)  # (UsdIlsRateQuote | None, error_text | None)
+    finished = Signal(object, object, int)  # (UsdIlsRateQuote | None, error_text | None, generation)
 
-    def __init__(self, *, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, *, timeout_seconds: float = 10.0, generation: int) -> None:
         super().__init__()
         self._timeout_seconds = timeout_seconds
+        self._generation = generation
 
     @Slot()
     def run(self) -> None:
         try:
             quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
-            self.finished.emit(quote, None)
+            self.finished.emit(quote, None, self._generation)
         except Exception as exc:
-            self.finished.emit(None, str(exc))
+            self.finished.emit(None, str(exc), self._generation)
 
 
 class MainWindowWizardMixin:
@@ -204,16 +205,20 @@ class MainWindowWizardMixin:
         if not self._wizard_has_usd_steps():
             return
 
+        self._cancel_wizard_fx_fetch()
         self.wizard_state.usd_ils_fetch_attempted = True
         self.wizard_state.usd_ils_fetch_in_progress = True
         self.wizard_state.usd_ils_fetch_error = None
+        self.wizard_state.usd_ils_fetch_generation += 1
+        generation = self.wizard_state.usd_ils_fetch_generation
+        self.wizard_state.usd_ils_active_fetch_generation = generation
 
         if hasattr(self, "screen_wizard"):
             self._render_fx_panel_for_current_step()
 
         parent = cast(QObject, self)
         self._fx_fetch_thread = QThread(parent)
-        self._fx_fetch_worker = _FxFetchWorker(timeout_seconds=10.0)
+        self._fx_fetch_worker = _FxFetchWorker(timeout_seconds=10.0, generation=generation)
         self._fx_fetch_worker.moveToThread(self._fx_fetch_thread)
         self._fx_fetch_thread.started.connect(self._fx_fetch_worker.run)
         self._fx_fetch_worker.finished.connect(self._on_fx_fetch_finished)
@@ -222,8 +227,8 @@ class MainWindowWizardMixin:
         self._fx_fetch_thread.finished.connect(self._fx_fetch_thread.deleteLater)
         self._fx_fetch_thread.start()
 
-    @Slot(object, object)
-    def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object) -> None:
+    @Slot(object, object, int)
+    def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object, generation: int) -> None:
         """Handle completion of asynchronous BOI fetch.
 
         Success path:
@@ -237,7 +242,11 @@ class MainWindowWizardMixin:
         - shows one loud failure modal per run,
         - requires manual entry when no readable cache exists.
         """
+        if generation != self.wizard_state.usd_ils_active_fetch_generation:
+            return
+
         self.wizard_state.usd_ils_fetch_in_progress = False
+        self.wizard_state.usd_ils_active_fetch_generation = None
         self._fx_fetch_worker = None
         self._fx_fetch_thread = None
 
@@ -303,6 +312,7 @@ class MainWindowWizardMixin:
 
     def _reset_wizard_fx_state_for_new_run(self) -> None:
         """Reset transient USD/ILS state and clear manual FX input for a new run."""
+        self._cancel_wizard_fx_fetch()
         self.wizard_state.usd_ils_rate = None
         self.wizard_state.usd_ils_rate_date = None
         self.wizard_state.usd_ils_source = None
@@ -314,9 +324,22 @@ class MainWindowWizardMixin:
         self.wizard_state.usd_ils_failure_dialog_shown = False
         self.wizard_state.usd_ils_rate_from_cache = False
         self.wizard_state.usd_ils_rate_cached_at = None
+        self.wizard_state.usd_ils_active_fetch_generation = None
         # Clear manual input widget to prevent value carry-over across runs.
         if hasattr(self, "manual_rate_edit"):
             self.manual_rate_edit.setText("")
+
+    def _cancel_wizard_fx_fetch(self) -> None:
+        """Stop and detach the in-flight FX fetch thread, if any."""
+        thread = self._fx_fetch_thread
+        worker = self._fx_fetch_worker
+        if thread is not None and thread.isRunning():
+            thread.quit()
+            thread.wait(1000)
+        if worker is not None:
+            worker.deleteLater()
+        self._fx_fetch_worker = None
+        self._fx_fetch_thread = None
 
     def _render_fx_panel_for_current_step(self) -> None:
         """Render FX quote/fallback/override status for the active step.
@@ -420,6 +443,9 @@ class MainWindowWizardMixin:
         """Move to next step, or repopulate main editor and return when complete."""
         self.planning_state.step_index += 1
         if self.planning_state.step_index >= len(self.planning_state.plan_steps):
+            self._cancel_wizard_fx_fetch()
+            self.wizard_state.usd_ils_fetch_in_progress = False
+            self.wizard_state.usd_ils_active_fetch_generation = None
             current = self.session.document.current_portfolio
             assert current is not None
             populate_main_editor_from_portfolio(

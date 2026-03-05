@@ -135,6 +135,8 @@ class _FakeHost(MainWindowWizardMixin):
             usd_ils_failure_dialog_shown=False,
             usd_ils_rate_from_cache=False,
             usd_ils_rate_cached_at=None,
+            usd_ils_fetch_generation=1,
+            usd_ils_active_fetch_generation=1,
         )
         self.stack = _FakeStack()
         self.screen_main = object()
@@ -152,6 +154,8 @@ class _FakeHost(MainWindowWizardMixin):
         self._non_investable_bucket_title = "Non-investable holdings (excluded from strategy)"
         self._file_context_updates = 0
         self._future_tax_updates = 0
+        self._fx_fetch_thread = None
+        self._fx_fetch_worker = None
 
     def _quit_app(self) -> None:
         return None
@@ -271,6 +275,7 @@ def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
             used_last_published=False,
         ),
         None,
+        1,
     )
 
     assert host.wizard_state.usd_ils_rate == Decimal("3.9")
@@ -301,7 +306,7 @@ def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
     shown: list[tuple[str, str]] = []
     monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
 
-    host._on_fx_fetch_finished(None, "network")
+    host._on_fx_fetch_finished(None, "network", 1)
 
     assert host.wizard_state.usd_ils_rate == Decimal("3.8")
     assert host.wizard_state.usd_ils_rate_from_cache is True
@@ -317,7 +322,7 @@ def test_on_fx_fetch_finished_requires_manual_when_cache_unreadable(
     shown: list[tuple[str, str]] = []
     monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
 
-    host._on_fx_fetch_finished(None, "network")
+    host._on_fx_fetch_finished(None, "network", 1)
 
     assert host.wizard_state.usd_ils_rate is None
     assert host.wizard_state.usd_ils_rate_from_cache is False
@@ -336,6 +341,25 @@ def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: 
     assert host.wizard_state.manual_override_usd_ils_rate is None
     assert host.wizard_state.usd_ils_fetch_attempted is False
     assert host.manual_rate_edit.text() == ""
+
+
+def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="50", currency="USD")])
+    host.wizard_state.usd_ils_active_fetch_generation = 2
+    host.wizard_state.usd_ils_rate = Decimal("3.7")
+
+    host._on_fx_fetch_finished(
+        UsdIlsRateQuote(
+            rate=Decimal("3.9"),
+            effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
+            source="Bank of Israel",
+            used_last_published=False,
+        ),
+        None,
+        1,
+    )
+
+    assert host.wizard_state.usd_ils_rate == Decimal("3.7")
 
 
 def test_wizard_save_continue_uses_zero_when_no_last_calc(

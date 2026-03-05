@@ -105,6 +105,10 @@ class WizardState:
         True when the effective rate currently comes from local cache.
     usd_ils_rate_cached_at:
         Timestamp when the cached rate was stored locally.
+    usd_ils_fetch_generation:
+        Monotonic generation id incremented for each started async fetch.
+    usd_ils_active_fetch_generation:
+        Generation id of the currently active fetch, if any.
 
     Notes
     -----
@@ -124,3 +128,5 @@ class WizardState:
     usd_ils_failure_dialog_shown: bool = False
     usd_ils_rate_from_cache: bool = False
     usd_ils_rate_cached_at: datetime | None = None
+    usd_ils_fetch_generation: int = 0
+    usd_ils_active_fetch_generation: int | None = None

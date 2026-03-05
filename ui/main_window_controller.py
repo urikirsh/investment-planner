@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import Qt, QStandardPaths
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -114,6 +115,11 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         self._refresh_data()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Ensure background FX thread is stopped before window teardown."""
+        self._cancel_wizard_fx_fetch()
+        super().closeEvent(event)
 
     def _current_file_display_name(self) -> str:
         """Return short file label for UI chrome (filename or ``Untitled``)."""

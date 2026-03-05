@@ -135,3 +135,16 @@ def test_confirm_unsaved_changes_splits_decision_prompt_from_action_resolution(
     monkeypatch.setattr(window, "_prompt_unsaved_changes_decision", lambda _: UnsavedChangesDecision.DISCARD)
 
     assert window._confirm_continue_with_unsaved_changes("opening another portfolio") is True
+
+
+def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+
+    def fake_cancel() -> None:
+        nonlocal calls
+        calls += 1
+
+    monkeypatch.setattr(window, "_cancel_wizard_fx_fetch", fake_cancel)
+    window.close()
+
+    assert calls >= 1
