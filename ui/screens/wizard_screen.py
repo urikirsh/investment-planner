@@ -22,10 +22,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY
+from ui.ui_utils import DEFAULT_CURRENCY
 
 
-DEFAULT_PRICE_LABEL = f"Price {BASE_CURRENCY_SUFFIX}:"
+DEFAULT_PRICE_LABEL = "Price (Agorot):"
 USD_PRICE_LABEL = f"Price ({Currency.USD.value}):"
 USD_ILS_MANUAL_RATE_LABEL = f"Manual {Currency.USD.value}/{DEFAULT_CURRENCY.value} rate:"
 
