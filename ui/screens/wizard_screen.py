@@ -22,6 +22,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY
+
+
+DEFAULT_PRICE_LABEL = f"Price {BASE_CURRENCY_SUFFIX}:"
+USD_PRICE_LABEL = f"Price ({Currency.USD.value}):"
+USD_ILS_MANUAL_RATE_LABEL = f"Manual {Currency.USD.value}/{DEFAULT_CURRENCY.value} rate:"
+
 
 class WizardScreen(QWidget):
     """
@@ -47,7 +54,7 @@ class WizardScreen(QWidget):
 
         form = QWidget(self)
         form_layout = QFormLayout(form)
-        self.price_label = QLabel("Price (Agorot):")
+        self.price_label = QLabel(DEFAULT_PRICE_LABEL)
         self.price_edit = QLineEdit()
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
         form_layout.addRow(self.price_label, self.price_edit)
@@ -63,7 +70,7 @@ class WizardScreen(QWidget):
         self.fx_error_label.setVisible(False)
         form_layout.addRow(self.fx_error_label)
 
-        self.manual_rate_label = QLabel("Manual USD/ILS rate:")
+        self.manual_rate_label = QLabel(USD_ILS_MANUAL_RATE_LABEL)
         self.manual_rate_label.setVisible(False)
         self.manual_rate_edit = QLineEdit()
         self.manual_rate_edit.setPlaceholderText("e.g. 3.65")
@@ -99,11 +106,11 @@ class WizardScreen(QWidget):
     def set_price_mode(self, currency: str) -> None:
         """Configure price-label context for the current instrument currency."""
         if currency == Currency.USD.value:
-            self.price_label.setText("Price (USD):")
-            self.price_edit.setPlaceholderText("Enter unit price in USD (e.g. 12.34)")
+            self.price_label.setText(USD_PRICE_LABEL)
+            self.price_edit.setPlaceholderText(f"Enter unit price in {Currency.USD.value} (e.g. 12.34)")
             return
 
-        self.price_label.setText("Price (Agorot):")
+        self.price_label.setText(DEFAULT_PRICE_LABEL)
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
 
     def set_fx_panel(

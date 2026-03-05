@@ -9,11 +9,13 @@ from typing import Any, Callable
 
 import pytest
 
+from portfolio_core.models import Currency
 from portfolio_core.fx_service import UsdIlsRateQuote
 from portfolio_core.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_wizard as wizard_mod
 from ui.main_window_wizard import MainWindowWizardMixin
+from ui.ui_utils import DEFAULT_CURRENCY
 
 
 class _FakeLabel:
@@ -59,11 +61,11 @@ class _FakeWizardScreen:
         self.calculate_btn = SimpleNamespace(setEnabled=lambda *_args, **_kwargs: None)
 
     def set_price_mode(self, currency: str) -> None:
-        if currency == "USD":
-            self._price_label.setText("Price (USD):")
-            self._price_edit.setPlaceholderText("Enter unit price in USD (e.g. 12.34)")
+        if currency == Currency.USD.value:
+            self._price_label.setText(f"Price ({Currency.USD.value}):")
+            self._price_edit.setPlaceholderText(f"Enter unit price in {Currency.USD.value} (e.g. 12.34)")
             return
-        self._price_label.setText("Price (Agorot):")
+        self._price_label.setText(f"Price ({DEFAULT_CURRENCY.value}):")
         self._price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
 
     def set_fx_panel(
@@ -174,7 +176,7 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
 
     assert "Step 1/1" in host.wiz_info.value
     assert "Planned BUY value (ILS): 125" in host.wiz_info.value
-    assert host.price_label.value == "Price (Agorot):"
+    assert host.price_label.value == f"Price ({DEFAULT_CURRENCY.value}):"
     assert host.price_edit.text() == ""
     assert host.wiz_result.value == "Units: - | Spent/Proceeds: - | Leftover vs plan: -"
     assert host.wizard_state.last_calc is None
