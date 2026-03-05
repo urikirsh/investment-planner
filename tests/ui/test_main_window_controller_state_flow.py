@@ -15,13 +15,16 @@ from types import SimpleNamespace
 from typing import Callable
 
 import pytest
+from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
+from ui.ui_types import Col, ROLE_CURRENCY, RowKind
 from ui.ui_state import UnsavedChangesDecision
+from ui.ui_utils import set_item_meta
 
 D = Decimal
 
@@ -174,3 +177,17 @@ def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkey
 
     assert calls >= 1
     assert seen_timeout and seen_timeout[0] == 12000
+
+
+def test_item_changed_currency_normalizes_invalid_input_to_default_currency(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    child = QTreeWidgetItem(window.tree)
+    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child.setText(Col.CURRENCY.value, "invalid")
+
+    window._on_item_changed_guard_and_recalc(child, Col.CURRENCY.value)
+
+    assert child.text(Col.CURRENCY.value) == "ILS"
+    assert child.data(0, ROLE_CURRENCY) == "ILS"

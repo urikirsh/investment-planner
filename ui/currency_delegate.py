@@ -5,6 +5,8 @@ from __future__ import annotations
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
+from ui.ui_utils import currency_choices
+
 
 class CurrencyDelegate(QStyledItemDelegate):
     """
@@ -14,7 +16,7 @@ class CurrencyDelegate(QStyledItemDelegate):
     cell editing aligned with domain validation constraints.
     """
 
-    _choices = ("ILS", "USD")
+    _choices = currency_choices()
 
     def createEditor(
         self,

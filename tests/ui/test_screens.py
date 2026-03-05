@@ -9,6 +9,7 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
+from portfolio_core.models import Currency
 from ui.currency_delegate import CurrencyDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -92,3 +93,7 @@ def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_withou
     )
 
     assert screen.manual_rate_edit.text() == ""
+
+
+def test_currency_delegate_choices_follow_currency_enum_values() -> None:
+    assert CurrencyDelegate._choices == tuple(currency.value for currency in Currency)

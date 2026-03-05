@@ -49,7 +49,14 @@ from portfolio_core.use_cases import (
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.ui_types import RowKind, Col, ROLE_CURRENCY, ROLE_PREV_TEXT
-from ui.ui_utils import get_item_kind, set_group_tree_item, add_instrument_item_to_group, parse_value_cell
+from ui.ui_utils import (
+    DEFAULT_CURRENCY,
+    add_instrument_item_to_group,
+    get_item_kind,
+    parse_currency_code,
+    parse_value_cell,
+    set_group_tree_item,
+)
 from ui.ui_utils import apply_drift_color, NON_INVESTABLE_BUCKET_ID, _is_cell_editable
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
@@ -212,10 +219,8 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             return
 
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
-            raw = item.text(column).strip().upper()
-            if raw not in ("ILS", "USD"):
-                raw = "ILS"
-                item.setText(column, raw)
+            raw = parse_currency_code(item.text(column)) or DEFAULT_CURRENCY.value
+            item.setText(column, raw)
             item.setData(0, ROLE_CURRENCY, raw)
 
         # Only business-rule validate relevant cells

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QBrush
 
+from portfolio_core.models import Currency
 from ui.ui_types import ROLE_CURRENCY, ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
@@ -26,6 +27,27 @@ No business logic or persistence logic belongs in this module.
 D = Decimal
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
+DEFAULT_CURRENCY = Currency.ILS
+
+
+def currency_choices() -> tuple[str, ...]:
+    """Return allowed currency codes for UI editors and validations."""
+    return tuple(currency.value for currency in Currency)
+
+
+def parse_currency_code(raw: object) -> str | None:
+    """Parse a raw value into a supported currency code, or ``None``."""
+    if isinstance(raw, Currency):
+        return raw.value
+    if not isinstance(raw, str):
+        return None
+    normalized = raw.strip().upper()
+    if not normalized:
+        return None
+    try:
+        return Currency(normalized).value
+    except ValueError:
+        return None
 
 def d_from_text(txt: str, field: str) -> D:
     """Parse a required Decimal from text and include field name in errors."""
@@ -59,14 +81,25 @@ def get_item_id(item: QTreeWidgetItem) -> str:
 
 
 def get_item_currency(item: QTreeWidgetItem) -> str:
-    """Return stored instrument currency, defaulting to ILS."""
-    text_value = (item.text(Col.CURRENCY.value) or "").strip()
-    if text_value in ("ILS", "USD"):
-        return text_value
-    raw = item.data(0, ROLE_CURRENCY)
-    if isinstance(raw, str) and raw in ("ILS", "USD"):
-        return raw
-    return "ILS"
+    """
+    Return a valid instrument currency code with deterministic fallbacks.
+
+    Resolution order:
+    1. Parse the visible currency cell text.
+    2. If that cannot be parsed (empty/invalid mid-edit), parse ``ROLE_CURRENCY`` metadata.
+    3. If both are unreadable, return ``ILS`` as a safe default.
+
+    We intentionally fail soft here because this helper is used while users edit
+    rows interactively, and temporary invalid text should not crash UI refresh or
+    data extraction paths.
+    """
+    parsed_text = parse_currency_code(item.text(Col.CURRENCY.value))
+    if parsed_text is not None:
+        return parsed_text
+    parsed_meta = parse_currency_code(item.data(0, ROLE_CURRENCY))
+    if parsed_meta is not None:
+        return parsed_meta
+    return DEFAULT_CURRENCY.value
 
 def new_id(prefix: str) -> str:
     """Generate a short, pseudo-random id with a stable prefix."""
@@ -175,7 +208,7 @@ def add_instrument_item_to_group(
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
     item.setText(Col.TOT_VALUE.value, value)
-    currency_value = currency if currency in ("ILS", "USD") else "ILS"
+    currency_value = parse_currency_code(currency) or DEFAULT_CURRENCY.value
     item.setText(Col.CURRENCY.value, currency_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
 
