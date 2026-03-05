@@ -200,7 +200,7 @@ def add_instrument_item_to_group(
         value: str,
         in_group_pct: str,
         id_str: str = "",
-        currency: str = "ILS",
+        currency: str = DEFAULT_CURRENCY.value,
 ) \
         -> None:
     """Create and initialize an instrument child row under the given parent group."""
