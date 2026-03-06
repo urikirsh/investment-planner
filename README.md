@@ -31,7 +31,7 @@ The application never executes trades automatically. All actions are explicit an
 ### Portfolio structure
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
-- Optional per-instrument `quantity` tracking field (empty or non-negative integer, no calculation impact)
+- Optional per-instrument `quantity` tracking field (default empty; empty or non-negative integer; no calculation impact)
 - Per-instrument `currency` (`ILS` or `USD`) for wizard price-entry semantics
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy

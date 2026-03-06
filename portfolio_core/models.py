@@ -75,8 +75,14 @@ class Instrument:
     - ``value`` is non-negative
     - ``currency`` is one of ``ILS`` or ``USD``
     - ``target_in_group_pct`` is in [0, 100]
+    - ``quantity`` is empty or a non-negative integer string
     - investable instruments must reference a valid ``asset_group_id``
     - non-investable instruments must have ``asset_group_id is None``
+
+    Notes
+    -----
+    ``quantity`` is a user convenience field for tracking held units.
+    It does not participate in planning, budgeting, or drift calculations.
     """
     id: str
     name: str
@@ -85,7 +91,7 @@ class Instrument:
     investable: bool
     asset_group_id: Optional[str]  # None for non-investable instruments
     target_in_group_pct: D  # must sum to 100 per investable group
-    quantity: str = ""  # optional user-tracking field: empty or non-negative integer string
+    quantity: str = ""  # optional tracking-only field: empty or non-negative integer string
 
 
 @dataclass(frozen=True)

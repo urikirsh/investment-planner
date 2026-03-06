@@ -7,6 +7,10 @@ of the application flow. It is responsible for:
 - exposing key child widgets as attributes for external signal wiring
 - applying static UI setup (column headers, delegates, tooltips)
 
+Main tree note:
+- includes an instrument `Quantity` column for user tracking convenience
+  (empty or non-negative integer), with no effect on planning calculations.
+
 The class intentionally contains no business logic, persistence logic, or
 navigation flow control. Those concerns stay in
 `ui.main_window_controller.MainWindow`.

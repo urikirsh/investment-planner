@@ -165,6 +165,9 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
     """
     Validate per-instrument value/range/mapping rules and accumulate group pct sums.
 
+    Also validates optional user-tracking ``quantity`` field semantics:
+    empty or non-negative integer string only.
+
     Returns
     -------
     dict[str, Decimal]
