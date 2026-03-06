@@ -228,6 +228,7 @@ def commit_buy(
         investable=ins.investable,
         asset_group_id=ins.asset_group_id,
         target_in_group_pct=ins.target_in_group_pct,
+        quantity=ins.quantity,
     )
     return Portfolio(
         cash=Cash(
@@ -284,6 +285,7 @@ def commit_sell(
         investable=ins.investable,
         asset_group_id=ins.asset_group_id,
         target_in_group_pct=ins.target_in_group_pct,
+        quantity=ins.quantity,
     )
     return Portfolio(
         cash=Cash(

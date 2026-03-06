@@ -50,6 +50,7 @@ class InstrumentPayload(TypedDict):
     name: str
     value: str
     currency: str
+    quantity: str
     investable: bool
     targetInGroupPercentage: str
     groupId: NotRequired[str]
@@ -64,6 +65,7 @@ class PortfolioPayload(TypedDict):
 class InstrumentUiRow(TypedDict):
     id: str
     name: str
+    quantity: str
     value: str
     currency: str
     investable: bool
@@ -121,6 +123,7 @@ def populate_main_editor_from_portfolio(
             row: InstrumentUiRow = {
                 "id": ins.id,
                 "name": ins.name,
+                "quantity": ins.quantity,
                 "value": str(ins.value),
                 "currency": ins.currency.value,
                 "investable": ins.investable,
@@ -140,6 +143,7 @@ def populate_main_editor_from_portfolio(
                 add_instrument_item_to_group(
                     group_item,
                     ins_row["name"],
+                    ins_row["quantity"],
                     ins_row["value"],
                     ins_row["targetInGroupPercentage"],
                     ins_row["id"],
@@ -158,6 +162,7 @@ def populate_main_editor_from_portfolio(
             add_instrument_item_to_group(
                 non_investable_bucket,
                 non_investable_row["name"],
+                non_investable_row["quantity"],
                 non_investable_row["value"],
                 "",
                 non_investable_row["id"],
@@ -246,12 +251,14 @@ def build_portfolio_data_from_main_editor(
                 set_item_meta(ins, RowKind.INSTRUMENT, instrument_id)
 
             instrument_name = ins.text(Col.NAME.value).strip()
+            quantity = ins.text(Col.QUANTITY.value).strip()
             total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
 
             if is_non_investable_bucket:
                 instrument: InstrumentPayload = {
                     "id": instrument_id,
                     "name": instrument_name,
+                    "quantity": quantity,
                     "value": total_value,
                     "currency": get_item_currency(ins),
                     "investable": False,
@@ -261,6 +268,7 @@ def build_portfolio_data_from_main_editor(
                 instrument = {
                     "id": instrument_id,
                     "name": instrument_name,
+                    "quantity": quantity,
                     "value": total_value,
                     "currency": get_item_currency(ins),
                     "investable": True,

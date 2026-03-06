@@ -85,6 +85,7 @@ class Instrument:
     investable: bool
     asset_group_id: Optional[str]  # None for non-investable instruments
     target_in_group_pct: D  # must sum to 100 per investable group
+    quantity: str = ""  # optional user-tracking field: empty or non-negative integer string
 
 
 @dataclass(frozen=True)

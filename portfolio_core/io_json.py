@@ -62,6 +62,22 @@ def _parse_decimal(value: Any, field: str) -> D:
         raise ValueError(f"Field '{field}' must be a number, got: {value!r}")
 
 
+def _parse_quantity(value: Any, field: str) -> str:
+    """Parse instrument quantity as empty or non-negative integer string."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"Field '{field}' must be a string, got: {value!r}")
+    quantity = value.strip()
+    if not quantity:
+        return ""
+    if not quantity.isdigit():
+        raise ValueError(
+            f"Field '{field}' must be empty or a non-negative integer string, got: {value!r}"
+        )
+    return quantity
+
+
 def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     """
     Parse a raw JSON-decoded mapping into a strongly-typed Portfolio model.
@@ -151,6 +167,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
                     ins.get("targetInGroupPercentage"),
                     f"instruments[{i}].targetInGroupPercentage",
                 ),
+                quantity=_parse_quantity(ins.get("quantity"), f"instruments[{i}].quantity"),
             )
         )
 
@@ -231,6 +248,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
                 "currency": ins.currency.value,
                 "investable": bool(ins.investable),
                 "targetInGroupPercentage": str(ins.target_in_group_pct),
+                "quantity": ins.quantity,
                 **({"groupId": ins.asset_group_id} if ins.asset_group_id is not None else {}),
             }
             for ins in p.instruments

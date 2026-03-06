@@ -233,6 +233,10 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             if not self._validate_instrument_target_pct_cell_or_revert(item):
                 self._refresh_data()
                 return
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.QUANTITY.value:
+            if not self._validate_instrument_quantity_cell_or_revert(item):
+                self._refresh_data()
+                return
 
         self._refresh_data()
 
@@ -259,7 +263,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         else:
             default_in_group_pct = "100" if parent.childCount() == 0 else "0"
 
-        add_instrument_item_to_group(parent, "New Instrument", "1", default_in_group_pct)
+        add_instrument_item_to_group(parent, "New Instrument", "", "1", default_in_group_pct)
 
         self.tree.expandAll()
         self._refresh_data()
@@ -635,6 +639,29 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             self._warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
 
+        return True
+
+    def _validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
+        """
+        Validate instrument quantity cell.
+
+        Allowed values are empty or a non-negative integer.
+        """
+        col = Col.QUANTITY.value
+        raw = item.text(col).strip()
+        prev = item.data(col, ROLE_PREV_TEXT)
+
+        if raw == "":
+            return True
+        if not raw.isdigit():
+            self._warn_and_revert(
+                item,
+                col,
+                raw,
+                prev,
+                "Quantity must be empty or a non-negative integer.",
+            )
+            return False
         return True
 
     def _warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:

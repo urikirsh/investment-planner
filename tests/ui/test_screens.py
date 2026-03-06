@@ -30,6 +30,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
 
     assert screen.tree.columnCount() == len(Col)
     assert screen.tree.headerItem().text(Col.NAME.value) == "Name"
+    assert screen.tree.headerItem().text(Col.QUANTITY.value) == "Quantity"
     assert screen.tree.headerItem().text(Col.CURRENCY.value) == "Currency"
     assert screen.tree.headerItem().text(Col.DRIFT_PP.value) == "Drift (pp)"
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
@@ -50,6 +51,7 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     screen = MainEditorScreen()
 
     assert "asset group or instrument name" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
+    assert "non-negative integer" in screen.tree.headerItem().toolTip(Col.QUANTITY.value).lower()
     total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)
     assert DEFAULT_CURRENCY.value in total_value_tooltip
     currency_tooltip = screen.tree.headerItem().toolTip(Col.CURRENCY.value)

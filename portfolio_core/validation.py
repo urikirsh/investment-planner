@@ -186,6 +186,12 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
                 f"Instrument '{ins.name}' targetInGroupPercentage must be between 0 and 100"
             )
 
+        quantity = ins.quantity.strip()
+        if quantity and not quantity.isdigit():
+            raise ValueError(
+                f"Instrument '{ins.name}' quantity must be empty or a non-negative integer"
+            )
+
         if ins.investable:
             # investable instruments must belong to a group
             if not ins.asset_group_id:
