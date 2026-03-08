@@ -26,15 +26,13 @@ def _allowed_exchange_values_text() -> str:
     return ", ".join(exchange.value for exchange in Exchange)
 
 
-def _format_instrument_location(p: Portfolio, idx: int, instrument_name: str, group_id: str | None) -> str:
+def _format_instrument_location(p: Portfolio, group_id: str | None) -> str:
     """
     Build a user-facing location label for duplicate-name error messages.
 
     The function intentionally hides positional/index details to keep
     validation messages stable and easy to read.
     """
-    del idx  # index is intentionally hidden from user-facing messages
-    del instrument_name
     group_by_id = {g.id: g.name for g in p.asset_groups}
     if group_id is None:
         return "non-investable bucket"
@@ -146,8 +144,8 @@ def _validate_instrument_name_uniqueness(p: Portfolio) -> None:
             continue
 
         first_ins = p.instruments[prior_idx]
-        first_loc = _format_instrument_location(p, prior_idx, first_ins.name, first_ins.asset_group_id)
-        dup_loc = _format_instrument_location(p, idx, ins.name, ins.asset_group_id)
+        first_loc = _format_instrument_location(p, first_ins.asset_group_id)
+        dup_loc = _format_instrument_location(p, ins.asset_group_id)
 
         if first_ins.asset_group_id == ins.asset_group_id:
             if ins.asset_group_id is None:
