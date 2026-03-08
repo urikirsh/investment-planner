@@ -17,7 +17,7 @@ All trade execution behavior is intentionally delegated to the coordinator.
 
 from __future__ import annotations
 
-from portfolio_core.models import Exchange
+from portfolio_core.models import Currency, Exchange
 from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
@@ -111,9 +111,9 @@ class WizardScreen(QWidget):
         btns_layout.addStretch(1)
         layout.addWidget(btns)
 
-    def set_price_mode(self, exchange: str) -> None:
+    def set_price_mode(self, exchange: Exchange) -> None:
         """Configure price-label context for the current instrument exchange."""
-        if exchange == Exchange.NYSE.value:
+        if exchange.currency == Currency.USD:
             self.price_label.setText(USD_PRICE_LABEL)
             self.price_edit.setPlaceholderText(f"Enter unit price in {Exchange.NYSE.currency.value} (e.g. 12.34)")
             return

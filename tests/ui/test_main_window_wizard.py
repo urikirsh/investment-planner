@@ -59,8 +59,8 @@ class _FakeWizardScreen:
         self.manual_visible = False
         self.calculate_btn = SimpleNamespace(setEnabled=lambda *_args, **_kwargs: None)
 
-    def set_price_mode(self, exchange: str) -> None:
-        if exchange == Exchange.NYSE.value:
+    def set_price_mode(self, exchange: Exchange) -> None:
+        if exchange.currency == Exchange.NYSE.currency:
             self._price_label.setText(f"Price ({Exchange.NYSE.currency.value}):")
             self._price_edit.setPlaceholderText(f"Enter unit price in {Exchange.NYSE.currency.value} (e.g. 12.34)")
             return
@@ -204,7 +204,7 @@ def test_wizard_calculate_sets_last_calc_and_result_text(
 
 
 def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.price_edit = _FakeLineEdit("10")
     host.manual_rate_edit = _FakeLineEdit("")
     host.price_label = _FakeLabel()
@@ -226,7 +226,7 @@ def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_pla
 
 
 def test_wizard_calculate_usd_uses_manual_override_when_fetch_failed(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.price_edit = _FakeLineEdit("10")
     host.manual_rate_edit = _FakeLineEdit("3.2")
     host.price_label = _FakeLabel()
@@ -245,7 +245,7 @@ def test_wizard_calculate_usd_uses_manual_override_when_fetch_failed(make_plan_s
 def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.price_edit = _FakeLineEdit("10")
     host.manual_rate_edit = _FakeLineEdit("")
     host.wizard_state.usd_ils_fetch_error = "network"
@@ -264,7 +264,7 @@ def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
 def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
     make_plan_step: Callable[..., PlanStep]
 ) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
 
     host._on_fx_fetch_finished(
         UsdIlsRateQuote(
@@ -283,7 +283,7 @@ def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
 def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
     make_plan_step: Callable[..., PlanStep]
 ) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="TASE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.TASE)])
 
     host._prepare_wizard_fx_rate_cache()
 
@@ -293,7 +293,7 @@ def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
 def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     shown: list[tuple[str, str]] = []
     monkeypatch.setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
     monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
@@ -307,7 +307,7 @@ def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
 def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.session.read_cached_usd_ils_quote = lambda: CachedUsdIlsQuote(
         rate=Decimal("3.8"),
         effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
@@ -328,7 +328,7 @@ def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
 def test_on_fx_fetch_finished_requires_manual_when_cache_unreadable(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.session.read_cached_usd_ils_quote = lambda: None
     shown: list[tuple[str, str]] = []
     monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
@@ -342,7 +342,7 @@ def test_on_fx_fetch_finished_requires_manual_when_cache_unreadable(
 
 
 def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
     host.wizard_state.usd_ils_fetch_attempted = True
     host.manual_rate_edit.setText("3.4")
@@ -356,7 +356,7 @@ def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: 
 
 
 def test_reset_wizard_fx_state_returns_false_when_cancel_fails(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
     host.manual_rate_edit.setText("3.4")
     setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
@@ -368,7 +368,7 @@ def test_reset_wizard_fx_state_returns_false_when_cancel_fails(make_plan_step: C
 
 
 def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange="NYSE")])
+    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.wizard_state.usd_ils_active_fetch_generation = 2
     host.wizard_state.usd_ils_rate = Decimal("3.7")
 

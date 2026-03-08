@@ -7,7 +7,7 @@ from typing import Any, List, Mapping
 
 from portfolio_core.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.models import AssetGroupPlanRow, Instrument, Portfolio
+from portfolio_core.models import AssetGroupPlanRow, Exchange, Instrument, Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.planning import (
     compute_invest_budget,
@@ -66,14 +66,14 @@ class PlanStep:
     - `planned_delta_money` is always expressed in ILS.
     - `exchange` describes the instrument's trading exchange and drives
       wizard price-entry semantics via exchange->currency mapping.
-    - Supported values are `TASE` and `NYSE`.
+    - Supported values are members of `Exchange`.
     """
 
     asset_group_id: str
     asset_group_name: str
     instrument_id: str
     instrument_name: str
-    exchange: str
+    exchange: Exchange
     planned_delta_money: D
 
 
@@ -228,7 +228,7 @@ def build_plan_for_current_document(session: PortfolioSession, mode: PlanningMod
                 asset_group_name=group_name,
                 instrument_id=instrument_id,
                 instrument_name=instrument.name,
-                exchange=instrument.exchange.value,
+                exchange=instrument.exchange,
                 planned_delta_money=planned_delta,
             )
         )
