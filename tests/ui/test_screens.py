@@ -10,7 +10,7 @@ MainWindow integration behavior).
 from __future__ import annotations
 
 from portfolio_core.models import Exchange
-from ui.currency_delegate import ExchangeDelegate
+from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen

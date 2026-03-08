@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.decimal_input_delegate import DecimalInputDelegate
-from ui.currency_delegate import ExchangeDelegate
+from ui.exchange_delegate import ExchangeDelegate
 from ui.tree_widget import InvestmentTreeWidget
 from ui.ui_types import Col
 from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices

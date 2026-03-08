@@ -56,7 +56,7 @@ FX thread-safety guards in this flow:
     - generation-token guard so stale async completions are ignored
     - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
-- `ui/currency_delegate.py`
+- `ui/exchange_delegate.py`
   - combo-box delegate for instrument exchange editing in the main tree (`TASE`/`NYSE`)
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
