@@ -96,7 +96,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
-  - requires instrument `exchange` (legacy `currency` payloads are intentionally unsupported)
+  - requires instrument `exchange`
 - `portfolio_core/planning_types.py`
   - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
 - `portfolio_core/planning.py`
