@@ -207,10 +207,7 @@ def add_instrument_item_to_group(
         currency: str = DEFAULT_CURRENCY.value,
 ) \
         -> None:
-    """Create and initialize an instrument child row under the given parent group.
-
-    ``quantity`` is a required non-negative integer displayed as text.
-    """
+    """Create and initialize an instrument child row under the given parent group."""
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     quantity_text = str(quantity)

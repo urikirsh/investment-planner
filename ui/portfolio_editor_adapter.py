@@ -50,7 +50,6 @@ class InstrumentPayload(TypedDict):
     name: str
     value: str
     currency: str
-    # Required user-tracking field stored as non-negative integer.
     quantity: int
     investable: bool
     targetInGroupPercentage: str
