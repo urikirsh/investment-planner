@@ -66,6 +66,7 @@ class PlanStep:
     - `planned_delta_money` is always expressed in ILS.
     - `exchange` describes the instrument's trading exchange and drives
       wizard price-entry semantics via exchange->currency mapping.
+    - Supported values are `TASE` and `NYSE`.
     """
 
     asset_group_id: str

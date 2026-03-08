@@ -87,6 +87,8 @@ FX thread-safety guards in this flow:
 ## portfolio_core module map
 - `portfolio_core/models.py`
   - core immutable domain models (`Cash`, `AssetGroup`, `Instrument`, `Portfolio`)
+  - `Exchange` enum is the canonical instrument trading selector (`TASE`, `NYSE`)
+  - exchange-to-currency mapping lives in the enum (`TASE->ILS`, `NYSE->USD`)
   - planning output model `AssetGroupPlanRow`
 - `portfolio_core/validation.py`
   - portfolio business-rule validation pipeline
@@ -94,6 +96,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
+  - requires instrument `exchange` (legacy `currency` payloads are intentionally unsupported)
 - `portfolio_core/planning_types.py`
   - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
 - `portfolio_core/planning.py`

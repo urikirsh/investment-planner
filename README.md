@@ -33,6 +33,8 @@ The application never executes trades automatically. All actions are explicit an
 - Instruments with current market value in ILS
 - Required per-instrument `quantity` field (non-negative integer)
 - Per-instrument `exchange` (`TASE` or `NYSE`) for wizard price-entry semantics
+  - `TASE` prices are treated as ILS (agorot entry in wizard)
+  - `NYSE` prices are treated as USD (USD entry + USD/ILS conversion in wizard)
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
@@ -140,6 +142,7 @@ maintained in [`example_portfolio.json`](example_portfolio.json).
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
 - `instruments[*].exchange` is required and must be `TASE` or `NYSE`.
+- Legacy JSON files that use `instruments[*].currency` are not supported.
 - `instruments[*].quantity` is required and must be a non-negative integer.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.

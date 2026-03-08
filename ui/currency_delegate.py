@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-"""Qt delegate for controlled instrument-exchange editing."""
+"""Qt delegate for controlled instrument-exchange editing.
+
+The filename is kept for compatibility/history, but the delegate now exposes
+exchange choices (`TASE`, `NYSE`) rather than raw currency choices.
+"""
 
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
