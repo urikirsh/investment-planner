@@ -51,6 +51,7 @@ from ui.main_window_wizard import MainWindowWizardMixin
 from ui.ui_types import RowKind, Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 from ui.ui_utils import (
     BASE_CURRENCY_SUFFIX,
+    DEFAULT_EXCHANGE,
     add_instrument_item_to_group,
     get_item_kind,
     parse_exchange_code,
@@ -219,7 +220,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             return
 
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.EXCHANGE.value:
-            raw = parse_exchange_code(item.text(column)) or "TASE"
+            raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
             item.setText(column, raw)
             item.setData(0, ROLE_EXCHANGE, raw)
 
