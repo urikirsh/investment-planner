@@ -121,6 +121,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         item.setBackground(col, background)
 
     for c in (
+        Col.QUANTITY.value,
         Col.TOT_VALUE.value,
         Col.CURRENCY.value,
         Col.PORTFOLIO_PCT.value,
@@ -138,7 +139,7 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
     """Apply per-column alignment conventions for group/instrument rows."""
 
     # Numbers are right-aligned for instruments, centered for groups
-    for col in [Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
+    for col in [Col.QUANTITY, Col.TOT_VALUE, Col.DRIFT_PP, Col.STRATEGY_PCT, Col.PORTFOLIO_PCT, Col.TARGET_PCT]:
         col_idx = col.value
         if get_item_kind(item) != RowKind.INSTRUMENT:
             item.setTextAlignment(
@@ -180,6 +181,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
         | Qt.ItemFlag.ItemIsDropEnabled
     )
     gitem.setText(Col.NAME.value, name)
+    gitem.setText(Col.QUANTITY.value, "")
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
     gitem.setText(Col.CURRENCY.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
@@ -198,16 +200,22 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 def add_instrument_item_to_group(
         gitem: QTreeWidgetItem,
         name: str,
+        quantity: str,
         value: str,
         in_group_pct: str,
         id_str: str = "",
         currency: str = DEFAULT_CURRENCY.value,
 ) \
         -> None:
-    """Create and initialize an instrument child row under the given parent group."""
+    """Create and initialize an instrument child row under the given parent group.
+
+    ``quantity`` is a tracking-only text field (empty or non-negative integer)
+    and is intentionally not used by calculations.
+    """
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     item.setText(Col.NAME.value, name)
+    item.setText(Col.QUANTITY.value, quantity)
     item.setText(Col.TOT_VALUE.value, value)
     currency_value = parse_currency_code(currency) or DEFAULT_CURRENCY.value
     item.setText(Col.CURRENCY.value, currency_value)
@@ -292,7 +300,7 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT:
-        return col in (Col.NAME.value, Col.TOT_VALUE.value, Col.CURRENCY.value, Col.TARGET_PCT.value)
+        return col in (Col.NAME.value, Col.QUANTITY.value, Col.TOT_VALUE.value, Col.CURRENCY.value, Col.TARGET_PCT.value)
 
     # bucket
     return False

@@ -83,9 +83,10 @@ class Col(Enum):
     validate cell contents consistently.
     """
     NAME = 0
-    TOT_VALUE = 1
-    PORTFOLIO_PCT = 2
-    TARGET_PCT = 3
-    STRATEGY_PCT = 4
-    DRIFT_PP = 5
-    CURRENCY = 6
+    QUANTITY = 1
+    TOT_VALUE = 2
+    PORTFOLIO_PCT = 3
+    TARGET_PCT = 4
+    STRATEGY_PCT = 5
+    DRIFT_PP = 6
+    CURRENCY = 7

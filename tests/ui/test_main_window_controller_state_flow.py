@@ -22,7 +22,7 @@ from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
-from ui.ui_types import Col, ROLE_CURRENCY, RowKind
+from ui.ui_types import Col, ROLE_CURRENCY, ROLE_PREV_TEXT, RowKind
 from ui.ui_state import UnsavedChangesDecision
 from ui.ui_utils import set_item_meta
 
@@ -191,3 +191,18 @@ def test_item_changed_currency_normalizes_invalid_input_to_default_currency(
 
     assert child.text(Col.CURRENCY.value) == "ILS"
     assert child.data(0, ROLE_CURRENCY) == "ILS"
+
+
+def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
+    child = QTreeWidgetItem(window.tree)
+    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child.setText(Col.QUANTITY.value, "5")
+    child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "5")
+    child.setText(Col.QUANTITY.value, "2.5")
+
+    window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
+
+    assert warnings
+    assert child.text(Col.QUANTITY.value) == "5"

@@ -7,6 +7,10 @@ of the application flow. It is responsible for:
 - exposing key child widgets as attributes for external signal wiring
 - applying static UI setup (column headers, delegates, tooltips)
 
+Main tree note:
+- includes an instrument `Quantity` column for user tracking convenience
+  (empty or non-negative integer), with no effect on planning calculations.
+
 The class intentionally contains no business logic, persistence logic, or
 navigation flow control. Those concerns stay in
 `ui.main_window_controller.MainWindow`.
@@ -91,6 +95,7 @@ class MainEditorScreen(QWidget):
         tree.setHeaderLabels(
             [
                 "Name",
+                "Quantity",
                 "Total value",
                 "Portfolio %",
                 "Target %",
@@ -110,6 +115,8 @@ class MainEditorScreen(QWidget):
         for col in Col:
             if col == Col.NAME:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
+            elif col == Col.QUANTITY:
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             elif col == Col.CURRENCY:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             elif col == Col.DRIFT_PP:
@@ -117,9 +124,11 @@ class MainEditorScreen(QWidget):
             else:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
 
+        tree.setColumnWidth(Col.QUANTITY.value, 84)
         tree.setColumnWidth(Col.CURRENCY.value, 84)
         tree.setColumnWidth(Col.DRIFT_PP.value, 78)
         tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
+        tree.headerItem().setTextAlignment(Col.QUANTITY.value, Qt.AlignmentFlag.AlignCenter)
         tree.headerItem().setTextAlignment(Col.CURRENCY.value, Qt.AlignmentFlag.AlignCenter)
         tree.setItemDelegateForColumn(
             Col.TOT_VALUE.value,
@@ -138,6 +147,12 @@ class MainEditorScreen(QWidget):
         header_item.setToolTip(
             Col.NAME.value,
             "The asset group or instrument name shown in this row.",
+        )
+        header_item.setToolTip(
+            Col.QUANTITY.value,
+            "Optional tracking field for instrument holdings.\n"
+            "Allowed values: empty or a non-negative integer.\n"
+            "This field does not affect portfolio calculations.",
         )
         header_item.setToolTip(
             Col.TOT_VALUE.value,
