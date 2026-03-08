@@ -209,13 +209,13 @@ def add_instrument_item_to_group(
         -> None:
     """Create and initialize an instrument child row under the given parent group.
 
-    ``quantity`` is a tracking-only text field (empty or non-negative integer)
-    and is intentionally not used by calculations.
+    ``quantity`` is a required non-negative integer text field.
     """
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
+    quantity_text = quantity.strip() or "0"
     item.setText(Col.NAME.value, name)
-    item.setText(Col.QUANTITY.value, quantity)
+    item.setText(Col.QUANTITY.value, quantity_text)
     item.setText(Col.TOT_VALUE.value, value)
     currency_value = parse_currency_code(currency) or DEFAULT_CURRENCY.value
     item.setText(Col.CURRENCY.value, currency_value)

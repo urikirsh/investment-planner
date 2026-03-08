@@ -31,7 +31,7 @@ The application never executes trades automatically. All actions are explicit an
 ### Portfolio structure
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
-- Optional per-instrument `quantity` tracking field (default empty; empty or non-negative integer; no calculation impact)
+- Required per-instrument `quantity` field (non-negative integer)
 - Per-instrument `currency` (`ILS` or `USD`) for wizard price-entry semantics
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
@@ -83,7 +83,8 @@ The application never executes trades automatically. All actions are explicit an
   - green when you have enough to invest
   - gray when you do not
 - Main editor includes:
-  - `Quantity` column (instrument rows), optional tracking only
+  - `Quantity` column (instrument rows), required non-negative integer
+  - empty quantity input is normalized immediately to `0`
   - `Currency` column (instrument rows) with dropdown editing
 - Wizard displays all planned/spent/proceeds amounts explicitly in ILS
 - Drag and drop to:
@@ -139,7 +140,7 @@ maintained in [`example_portfolio.json`](example_portfolio.json).
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
 - `instruments[*].currency` is required and must be `ILS` or `USD`.
-- `instruments[*].quantity` is optional and must be empty or a non-negative integer string.
+- `instruments[*].quantity` is required and must be a non-negative integer string.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.

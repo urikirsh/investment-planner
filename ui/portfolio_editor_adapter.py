@@ -50,8 +50,8 @@ class InstrumentPayload(TypedDict):
     name: str
     value: str
     currency: str
-    # Optional user-tracking field. Empty means "not provided".
-    # Stored as string for schema consistency with other text-backed UI cells.
+    # Required user-tracking field stored as non-negative integer string.
+    # Kept as string for schema consistency with other text-backed UI cells.
     quantity: str
     investable: bool
     targetInGroupPercentage: str
@@ -210,7 +210,7 @@ def build_portfolio_data_from_main_editor(
     - Missing instrument ids are generated and written back into row metadata.
     - Non-investable instruments are serialized with `investable=False`,
       `targetInGroupPercentage="0"`, and without `groupId`.
-    - Instrument `quantity` is copied as UI text (empty or non-negative integer string).
+    - Instrument `quantity` is copied as UI text and normalized to `"0"` when empty.
     """
     cash_value = cash_value_edit.text().strip()
     cash_reserve = cash_reserve_edit.text().strip()
@@ -254,7 +254,7 @@ def build_portfolio_data_from_main_editor(
                 set_item_meta(ins, RowKind.INSTRUMENT, instrument_id)
 
             instrument_name = ins.text(Col.NAME.value).strip()
-            quantity = ins.text(Col.QUANTITY.value).strip()
+            quantity = ins.text(Col.QUANTITY.value).strip() or "0"
             total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
 
             if is_non_investable_bucket:
