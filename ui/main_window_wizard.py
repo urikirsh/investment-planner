@@ -195,7 +195,14 @@ class MainWindowWizardMixin:
         return self._wizard_fx
 
     def _wizard_save_continue(self) -> None:
-        """Apply current step trade (if valid), persist, and move to next step."""
+        """Apply current step trade, persist if applied, then advance.
+
+        Behavior:
+        - Uses `last_calc` when available; otherwise attempts a no-op apply.
+        - On successful apply, refreshes file-context UI (because autosave happened).
+        - If sell units exceed tracked quantity, shows a clear error prompt and
+          advances to the next step without saving this step.
+        """
         try:
             if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")

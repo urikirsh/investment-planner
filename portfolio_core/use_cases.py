@@ -38,7 +38,11 @@ D = Decimal
 
 
 class InsufficientQuantityForSellError(ValueError):
-    """Raised when a wizard sell tries to sell more units than tracked quantity."""
+    """Raised when a wizard sell requests more units than tracked holdings.
+
+    The wizard catches this error to present a user-friendly prompt and then
+    continue to the next step without applying this sell action.
+    """
 
     def __init__(self, *, instrument_name: str, available_units: int, requested_units: int) -> None:
         super().__init__(
@@ -262,8 +266,18 @@ def apply_wizard_step(
     --------------------
     For actionable steps:
     - Applies buy/sell to current portfolio.
+    - Updates the traded instrument `quantity`:
+      - buy: add `calc_units`
+      - sell: subtract `calc_units`
     - Updates current document in session.
     - Saves to the currently active file path.
+
+    Sell quantity guard
+    -------------------
+    Sell steps require enough tracked units. If `calc_units` is greater than
+    the instrument's tracked `quantity` (empty quantity is treated as zero),
+    the function raises `InsufficientQuantityForSellError` and does not mutate
+    or save the portfolio.
 
     Returns
     -------
@@ -273,7 +287,10 @@ def apply_wizard_step(
     Raises
     ------
     ValueError
-        If no portfolio is loaded or there is no active save path.
+        If no portfolio is loaded, there is no active save path, or the
+        target instrument cannot be found.
+    InsufficientQuantityForSellError
+        If a sell step requests more units than tracked quantity.
     """
     portfolio = session.document.current_portfolio
     if portfolio is None:
