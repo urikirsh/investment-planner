@@ -54,7 +54,12 @@ def validate_portfolio(p: Portfolio) -> None:
     Raises
     ------
     ValueError
-        On the first violated rule encountered.
+        On the first violated business rule encountered.
+    TypeError
+        If a model field has an unexpected runtime type and a required
+        numeric comparison cannot be performed (for example,
+        ``instrument.quantity < 0`` when ``quantity`` is not an ``int``).
+        This exception is intentionally not coerced to ``ValueError``.
     """
     _validate_cash(p)
     _validate_asset_groups(p)
