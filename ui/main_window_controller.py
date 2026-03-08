@@ -263,7 +263,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         else:
             default_in_group_pct = "100" if parent.childCount() == 0 else "0"
 
-        add_instrument_item_to_group(parent, "New Instrument", "0", "1", default_in_group_pct)
+        add_instrument_item_to_group(parent, "New Instrument", 0, "1", default_in_group_pct)
 
         self.tree.expandAll()
         self._refresh_data()

@@ -200,7 +200,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 def add_instrument_item_to_group(
         gitem: QTreeWidgetItem,
         name: str,
-        quantity: int | str,
+        quantity: int,
         value: str,
         in_group_pct: str,
         id_str: str = "",
@@ -213,7 +213,7 @@ def add_instrument_item_to_group(
     """
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
-    quantity_text = str(quantity).strip() or "0"
+    quantity_text = str(quantity)
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
     item.setText(Col.TOT_VALUE.value, value)

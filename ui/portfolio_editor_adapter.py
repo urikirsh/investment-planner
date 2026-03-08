@@ -144,7 +144,7 @@ def populate_main_editor_from_portfolio(
                 add_instrument_item_to_group(
                     group_item,
                     ins_row["name"],
-                    str(ins_row["quantity"]),
+                    ins_row["quantity"],
                     ins_row["value"],
                     ins_row["targetInGroupPercentage"],
                     ins_row["id"],
@@ -163,7 +163,7 @@ def populate_main_editor_from_portfolio(
             add_instrument_item_to_group(
                 non_investable_bucket,
                 non_investable_row["name"],
-                str(non_investable_row["quantity"]),
+                non_investable_row["quantity"],
                 non_investable_row["value"],
                 "",
                 non_investable_row["id"],
