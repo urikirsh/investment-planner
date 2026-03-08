@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.portfolio_document import PortfolioDocument
-from portfolio_core.models import Currency, Portfolio
+from portfolio_core.models import Exchange, Portfolio
 
 """
 portfolio_session.py
@@ -39,7 +39,7 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
             "name": "SPX 500",
             "quantity": 1,
             "value": "1",
-            "currency": Currency.ILS.value,
+            "exchange": Exchange.TASE.value,
             "investable": True,
             "groupId": "sp500",
             "targetInGroupPercentage": "100",

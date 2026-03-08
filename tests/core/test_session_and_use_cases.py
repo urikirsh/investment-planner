@@ -201,7 +201,7 @@ def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
-        currency="ILS",
+        exchange="TASE",
         planned_delta_money=D("500"),
     )
     applied = apply_wizard_step(session, step, calc_units=2, spent=D("200"))
@@ -225,7 +225,7 @@ def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
-        currency="ILS",
+        exchange="TASE",
         planned_delta_money=D("500"),
     )
     applied = apply_wizard_step(session, step, calc_units=0, spent=D("0"))
@@ -244,7 +244,7 @@ def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(
                     "id": "i1",
                     "name": "Inst 1",
                     "value": "6000",
-                    "currency": "ILS",
+                    "exchange": "TASE",
                     "investable": True,
                     "groupId": "g1",
                     "targetInGroupPercentage": "100",
@@ -254,7 +254,7 @@ def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(
                     "id": "i2",
                     "name": "Inst 2",
                     "value": "4000",
-                    "currency": "ILS",
+                    "exchange": "TASE",
                     "investable": True,
                     "groupId": "g2",
                     "targetInGroupPercentage": "100",
@@ -269,7 +269,7 @@ def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
-        currency="ILS",
+        exchange="TASE",
         planned_delta_money=D("-500"),
     )
     applied = apply_wizard_step(session, step, calc_units=2, spent=D("200"))
@@ -291,7 +291,7 @@ def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tm
                     "id": "i1",
                     "name": "Inst 1",
                     "value": "6000",
-                    "currency": "ILS",
+                    "exchange": "TASE",
                     "investable": True,
                     "groupId": "g1",
                     "targetInGroupPercentage": "100",
@@ -301,7 +301,7 @@ def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tm
                     "id": "i2",
                     "name": "Inst 2",
                     "value": "4000",
-                    "currency": "ILS",
+                    "exchange": "TASE",
                     "investable": True,
                     "groupId": "g2",
                     "targetInGroupPercentage": "100",
@@ -316,7 +316,7 @@ def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tm
         asset_group_name="Asset 1",
         instrument_id="i1",
         instrument_name="Inst 1",
-        currency="ILS",
+        exchange="TASE",
         planned_delta_money=D("-500"),
     )
 

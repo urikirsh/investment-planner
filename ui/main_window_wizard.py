@@ -16,7 +16,7 @@ from typing import cast
 from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
-from portfolio_core.models import Currency
+from portfolio_core.models import Exchange
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, apply_wizard_step
 from ui.dialogs import show_error
@@ -95,7 +95,7 @@ class MainWindowWizardMixin:
             f"Planned {action} value {BASE_CURRENCY_SUFFIX}: {abs(s.planned_delta_money)}"
         )
         if hasattr(self, "screen_wizard"):
-            self.screen_wizard.set_price_mode(s.currency)
+            self.screen_wizard.set_price_mode(s.exchange)
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
         self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
@@ -110,7 +110,7 @@ class MainWindowWizardMixin:
 
             planned = abs(s.planned_delta_money)
             conversion_info = ""
-            if s.currency == Currency.USD.value:
+            if s.exchange == Exchange.NYSE.value:
                 usd_ils_rate = self._get_effective_usd_ils_rate()
                 price_ils = entered_price * usd_ils_rate
                 calc = calculate_buy_units_from_ils_price(
@@ -119,7 +119,7 @@ class MainWindowWizardMixin:
                     price_ils=price_ils,
                 )
                 conversion_info = (
-                    f"Converted: {entered_price} {Currency.USD.value} x {usd_ils_rate} = "
+                    f"Converted: {entered_price} {Exchange.NYSE.currency.value} x {usd_ils_rate} = "
                     f"{price_ils} {DEFAULT_CURRENCY.value} | "
                 )
             else:
@@ -166,7 +166,7 @@ class MainWindowWizardMixin:
 
     def _wizard_has_usd_steps(self) -> bool:
         """Return whether current plan includes at least one USD-priced step."""
-        return any(step.currency == Currency.USD.value for step in self.planning_state.plan_steps)
+        return any(step.exchange == Exchange.NYSE.value for step in self.planning_state.plan_steps)
 
     def _prepare_wizard_fx_rate_cache(self) -> None:
         """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed."""

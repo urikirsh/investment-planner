@@ -3,7 +3,7 @@ from pathlib import Path
 from decimal import Decimal, InvalidOperation, getcontext
 from typing import Any, Dict, Mapping, Optional
 
-from portfolio_core.models import Cash, AssetGroup, Currency, Instrument, Portfolio
+from portfolio_core.models import Cash, AssetGroup, Exchange, Instrument, Portfolio
 
 """
 io_json.py
@@ -22,15 +22,15 @@ getcontext().prec = 28
 D = Decimal
 
 
-def _parse_currency(value: Any, field: str) -> Currency:
-    """Parse a required instrument currency enum."""
+def _parse_exchange(value: Any, field: str) -> Exchange:
+    """Parse a required instrument exchange enum."""
     if value is None:
         raise ValueError(f"Missing required field '{field}'")
     try:
-        return Currency(str(value))
+        return Exchange(str(value))
     except ValueError:
         raise ValueError(
-            f"Field '{field}' must be one of {[c.value for c in Currency]}, got: {value!r}"
+            f"Field '{field}' must be one of {[exchange.value for exchange in Exchange]}, got: {value!r}"
         )
 
 
@@ -84,7 +84,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
       (all parsed as Decimal, in ILS)
     - "groups": list of asset group objects containing id, name, targetPercentage
     - "instruments": list of instrument objects containing id, name, value, investable,
-      required "currency" ("ILS"/"USD"), group reference ("groupId" or legacy "assetGroupId"), and required
+      required "exchange" ("TASE"/"NYSE"), group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
     - required instrument "quantity" as a non-negative integer
 
@@ -158,7 +158,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
                 id=str(ins.get("id", "")).strip(),
                 name=str(ins.get("name", "")).strip(),
                 value=_parse_decimal(ins.get("value"), f"instruments[{i}].value"),
-                currency=_parse_currency(ins.get("currency"), f"instruments[{i}].currency"),
+                exchange=_parse_exchange(ins.get("exchange"), f"instruments[{i}].exchange"),
                 investable=bool(ins.get("investable")),
                 asset_group_id=asset_group_id,
                 target_in_group_pct=_parse_decimal(
@@ -244,7 +244,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
                 "id": ins.id,
                 "name": ins.name,
                 "value": str(ins.value),
-                "currency": ins.currency.value,
+                "exchange": ins.exchange.value,
                 "investable": bool(ins.investable),
                 "targetInGroupPercentage": str(ins.target_in_group_pct),
                 "quantity": ins.quantity,

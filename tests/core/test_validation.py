@@ -13,7 +13,7 @@ from typing import cast
 import pytest
 
 from portfolio_core.io_json import dump_portfolio, load_portfolio
-from portfolio_core.models import AssetGroup, Cash, Currency, Instrument, Portfolio
+from portfolio_core.models import AssetGroup, Cash, Exchange, Instrument, Portfolio
 from portfolio_core.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
 
@@ -23,14 +23,14 @@ def test_validate_portfolio_happy_path():
     validate_portfolio(p)
 
 
-def test_parse_succeeds_with_valid_currency_values():
+def test_parse_succeeds_with_valid_exchange_values():
     data = make_valid_data(
         instruments=[
             {
                 "id": "i1",
                 "name": "Inst 1",
                 "value": "6000",
-                "currency": "USD",
+                "exchange": "NYSE",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "100",
@@ -39,7 +39,7 @@ def test_parse_succeeds_with_valid_currency_values():
                 "id": "i2",
                 "name": "Inst 2",
                 "value": "4000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
@@ -47,8 +47,8 @@ def test_parse_succeeds_with_valid_currency_values():
         ],
     )
     p = load_portfolio(data)
-    assert p.instruments[0].currency.value == "USD"
-    assert p.instruments[1].currency.value == "ILS"
+    assert p.instruments[0].exchange.value == "NYSE"
+    assert p.instruments[1].exchange.value == "TASE"
 
 
 def test_validation_cash_reserve_must_not_exceed_cash_value():
@@ -94,7 +94,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Inst 1",
                 "quantity": 12,
                 "value": "6000.25",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "70",
@@ -104,7 +104,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Inst 2",
                 "quantity": 0,
                 "value": "2575.42",
-                "currency": "USD",
+                "exchange": "NYSE",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "30",
@@ -114,7 +114,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Inst 3",
                 "quantity": 4,
                 "value": "3500.00",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
@@ -124,7 +124,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Parking",
                 "quantity": 0,
                 "value": "1000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
@@ -147,7 +147,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Inst 1",
                 "quantity": 12,
                 "value": "6000.25",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "targetInGroupPercentage": "70",
                 "groupId": "g1",
@@ -157,7 +157,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Inst 2",
                 "quantity": 0,
                 "value": "2575.42",
-                "currency": "USD",
+                "exchange": "NYSE",
                 "investable": True,
                 "targetInGroupPercentage": "30",
                 "groupId": "g1",
@@ -167,7 +167,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Inst 3",
                 "quantity": 4,
                 "value": "3500.00",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "targetInGroupPercentage": "100",
                 "groupId": "g2",
@@ -177,7 +177,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "name": "Parking",
                 "quantity": 0,
                 "value": "1000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
@@ -213,7 +213,7 @@ def test_validation_rejects_invalid_negative_quantity() -> None:
         id=updated_instruments[0].id,
         name=updated_instruments[0].name,
         value=updated_instruments[0].value,
-        currency=updated_instruments[0].currency,
+        exchange=updated_instruments[0].exchange,
         investable=updated_instruments[0].investable,
         asset_group_id=updated_instruments[0].asset_group_id,
         target_in_group_pct=updated_instruments[0].target_in_group_pct,
@@ -224,7 +224,7 @@ def test_validation_rejects_invalid_negative_quantity() -> None:
         validate_portfolio(invalid)
 
 
-def test_parse_fails_when_currency_is_missing():
+def test_parse_fails_when_exchange_is_missing():
     data = make_valid_data(
         instruments=[
             {
@@ -239,26 +239,26 @@ def test_parse_fails_when_currency_is_missing():
                 "id": "i2",
                 "name": "Inst 2",
                 "value": "4000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
             },
         ],
     )
-    data["instruments"][0].pop("currency", None)
-    with pytest.raises(ValueError, match=r"Missing required field 'instruments\[0\]\.currency'"):
+    data["instruments"][0].pop("exchange", None)
+    with pytest.raises(ValueError, match=r"Missing required field 'instruments\[0\]\.exchange'"):
         load_portfolio(data)
 
 
-def test_parse_fails_when_currency_is_invalid():
+def test_parse_fails_when_exchange_is_invalid():
     data = make_valid_data(
         instruments=[
             {
                 "id": "i1",
                 "name": "Inst 1",
                 "value": "6000",
-                "currency": "EUR",
+                "exchange": "EUR",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "100",
@@ -267,14 +267,14 @@ def test_parse_fails_when_currency_is_invalid():
                 "id": "i2",
                 "name": "Inst 2",
                 "value": "4000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
             },
         ],
     )
-    with pytest.raises(ValueError, match=r"instruments\[0\]\.currency"):
+    with pytest.raises(ValueError, match=r"instruments\[0\]\.exchange"):
         load_portfolio(data)
 
 
@@ -389,7 +389,7 @@ def test_validation_instrument_names_duplicate_in_non_investable_bucket_has_deta
         validate_portfolio(p)
 
 
-def test_validation_rejects_non_enum_currency() -> None:
+def test_validation_rejects_non_enum_exchange() -> None:
     p = Portfolio(
         cash=Cash(value=Decimal("1000"), min_reserve=Decimal("0"), future_tax=Decimal("0")),
         asset_groups=[AssetGroup(id="g1", name="Asset 1", target_pct=Decimal("100"))],
@@ -398,12 +398,12 @@ def test_validation_rejects_non_enum_currency() -> None:
                 id="i1",
                 name="Inst 1",
                 value=Decimal("1000"),
-                currency=cast(Currency, "EUR"),
+                exchange=cast(Exchange, "EUR"),
                 investable=True,
                 asset_group_id="g1",
                 target_in_group_pct=Decimal("100"),
             )
         ],
     )
-    with pytest.raises(ValueError, match="currency must be one of"):
+    with pytest.raises(ValueError, match="exchange must be one of"):
         validate_portfolio(p)

@@ -31,10 +31,10 @@ from PySide6.QtWidgets import (
 )
 
 from ui.decimal_input_delegate import DecimalInputDelegate
-from ui.currency_delegate import CurrencyDelegate
+from ui.currency_delegate import ExchangeDelegate
 from ui.tree_widget import InvestmentTreeWidget
 from ui.ui_types import Col
-from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, currency_choices
+from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
 
 
 class MainEditorScreen(QWidget):
@@ -101,7 +101,7 @@ class MainEditorScreen(QWidget):
                 "Target %",
                 "Strategy %",
                 "Drift (pp)",
-                "Currency",
+                "Exchange",
             ]
         )
         tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -117,7 +117,7 @@ class MainEditorScreen(QWidget):
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
             elif col == Col.QUANTITY:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
-            elif col == Col.CURRENCY:
+            elif col == Col.EXCHANGE:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             elif col == Col.DRIFT_PP:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
@@ -125,11 +125,11 @@ class MainEditorScreen(QWidget):
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
 
         tree.setColumnWidth(Col.QUANTITY.value, 84)
-        tree.setColumnWidth(Col.CURRENCY.value, 84)
+        tree.setColumnWidth(Col.EXCHANGE.value, 84)
         tree.setColumnWidth(Col.DRIFT_PP.value, 78)
         tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
         tree.headerItem().setTextAlignment(Col.QUANTITY.value, Qt.AlignmentFlag.AlignCenter)
-        tree.headerItem().setTextAlignment(Col.CURRENCY.value, Qt.AlignmentFlag.AlignCenter)
+        tree.headerItem().setTextAlignment(Col.EXCHANGE.value, Qt.AlignmentFlag.AlignCenter)
         tree.setItemDelegateForColumn(
             Col.TOT_VALUE.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
@@ -138,7 +138,7 @@ class MainEditorScreen(QWidget):
             Col.TARGET_PCT.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
         )
-        tree.setItemDelegateForColumn(Col.CURRENCY.value, CurrencyDelegate(parent=tree))
+        tree.setItemDelegateForColumn(Col.EXCHANGE.value, ExchangeDelegate(parent=tree))
         self._set_tree_header_tooltips(tree)
         return tree
 
@@ -161,10 +161,10 @@ class MainEditorScreen(QWidget):
             "For an instrument: the instrument's own value.",
         )
         header_item.setToolTip(
-            Col.CURRENCY.value,
-            "Instrument price currency used by the wizard "
-            f"(allowed: {', '.join(currency_choices())}; default: {DEFAULT_CURRENCY.value}).\n"
-            f"Portfolio value and all totals remain in {DEFAULT_CURRENCY.value}.",
+            Col.EXCHANGE.value,
+            "Instrument trading exchange used by the wizard "
+            f"(allowed: {', '.join(exchange_choices())}; default: TASE).\n"
+            f"TASE uses ILS prices; NYSE uses USD prices. Portfolio value and totals remain in {DEFAULT_CURRENCY.value}.",
         )
         header_item.setToolTip(
             Col.PORTFOLIO_PCT.value,

@@ -24,7 +24,7 @@ from portfolio_core.models import Portfolio
 from ui.ui_types import Col, RowKind
 from ui.ui_utils import (
     add_instrument_item_to_group,
-    get_item_currency,
+    get_item_exchange,
     get_item_id,
     get_item_kind,
     new_id,
@@ -49,7 +49,7 @@ class InstrumentPayload(TypedDict):
     id: str
     name: str
     value: str
-    currency: str
+    exchange: str
     quantity: int
     investable: bool
     targetInGroupPercentage: str
@@ -67,7 +67,7 @@ class InstrumentUiRow(TypedDict):
     name: str
     quantity: int
     value: str
-    currency: str
+    exchange: str
     investable: bool
     groupId: str | None
     targetInGroupPercentage: str
@@ -125,7 +125,7 @@ def populate_main_editor_from_portfolio(
                 "name": ins.name,
                 "quantity": ins.quantity,
                 "value": str(ins.value),
-                "currency": ins.currency.value,
+                "exchange": ins.exchange.value,
                 "investable": ins.investable,
                 "groupId": ins.asset_group_id,
                 "targetInGroupPercentage": str(ins.target_in_group_pct),
@@ -147,7 +147,7 @@ def populate_main_editor_from_portfolio(
                     ins_row["value"],
                     ins_row["targetInGroupPercentage"],
                     ins_row["id"],
-                    ins_row["currency"],
+                    ins_row["exchange"],
                 )
 
         non_investable_bucket = QTreeWidgetItem(tree)
@@ -166,7 +166,7 @@ def populate_main_editor_from_portfolio(
                 non_investable_row["value"],
                 "",
                 non_investable_row["id"],
-                non_investable_row["currency"],
+                non_investable_row["exchange"],
             )
 
         tree.expandAll()
@@ -261,7 +261,7 @@ def build_portfolio_data_from_main_editor(
                     "name": instrument_name,
                     "quantity": quantity,
                     "value": total_value,
-                    "currency": get_item_currency(ins),
+                    "exchange": get_item_exchange(ins),
                     "investable": False,
                     "targetInGroupPercentage": "0",
                 }
@@ -271,7 +271,7 @@ def build_portfolio_data_from_main_editor(
                     "name": instrument_name,
                     "quantity": quantity,
                     "value": total_value,
-                    "currency": get_item_currency(ins),
+                    "exchange": get_item_exchange(ins),
                     "investable": True,
                     "targetInGroupPercentage": ins.text(Col.TARGET_PCT.value).strip() or "0",
                 }

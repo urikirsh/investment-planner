@@ -35,7 +35,7 @@ def make_valid_data(
                 "id": "i1",
                 "name": "Inst 1",
                 "value": "6000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "100",
@@ -44,7 +44,7 @@ def make_valid_data(
                 "id": "i2",
                 "name": "Inst 2",
                 "value": "4000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
@@ -53,7 +53,7 @@ def make_valid_data(
                 "id": "i3",
                 "name": "Parking",
                 "value": "1000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
@@ -61,7 +61,7 @@ def make_valid_data(
 
     seen_by_group: dict[str, bool] = {}
     for ins in instruments:
-        ins.setdefault("currency", "ILS")
+        ins.setdefault("exchange", "TASE")
         ins.setdefault("quantity", 0)
         if "targetInGroupPercentage" in ins:
             continue
@@ -94,7 +94,7 @@ def make_portfolio():
                 "name": "Inst",
                 "quantity": 0,
                 "value": "500",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "100",

@@ -57,7 +57,7 @@ FX thread-safety guards in this flow:
     - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
 - `ui/currency_delegate.py`
-  - combo-box delegate for instrument currency editing in the main tree (`ILS`/`USD`)
+  - combo-box delegate for instrument exchange editing in the main tree (`TASE`/`NYSE`)
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -142,7 +142,7 @@ UI-focused tests:
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
 - `tests/ui/test_ui_utils.py`
-  - currency parsing/default fallback and UI helper behavior
+  - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/test_wizard_fx_coordinator.py`
   - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)
 

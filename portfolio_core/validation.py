@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from portfolio_core.models import Currency, Portfolio
+from portfolio_core.models import Exchange, Portfolio
 
 """
 validation.py
@@ -21,9 +21,9 @@ No UI, persistence, or calculation logic belongs in this module.
 D = Decimal
 
 
-def _allowed_currency_values_text() -> str:
-    """Return allowed currency codes as a comma-separated string."""
-    return ", ".join(currency.value for currency in Currency)
+def _allowed_exchange_values_text() -> str:
+    """Return allowed exchange codes as a comma-separated string."""
+    return ", ".join(exchange.value for exchange in Exchange)
 
 
 def _format_instrument_location(p: Portfolio, idx: int, instrument_name: str, group_id: str | None) -> str:
@@ -182,9 +182,9 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
         if ins.value < 0:
             raise ValueError(f"Instrument '{ins.name}' value cannot be negative")
 
-        if not isinstance(ins.currency, Currency):
-            allowed = _allowed_currency_values_text()
-            raise ValueError(f"Instrument '{ins.name}' currency must be one of {allowed}")
+        if not isinstance(ins.exchange, Exchange):
+            allowed = _allowed_exchange_values_text()
+            raise ValueError(f"Instrument '{ins.name}' exchange must be one of {allowed}")
 
         if ins.target_in_group_pct < 0 or ins.target_in_group_pct > D("100"):
             raise ValueError(

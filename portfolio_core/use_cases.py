@@ -64,15 +64,15 @@ class PlanStep:
     Notes
     -----
     - `planned_delta_money` is always expressed in ILS.
-    - `currency` describes the instrument's wizard price-entry currency
-      (`ILS` agorot input or `USD` unit-price input).
+    - `exchange` describes the instrument's trading exchange and drives
+      wizard price-entry semantics via exchange->currency mapping.
     """
 
     asset_group_id: str
     asset_group_name: str
     instrument_id: str
     instrument_name: str
-    currency: str
+    exchange: str
     planned_delta_money: D
 
 
@@ -227,7 +227,7 @@ def build_plan_for_current_document(session: PortfolioSession, mode: PlanningMod
                 asset_group_name=group_name,
                 instrument_id=instrument_id,
                 instrument_name=instrument.name,
-                currency=instrument.currency.value,
+                exchange=instrument.exchange.value,
                 planned_delta_money=planned_delta,
             )
         )
@@ -334,7 +334,7 @@ def apply_wizard_step(
         id=updated_instrument.id,
         name=updated_instrument.name,
         value=updated_instrument.value,
-        currency=updated_instrument.currency,
+        exchange=updated_instrument.exchange,
         investable=updated_instrument.investable,
         asset_group_id=updated_instrument.asset_group_id,
         target_in_group_pct=updated_instrument.target_in_group_pct,

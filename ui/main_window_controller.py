@@ -48,13 +48,12 @@ from portfolio_core.use_cases import (
 
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
-from ui.ui_types import RowKind, Col, ROLE_CURRENCY, ROLE_PREV_TEXT
+from ui.ui_types import RowKind, Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 from ui.ui_utils import (
     BASE_CURRENCY_SUFFIX,
-    DEFAULT_CURRENCY,
     add_instrument_item_to_group,
     get_item_kind,
-    parse_currency_code,
+    parse_exchange_code,
     parse_value_cell,
     set_group_tree_item,
 )
@@ -219,10 +218,10 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if self._suppress_item_changed:
             return
 
-        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
-            raw = parse_currency_code(item.text(column)) or DEFAULT_CURRENCY.value
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.EXCHANGE.value:
+            raw = parse_exchange_code(item.text(column)) or "TASE"
             item.setText(column, raw)
-            item.setData(0, ROLE_CURRENCY, raw)
+            item.setData(0, ROLE_EXCHANGE, raw)
 
         # Only business-rule validate relevant cells
         if get_item_kind(item) == RowKind.GROUP and column == Col.TARGET_PCT.value:
@@ -567,7 +566,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             parent = item.parent()
             if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
                 return
-        if kind == RowKind.INSTRUMENT and column == Col.CURRENCY.value:
+        if kind == RowKind.INSTRUMENT and column == Col.EXCHANGE.value:
             parent = item.parent()
             if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
                 return

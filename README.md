@@ -32,7 +32,7 @@ The application never executes trades automatically. All actions are explicit an
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
 - Required per-instrument `quantity` field (non-negative integer)
-- Per-instrument `currency` (`ILS` or `USD`) for wizard price-entry semantics
+- Per-instrument `exchange` (`TASE` or `NYSE`) for wizard price-entry semantics
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
@@ -57,9 +57,9 @@ The application never executes trades automatically. All actions are explicit an
   - `cash - minimal reserve - future tax` (floored at zero)
 - Step-by-step investment flow:
   - per-instrument allocation based on desired post-investment in-group targets
-  - dynamic price input mode:
-    - `ILS` instruments: price entered in agorot
-    - `USD` instruments: price entered in USD
+  - dynamic price input mode by exchange:
+    - `TASE` instruments: price entered in agorot
+    - `NYSE` instruments: price entered in USD
     - ILS wizard label is `Price (Agorot)`, and input is converted with `agorot / 100` to ILS before unit calculation
   - USD/ILS conversion fetched from Bank of Israel representative rates (latest published)
   - fetch runs in the background and can take up to 10 seconds; wizard opens immediately
@@ -85,7 +85,7 @@ The application never executes trades automatically. All actions are explicit an
 - Main editor includes:
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
-  - `Currency` column (instrument rows) with dropdown editing
+  - `Exchange` column (instrument rows) with dropdown editing (`TASE`, `NYSE`)
 - Wizard displays all planned/spent/proceeds amounts explicitly in ILS
 - Drag and drop to:
   - reorder groups and instruments
@@ -139,7 +139,7 @@ maintained in [`example_portfolio.json`](example_portfolio.json).
 
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
-- `instruments[*].currency` is required and must be `ILS` or `USD`.
+- `instruments[*].exchange` is required and must be `TASE` or `NYSE`.
 - `instruments[*].quantity` is required and must be a non-negative integer.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.

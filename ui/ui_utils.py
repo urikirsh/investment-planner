@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QBrush
 
-from portfolio_core.models import Currency
-from ui.ui_types import ROLE_CURRENCY, ROLE_KIND, ROLE_ID, RowKind, Col
+from portfolio_core.models import Currency, Exchange
+from ui.ui_types import ROLE_EXCHANGE, ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
 ui_utils.py
@@ -28,17 +28,18 @@ D = Decimal
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
+DEFAULT_EXCHANGE = Exchange.TASE
 BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
 
 
-def currency_choices() -> tuple[str, ...]:
-    """Return allowed currency codes for UI editors and validations."""
-    return tuple(currency.value for currency in Currency)
+def exchange_choices() -> tuple[str, ...]:
+    """Return allowed exchange codes for UI editors and validations."""
+    return tuple(exchange.value for exchange in Exchange)
 
 
-def parse_currency_code(raw: object) -> str | None:
-    """Parse a raw value into a supported currency code, or ``None``."""
-    if isinstance(raw, Currency):
+def parse_exchange_code(raw: object) -> str | None:
+    """Parse a raw value into a supported exchange code, or ``None``."""
+    if isinstance(raw, Exchange):
         return raw.value
     if not isinstance(raw, str):
         return None
@@ -46,9 +47,14 @@ def parse_currency_code(raw: object) -> str | None:
     if not normalized:
         return None
     try:
-        return Currency(normalized).value
+        return Exchange(normalized).value
     except ValueError:
         return None
+
+
+def currency_for_exchange(exchange_code: str) -> Currency:
+    """Resolve currency for a validated exchange code."""
+    return Exchange(exchange_code).currency
 
 def d_from_text(txt: str, field: str) -> D:
     """Parse a required Decimal from text and include field name in errors."""
@@ -81,26 +87,26 @@ def get_item_id(item: QTreeWidgetItem) -> str:
     return item.data(0, ROLE_ID) or ""
 
 
-def get_item_currency(item: QTreeWidgetItem) -> str:
+def get_item_exchange(item: QTreeWidgetItem) -> str:
     """
-    Return a valid instrument currency code with deterministic fallbacks.
+    Return a valid instrument exchange code with deterministic fallbacks.
 
     Resolution order:
-    1. Parse the visible currency cell text.
-    2. If that cannot be parsed (empty/invalid mid-edit), parse ``ROLE_CURRENCY`` metadata.
-    3. If both are unreadable, return ``ILS`` as a safe default.
+    1. Parse the visible exchange cell text.
+    2. If that cannot be parsed (empty/invalid mid-edit), parse ``ROLE_EXCHANGE`` metadata.
+    3. If both are unreadable, return ``TASE`` as a safe default.
 
     We intentionally fail soft here because this helper is used while users edit
     rows interactively, and temporary invalid text should not crash UI refresh or
     data extraction paths.
     """
-    parsed_text = parse_currency_code(item.text(Col.CURRENCY.value))
+    parsed_text = parse_exchange_code(item.text(Col.EXCHANGE.value))
     if parsed_text is not None:
         return parsed_text
-    parsed_meta = parse_currency_code(item.data(0, ROLE_CURRENCY))
+    parsed_meta = parse_exchange_code(item.data(0, ROLE_EXCHANGE))
     if parsed_meta is not None:
         return parsed_meta
-    return DEFAULT_CURRENCY.value
+    return DEFAULT_EXCHANGE.value
 
 def new_id(prefix: str) -> str:
     """Generate a short, pseudo-random id with a stable prefix."""
@@ -123,7 +129,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
     for c in (
         Col.QUANTITY.value,
         Col.TOT_VALUE.value,
-        Col.CURRENCY.value,
+        Col.EXCHANGE.value,
         Col.PORTFOLIO_PCT.value,
         Col.STRATEGY_PCT.value,
         Col.DRIFT_PP.value,
@@ -153,7 +159,7 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
             )
 
     item.setTextAlignment(
-        Col.CURRENCY.value,
+        Col.EXCHANGE.value,
         Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter,
     )
 
@@ -183,7 +189,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.QUANTITY.value, "")
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
-    gitem.setText(Col.CURRENCY.value, "")
+    gitem.setText(Col.EXCHANGE.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
     gid = id_str.strip() or new_id("grp")
@@ -204,7 +210,7 @@ def add_instrument_item_to_group(
         value: str,
         in_group_pct: str,
         id_str: str = "",
-        currency: str = DEFAULT_CURRENCY.value,
+        exchange: str = DEFAULT_EXCHANGE.value,
 ) \
         -> None:
     """Create and initialize an instrument child row under the given parent group."""
@@ -214,13 +220,13 @@ def add_instrument_item_to_group(
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
     item.setText(Col.TOT_VALUE.value, value)
-    currency_value = parse_currency_code(currency) or DEFAULT_CURRENCY.value
-    item.setText(Col.CURRENCY.value, currency_value)
+    exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
+    item.setText(Col.EXCHANGE.value, exchange_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
-    item.setData(0, ROLE_CURRENCY, currency_value)
+    item.setData(0, ROLE_EXCHANGE, exchange_value)
 
     apply_row_alignment(item)
 
@@ -297,7 +303,7 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT:
-        return col in (Col.NAME.value, Col.QUANTITY.value, Col.TOT_VALUE.value, Col.CURRENCY.value, Col.TARGET_PCT.value)
+        return col in (Col.NAME.value, Col.QUANTITY.value, Col.TOT_VALUE.value, Col.EXCHANGE.value, Col.TARGET_PCT.value)
 
     # bucket
     return False

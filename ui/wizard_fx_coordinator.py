@@ -19,7 +19,7 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
-from portfolio_core.models import Currency
+from portfolio_core.models import Exchange
 from portfolio_core.portfolio_session import CachedUsdIlsQuote, PortfolioSession
 from ui.ui_state import PlanningState, WizardState
 
@@ -238,7 +238,7 @@ class WizardFxCoordinator:
 
         state = self._host.wizard_state
         s = self._host.planning_state.plan_steps[self._host.planning_state.step_index]
-        if s.currency != Currency.USD.value:
+        if s.exchange != Exchange.NYSE.value:
             self._host.screen_wizard.calculate_btn.setEnabled(True)
             self._host.screen_wizard.set_fx_panel(
                 visible=False,
