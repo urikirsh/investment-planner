@@ -50,9 +50,8 @@ class InstrumentPayload(TypedDict):
     name: str
     value: str
     currency: str
-    # Required user-tracking field stored as non-negative integer string.
-    # Kept as string for schema consistency with other text-backed UI cells.
-    quantity: str
+    # Required user-tracking field stored as non-negative integer.
+    quantity: int
     investable: bool
     targetInGroupPercentage: str
     groupId: NotRequired[str]
@@ -67,7 +66,7 @@ class PortfolioPayload(TypedDict):
 class InstrumentUiRow(TypedDict):
     id: str
     name: str
-    quantity: str
+    quantity: int
     value: str
     currency: str
     investable: bool
@@ -145,7 +144,7 @@ def populate_main_editor_from_portfolio(
                 add_instrument_item_to_group(
                     group_item,
                     ins_row["name"],
-                    ins_row["quantity"],
+                    str(ins_row["quantity"]),
                     ins_row["value"],
                     ins_row["targetInGroupPercentage"],
                     ins_row["id"],
@@ -164,7 +163,7 @@ def populate_main_editor_from_portfolio(
             add_instrument_item_to_group(
                 non_investable_bucket,
                 non_investable_row["name"],
-                non_investable_row["quantity"],
+                str(non_investable_row["quantity"]),
                 non_investable_row["value"],
                 "",
                 non_investable_row["id"],
@@ -210,7 +209,7 @@ def build_portfolio_data_from_main_editor(
     - Missing instrument ids are generated and written back into row metadata.
     - Non-investable instruments are serialized with `investable=False`,
       `targetInGroupPercentage="0"`, and without `groupId`.
-    - Instrument `quantity` is copied as UI text and normalized to `"0"` when empty.
+    - Instrument `quantity` is emitted as `int` and normalized to `0` when empty.
     """
     cash_value = cash_value_edit.text().strip()
     cash_reserve = cash_reserve_edit.text().strip()
@@ -254,7 +253,7 @@ def build_portfolio_data_from_main_editor(
                 set_item_meta(ins, RowKind.INSTRUMENT, instrument_id)
 
             instrument_name = ins.text(Col.NAME.value).strip()
-            quantity = ins.text(Col.QUANTITY.value).strip() or "0"
+            quantity = int(ins.text(Col.QUANTITY.value).strip() or "0")
             total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
 
             if is_non_investable_bucket:

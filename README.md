@@ -140,7 +140,7 @@ maintained in [`example_portfolio.json`](example_portfolio.json).
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
 - `instruments[*].currency` is required and must be `ILS` or `USD`.
-- `instruments[*].quantity` is required and must be a non-negative integer string.
+- `instruments[*].quantity` is required and must be a non-negative integer.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.

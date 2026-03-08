@@ -166,7 +166,7 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
     Validate per-instrument value/range/mapping rules and accumulate group pct sums.
 
     Also validates ``quantity`` field semantics:
-    required non-negative integer string only.
+    required non-negative integer only.
 
     Returns
     -------
@@ -189,8 +189,7 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
                 f"Instrument '{ins.name}' targetInGroupPercentage must be between 0 and 100"
             )
 
-        quantity = ins.quantity.strip()
-        if not quantity.isdigit():
+        if ins.quantity < 0:
             raise ValueError(
                 f"Instrument '{ins.name}' quantity must be a non-negative integer"
             )

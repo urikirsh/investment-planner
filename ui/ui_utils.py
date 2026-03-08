@@ -200,7 +200,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 def add_instrument_item_to_group(
         gitem: QTreeWidgetItem,
         name: str,
-        quantity: str,
+        quantity: int | str,
         value: str,
         in_group_pct: str,
         id_str: str = "",
@@ -209,11 +209,11 @@ def add_instrument_item_to_group(
         -> None:
     """Create and initialize an instrument child row under the given parent group.
 
-    ``quantity`` is a required non-negative integer text field.
+    ``quantity`` is a required non-negative integer displayed as text.
     """
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
-    quantity_text = quantity.strip() or "0"
+    quantity_text = str(quantity).strip() or "0"
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
     item.setText(Col.TOT_VALUE.value, value)

@@ -75,14 +75,14 @@ class Instrument:
     - ``value`` is non-negative
     - ``currency`` is one of ``ILS`` or ``USD``
     - ``target_in_group_pct`` is in [0, 100]
-    - ``quantity`` is a non-negative integer string
+    - ``quantity`` is a non-negative integer
     - investable instruments must reference a valid ``asset_group_id``
     - non-investable instruments must have ``asset_group_id is None``
 
     Notes
     -----
     ``quantity`` tracks held units. It is required and validated as a
-    non-negative integer string.
+    non-negative integer.
     """
     id: str
     name: str
@@ -91,7 +91,7 @@ class Instrument:
     investable: bool
     asset_group_id: Optional[str]  # None for non-investable instruments
     target_in_group_pct: D  # must sum to 100 per investable group
-    quantity: str = "0"  # required non-negative integer string
+    quantity: int = 0  # required non-negative integer
 
 
 @dataclass(frozen=True)

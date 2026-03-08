@@ -92,7 +92,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i1",
                 "name": "Inst 1",
-                "quantity": "12",
+                "quantity": 12,
                 "value": "6000.25",
                 "currency": "ILS",
                 "investable": True,
@@ -102,7 +102,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i2",
                 "name": "Inst 2",
-                "quantity": "0",
+                "quantity": 0,
                 "value": "2575.42",
                 "currency": "USD",
                 "investable": True,
@@ -112,7 +112,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i3",
                 "name": "Inst 3",
-                "quantity": "4",
+                "quantity": 4,
                 "value": "3500.00",
                 "currency": "ILS",
                 "investable": True,
@@ -122,7 +122,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i4",
                 "name": "Parking",
-                "quantity": "0",
+                "quantity": 0,
                 "value": "1000",
                 "currency": "ILS",
                 "investable": False,
@@ -145,7 +145,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i1",
                 "name": "Inst 1",
-                "quantity": "12",
+                "quantity": 12,
                 "value": "6000.25",
                 "currency": "ILS",
                 "investable": True,
@@ -155,7 +155,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i2",
                 "name": "Inst 2",
-                "quantity": "0",
+                "quantity": 0,
                 "value": "2575.42",
                 "currency": "USD",
                 "investable": True,
@@ -165,7 +165,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i3",
                 "name": "Inst 3",
-                "quantity": "4",
+                "quantity": 4,
                 "value": "3500.00",
                 "currency": "ILS",
                 "investable": True,
@@ -175,7 +175,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             {
                 "id": "i4",
                 "name": "Parking",
-                "quantity": "0",
+                "quantity": 0,
                 "value": "1000",
                 "currency": "ILS",
                 "investable": False,
@@ -192,16 +192,16 @@ def test_parse_fails_when_quantity_is_missing() -> None:
         load_portfolio(data)
 
 
-def test_parse_rejects_non_string_quantity() -> None:
+def test_parse_rejects_string_quantity() -> None:
     data = make_valid_data()
-    data["instruments"][0]["quantity"] = 12
+    data["instruments"][0]["quantity"] = "12"
     with pytest.raises(ValueError, match=r"instruments\[0\]\.quantity"):
         load_portfolio(data)
 
 
-def test_parse_rejects_empty_quantity_string() -> None:
+def test_parse_rejects_negative_quantity_int() -> None:
     data = make_valid_data()
-    data["instruments"][0]["quantity"] = ""
+    data["instruments"][0]["quantity"] = -1
     with pytest.raises(ValueError, match=r"instruments\[0\]\.quantity"):
         load_portfolio(data)
 
@@ -217,7 +217,7 @@ def test_validation_rejects_invalid_quantity_string() -> None:
         investable=updated_instruments[0].investable,
         asset_group_id=updated_instruments[0].asset_group_id,
         target_in_group_pct=updated_instruments[0].target_in_group_pct,
-        quantity="-1",
+        quantity=-1,
     )
     invalid = Portfolio(cash=p.cash, asset_groups=p.asset_groups, instruments=updated_instruments)
     with pytest.raises(ValueError, match="quantity must be a non-negative integer"):
