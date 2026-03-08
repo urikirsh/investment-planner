@@ -50,6 +50,14 @@ Do not report completion if either command fails.
 - After fixing review findings, do a quick follow-up self-review of touched areas before handing off.
 - For documentation-only changes, verify claims map to current code paths and avoid redundant repetition.
 
+## Refactor And Consistency Rules
+
+- Prefer enum-driven behavior over hardcoded member checks (for example, use `exchange.currency` instead of branching on specific exchange names).
+- Use shared defaults/constants for fallbacks (for example, `DEFAULT_EXCHANGE`) instead of inline string literals.
+- For schema or field renames, update all affected layers in the same task: model, JSON IO, validation, UI labels/tooltips, tests, and docs.
+- After intentional breaking changes, remove stale "legacy" compatibility wording unless backward compatibility is still implemented.
+- In PowerShell commands, avoid Bash-only chaining like `&&`; use separate commands or `;`.
+
 ## PR Writing
 
 - When asked for a PR title and description, provide a short description written in Markdown.
