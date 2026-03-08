@@ -206,7 +206,7 @@ def test_parse_rejects_negative_quantity_int() -> None:
         load_portfolio(data)
 
 
-def test_validation_rejects_invalid_quantity_string() -> None:
+def test_validation_rejects_invalid_negative_quantity() -> None:
     p = load_portfolio(make_valid_data())
     updated_instruments = list(p.instruments)
     updated_instruments[0] = Instrument(
