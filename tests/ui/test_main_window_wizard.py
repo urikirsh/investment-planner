@@ -12,7 +12,7 @@ import pytest
 from portfolio_core.models import Currency
 from portfolio_core.fx_service import UsdIlsRateQuote
 from portfolio_core.portfolio_session import CachedUsdIlsQuote
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep
 import ui.main_window_wizard as wizard_mod
 from ui.main_window_wizard import MainWindowWizardMixin
 
@@ -413,6 +413,37 @@ def test_wizard_save_continue_uses_zero_when_no_last_calc(
     assert apply_calls[0]["calc_units"] == 0
     assert apply_calls[0]["spent"] == Decimal("0")
     assert host._file_context_updates == 1
+    assert advance_calls == 1
+
+
+def test_wizard_save_continue_shows_quantity_error_and_advances(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="-50")])
+    host.wizard_state.last_calc = SimpleNamespace(units=3, spent=Decimal("150"))
+    shown: list[tuple[str, str]] = []
+    advance_calls = 0
+
+    def fake_apply(_session: Any, _step: Any, _calc_units: int, _spent: Decimal) -> bool:
+        raise InsufficientQuantityForSellError(
+            instrument_name="ETF A",
+            available_units=1,
+            requested_units=3,
+        )
+
+    def fake_advance() -> None:
+        nonlocal advance_calls
+        advance_calls += 1
+
+    monkeypatch.setattr(wizard_mod, "apply_wizard_step", fake_apply)
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+    monkeypatch.setattr(host, "_advance_wizard_step", fake_advance)
+
+    host._wizard_save_continue()
+
+    assert shown and shown[0][0] == "Cannot complete sell step"
+    assert "tried to sell 3 units" in shown[0][1]
+    assert "only 1 units are available" in shown[0][1]
     assert advance_calls == 1
 
 

@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QW
 from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
 from portfolio_core.models import Currency
 from portfolio_core.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import apply_wizard_step
+from portfolio_core.use_cases import InsufficientQuantityForSellError, apply_wizard_step
 from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.wizard_screen import WizardScreen
@@ -213,6 +213,17 @@ class MainWindowWizardMixin:
             if applied:
                 self._update_file_context_ui()
 
+            self._advance_wizard_step()
+        except InsufficientQuantityForSellError as e:
+            show_error(
+                cast(QWidget, self),
+                "Cannot complete sell step",
+                (
+                    f"{e.instrument_name}: tried to sell {e.requested_units} units, "
+                    f"but only {e.available_units} units are available.\n\n"
+                    "This step was skipped. Update the instrument quantity in the main screen if needed."
+                ),
+            )
             self._advance_wizard_step()
         except Exception as e:
             show_error(cast(QWidget, self), "Save failed", str(e))
