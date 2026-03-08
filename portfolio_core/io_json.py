@@ -62,24 +62,17 @@ def _parse_decimal(value: Any, field: str) -> D:
         raise ValueError(f"Field '{field}' must be a number, got: {value!r}")
 
 
-def _parse_quantity(value: Any, field: str) -> str:
-    """Parse instrument quantity as empty or non-negative integer string.
-
-    Missing values are normalized to empty string for backward compatibility
-    with older portfolio files that predate this field.
-    """
+def _parse_quantity(value: Any, field: str) -> int:
+    """Parse instrument quantity as a required non-negative integer."""
     if value is None:
-        return ""
-    if not isinstance(value, str):
-        raise ValueError(f"Field '{field}' must be a string, got: {value!r}")
-    quantity = value.strip()
-    if not quantity:
-        return ""
-    if not quantity.isdigit():
+        raise ValueError(f"Missing required field '{field}'")
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Field '{field}' must be a non-negative integer, got: {value!r}")
+    if value < 0:
         raise ValueError(
-            f"Field '{field}' must be empty or a non-negative integer string, got: {value!r}"
+            f"Field '{field}' must be a non-negative integer, got: {value!r}"
         )
-    return quantity
+    return int(value)
 
 
 def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
@@ -93,8 +86,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     - "instruments": list of instrument objects containing id, name, value, investable,
       required "currency" ("ILS"/"USD"), group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
-    - optional instrument "quantity" as empty/non-negative integer string;
-      missing values default to empty string
+    - required instrument "quantity" as a non-negative integer
 
     This function performs structural/type validation and raises ValueError with a
     precise path (e.g. "instruments[3].value") when a required field is missing or
@@ -220,7 +212,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
     -------------------
     - Uses ``groups`` as the asset-group key.
     - Decimal fields are serialized as strings to preserve precision.
-    - Instrument ``quantity`` is serialized as string (including empty string).
+    - Instrument ``quantity`` is serialized as required integer.
     - ``groupId`` is omitted for non-investable instruments.
 
     Parameters

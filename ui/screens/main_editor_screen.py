@@ -9,7 +9,7 @@ of the application flow. It is responsible for:
 
 Main tree note:
 - includes an instrument `Quantity` column for user tracking convenience
-  (empty or non-negative integer), with no effect on planning calculations.
+  (required non-negative integer).
 
 The class intentionally contains no business logic, persistence logic, or
 navigation flow control. Those concerns stay in
@@ -150,9 +150,9 @@ class MainEditorScreen(QWidget):
         )
         header_item.setToolTip(
             Col.QUANTITY.value,
-            "Optional tracking field for instrument holdings.\n"
-            "Allowed values: empty or a non-negative integer.\n"
-            "This field does not affect portfolio calculations.",
+            "Required holdings field for instrument units.\n"
+            "Allowed values: non-negative integers.\n"
+            "Empty input is normalized to 0.",
         )
         header_item.setToolTip(
             Col.TOT_VALUE.value,

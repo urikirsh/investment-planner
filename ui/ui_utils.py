@@ -200,22 +200,19 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 def add_instrument_item_to_group(
         gitem: QTreeWidgetItem,
         name: str,
-        quantity: str,
+        quantity: int,
         value: str,
         in_group_pct: str,
         id_str: str = "",
         currency: str = DEFAULT_CURRENCY.value,
 ) \
         -> None:
-    """Create and initialize an instrument child row under the given parent group.
-
-    ``quantity`` is a tracking-only text field (empty or non-negative integer)
-    and is intentionally not used by calculations.
-    """
+    """Create and initialize an instrument child row under the given parent group."""
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
+    quantity_text = str(quantity)
     item.setText(Col.NAME.value, name)
-    item.setText(Col.QUANTITY.value, quantity)
+    item.setText(Col.QUANTITY.value, quantity_text)
     item.setText(Col.TOT_VALUE.value, value)
     currency_value = parse_currency_code(currency) or DEFAULT_CURRENCY.value
     item.setText(Col.CURRENCY.value, currency_value)

@@ -62,6 +62,7 @@ def make_valid_data(
     seen_by_group: dict[str, bool] = {}
     for ins in instruments:
         ins.setdefault("currency", "ILS")
+        ins.setdefault("quantity", 0)
         if "targetInGroupPercentage" in ins:
             continue
         if ins.get("investable") and ins.get("groupId"):
@@ -91,6 +92,7 @@ def make_portfolio():
             {
                 "id": "i1",
                 "name": "Inst",
+                "quantity": 0,
                 "value": "500",
                 "currency": "ILS",
                 "investable": True,

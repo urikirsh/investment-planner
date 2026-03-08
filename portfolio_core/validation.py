@@ -54,7 +54,12 @@ def validate_portfolio(p: Portfolio) -> None:
     Raises
     ------
     ValueError
-        On the first violated rule encountered.
+        On the first violated business rule encountered.
+    TypeError
+        If a model field has an unexpected runtime type and a required
+        numeric comparison cannot be performed (for example,
+        ``instrument.quantity < 0`` when ``quantity`` is not an ``int``).
+        This exception is intentionally not coerced to ``ValueError``.
     """
     _validate_cash(p)
     _validate_asset_groups(p)
@@ -165,9 +170,6 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
     """
     Validate per-instrument value/range/mapping rules and accumulate group pct sums.
 
-    Also validates optional user-tracking ``quantity`` field semantics:
-    empty or non-negative integer string only.
-
     Returns
     -------
     dict[str, Decimal]
@@ -189,10 +191,9 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
                 f"Instrument '{ins.name}' targetInGroupPercentage must be between 0 and 100"
             )
 
-        quantity = ins.quantity.strip()
-        if quantity and not quantity.isdigit():
+        if ins.quantity < 0:
             raise ValueError(
-                f"Instrument '{ins.name}' quantity must be empty or a non-negative integer"
+                f"Instrument '{ins.name}' quantity must be a non-negative integer"
             )
 
         if ins.investable:

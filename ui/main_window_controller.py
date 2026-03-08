@@ -263,7 +263,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         else:
             default_in_group_pct = "100" if parent.childCount() == 0 else "0"
 
-        add_instrument_item_to_group(parent, "New Instrument", "", "1", default_in_group_pct)
+        add_instrument_item_to_group(parent, "New Instrument", 0, "1", default_in_group_pct)
 
         self.tree.expandAll()
         self._refresh_data()
@@ -645,13 +645,19 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         """
         Validate instrument quantity cell.
 
-        Allowed values are empty or a non-negative integer.
+        Allowed values are non-negative integers.
+        Empty input is normalized immediately to ``0``.
         """
         col = Col.QUANTITY.value
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
 
         if raw == "":
+            self._suppress_item_changed = True
+            try:
+                item.setText(col, "0")
+            finally:
+                self._suppress_item_changed = False
             return True
         if not raw.isdigit():
             self._warn_and_revert(
@@ -659,7 +665,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
                 col,
                 raw,
                 prev,
-                "Quantity must be empty or a non-negative integer.",
+                "Quantity must be a non-negative integer.",
             )
             return False
         return True

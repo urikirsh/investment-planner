@@ -275,7 +275,7 @@ def apply_wizard_step(
     Sell quantity guard
     -------------------
     Sell steps require enough tracked units. If `calc_units` is greater than
-    the instrument's tracked `quantity` (empty quantity is treated as zero),
+    the instrument's tracked `quantity`,
     the function raises `InsufficientQuantityForSellError` and does not mutate
     or save the portfolio.
 
@@ -303,7 +303,7 @@ def apply_wizard_step(
     if instrument_index is None:
         raise ValueError(f"Instrument not found: {step.instrument_id}")
     instrument = portfolio.instruments[instrument_index]
-    tracked_quantity = int(instrument.quantity) if instrument.quantity else 0
+    tracked_quantity = instrument.quantity
 
     if step.planned_delta_money > 0:
         updated = commit_buy(
@@ -338,7 +338,7 @@ def apply_wizard_step(
         investable=updated_instrument.investable,
         asset_group_id=updated_instrument.asset_group_id,
         target_in_group_pct=updated_instrument.target_in_group_pct,
-        quantity=str(updated_quantity),
+        quantity=updated_quantity,
     )
     updated = Portfolio(
         cash=updated.cash,

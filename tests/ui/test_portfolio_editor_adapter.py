@@ -39,7 +39,7 @@ def _sample_payload() -> dict[str, Any]:
             {
                 "id": "i1",
                 "name": "Investable A",
-                "quantity": "17",
+                "quantity": 17,
                 "value": "7000",
                 "currency": "ILS",
                 "investable": True,
@@ -49,7 +49,7 @@ def _sample_payload() -> dict[str, Any]:
             {
                 "id": "i2",
                 "name": "Investable B",
-                "quantity": "",
+                "quantity": 0,
                 "value": "3000",
                 "currency": "USD",
                 "investable": True,
@@ -59,7 +59,7 @@ def _sample_payload() -> dict[str, Any]:
             {
                 "id": "i3",
                 "name": "Legacy Holding",
-                "quantity": "9",
+                "quantity": 9,
                 "value": "900",
                 "currency": "ILS",
                 "investable": False,
@@ -138,7 +138,7 @@ def test_new_instrument_defaults_to_ils_currency_in_payload(qapp) -> None:
 
     g = QTreeWidgetItem(screen.tree)
     set_group_tree_item(g, "Group 1", "100", "g1")
-    add_instrument_item_to_group(g, "New Instrument", "", "100", "100")
+    add_instrument_item_to_group(g, "New Instrument", 0, "100", "100")
 
     built = build_portfolio_data_from_main_editor(
         tree=screen.tree,
@@ -216,5 +216,5 @@ def test_planning_payload_includes_currency_per_instrument(qapp) -> None:
     assert by_id["i2"] == "USD"
 
     by_id_quantity = {i["id"]: i["quantity"] for i in built["instruments"]}
-    assert by_id_quantity["i1"] == "17"
-    assert by_id_quantity["i2"] == ""
+    assert by_id_quantity["i1"] == 17
+    assert by_id_quantity["i2"] == 0

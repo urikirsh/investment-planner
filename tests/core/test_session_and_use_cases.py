@@ -209,7 +209,7 @@ def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
     after = session.document.current_portfolio
     assert after is not None
     assert after.cash.value == before_cash - D("200")
-    assert next(ins for ins in after.instruments if ins.id == "i1").quantity == "2"
+    assert next(ins for ins in after.instruments if ins.id == "i1").quantity == 2
     assert session.current_file_path == target
 
 
@@ -248,7 +248,7 @@ def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(
                     "investable": True,
                     "groupId": "g1",
                     "targetInGroupPercentage": "100",
-                    "quantity": "5",
+                    "quantity": 5,
                 },
                 {
                     "id": "i2",
@@ -277,7 +277,7 @@ def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(
     assert applied is True
     after = session.document.current_portfolio
     assert after is not None
-    assert next(ins for ins in after.instruments if ins.id == "i1").quantity == "3"
+    assert next(ins for ins in after.instruments if ins.id == "i1").quantity == 3
 
 
 def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tmp_path):
@@ -295,7 +295,7 @@ def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tm
                     "investable": True,
                     "groupId": "g1",
                     "targetInGroupPercentage": "100",
-                    "quantity": "1",
+                    "quantity": 1,
                 },
                 {
                     "id": "i2",

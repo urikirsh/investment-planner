@@ -206,3 +206,15 @@ def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeyp
 
     assert warnings
     assert child.text(Col.QUANTITY.value) == "5"
+
+
+def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    child = QTreeWidgetItem(window.tree)
+    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "7")
+    child.setText(Col.QUANTITY.value, "")
+
+    window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
+
+    assert child.text(Col.QUANTITY.value) == "0"
