@@ -7,7 +7,7 @@ from typing import Any, List, Mapping
 
 from portfolio_core.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.models import AssetGroupPlanRow, Portfolio
+from portfolio_core.models import AssetGroupPlanRow, Instrument, Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.planning import (
     compute_invest_budget,
@@ -35,6 +35,22 @@ Design intent:
 """
 
 D = Decimal
+
+
+class InsufficientQuantityForSellError(ValueError):
+    """Raised when a wizard sell requests more units than tracked holdings.
+
+    The wizard catches this error to present a user-friendly prompt and then
+    continue to the next step without applying this sell action.
+    """
+
+    def __init__(self, *, instrument_name: str, available_units: int, requested_units: int) -> None:
+        super().__init__(
+            f"Cannot sell {requested_units} units of '{instrument_name}' because only {available_units} units are tracked."
+        )
+        self.instrument_name = instrument_name
+        self.available_units = available_units
+        self.requested_units = requested_units
 
 
 @dataclass(frozen=True)
@@ -250,8 +266,18 @@ def apply_wizard_step(
     --------------------
     For actionable steps:
     - Applies buy/sell to current portfolio.
+    - Updates the traded instrument `quantity`:
+      - buy: add `calc_units`
+      - sell: subtract `calc_units`
     - Updates current document in session.
     - Saves to the currently active file path.
+
+    Sell quantity guard
+    -------------------
+    Sell steps require enough tracked units. If `calc_units` is greater than
+    the instrument's tracked `quantity` (empty quantity is treated as zero),
+    the function raises `InsufficientQuantityForSellError` and does not mutate
+    or save the portfolio.
 
     Returns
     -------
@@ -261,7 +287,10 @@ def apply_wizard_step(
     Raises
     ------
     ValueError
-        If no portfolio is loaded or there is no active save path.
+        If no portfolio is loaded, there is no active save path, or the
+        target instrument cannot be found.
+    InsufficientQuantityForSellError
+        If a sell step requests more units than tracked quantity.
     """
     portfolio = session.document.current_portfolio
     if portfolio is None:
@@ -270,6 +299,12 @@ def apply_wizard_step(
     if calc_units <= 0 or spent < min_apply_spent_ils:
         return False
 
+    instrument_index = next((idx for idx, ins in enumerate(portfolio.instruments) if ins.id == step.instrument_id), None)
+    if instrument_index is None:
+        raise ValueError(f"Instrument not found: {step.instrument_id}")
+    instrument = portfolio.instruments[instrument_index]
+    tracked_quantity = int(instrument.quantity) if instrument.quantity else 0
+
     if step.planned_delta_money > 0:
         updated = commit_buy(
             p=portfolio,
@@ -277,13 +312,39 @@ def apply_wizard_step(
             spent=spent,
             min_trade_ils=min_buy_trade_ils,
         )
+        updated_quantity = tracked_quantity + calc_units
     else:
+        if calc_units > tracked_quantity:
+            raise InsufficientQuantityForSellError(
+                instrument_name=instrument.name,
+                available_units=tracked_quantity,
+                requested_units=calc_units,
+            )
         updated = commit_sell(
             p=portfolio,
             instrument_id=step.instrument_id,
             proceeds=spent,
             min_trade_ils=min_sell_trade_ils,
         )
+        updated_quantity = tracked_quantity - calc_units
+
+    new_instruments = list(updated.instruments)
+    updated_instrument = new_instruments[instrument_index]
+    new_instruments[instrument_index] = Instrument(
+        id=updated_instrument.id,
+        name=updated_instrument.name,
+        value=updated_instrument.value,
+        currency=updated_instrument.currency,
+        investable=updated_instrument.investable,
+        asset_group_id=updated_instrument.asset_group_id,
+        target_in_group_pct=updated_instrument.target_in_group_pct,
+        quantity=str(updated_quantity),
+    )
+    updated = Portfolio(
+        cash=updated.cash,
+        asset_groups=updated.asset_groups,
+        instruments=new_instruments,
+    )
 
     session.document.set_current(updated)
     target_path = session.current_file_path

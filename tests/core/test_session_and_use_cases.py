@@ -16,6 +16,7 @@ from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_document import PortfolioDocument
 from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.use_cases import (
+    InsufficientQuantityForSellError,
     PlanStep,
     apply_wizard_step,
     build_plan_for_current_document,
@@ -208,6 +209,7 @@ def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
     after = session.document.current_portfolio
     assert after is not None
     assert after.cash.value == before_cash - D("200")
+    assert next(ins for ins in after.instruments if ins.id == "i1").quantity == "2"
     assert session.current_file_path == target
 
 
@@ -229,3 +231,94 @@ def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
     applied = apply_wizard_step(session, step, calc_units=0, spent=D("0"))
     assert applied is False
     assert session.document.current_portfolio == before
+
+
+def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(tmp_path):
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target = tmp_path / "portfolio.json"
+    save_document_from_data(
+        session,
+        make_valid_data(
+            instruments=[
+                {
+                    "id": "i1",
+                    "name": "Inst 1",
+                    "value": "6000",
+                    "currency": "ILS",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                    "quantity": "5",
+                },
+                {
+                    "id": "i2",
+                    "name": "Inst 2",
+                    "value": "4000",
+                    "currency": "ILS",
+                    "investable": True,
+                    "groupId": "g2",
+                    "targetInGroupPercentage": "100",
+                },
+            ]
+        ),
+        target,
+    )
+
+    step = PlanStep(
+        asset_group_id="g1",
+        asset_group_name="Asset 1",
+        instrument_id="i1",
+        instrument_name="Inst 1",
+        currency="ILS",
+        planned_delta_money=D("-500"),
+    )
+    applied = apply_wizard_step(session, step, calc_units=2, spent=D("200"))
+
+    assert applied is True
+    after = session.document.current_portfolio
+    assert after is not None
+    assert next(ins for ins in after.instruments if ins.id == "i1").quantity == "3"
+
+
+def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tmp_path):
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target = tmp_path / "portfolio.json"
+    save_document_from_data(
+        session,
+        make_valid_data(
+            instruments=[
+                {
+                    "id": "i1",
+                    "name": "Inst 1",
+                    "value": "6000",
+                    "currency": "ILS",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                    "quantity": "1",
+                },
+                {
+                    "id": "i2",
+                    "name": "Inst 2",
+                    "value": "4000",
+                    "currency": "ILS",
+                    "investable": True,
+                    "groupId": "g2",
+                    "targetInGroupPercentage": "100",
+                },
+            ]
+        ),
+        target,
+    )
+
+    step = PlanStep(
+        asset_group_id="g1",
+        asset_group_name="Asset 1",
+        instrument_id="i1",
+        instrument_name="Inst 1",
+        currency="ILS",
+        planned_delta_money=D("-500"),
+    )
+
+    with pytest.raises(InsufficientQuantityForSellError, match="Cannot sell 2 units"):
+        apply_wizard_step(session, step, calc_units=2, spent=D("200"))

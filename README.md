@@ -72,6 +72,8 @@ The application never executes trades automatically. All actions are explicit an
 - Wizard actions:
   - Save and continue
   - Continue without saving
+  - Save-and-continue updates instrument `quantity` for executed wizard trades (buy adds units, sell subtracts units)
+  - If a sell step requests more units than the tracked quantity, the wizard shows a clear error and skips that step after acknowledgement
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
