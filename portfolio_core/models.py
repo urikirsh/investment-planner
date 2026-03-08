@@ -79,10 +79,6 @@ class Instrument:
     - investable instruments must reference a valid ``asset_group_id``
     - non-investable instruments must have ``asset_group_id is None``
 
-    Notes
-    -----
-    ``quantity`` tracks held units. It is required and validated as a
-    non-negative integer.
     """
     id: str
     name: str

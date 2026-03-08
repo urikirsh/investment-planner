@@ -9,7 +9,7 @@ of the application flow. It is responsible for:
 
 Main tree note:
 - includes an instrument `Quantity` column for user tracking convenience
-  (required non-negative integer), used by wizard sell-quantity checks.
+  (required non-negative integer).
 
 The class intentionally contains no business logic, persistence logic, or
 navigation flow control. Those concerns stay in
@@ -152,8 +152,7 @@ class MainEditorScreen(QWidget):
             Col.QUANTITY.value,
             "Required holdings field for instrument units.\n"
             "Allowed values: non-negative integers.\n"
-            "Empty input is normalized to 0.\n"
-            "Used by wizard sell-quantity checks.",
+            "Empty input is normalized to 0.",
         )
         header_item.setToolTip(
             Col.TOT_VALUE.value,
