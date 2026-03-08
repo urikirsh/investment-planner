@@ -20,10 +20,26 @@ D = Decimal
 
 
 class Currency(StrEnum):
-    """Allowed instrument price currencies."""
+    """Supported money currencies used by pricing/FX logic."""
 
     ILS = "ILS"
     USD = "USD"
+
+
+class Exchange(StrEnum):
+    """Supported stock exchanges for instrument trading."""
+
+    TASE = "TASE"
+    NYSE = "NYSE"
+
+    @property
+    def currency(self) -> Currency:
+        """Return the pricing currency associated with the exchange."""
+        if self is Exchange.TASE:
+            return Currency.ILS
+        if self is Exchange.NYSE:
+            return Currency.USD
+        raise ValueError(f"Unsupported exchange: {self.value}")
 
 
 @dataclass(frozen=True)
@@ -73,7 +89,7 @@ class Instrument:
 
     Invariants (enforced by validation):
     - ``value`` is non-negative
-    - ``currency`` is one of ``ILS`` or ``USD``
+    - ``exchange`` is one of ``TASE`` or ``NYSE``
     - ``target_in_group_pct`` is in [0, 100]
     - ``quantity`` is a non-negative integer
     - investable instruments must reference a valid ``asset_group_id``
@@ -83,7 +99,7 @@ class Instrument:
     id: str
     name: str
     value: D  # current market value
-    currency: Currency
+    exchange: Exchange
     investable: bool
     asset_group_id: Optional[str]  # None for non-investable instruments
     target_in_group_pct: D  # must sum to 100 per investable group

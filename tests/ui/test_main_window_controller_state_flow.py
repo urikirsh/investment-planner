@@ -22,7 +22,7 @@ from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
-from ui.ui_types import Col, ROLE_CURRENCY, ROLE_PREV_TEXT, RowKind
+from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
 from ui.ui_state import UnsavedChangesDecision
 from ui.ui_utils import set_item_meta
 
@@ -179,18 +179,18 @@ def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkey
     assert seen_timeout and seen_timeout[0] == 12000
 
 
-def test_item_changed_currency_normalizes_invalid_input_to_default_currency(
+def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
-    child.setText(Col.CURRENCY.value, "invalid")
+    child.setText(Col.EXCHANGE.value, "invalid")
 
-    window._on_item_changed_guard_and_recalc(child, Col.CURRENCY.value)
+    window._on_item_changed_guard_and_recalc(child, Col.EXCHANGE.value)
 
-    assert child.text(Col.CURRENCY.value) == "ILS"
-    assert child.data(0, ROLE_CURRENCY) == "ILS"
+    assert child.text(Col.EXCHANGE.value) == "TASE"
+    assert child.data(0, ROLE_EXCHANGE) == "TASE"
 
 
 def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:

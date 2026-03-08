@@ -56,8 +56,8 @@ FX thread-safety guards in this flow:
     - generation-token guard so stale async completions are ignored
     - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
-- `ui/currency_delegate.py`
-  - combo-box delegate for instrument currency editing in the main tree (`ILS`/`USD`)
+- `ui/exchange_delegate.py`
+  - combo-box delegate for instrument exchange editing in the main tree (`TASE`/`NYSE`)
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -87,6 +87,8 @@ FX thread-safety guards in this flow:
 ## portfolio_core module map
 - `portfolio_core/models.py`
   - core immutable domain models (`Cash`, `AssetGroup`, `Instrument`, `Portfolio`)
+  - `Exchange` enum is the canonical instrument trading selector (`TASE`, `NYSE`)
+  - exchange-to-currency mapping lives in the enum (`TASE->ILS`, `NYSE->USD`)
   - planning output model `AssetGroupPlanRow`
 - `portfolio_core/validation.py`
   - portfolio business-rule validation pipeline
@@ -94,6 +96,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
+  - requires instrument `exchange`
 - `portfolio_core/planning_types.py`
   - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
 - `portfolio_core/planning.py`
@@ -142,7 +145,7 @@ UI-focused tests:
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
 - `tests/ui/test_ui_utils.py`
-  - currency parsing/default fallback and UI helper behavior
+  - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/test_wizard_fx_coordinator.py`
   - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)
 

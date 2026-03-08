@@ -95,7 +95,7 @@ class MainWindowWizardMixin:
             f"Planned {action} value {BASE_CURRENCY_SUFFIX}: {abs(s.planned_delta_money)}"
         )
         if hasattr(self, "screen_wizard"):
-            self.screen_wizard.set_price_mode(s.currency)
+            self.screen_wizard.set_price_mode(s.exchange)
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
         self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
@@ -110,7 +110,7 @@ class MainWindowWizardMixin:
 
             planned = abs(s.planned_delta_money)
             conversion_info = ""
-            if s.currency == Currency.USD.value:
+            if s.exchange.currency == Currency.USD:
                 usd_ils_rate = self._get_effective_usd_ils_rate()
                 price_ils = entered_price * usd_ils_rate
                 calc = calculate_buy_units_from_ils_price(
@@ -119,7 +119,7 @@ class MainWindowWizardMixin:
                     price_ils=price_ils,
                 )
                 conversion_info = (
-                    f"Converted: {entered_price} {Currency.USD.value} x {usd_ils_rate} = "
+                    f"Converted: {entered_price} {s.exchange.currency.value} x {usd_ils_rate} = "
                     f"{price_ils} {DEFAULT_CURRENCY.value} | "
                 )
             else:
@@ -166,7 +166,7 @@ class MainWindowWizardMixin:
 
     def _wizard_has_usd_steps(self) -> bool:
         """Return whether current plan includes at least one USD-priced step."""
-        return any(step.currency == Currency.USD.value for step in self.planning_state.plan_steps)
+        return any(step.exchange.currency == Currency.USD for step in self.planning_state.plan_steps)
 
     def _prepare_wizard_fx_rate_cache(self) -> None:
         """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed."""

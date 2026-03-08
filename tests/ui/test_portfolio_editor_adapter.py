@@ -41,7 +41,7 @@ def _sample_payload() -> dict[str, Any]:
                 "name": "Investable A",
                 "quantity": 17,
                 "value": "7000",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": True,
                 "groupId": "g1",
                 "targetInGroupPercentage": "100",
@@ -51,7 +51,7 @@ def _sample_payload() -> dict[str, Any]:
                 "name": "Investable B",
                 "quantity": 0,
                 "value": "3000",
-                "currency": "USD",
+                "exchange": "NYSE",
                 "investable": True,
                 "groupId": "g2",
                 "targetInGroupPercentage": "100",
@@ -61,7 +61,7 @@ def _sample_payload() -> dict[str, Any]:
                 "name": "Legacy Holding",
                 "quantity": 9,
                 "value": "900",
-                "currency": "ILS",
+                "exchange": "TASE",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
@@ -132,7 +132,7 @@ def test_build_data_partial_mode_defaults_empty_cash_fields(qapp) -> None:
         )
 
 
-def test_new_instrument_defaults_to_ils_currency_in_payload(qapp) -> None:
+def test_new_instrument_defaults_to_tase_exchange_in_payload(qapp) -> None:
     _ = qapp
     screen = MainEditorScreen()
 
@@ -148,10 +148,10 @@ def test_new_instrument_defaults_to_ils_currency_in_payload(qapp) -> None:
         allow_partial=True,
     )
 
-    assert built["instruments"][0]["currency"] == "ILS"
+    assert built["instruments"][0]["exchange"] == "TASE"
 
 
-def test_edited_currency_persists_through_adapter_save_load_cycle(qapp) -> None:
+def test_edited_exchange_persists_through_adapter_save_load_cycle(qapp) -> None:
     _ = qapp
     payload = _sample_payload()
     portfolio = load_portfolio(payload)
@@ -171,7 +171,7 @@ def test_edited_currency_persists_through_adapter_save_load_cycle(qapp) -> None:
     group1 = screen.tree.topLevelItem(0)
     assert group1 is not None
     investable = group1.child(0)
-    investable.setText(Col.CURRENCY.value, "USD")
+    investable.setText(Col.EXCHANGE.value, "NYSE")
 
     built = build_portfolio_data_from_main_editor(
         tree=screen.tree,
@@ -182,11 +182,11 @@ def test_edited_currency_persists_through_adapter_save_load_cycle(qapp) -> None:
     )
     reloaded = load_portfolio(built)
 
-    assert built["instruments"][0]["currency"] == "USD"
-    assert reloaded.instruments[0].currency.value == "USD"
+    assert built["instruments"][0]["exchange"] == "NYSE"
+    assert reloaded.instruments[0].exchange.value == "NYSE"
 
 
-def test_planning_payload_includes_currency_per_instrument(qapp) -> None:
+def test_planning_payload_includes_exchange_per_instrument(qapp) -> None:
     _ = qapp
     payload = _sample_payload()
     portfolio = load_portfolio(payload)
@@ -211,9 +211,9 @@ def test_planning_payload_includes_currency_per_instrument(qapp) -> None:
         allow_partial=False,
     )
 
-    by_id = {i["id"]: i["currency"] for i in built["instruments"]}
-    assert by_id["i1"] == "ILS"
-    assert by_id["i2"] == "USD"
+    by_id = {i["id"]: i["exchange"] for i in built["instruments"]}
+    assert by_id["i1"] == "TASE"
+    assert by_id["i2"] == "NYSE"
 
     by_id_quantity = {i["id"]: i["quantity"] for i in built["instruments"]}
     assert by_id_quantity["i1"] == 17

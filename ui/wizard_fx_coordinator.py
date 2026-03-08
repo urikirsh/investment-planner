@@ -238,7 +238,7 @@ class WizardFxCoordinator:
 
         state = self._host.wizard_state
         s = self._host.planning_state.plan_steps[self._host.planning_state.step_index]
-        if s.currency != Currency.USD.value:
+        if s.exchange.currency != Currency.USD:
             self._host.screen_wizard.calculate_btn.setEnabled(True)
             self._host.screen_wizard.set_fx_panel(
                 visible=False,

@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-"""Qt delegate for controlled instrument-currency editing."""
+"""Qt delegate for controlled instrument-exchange editing."""
 
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
-from ui.ui_utils import DEFAULT_CURRENCY, currency_choices
+from ui.ui_utils import DEFAULT_EXCHANGE, exchange_choices
 
 
-class CurrencyDelegate(QStyledItemDelegate):
+class ExchangeDelegate(QStyledItemDelegate):
     """
-    Dropdown editor delegate for instrument currency cells.
+    Dropdown editor delegate for instrument exchange cells.
 
-    Keeping currency choices in a delegate prevents free-text drift and keeps
+    Keeping exchange choices in a delegate prevents free-text drift and keeps
     cell editing aligned with domain validation constraints.
     """
 
-    _choices = currency_choices()
+    _choices = exchange_choices()
 
     def createEditor(
         self,
@@ -33,7 +33,7 @@ class CurrencyDelegate(QStyledItemDelegate):
     def setEditorData(self, editor: QWidget, index: QModelIndex | QPersistentModelIndex) -> None:
         if not isinstance(editor, QComboBox):
             return
-        current = str(index.data() or DEFAULT_CURRENCY.value)
+        current = str(index.data() or DEFAULT_EXCHANGE.value)
         pos = editor.findText(current)
         editor.setCurrentIndex(pos if pos >= 0 else 0)
 

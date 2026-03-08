@@ -17,7 +17,7 @@ All trade execution behavior is intentionally delegated to the coordinator.
 
 from __future__ import annotations
 
-from portfolio_core.models import Currency
+from portfolio_core.models import Currency, Exchange
 from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
@@ -32,8 +32,8 @@ from ui.ui_utils import DEFAULT_CURRENCY
 
 
 DEFAULT_PRICE_LABEL = "Price (Agorot):"
-USD_PRICE_LABEL = f"Price ({Currency.USD.value}):"
-USD_ILS_MANUAL_RATE_LABEL = f"Manual {Currency.USD.value}/{DEFAULT_CURRENCY.value} rate:"
+USD_PRICE_LABEL = f"Price ({Exchange.NYSE.currency.value}):"
+USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/{DEFAULT_CURRENCY.value} rate:"
 
 
 class WizardScreen(QWidget):
@@ -111,11 +111,11 @@ class WizardScreen(QWidget):
         btns_layout.addStretch(1)
         layout.addWidget(btns)
 
-    def set_price_mode(self, currency: str) -> None:
-        """Configure price-label context for the current instrument currency."""
-        if currency == Currency.USD.value:
+    def set_price_mode(self, exchange: Exchange) -> None:
+        """Configure price-label context for the current instrument exchange."""
+        if exchange.currency == Currency.USD:
             self.price_label.setText(USD_PRICE_LABEL)
-            self.price_edit.setPlaceholderText(f"Enter unit price in {Currency.USD.value} (e.g. 12.34)")
+            self.price_edit.setPlaceholderText(f"Enter unit price in {Exchange.NYSE.currency.value} (e.g. 12.34)")
             return
 
         self.price_label.setText(DEFAULT_PRICE_LABEL)

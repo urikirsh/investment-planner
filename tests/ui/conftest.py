@@ -16,6 +16,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from portfolio_core.calc_stock_units import BuyCalculation
+from portfolio_core.models import Exchange
 from portfolio_core.use_cases import PlanStep
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
@@ -49,14 +50,14 @@ def make_plan_step() -> Callable[..., PlanStep]:
         group_id: str = "g-1",
         group_name: str = "Group A",
         instrument_name: str = "ETF A",
-        currency: str = "ILS",
+        exchange: Exchange = Exchange.TASE,
     ) -> PlanStep:
         return PlanStep(
             asset_group_id=group_id,
             asset_group_name=group_name,
             instrument_id=instrument_id,
             instrument_name=instrument_name,
-            currency=currency,
+            exchange=exchange,
             planned_delta_money=Decimal(delta),
         )
 

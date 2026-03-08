@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, cast
 
 from portfolio_core.fx_service import UsdIlsRateQuote
+from portfolio_core.models import Currency, Exchange
 from portfolio_core.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import PlanStep
 from ui.ui_state import PlanningState, WizardState
@@ -67,7 +68,7 @@ class _FakeHost:
         self.cancel_returns = True
 
     def _wizard_has_usd_steps(self) -> bool:
-        return any(step.currency == "USD" for step in self.planning_state.plan_steps)
+        return any(step.exchange.currency == Currency.USD for step in self.planning_state.plan_steps)
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
         _ = wait_timeout_ms
@@ -81,7 +82,7 @@ class _FakeHost:
 def test_prepare_wizard_fx_rate_cache_shows_wait_when_cancel_fails(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
-    host = _FakeHost([make_plan_step(delta="50", currency="USD")])
+    host = _FakeHost([make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.cancel_returns = False
     shown: list[tuple[str, str]] = []
     coordinator = WizardFxCoordinator(cast(WizardFxHost, host), show_error_fn=lambda _p, t, m: shown.append((t, m)))
@@ -95,7 +96,7 @@ def test_prepare_wizard_fx_rate_cache_shows_wait_when_cancel_fails(
 def test_on_fx_fetch_finished_ignores_stale_generation(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
-    host = _FakeHost([make_plan_step(delta="50", currency="USD")])
+    host = _FakeHost([make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.wizard_state.usd_ils_rate = Decimal("3.7")
     host.wizard_state.usd_ils_active_fetch_generation = 2
     coordinator = WizardFxCoordinator(cast(WizardFxHost, host), show_error_fn=lambda _p, _t, _m: None)
@@ -114,7 +115,7 @@ def test_on_fx_fetch_finished_ignores_stale_generation(
 
 
 def test_render_fx_panel_hides_for_non_usd_steps(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost([make_plan_step(delta="50", currency="ILS")])
+    host = _FakeHost([make_plan_step(delta="50", exchange=Exchange.TASE)])
     coordinator = WizardFxCoordinator(cast(WizardFxHost, host), show_error_fn=lambda _p, _t, _m: None)
 
     coordinator.render_fx_panel_for_current_step()

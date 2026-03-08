@@ -1,4 +1,4 @@
-﻿{
+{
     "cash":  {
                  "value":  "11398.768",
                  "min_reserve":  "1000",
@@ -45,7 +45,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "100",
                             "groupId":  "grp_58521ac8",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_2fadda9e",
@@ -55,7 +55,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "100",
                             "groupId":  "grp_0756bb56",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_07a17717",
@@ -65,7 +65,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "35",
                             "groupId":  "grp_7a17a4c9",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_1abc5853",
@@ -75,7 +75,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "65",
                             "groupId":  "grp_7a17a4c9",
-                            "currency":  "USD"
+                            "exchange": "NYSE"
                         },
                         {
                             "id":  "ins_43acc252",
@@ -85,7 +85,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "100",
                             "groupId":  "grp_9527c762",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_da912e74",
@@ -95,7 +95,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "50",
                             "groupId":  "grp_d5883787",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_055274f6",
@@ -105,7 +105,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "50",
                             "groupId":  "grp_d5883787",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_343d77e1",
@@ -115,7 +115,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "50",
                             "groupId":  "grp_e9a95430",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_ce5799d8",
@@ -125,7 +125,7 @@
                             "investable":  true,
                             "targetInGroupPercentage":  "50",
                             "groupId":  "grp_e9a95430",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         },
                         {
                             "id":  "ins_4ec3df30",
@@ -134,7 +134,7 @@
                             "value":  "99302",
                             "investable":  false,
                             "targetInGroupPercentage":  "0",
-                            "currency":  "ILS"
+                            "exchange": "TASE"
                         }
                     ]
 }
