@@ -21,7 +21,6 @@ wrappers.
 """
 
 from decimal import Decimal
-import re
 from pathlib import Path
 from typing import List, Optional
 
@@ -80,8 +79,6 @@ D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
-TASE_TICKER_RE = re.compile(r"^\d{7}$")
-NYSE_TICKER_RE = re.compile(r"^[A-Z0-9]{4}$")
 
 class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
     """
@@ -226,16 +223,6 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
             item.setText(column, raw)
             item.setData(0, ROLE_EXCHANGE, raw)
-            if not self._validate_instrument_ticker_cell_or_revert(
-                item,
-                edited_col=Col.EXCHANGE.value,
-            ):
-                self._refresh_data()
-                return
-        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TICKER.value:
-            if not self._validate_instrument_ticker_cell_or_revert(item):
-                self._refresh_data()
-                return
 
         # Only business-rule validate relevant cells
         if get_item_kind(item) == RowKind.GROUP and column == Col.TARGET_PCT.value:
@@ -681,51 +668,6 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
                 "Quantity must be a non-negative integer.",
             )
             return False
-        return True
-
-    def _validate_instrument_ticker_cell_or_revert(
-        self,
-        item: QTreeWidgetItem,
-        *,
-        edited_col: int | None = None,
-    ) -> bool:
-        """
-        Validate instrument ticker by exchange rule and revert edited cell on failure.
-
-        Rules:
-        - TASE: exactly 7 digits
-        - NYSE: exactly 4 uppercase alphanumeric characters
-        """
-        ticker_col = Col.TICKER.value
-        raw_ticker = item.text(ticker_col).strip()
-        effective_edited_col = edited_col if edited_col is not None else ticker_col
-        prev = item.data(effective_edited_col, ROLE_PREV_TEXT)
-        bad = item.text(effective_edited_col).strip()
-
-        if not raw_ticker:
-            self._warn_and_revert(item, effective_edited_col, bad, prev, "Ticker is required.")
-            return False
-
-        exchange_code = parse_exchange_code(item.text(Col.EXCHANGE.value)) or DEFAULT_EXCHANGE.value
-        if exchange_code == "TASE" and not TASE_TICKER_RE.fullmatch(raw_ticker):
-            self._warn_and_revert(
-                item,
-                effective_edited_col,
-                bad,
-                prev,
-                "Ticker for TASE must be exactly 7 digits.",
-            )
-            return False
-        if exchange_code == "NYSE" and not NYSE_TICKER_RE.fullmatch(raw_ticker):
-            self._warn_and_revert(
-                item,
-                effective_edited_col,
-                bad,
-                prev,
-                "Ticker for NYSE must be exactly 4 uppercase letters or digits.",
-            )
-            return False
-
         return True
 
     def _warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:

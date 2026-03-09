@@ -224,17 +224,19 @@ def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monk
     assert child.text(Col.QUANTITY.value) == "0"
 
 
-def test_item_changed_ticker_reverts_invalid_tase_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(window, "_refresh_data", lambda: None)
     monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setText(Col.EXCHANGE.value, "TASE")
-    child.setText(Col.TICKER.value, "1234567")
-    child.setData(Col.TICKER.value, ROLE_PREV_TEXT, "1234567")
     child.setText(Col.TICKER.value, "ABC")
 
     window._on_item_changed_guard_and_recalc(child, Col.TICKER.value)
 
-    assert warnings
-    assert child.text(Col.TICKER.value) == "1234567"
+    assert not warnings
+    assert child.text(Col.TICKER.value) == "ABC"

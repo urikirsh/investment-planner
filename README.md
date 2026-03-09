@@ -82,13 +82,13 @@ The application never executes trades automatically. All actions are explicit an
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
-- Immediate validation with clear feedback and automatic revert on invalid input
+- Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
   - green when you have enough to invest
   - gray when you do not
 - Main editor includes:
-  - `Ticker` column (instrument rows), required and exchange-validated
+  - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows) with dropdown editing (`TASE`, `NYSE`)
