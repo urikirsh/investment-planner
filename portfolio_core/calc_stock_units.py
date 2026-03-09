@@ -222,6 +222,7 @@ def commit_buy(
     new_instruments = list(p.instruments)
     new_instruments[idx] = Instrument(
         id=ins.id,
+        ticker=ins.ticker,
         name=ins.name,
         value=ins.value + spent,
         exchange=ins.exchange,
@@ -279,6 +280,7 @@ def commit_sell(
     new_instruments = list(p.instruments)
     new_instruments[idx] = Instrument(
         id=ins.id,
+        ticker=ins.ticker,
         name=ins.name,
         value=ins.value - proceeds,
         exchange=ins.exchange,

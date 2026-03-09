@@ -36,6 +36,7 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
     "instruments": [
         {
             "id": "spx_a",
+            "ticker": "1234567",
             "name": "SPX 500",
             "quantity": 1,
             "value": "1",

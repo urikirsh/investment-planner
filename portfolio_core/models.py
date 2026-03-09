@@ -88,6 +88,7 @@ class Instrument:
     non-investable holdings.
 
     Invariants (enforced by validation):
+    - ``ticker`` is non-empty
     - ``value`` is non-negative
     - ``exchange`` is one of ``TASE`` or ``NYSE``
     - ``target_in_group_pct`` is in [0, 100]
@@ -97,6 +98,7 @@ class Instrument:
 
     """
     id: str
+    ticker: str
     name: str
     value: D  # current market value
     exchange: Exchange

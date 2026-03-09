@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import re
 from typing import Dict
 
 from portfolio_core.models import Exchange, Portfolio
@@ -19,6 +20,8 @@ No UI, persistence, or calculation logic belongs in this module.
 """
 
 D = Decimal
+TASE_TICKER_RE = re.compile(r"^\d{7}$")
+NYSE_TICKER_RE = re.compile(r"^[A-Z0-9]{4}$")
 
 
 def _allowed_exchange_values_text() -> str:
@@ -177,6 +180,8 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
     group_pct_sum: Dict[str, D] = {g.id: D("0") for g in p.asset_groups}
 
     for ins in p.instruments:
+        _validate_instrument_ticker(ins.name, ins.ticker, ins.exchange)
+
         if ins.value < 0:
             raise ValueError(f"Instrument '{ins.name}' value cannot be negative")
 
@@ -213,6 +218,20 @@ def _validate_instrument_values_and_group_mapping(p: Portfolio) -> Dict[str, D]:
                 )
 
     return group_pct_sum
+
+
+def _validate_instrument_ticker(name: str, ticker: str, exchange: Exchange) -> None:
+    """Validate ticker presence and exchange-specific format rules."""
+    normalized_ticker = ticker.strip()
+    if not normalized_ticker:
+        raise ValueError(f"Instrument '{name}' ticker must be non-empty")
+
+    if exchange is Exchange.TASE and not TASE_TICKER_RE.fullmatch(normalized_ticker):
+        raise ValueError(f"Instrument '{name}' ticker for TASE must be exactly 7 digits")
+    if exchange is Exchange.NYSE and not NYSE_TICKER_RE.fullmatch(normalized_ticker):
+        raise ValueError(
+            f"Instrument '{name}' ticker for NYSE must be exactly 4 uppercase letters or digits"
+        )
 
 
 def _validate_group_instrument_pct_sums(p: Portfolio, group_pct_sum: Dict[str, D]) -> None:

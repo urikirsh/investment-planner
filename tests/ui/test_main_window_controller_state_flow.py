@@ -34,6 +34,7 @@ def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[
     _ = qapp
     monkeypatch.setattr(MainWindow, "_load_or_init", lambda self: None)
     win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
+    monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
     yield win
     win.close()
 
@@ -183,8 +184,10 @@ def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: None)
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child.setText(Col.TICKER.value, "1234567")
     child.setText(Col.EXCHANGE.value, "invalid")
 
     window._on_item_changed_guard_and_recalc(child, Col.EXCHANGE.value)
@@ -210,6 +213,7 @@ def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeyp
 
 def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: None)
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "7")
@@ -218,3 +222,19 @@ def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monk
     window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
 
     assert child.text(Col.QUANTITY.value) == "0"
+
+
+def test_item_changed_ticker_reverts_invalid_tase_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
+    child = QTreeWidgetItem(window.tree)
+    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child.setText(Col.EXCHANGE.value, "TASE")
+    child.setText(Col.TICKER.value, "1234567")
+    child.setData(Col.TICKER.value, ROLE_PREV_TEXT, "1234567")
+    child.setText(Col.TICKER.value, "ABC")
+
+    window._on_item_changed_guard_and_recalc(child, Col.TICKER.value)
+
+    assert warnings
+    assert child.text(Col.TICKER.value) == "1234567"

@@ -8,6 +8,7 @@ of the application flow. It is responsible for:
 - applying static UI setup (column headers, delegates, tooltips)
 
 Main tree note:
+- includes required instrument `Ticker` column (exchange-specific format rules)
 - includes an instrument `Quantity` column for user tracking convenience
   (required non-negative integer).
 
@@ -95,6 +96,7 @@ class MainEditorScreen(QWidget):
         tree.setHeaderLabels(
             [
                 "Name",
+                "Ticker",
                 "Quantity",
                 "Total value",
                 "Portfolio %",
@@ -115,6 +117,8 @@ class MainEditorScreen(QWidget):
         for col in Col:
             if col == Col.NAME:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Stretch)
+            elif col == Col.TICKER:
+                header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             elif col == Col.QUANTITY:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.Fixed)
             elif col == Col.EXCHANGE:
@@ -124,9 +128,11 @@ class MainEditorScreen(QWidget):
             else:
                 header.setSectionResizeMode(col.value, QHeaderView.ResizeMode.ResizeToContents)
 
+        tree.setColumnWidth(Col.TICKER.value, 110)
         tree.setColumnWidth(Col.QUANTITY.value, 84)
         tree.setColumnWidth(Col.EXCHANGE.value, 84)
         tree.setColumnWidth(Col.DRIFT_PP.value, 78)
+        tree.headerItem().setTextAlignment(Col.TICKER.value, Qt.AlignmentFlag.AlignLeft)
         tree.headerItem().setTextAlignment(Col.DRIFT_PP.value, Qt.AlignmentFlag.AlignCenter)
         tree.headerItem().setTextAlignment(Col.QUANTITY.value, Qt.AlignmentFlag.AlignCenter)
         tree.headerItem().setTextAlignment(Col.EXCHANGE.value, Qt.AlignmentFlag.AlignCenter)
@@ -144,6 +150,12 @@ class MainEditorScreen(QWidget):
 
     def _set_tree_header_tooltips(self, tree: InvestmentTreeWidget) -> None:
         header_item = tree.headerItem()
+        header_item.setToolTip(
+            Col.TICKER.value,
+            "Instrument ticker symbol (required).\n"
+            "TASE: exactly 7 digits.\n"
+            "NYSE: exactly 4 uppercase letters or digits.",
+        )
         header_item.setToolTip(
             Col.NAME.value,
             "The asset group or instrument name shown in this row.",

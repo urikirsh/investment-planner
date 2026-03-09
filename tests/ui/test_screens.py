@@ -29,6 +29,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.investable_balance_label.text() == "Investable balance (ILS): 0"
 
     assert screen.tree.columnCount() == len(Col)
+    assert screen.tree.headerItem().text(Col.TICKER.value) == "Ticker"
     assert screen.tree.headerItem().text(Col.NAME.value) == "Name"
     assert screen.tree.headerItem().text(Col.QUANTITY.value) == "Quantity"
     assert screen.tree.headerItem().text(Col.EXCHANGE.value) == "Exchange"
@@ -50,6 +51,7 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     _ = qapp
     screen = MainEditorScreen()
 
+    assert "ticker symbol" in screen.tree.headerItem().toolTip(Col.TICKER.value).lower()
     assert "asset group or instrument name" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
     assert "non-negative integer" in screen.tree.headerItem().toolTip(Col.QUANTITY.value).lower()
     total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)

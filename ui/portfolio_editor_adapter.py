@@ -47,6 +47,7 @@ class GroupPayload(TypedDict):
 
 class InstrumentPayload(TypedDict):
     id: str
+    ticker: str
     name: str
     value: str
     exchange: str
@@ -64,6 +65,7 @@ class PortfolioPayload(TypedDict):
 
 class InstrumentUiRow(TypedDict):
     id: str
+    ticker: str
     name: str
     quantity: int
     value: str
@@ -122,6 +124,7 @@ def populate_main_editor_from_portfolio(
         for ins in portfolio.instruments:
             row: InstrumentUiRow = {
                 "id": ins.id,
+                "ticker": ins.ticker,
                 "name": ins.name,
                 "quantity": ins.quantity,
                 "value": str(ins.value),
@@ -142,6 +145,7 @@ def populate_main_editor_from_portfolio(
             for ins_row in instruments_by_group.get(group.id, []):
                 add_instrument_item_to_group(
                     group_item,
+                    ins_row["ticker"],
                     ins_row["name"],
                     ins_row["quantity"],
                     ins_row["value"],
@@ -161,6 +165,7 @@ def populate_main_editor_from_portfolio(
         for non_investable_row in non_investable_rows:
             add_instrument_item_to_group(
                 non_investable_bucket,
+                non_investable_row["ticker"],
                 non_investable_row["name"],
                 non_investable_row["quantity"],
                 non_investable_row["value"],
@@ -252,12 +257,14 @@ def build_portfolio_data_from_main_editor(
                 set_item_meta(ins, RowKind.INSTRUMENT, instrument_id)
 
             instrument_name = ins.text(Col.NAME.value).strip()
+            instrument_ticker = ins.text(Col.TICKER.value).strip()
             quantity = int(ins.text(Col.QUANTITY.value).strip() or "0")
             total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
 
             if is_non_investable_bucket:
                 instrument: InstrumentPayload = {
                     "id": instrument_id,
+                    "ticker": instrument_ticker,
                     "name": instrument_name,
                     "quantity": quantity,
                     "value": total_value,
@@ -268,6 +275,7 @@ def build_portfolio_data_from_main_editor(
             else:
                 instrument = {
                     "id": instrument_id,
+                    "ticker": instrument_ticker,
                     "name": instrument_name,
                     "quantity": quantity,
                     "value": total_value,

@@ -33,6 +33,7 @@ def make_valid_data(
         instruments = [
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Inst 1",
                 "value": "6000",
                 "exchange": "TASE",
@@ -42,6 +43,7 @@ def make_valid_data(
             },
             {
                 "id": "i2",
+                "ticker": "2345678",
                 "name": "Inst 2",
                 "value": "4000",
                 "exchange": "TASE",
@@ -51,6 +53,7 @@ def make_valid_data(
             },
             {
                 "id": "i3",
+                "ticker": "3456789",
                 "name": "Parking",
                 "value": "1000",
                 "exchange": "TASE",
@@ -62,6 +65,13 @@ def make_valid_data(
     seen_by_group: dict[str, bool] = {}
     for ins in instruments:
         ins.setdefault("exchange", "TASE")
+        exchange = str(ins["exchange"]).strip().upper()
+        if exchange == "TASE":
+            ins.setdefault("ticker", "1234567")
+        elif exchange == "NYSE":
+            ins.setdefault("ticker", "AB12")
+        else:
+            ins.setdefault("ticker", "UNKNOWN")
         ins.setdefault("quantity", 0)
         if "targetInGroupPercentage" in ins:
             continue
@@ -91,6 +101,7 @@ def make_portfolio():
         "instruments": [
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Inst",
                 "quantity": 0,
                 "value": "500",

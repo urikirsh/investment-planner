@@ -333,6 +333,7 @@ def apply_wizard_step(
     updated_instrument = new_instruments[instrument_index]
     new_instruments[instrument_index] = Instrument(
         id=updated_instrument.id,
+        ticker=updated_instrument.ticker,
         name=updated_instrument.name,
         value=updated_instrument.value,
         exchange=updated_instrument.exchange,

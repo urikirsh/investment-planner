@@ -28,6 +28,7 @@ def test_parse_succeeds_with_valid_exchange_values():
         instruments=[
             {
                 "id": "i1",
+                "ticker": "AB12",
                 "name": "Inst 1",
                 "value": "6000",
                 "exchange": "NYSE",
@@ -37,6 +38,7 @@ def test_parse_succeeds_with_valid_exchange_values():
             },
             {
                 "id": "i2",
+                "ticker": "1234567",
                 "name": "Inst 2",
                 "value": "4000",
                 "exchange": "TASE",
@@ -91,6 +93,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
         instruments=[
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Inst 1",
                 "quantity": 12,
                 "value": "6000.25",
@@ -101,6 +104,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             },
             {
                 "id": "i2",
+                "ticker": "AB12",
                 "name": "Inst 2",
                 "quantity": 0,
                 "value": "2575.42",
@@ -111,6 +115,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             },
             {
                 "id": "i3",
+                "ticker": "2345678",
                 "name": "Inst 3",
                 "quantity": 4,
                 "value": "3500.00",
@@ -121,6 +126,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             },
             {
                 "id": "i4",
+                "ticker": "3456789",
                 "name": "Parking",
                 "quantity": 0,
                 "value": "1000",
@@ -144,6 +150,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
         "instruments": [
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Inst 1",
                 "quantity": 12,
                 "value": "6000.25",
@@ -154,6 +161,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             },
             {
                 "id": "i2",
+                "ticker": "AB12",
                 "name": "Inst 2",
                 "quantity": 0,
                 "value": "2575.42",
@@ -164,6 +172,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             },
             {
                 "id": "i3",
+                "ticker": "2345678",
                 "name": "Inst 3",
                 "quantity": 4,
                 "value": "3500.00",
@@ -174,6 +183,7 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
             },
             {
                 "id": "i4",
+                "ticker": "3456789",
                 "name": "Parking",
                 "quantity": 0,
                 "value": "1000",
@@ -211,6 +221,7 @@ def test_validation_rejects_invalid_negative_quantity() -> None:
     updated_instruments = list(p.instruments)
     updated_instruments[0] = Instrument(
         id=updated_instruments[0].id,
+        ticker=updated_instruments[0].ticker,
         name=updated_instruments[0].name,
         value=updated_instruments[0].value,
         exchange=updated_instruments[0].exchange,
@@ -229,6 +240,7 @@ def test_parse_fails_when_exchange_is_missing():
         instruments=[
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Inst 1",
                 "value": "6000",
                 "investable": True,
@@ -237,6 +249,7 @@ def test_parse_fails_when_exchange_is_missing():
             },
             {
                 "id": "i2",
+                "ticker": "2345678",
                 "name": "Inst 2",
                 "value": "4000",
                 "exchange": "TASE",
@@ -251,11 +264,19 @@ def test_parse_fails_when_exchange_is_missing():
         load_portfolio(data)
 
 
+def test_parse_fails_when_ticker_is_missing() -> None:
+    data = make_valid_data()
+    data["instruments"][0].pop("ticker", None)
+    with pytest.raises(ValueError, match=r"Missing required field 'instruments\[0\]\.ticker'"):
+        load_portfolio(data)
+
+
 def test_parse_fails_when_exchange_is_invalid():
     data = make_valid_data(
         instruments=[
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Inst 1",
                 "value": "6000",
                 "exchange": "EUR",
@@ -265,6 +286,7 @@ def test_parse_fails_when_exchange_is_invalid():
             },
             {
                 "id": "i2",
+                "ticker": "2345678",
                 "name": "Inst 2",
                 "value": "4000",
                 "exchange": "TASE",
@@ -276,6 +298,23 @@ def test_parse_fails_when_exchange_is_invalid():
     )
     with pytest.raises(ValueError, match=r"instruments\[0\]\.exchange"):
         load_portfolio(data)
+
+
+def test_validation_rejects_invalid_tase_ticker_format() -> None:
+    data = make_valid_data()
+    data["instruments"][0]["exchange"] = "TASE"
+    data["instruments"][0]["ticker"] = "12AB567"
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="ticker for TASE must be exactly 7 digits"):
+        validate_portfolio(p)
+
+
+def test_validation_allows_nyse_uppercase_alphanumeric_ticker() -> None:
+    data = make_valid_data()
+    data["instruments"][0]["exchange"] = "NYSE"
+    data["instruments"][0]["ticker"] = "3DSB"
+    p = load_portfolio(data)
+    validate_portfolio(p)
 
 
 def test_validation_value_cannot_be_negative():
@@ -396,6 +435,7 @@ def test_validation_rejects_non_enum_exchange() -> None:
         instruments=[
             Instrument(
                 id="i1",
+                ticker="1234567",
                 name="Inst 1",
                 value=Decimal("1000"),
                 exchange=cast(Exchange, "EUR"),

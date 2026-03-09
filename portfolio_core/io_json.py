@@ -75,6 +75,16 @@ def _parse_quantity(value: Any, field: str) -> int:
     return int(value)
 
 
+def _parse_required_text(value: Any, field: str) -> str:
+    """Parse a required non-empty text field."""
+    if value is None:
+        raise ValueError(f"Missing required field '{field}'")
+    parsed = str(value).strip()
+    if not parsed:
+        raise ValueError(f"Field '{field}' must be a non-empty string")
+    return parsed
+
+
 def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     """
     Parse a raw JSON-decoded mapping into a strongly-typed Portfolio model.
@@ -83,7 +93,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     - "cash": object with "value", "min_reserve", and "future_tax"
       (all parsed as Decimal, in ILS)
     - "groups": list of asset group objects containing id, name, targetPercentage
-    - "instruments": list of instrument objects containing id, name, value, investable,
+    - "instruments": list of instrument objects containing id, ticker, name, value, investable,
       required "exchange" ("TASE"/"NYSE"), group reference ("groupId" or legacy "assetGroupId"), and required
       "targetInGroupPercentage"
     - required instrument "quantity" as a non-negative integer
@@ -156,6 +166,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
         instruments.append(
             Instrument(
                 id=str(ins.get("id", "")).strip(),
+                ticker=_parse_required_text(ins.get("ticker"), f"instruments[{i}].ticker"),
                 name=str(ins.get("name", "")).strip(),
                 value=_parse_decimal(ins.get("value"), f"instruments[{i}].value"),
                 exchange=_parse_exchange(ins.get("exchange"), f"instruments[{i}].exchange"),
@@ -242,6 +253,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
         "instruments": [
             {
                 "id": ins.id,
+                "ticker": ins.ticker,
                 "name": ins.name,
                 "value": str(ins.value),
                 "exchange": ins.exchange.value,

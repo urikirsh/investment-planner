@@ -39,6 +39,7 @@
     "instruments":  [
                         {
                             "id":  "ins_08a47779",
+                            "ticker": "1159169",
                             "name":  "MSCI EM 1159169",
                             "quantity":  420,
                             "value":  "130492",
@@ -49,6 +50,7 @@
                         },
                         {
                             "id":  "ins_2fadda9e",
+                            "ticker": "1159094",
                             "name":  "MSCI EURO 1159094",
                             "quantity":  315,
                             "value":  "130345",
@@ -59,6 +61,7 @@
                         },
                         {
                             "id":  "ins_07a17717",
+                            "ticker": "1186063",
                             "name":  "NASDAQ 1186063",
                             "quantity":  180,
                             "value":  "147900",
@@ -69,6 +72,7 @@
                         },
                         {
                             "id":  "ins_1abc5853",
+                            "ticker": "SPY1",
                             "name":  "Invesco S\u0026P 500 1183441",
                             "quantity":  240,
                             "value":  "272883",
@@ -79,6 +83,7 @@
                         },
                         {
                             "id":  "ins_43acc252",
+                            "ticker": "1157908",
                             "name":  "SPBDUS3T 1157908",
                             "quantity":  510,
                             "value":  "224013",
@@ -89,6 +94,7 @@
                         },
                         {
                             "id":  "ins_da912e74",
+                            "ticker": "7777777",
                             "name":  "21Shares Ethereum Etf TETH (NYSE)",
                             "quantity":  72,
                             "value":  "9202",
@@ -99,6 +105,7 @@
                         },
                         {
                             "id":  "ins_055274f6",
+                            "ticker": "5139910",
                             "name":  "Bitcoin P\u0026S 5139910",
                             "quantity":  6,
                             "value":  "9228.68",
@@ -109,6 +116,7 @@
                         },
                         {
                             "id":  "ins_343d77e1",
+                            "ticker": "5123211",
                             "name":  "D4 5123211",
                             "quantity":  95,
                             "value":  "22876",
@@ -119,6 +127,7 @@
                         },
                         {
                             "id":  "ins_ce5799d8",
+                            "ticker": "5100961",
                             "name":  "D5 5100961",
                             "quantity":  58,
                             "value":  "13698.232",
@@ -129,6 +138,7 @@
                         },
                         {
                             "id":  "ins_4ec3df30",
+                            "ticker": "5137732",
                             "name":  "Keren Kaspit 5137732",
                             "quantity":  1002,
                             "value":  "99302",

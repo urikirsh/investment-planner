@@ -61,6 +61,7 @@ FX thread-safety guards in this flow:
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
+  - maps required instrument `ticker` values between UI rows and domain payloads
 - `ui/portfolio_metrics.py`
   - pure recalculation service for derived table values
   - computes totals, portfolio %, strategy %, and drift from row snapshots
@@ -76,6 +77,7 @@ FX thread-safety guards in this flow:
   - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
 - `ui/screens/main_editor_screen.py`
   - screen 1 presentation/layout (portfolio editor)
+  - defines required editable instrument `Ticker` column
   - exposes tree/cash/action widgets for signal wiring
 - `ui/screens/summary_screen.py`
   - screen 2 presentation/layout (plan summary)
@@ -87,16 +89,18 @@ FX thread-safety guards in this flow:
 ## portfolio_core module map
 - `portfolio_core/models.py`
   - core immutable domain models (`Cash`, `AssetGroup`, `Instrument`, `Portfolio`)
+  - `Instrument` includes required `ticker`
   - `Exchange` enum is the canonical instrument trading selector (`TASE`, `NYSE`)
   - exchange-to-currency mapping lives in the enum (`TASE->ILS`, `NYSE->USD`)
   - planning output model `AssetGroupPlanRow`
 - `portfolio_core/validation.py`
   - portfolio business-rule validation pipeline
+  - validates required instrument `ticker` with exchange-specific format rules
   - validates cash constraints, allocation sums, instrument mapping, and naming/identity invariants
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
-  - requires instrument `exchange`
+  - requires instrument `exchange`, `ticker`, and `quantity`
 - `portfolio_core/planning_types.py`
   - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
 - `portfolio_core/planning.py`
