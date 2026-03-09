@@ -31,6 +31,9 @@ The application never executes trades automatically. All actions are explicit an
 ### Portfolio structure
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
+- Required per-instrument `ticker` field
+  - `TASE`: exactly 7 digits
+  - `NYSE`: exactly 4 uppercase letters or digits
 - Required per-instrument `quantity` field (non-negative integer)
 - Per-instrument `exchange` (`TASE` or `NYSE`) for wizard price-entry semantics
   - `TASE` prices are treated as ILS (agorot entry in wizard)
@@ -79,12 +82,14 @@ The application never executes trades automatically. All actions are explicit an
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
-- Immediate validation with clear feedback and automatic revert on invalid input
+- Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
   - green when you have enough to invest
   - gray when you do not
 - Main editor includes:
+  - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions
+  - ticker input accepts letters/digits only while typing; lowercase is normalized to uppercase on commit
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows) with dropdown editing (`TASE`, `NYSE`)
@@ -142,6 +147,9 @@ maintained in [`example_portfolio.json`](example_portfolio.json).
 Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
 - `instruments[*].exchange` is required and must be `TASE` or `NYSE`.
+- `instruments[*].ticker` is required.
+  - `TASE` tickers must be exactly 7 digits.
+  - `NYSE` tickers must be exactly 4 uppercase letters or digits.
 - `instruments[*].quantity` is required and must be a non-negative integer.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.

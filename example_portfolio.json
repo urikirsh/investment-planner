@@ -1,140 +1,150 @@
 {
-    "cash":  {
-                 "value":  "11398.768",
-                 "min_reserve":  "1000",
-                 "future_tax":  "10397.25"
-             },
-    "groups":  [
-                   {
-                       "id":  "grp_58521ac8",
-                       "name":  "Emerging markets",
-                       "targetPercentage":  "14"
-                   },
-                   {
-                       "id":  "grp_0756bb56",
-                       "name":  "Europe",
-                       "targetPercentage":  "14"
-                   },
-                   {
-                       "id":  "grp_7a17a4c9",
-                       "name":  "USA",
-                       "targetPercentage":  "45"
-                   },
-                   {
-                       "id":  "grp_9527c762",
-                       "name":  "Bonds",
-                       "targetPercentage":  "20"
-                   },
-                   {
-                       "id":  "grp_d5883787",
-                       "name":  "Crypto currencies",
-                       "targetPercentage":  "2"
-                   },
-                   {
-                       "id":  "grp_e9a95430",
-                       "name":  "Gold",
-                       "targetPercentage":  "5"
-                   }
-               ],
-    "instruments":  [
-                        {
-                            "id":  "ins_08a47779",
-                            "name":  "MSCI EM 1159169",
-                            "quantity":  420,
-                            "value":  "130492",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "100",
-                            "groupId":  "grp_58521ac8",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_2fadda9e",
-                            "name":  "MSCI EURO 1159094",
-                            "quantity":  315,
-                            "value":  "130345",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "100",
-                            "groupId":  "grp_0756bb56",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_07a17717",
-                            "name":  "NASDAQ 1186063",
-                            "quantity":  180,
-                            "value":  "147900",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "35",
-                            "groupId":  "grp_7a17a4c9",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_1abc5853",
-                            "name":  "Invesco S\u0026P 500 1183441",
-                            "quantity":  240,
-                            "value":  "272883",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "65",
-                            "groupId":  "grp_7a17a4c9",
-                            "exchange": "NYSE"
-                        },
-                        {
-                            "id":  "ins_43acc252",
-                            "name":  "SPBDUS3T 1157908",
-                            "quantity":  510,
-                            "value":  "224013",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "100",
-                            "groupId":  "grp_9527c762",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_da912e74",
-                            "name":  "21Shares Ethereum Etf TETH (NYSE)",
-                            "quantity":  72,
-                            "value":  "9202",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "50",
-                            "groupId":  "grp_d5883787",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_055274f6",
-                            "name":  "Bitcoin P\u0026S 5139910",
-                            "quantity":  6,
-                            "value":  "9228.68",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "50",
-                            "groupId":  "grp_d5883787",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_343d77e1",
-                            "name":  "D4 5123211",
-                            "quantity":  95,
-                            "value":  "22876",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "50",
-                            "groupId":  "grp_e9a95430",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_ce5799d8",
-                            "name":  "D5 5100961",
-                            "quantity":  58,
-                            "value":  "13698.232",
-                            "investable":  true,
-                            "targetInGroupPercentage":  "50",
-                            "groupId":  "grp_e9a95430",
-                            "exchange": "TASE"
-                        },
-                        {
-                            "id":  "ins_4ec3df30",
-                            "name":  "Keren Kaspit 5137732",
-                            "quantity":  1002,
-                            "value":  "99302",
-                            "investable":  false,
-                            "targetInGroupPercentage":  "0",
-                            "exchange": "TASE"
-                        }
-                    ]
+    "cash": {
+        "value": "11398.768",
+        "min_reserve": "1000",
+        "future_tax": "10397.25"
+    },
+    "groups": [
+        {
+            "id": "grp_58521ac8",
+            "name": "Emerging markets",
+            "targetPercentage": "14"
+        },
+        {
+            "id": "grp_0756bb56",
+            "name": "Europe",
+            "targetPercentage": "14"
+        },
+        {
+            "id": "grp_7a17a4c9",
+            "name": "USA",
+            "targetPercentage": "45"
+        },
+        {
+            "id": "grp_9527c762",
+            "name": "Bonds",
+            "targetPercentage": "20"
+        },
+        {
+            "id": "grp_d5883787",
+            "name": "Crypto currencies",
+            "targetPercentage": "2"
+        },
+        {
+            "id": "grp_e9a95430",
+            "name": "Gold",
+            "targetPercentage": "5"
+        }
+    ],
+    "instruments": [
+        {
+            "id": "ins_08a47779",
+            "ticker": "1159169",
+            "name": "MSCI EM",
+            "value": "130492",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "100",
+            "quantity": 420,
+            "groupId": "grp_58521ac8"
+        },
+        {
+            "id": "ins_2fadda9e",
+            "ticker": "1159094",
+            "name": "MSCI EURO",
+            "value": "130345",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "100",
+            "quantity": 315,
+            "groupId": "grp_0756bb56"
+        },
+        {
+            "id": "ins_07a17717",
+            "ticker": "1186063",
+            "name": "NASDAQ",
+            "value": "147900",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "35",
+            "quantity": 180,
+            "groupId": "grp_7a17a4c9"
+        },
+        {
+            "id": "ins_1abc5853",
+            "ticker": "SPY1",
+            "name": "Invesco S&P 500",
+            "value": "272883",
+            "exchange": "NYSE",
+            "investable": true,
+            "targetInGroupPercentage": "65",
+            "quantity": 240,
+            "groupId": "grp_7a17a4c9"
+        },
+        {
+            "id": "ins_43acc252",
+            "ticker": "1157908",
+            "name": "SPBDUS3T",
+            "value": "224013",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "100",
+            "quantity": 510,
+            "groupId": "grp_9527c762"
+        },
+        {
+            "id": "ins_da912e74",
+            "ticker": "TETH",
+            "name": "21Shares Ethereum Etf",
+            "value": "9202",
+            "exchange": "NYSE",
+            "investable": true,
+            "targetInGroupPercentage": "50",
+            "quantity": 72,
+            "groupId": "grp_d5883787"
+        },
+        {
+            "id": "ins_055274f6",
+            "ticker": "5139910",
+            "name": "Bitcoin P&S",
+            "value": "9228.68",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "50",
+            "quantity": 6,
+            "groupId": "grp_d5883787"
+        },
+        {
+            "id": "ins_343d77e1",
+            "ticker": "5123211",
+            "name": "D4",
+            "value": "22876",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "50",
+            "quantity": 95,
+            "groupId": "grp_e9a95430"
+        },
+        {
+            "id": "ins_ce5799d8",
+            "ticker": "5100961",
+            "name": "D5",
+            "value": "13698.232",
+            "exchange": "TASE",
+            "investable": true,
+            "targetInGroupPercentage": "50",
+            "quantity": 58,
+            "groupId": "grp_e9a95430"
+        },
+        {
+            "id": "ins_4ec3df30",
+            "ticker": "5137732",
+            "name": "Keren Kaspit",
+            "value": "99302",
+            "exchange": "TASE",
+            "investable": false,
+            "targetInGroupPercentage": "0",
+            "quantity": 1002
+        }
+    ]
 }

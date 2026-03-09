@@ -165,6 +165,10 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
 
     # Text left-aligned
     item.setTextAlignment(
+        Col.TICKER.value,
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+    )
+    item.setTextAlignment(
         Col.NAME.value,
         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
     )
@@ -186,6 +190,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
         | Qt.ItemFlag.ItemIsDragEnabled
         | Qt.ItemFlag.ItemIsDropEnabled
     )
+    gitem.setText(Col.TICKER.value, "")
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.QUANTITY.value, "")
     gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
@@ -205,6 +210,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 
 def add_instrument_item_to_group(
         gitem: QTreeWidgetItem,
+        ticker: str,
         name: str,
         quantity: int,
         value: str,
@@ -216,7 +222,9 @@ def add_instrument_item_to_group(
     """Create and initialize an instrument child row under the given parent group."""
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
+    ticker_text = ticker.strip()
     quantity_text = str(quantity)
+    item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
     item.setText(Col.TOT_VALUE.value, value)
@@ -303,7 +311,14 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
     if kind == RowKind.INSTRUMENT:
-        return col in (Col.NAME.value, Col.QUANTITY.value, Col.TOT_VALUE.value, Col.EXCHANGE.value, Col.TARGET_PCT.value)
+        return col in (
+            Col.TICKER.value,
+            Col.NAME.value,
+            Col.QUANTITY.value,
+            Col.TOT_VALUE.value,
+            Col.EXCHANGE.value,
+            Col.TARGET_PCT.value,
+        )
 
     # bucket
     return False

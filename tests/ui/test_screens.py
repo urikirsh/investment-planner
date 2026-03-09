@@ -12,6 +12,7 @@ from __future__ import annotations
 from portfolio_core.models import Exchange
 from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
+from ui.ticker_input_delegate import TickerInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
@@ -29,6 +30,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.investable_balance_label.text() == "Investable balance (ILS): 0"
 
     assert screen.tree.columnCount() == len(Col)
+    assert screen.tree.headerItem().text(Col.TICKER.value) == "Ticker"
     assert screen.tree.headerItem().text(Col.NAME.value) == "Name"
     assert screen.tree.headerItem().text(Col.QUANTITY.value) == "Quantity"
     assert screen.tree.headerItem().text(Col.EXCHANGE.value) == "Exchange"
@@ -36,6 +38,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
 
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TOT_VALUE.value), DecimalInputDelegate)
+    assert isinstance(screen.tree.itemDelegateForColumn(Col.TICKER.value), TickerInputDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.EXCHANGE.value), ExchangeDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
 
@@ -50,7 +53,8 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     _ = qapp
     screen = MainEditorScreen()
 
-    assert "asset group or instrument name" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
+    assert "ticker symbol" in screen.tree.headerItem().toolTip(Col.TICKER.value).lower()
+    assert "user-defined display name for your convenience" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
     assert "non-negative integer" in screen.tree.headerItem().toolTip(Col.QUANTITY.value).lower()
     total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)
     assert DEFAULT_CURRENCY.value in total_value_tooltip

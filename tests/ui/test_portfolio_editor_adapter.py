@@ -38,6 +38,7 @@ def _sample_payload() -> dict[str, Any]:
         "instruments": [
             {
                 "id": "i1",
+                "ticker": "1234567",
                 "name": "Investable A",
                 "quantity": 17,
                 "value": "7000",
@@ -48,6 +49,7 @@ def _sample_payload() -> dict[str, Any]:
             },
             {
                 "id": "i2",
+                "ticker": "AB12",
                 "name": "Investable B",
                 "quantity": 0,
                 "value": "3000",
@@ -58,6 +60,7 @@ def _sample_payload() -> dict[str, Any]:
             },
             {
                 "id": "i3",
+                "ticker": "2345678",
                 "name": "Legacy Holding",
                 "quantity": 9,
                 "value": "900",
@@ -138,7 +141,7 @@ def test_new_instrument_defaults_to_tase_exchange_in_payload(qapp) -> None:
 
     g = QTreeWidgetItem(screen.tree)
     set_group_tree_item(g, "Group 1", "100", "g1")
-    add_instrument_item_to_group(g, "New Instrument", 0, "100", "100")
+    add_instrument_item_to_group(g, "0000000", "New Instrument", 0, "100", "100")
 
     built = build_portfolio_data_from_main_editor(
         tree=screen.tree,

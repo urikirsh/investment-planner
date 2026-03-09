@@ -22,7 +22,7 @@ wrappers.
 
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtGui import QCloseEvent
@@ -219,6 +219,20 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if self._suppress_item_changed:
             return
 
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TICKER.value:
+            # Keep a defensive normalization pass at model-update time.
+            # The ticker delegate prevents invalid keystrokes in normal editing,
+            # but programmatic edits/pastes/tests can still bypass that path.
+            raw_ticker = item.text(column)
+            sanitized_ticker = "".join(ch for ch in raw_ticker if ch.isascii() and ch.isalnum())
+            normalized_ticker = sanitized_ticker.upper()
+            if normalized_ticker != raw_ticker:
+                self._suppress_item_changed = True
+                try:
+                    item.setText(column, normalized_ticker)
+                finally:
+                    self._suppress_item_changed = False
+
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.EXCHANGE.value:
             raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
             item.setText(column, raw)
@@ -263,7 +277,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         else:
             default_in_group_pct = "100" if parent.childCount() == 0 else "0"
 
-        add_instrument_item_to_group(parent, "New Instrument", 0, "1", default_in_group_pct)
+        add_instrument_item_to_group(parent, "0000000", "New Instrument", 0, "1", default_in_group_pct)
 
         self.tree.expandAll()
         self._refresh_data()

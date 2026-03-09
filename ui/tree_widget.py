@@ -4,7 +4,7 @@ from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QAbstractItemView, QTreeWidget, QTreeWidgetItem, QWidget
 from PySide6.QtCore import Qt, Signal
 
-from ui.ui_types import RowKind, Col, ROLE_KIND
+from ui.ui_types import RowKind, ROLE_KIND
 
 
 class InvestmentTreeWidget(QTreeWidget):
@@ -28,10 +28,10 @@ class InvestmentTreeWidget(QTreeWidget):
         """
         Return the semantic row kind stored in item metadata.
 
-        Row kind is stored in the NAME column under `ROLE_KIND` and parsed via
+        Row kind is stored in column index 0 under `ROLE_KIND` and parsed via
         `RowKind.from_raw` to tolerate missing/invalid metadata.
         """
-        return RowKind.from_raw(item.data(Col.NAME.value, ROLE_KIND))
+        return RowKind.from_raw(item.data(0, ROLE_KIND))
 
     def dropEvent(self, event: QDropEvent) -> None:
         """
