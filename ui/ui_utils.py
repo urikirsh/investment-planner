@@ -30,7 +30,6 @@ NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
 DEFAULT_EXCHANGE = Exchange.TASE
 BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
-DEFAULT_TASE_TICKER = "0000000"
 
 
 def exchange_choices() -> tuple[str, ...]:
@@ -223,7 +222,7 @@ def add_instrument_item_to_group(
     """Create and initialize an instrument child row under the given parent group."""
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
-    ticker_text = ticker.strip() or DEFAULT_TASE_TICKER
+    ticker_text = ticker.strip()
     quantity_text = str(quantity)
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
