@@ -22,7 +22,7 @@ wrappers.
 
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtGui import QCloseEvent
