@@ -24,7 +24,7 @@ import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
 from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
 from ui.ui_state import UnsavedChangesDecision
-from ui.ui_utils import set_item_meta
+from ui.ui_utils import add_instrument_item_to_group, set_group_tree_item, set_item_meta
 
 D = Decimal
 
@@ -240,3 +240,40 @@ def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
 
     assert not warnings
     assert child.text(Col.TICKER.value) == "ABC"
+
+
+def test_save_blocks_invalid_ticker_exchange_combination(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    errors: list[tuple[str, str]] = []
+    target = tmp_path / "invalid_save.json"
+
+    window.cash_value_edit.setText("1000")
+    window.cash_reserve_edit.setText("0")
+    window.future_tax_edit.setText("0")
+
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Group 1", "100", "g1")
+    add_instrument_item_to_group(
+        group,
+        "1234567",  # Invalid for NYSE (valid only for TASE)
+        "Instrument 1",
+        1,
+        "100",
+        "100",
+        "i1",
+        "NYSE",
+    )
+
+    monkeypatch.setattr(window, "_resolve_save_target", lambda **_: target)
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+
+    saved = window._save_current_or_save_as(show_success=False)
+
+    assert saved is False
+    assert errors
+    assert errors[0][0] == "Validation / Save failed"
+    assert "ticker for NYSE must be exactly 4 uppercase letters or digits" in errors[0][1]
+    assert not target.exists()
