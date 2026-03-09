@@ -58,6 +58,10 @@ FX thread-safety guards in this flow:
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
 - `ui/exchange_delegate.py`
   - combo-box delegate for instrument exchange editing in the main tree (`TASE`/`NYSE`)
+- `ui/ticker_input_delegate.py`
+  - line-edit delegate for instrument ticker editing
+  - enforces live ASCII alphanumeric-only input while allowing empty interim text
+  - required/exact exchange-specific ticker format is validated at save/planning time
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -146,6 +150,8 @@ UI-focused tests:
   - pure recalculation rules and zero-denominator edge cases
 - `tests/ui/test_screens.py`
   - structural tests for screen modules (defaults, controls, static setup)
+- `tests/ui/test_ticker_input_delegate.py`
+  - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
 - `tests/ui/test_ui_utils.py`

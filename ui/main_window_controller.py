@@ -220,6 +220,9 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             return
 
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TICKER.value:
+            # Keep a defensive normalization pass at model-update time.
+            # The ticker delegate prevents invalid keystrokes in normal editing,
+            # but programmatic edits/pastes/tests can still bypass that path.
             raw_ticker = item.text(column)
             sanitized_ticker = "".join(ch for ch in raw_ticker if ch.isascii() and ch.isalnum())
             normalized_ticker = sanitized_ticker.upper()
