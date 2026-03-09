@@ -219,6 +219,17 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if self._suppress_item_changed:
             return
 
+        if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TICKER.value:
+            raw_ticker = item.text(column)
+            sanitized_ticker = "".join(ch for ch in raw_ticker if ch.isascii() and ch.isalnum())
+            normalized_ticker = sanitized_ticker.upper()
+            if normalized_ticker != raw_ticker:
+                self._suppress_item_changed = True
+                try:
+                    item.setText(column, normalized_ticker)
+                finally:
+                    self._suppress_item_changed = False
+
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.EXCHANGE.value:
             raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
             item.setText(column, raw)

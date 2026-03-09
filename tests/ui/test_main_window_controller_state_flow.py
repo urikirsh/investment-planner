@@ -234,12 +234,12 @@ def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setText(Col.EXCHANGE.value, "TASE")
-    child.setText(Col.TICKER.value, "ABC")
+    child.setText(Col.TICKER.value, "ab-c_1 ")
 
     window._on_item_changed_guard_and_recalc(child, Col.TICKER.value)
 
     assert not warnings
-    assert child.text(Col.TICKER.value) == "ABC"
+    assert child.text(Col.TICKER.value) == "ABC1"
 
 
 def test_save_blocks_invalid_ticker_exchange_combination(

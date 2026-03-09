@@ -12,6 +12,7 @@ from __future__ import annotations
 from portfolio_core.models import Exchange
 from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
+from ui.ticker_input_delegate import TickerInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.wizard_screen import WizardScreen
@@ -37,6 +38,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
 
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TOT_VALUE.value), DecimalInputDelegate)
+    assert isinstance(screen.tree.itemDelegateForColumn(Col.TICKER.value), TickerInputDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.EXCHANGE.value), ExchangeDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
 

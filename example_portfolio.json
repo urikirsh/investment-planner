@@ -94,8 +94,8 @@
     },
     {
       "id": "ins_da912e74",
-      "ticker": "NYSE",
-      "name": "21Shares Ethereum Etf TETH",
+      "ticker": "TETH",
+      "name": "21Shares Ethereum Etf",
       "value": "9202",
       "exchange": "NYSE",
       "investable": true,

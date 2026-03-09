@@ -89,6 +89,7 @@ The application never executes trades automatically. All actions are explicit an
   - gray when you do not
 - Main editor includes:
   - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions
+  - ticker input accepts letters/digits only while typing; lowercase is normalized to uppercase on commit
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows) with dropdown editing (`TASE`, `NYSE`)
