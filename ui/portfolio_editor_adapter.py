@@ -192,6 +192,10 @@ def build_portfolio_data_from_main_editor(
 
     Parameters
     ----------
+    tree:
+        Main-editor portfolio tree containing group and instrument rows.
+    cash_value_edit, cash_reserve_edit, future_tax_edit:
+        Main-editor cash input widgets used to populate the ``cash`` payload block.
     allow_partial:
         If ``True``, empty numeric cash fields are normalized to ``"0"``.
         If ``False``, required cash fields must be non-empty.
@@ -282,8 +286,8 @@ def build_portfolio_data_from_main_editor(
                     "exchange": get_item_exchange(ins),
                     "investable": True,
                     "targetInGroupPercentage": ins.text(Col.TARGET_PCT.value).strip() or "0",
+                    "groupId": group_id,
                 }
-                instrument["groupId"] = group_id
 
             instruments.append(instrument)
 
