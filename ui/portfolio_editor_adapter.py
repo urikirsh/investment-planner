@@ -215,8 +215,12 @@ def build_portfolio_data_from_main_editor(
     --------------
     - The non-investable top-level bucket is not emitted as a strategy group.
     - Missing instrument ids are generated and written back into row metadata.
+    - Investable instruments are serialized with required `groupId` and
+      `targetInGroupPercentage` from the row target-% cell.
     - Non-investable instruments are serialized with `investable=False`,
       `targetInGroupPercentage="0"`, and without `groupId`.
+    - Instrument `ticker` is emitted as the trimmed cell text; exchange-specific
+      ticker format validation is enforced later by the save/planning validation layer.
     - Instrument `quantity` is emitted as `int` and normalized to `0` when empty.
     """
     cash_value = cash_value_edit.text().strip()
