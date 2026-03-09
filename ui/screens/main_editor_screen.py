@@ -158,7 +158,7 @@ class MainEditorScreen(QWidget):
         )
         header_item.setToolTip(
             Col.NAME.value,
-            "The asset group or instrument name shown in this row.",
+            "A user-defined display name for your convenience.",
         )
         header_item.setToolTip(
             Col.QUANTITY.value,

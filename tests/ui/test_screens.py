@@ -52,7 +52,7 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     screen = MainEditorScreen()
 
     assert "ticker symbol" in screen.tree.headerItem().toolTip(Col.TICKER.value).lower()
-    assert "asset group or instrument name" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
+    assert "user-defined display name for your convenience" in screen.tree.headerItem().toolTip(Col.NAME.value).lower()
     assert "non-negative integer" in screen.tree.headerItem().toolTip(Col.QUANTITY.value).lower()
     total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)
     assert DEFAULT_CURRENCY.value in total_value_tooltip
