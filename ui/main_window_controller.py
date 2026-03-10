@@ -28,10 +28,8 @@ from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
-    QLabel,
     QMainWindow,
     QStackedWidget,
-    QStatusBar,
     QTreeWidgetItem,
 )
 
@@ -151,26 +149,14 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             return "Untitled"
         return self.session.current_file_path.name
 
-    def _current_file_full_path_text(self) -> str:
-        """Return full-path tooltip text for the current portfolio file context."""
-        if self.session.current_file_path is None:
-            return "No file path yet (new unsaved portfolio)."
-        return str(self.session.current_file_path)
-
     def _update_file_context_ui(self) -> None:
-        """Refresh window title and status-bar file indicator from session state."""
+        """Refresh window title from session state."""
         name = self._current_file_display_name()
         self.setWindowTitle(f"{self._base_window_title} - {name}")
-        self.file_context_label.setText(f"Open: {name}")
-        self.file_context_label.setToolTip(self._current_file_full_path_text())
 
     def _init_status_bar(self) -> None:
-        """Create and attach status bar widgets used for active-file visibility."""
-        self.file_context_label = QLabel("Open: Untitled")
-        self.file_context_label.setToolTip("No file path yet (new unsaved portfolio).")
-        bar = QStatusBar(self)
-        bar.addPermanentWidget(self.file_context_label, 1)
-        self.setStatusBar(bar)
+        """No-op: status bar file-context label was intentionally removed."""
+        return None
 
     def _load_portfolio_from_file(self, path: Path) -> None:
         """Load a portfolio from disk into editor state and refresh UI context."""
