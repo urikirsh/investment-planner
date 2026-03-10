@@ -45,7 +45,7 @@ FX thread-safety guards in this flow:
   - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/constants.py`
   - shared application metadata/constants used by multiple UI modules
-  - includes app version string displayed on the welcome screen
+  - resolves app version from `pyproject.toml` (`[project].version`) for welcome-screen display
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable

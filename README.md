@@ -128,7 +128,7 @@ For internal code structure and test architecture, see
 ## Running the application
 
 ### Requirements
-- Python 3.14.2
+- Python 3.13+
 - PySide6
 
 Install dependencies:
@@ -189,7 +189,8 @@ Notes:
 ## Project metadata
 
 - Name: `investment-planner`
+- Version source: `pyproject.toml` (`[project].version`)
 - Type: Desktop GUI application (PySide6)
 - Primary language: Python
-- Python requirement: `3.14.2`
+- Python requirement: `>=3.13`
 - License: MIT (see [`LICENSE`](LICENSE))
