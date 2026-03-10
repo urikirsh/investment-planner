@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.app_metadata import get_app_version
 from portfolio_core.use_cases import (
     PlanBuildResult,
     PlanStep,
@@ -53,7 +54,7 @@ from portfolio_core.use_cases import (
 
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
-from ui.constants import APP_NAME, get_app_version
+from ui.constants import APP_NAME
 from ui.ui_types import RowKind, Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 from ui.ui_utils import (
     BASE_CURRENCY_SUFFIX,
