@@ -20,14 +20,40 @@ from PySide6.QtWidgets import QTreeWidgetItem
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
+from ui.controllers import MainWindowTableEditingMixin, MainWindowWelcomeMixin
 import ui.controllers.main_window_table_editing as table_editing
 import ui.main_window_controller as main_window_controller
+from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_controller import MainWindow
+from ui.main_window_wizard import MainWindowWizardMixin
 from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
 from ui.ui_state import UnsavedChangesDecision
 from ui.ui_utils import add_instrument_item_to_group, set_group_tree_item, set_item_meta
 
 D = Decimal
+
+
+def test_main_window_method_resolution_owners_for_extracted_mixins() -> None:
+    expected_method_module = {
+        "_load_default_document": "ui.controllers.main_window_main_editor",
+        "_on_item_changed_guard_and_recalc": "ui.controllers.main_window_table_editing",
+        "_refresh_data": "ui.controllers.main_window_metrics",
+        "_summary_next": "ui.controllers.main_window_summary",
+        "_open_portfolio_from_picker": "ui.main_window_actions",
+        "_show_current_wizard_step": "ui.main_window_wizard",
+        "_run_planning": "ui.main_window_controller",
+    }
+
+    for method_name, module_name in expected_method_module.items():
+        resolved_module = getattr(MainWindow, method_name).__module__
+        assert resolved_module == module_name, f"{method_name} resolved to {resolved_module}, expected {module_name}"
+
+
+def test_main_window_mro_keeps_actions_after_screen_controller_mixins() -> None:
+    mro = MainWindow.__mro__
+    assert mro.index(MainWindowActionsMixin) > mro.index(MainWindowTableEditingMixin)
+    assert mro.index(MainWindowActionsMixin) > mro.index(MainWindowWelcomeMixin)
+    assert mro.index(MainWindowWizardMixin) < mro.index(MainWindowWelcomeMixin)
 
 
 @pytest.fixture()
