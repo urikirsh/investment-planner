@@ -2,7 +2,7 @@
 Wizard screen UI.
 
 This module defines `WizardScreen`, the per-instrument execution view
-(screen 3) used after summary review. It provides layout and widget creation
+(screen 4) used after summary review. It provides layout and widget creation
 for step information, price entry, FX status/override inputs, calculation
 feedback, and step actions.
 
@@ -38,7 +38,7 @@ USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/{DEFAULT_CUR
 
 class WizardScreen(QWidget):
     """
-    Wizard UI (screen 3).
+    Wizard UI (screen 4).
 
     Exposes controls so the coordinator can attach flow behavior.
     Input units are intentionally explicit in labels to reduce cross-unit

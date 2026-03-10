@@ -24,12 +24,13 @@ Rule of thumb: `portfolio_core` must not import from `ui`.
 ## Runtime flow
 Main user flow:
 
-1. Main editor captures current portfolio values.
-2. Save/Open/New actions go through `MainWindowActionsMixin`.
-3. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
-4. Summary screen presents generated plan steps.
-5. Wizard execution is managed by `MainWindowWizardMixin`.
-6. Completed wizard flow repopulates the main editor and returns to screen 1.
+1. Welcome screen handles startup choices (`open last`, `load`, `start new`, `quit`).
+2. Main editor captures current portfolio values.
+3. Save/Open/New actions go through `MainWindowActionsMixin`.
+4. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
+5. Summary screen presents generated plan steps.
+6. Wizard execution is managed by `MainWindowWizardMixin`.
+7. Completed wizard flow repopulates the main editor and returns to screen 2.
 
 FX thread-safety guards in this flow:
 - Wizard FX fetch uses generation tokens so stale async completions are ignored.
@@ -38,9 +39,11 @@ FX thread-safety guards in this flow:
 
 ## UI module map
 - `ui/main_window_controller.py`
-  - top-level coordinator for screen wiring, transitions, and summary/planning orchestration
+  - top-level coordinator for welcome/main/summary/wizard wiring and transitions
   - composes focused mixins for file actions and wizard step flow
   - guards window close until in-flight wizard FX fetch thread is safely stopped
+- `ui/constants.py`
+  - shared application metadata/constants used by multiple UI modules
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
@@ -79,13 +82,16 @@ FX thread-safety guards in this flow:
   - `PlanningState`: generated steps, active wizard index, and planning mode
   - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
 - `ui/screens/main_editor_screen.py`
-  - screen 1 presentation/layout (portfolio editor)
+  - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
 - `ui/screens/summary_screen.py`
-  - screen 2 presentation/layout (plan summary)
+  - screen 3 presentation/layout (plan summary)
   - exposes summary text and navigation controls
+- `ui/screens/welcome_screen.py`
+  - screen 1 presentation/layout (startup welcome)
+  - exposes startup actions plus remembered-path status display
 - `ui/screens/wizard_screen.py`
-  - screen 3 presentation/layout (per-instrument execution wizard)
+  - screen 4 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
 
 ## portfolio_core module map
@@ -137,6 +143,8 @@ FX thread-safety guards in this flow:
 UI-focused tests:
 - `tests/ui/test_main_window_controller_state_flow.py`
   - focused tests for planning/wizard state transitions and controller seam behavior
+- `tests/ui/test_main_window_welcome_flow.py`
+  - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`
   - focused tests for save-target resolution and unsaved-changes action decisions
 - `tests/ui/test_main_window_wizard.py`

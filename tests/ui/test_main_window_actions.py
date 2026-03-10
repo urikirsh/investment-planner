@@ -48,6 +48,9 @@ class _FakeHost(MainWindowActionsMixin):
     def _update_future_tax_visual_state(self) -> None:
         return None
 
+    def _load_or_init(self) -> None:
+        return None
+
 
 def test_resolve_save_target_uses_current_path_when_available() -> None:
     current = Path("active.json")

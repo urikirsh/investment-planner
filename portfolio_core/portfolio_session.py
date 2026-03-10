@@ -93,6 +93,10 @@ class PortfolioSession:
         payload["last_portfolio_path"] = str(path.resolve()) if path is not None else ""
         self._write_config_payload(payload)
 
+    def get_remembered_portfolio_path(self) -> Optional[Path]:
+        """Return remembered portfolio path from config without mutating state."""
+        return self._read_last_loaded_path_from_config()
+
     def _read_config_payload(self) -> dict[str, Any]:
         """Best-effort read of full session config payload.
 
