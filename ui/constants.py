@@ -1,11 +1,12 @@
 """Shared UI-level constants.
 
-`APP_VERSION` is read from `pyproject.toml` and surfaced in the startup
+`get_app_version()` reads from `pyproject.toml` and is used by the startup
 welcome screen when available.
 """
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 import tomllib
 
@@ -29,4 +30,7 @@ def _read_project_version_from_pyproject() -> str | None:
     return version
 
 
-APP_VERSION = _read_project_version_from_pyproject()
+@lru_cache(maxsize=1)
+def get_app_version() -> str | None:
+    """Resolve and cache app version lazily at first call."""
+    return _read_project_version_from_pyproject()

@@ -52,7 +52,7 @@ from portfolio_core.use_cases import (
 
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
-from ui.constants import APP_NAME, APP_VERSION
+from ui.constants import APP_NAME, get_app_version
 from ui.ui_types import RowKind, Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 from ui.ui_utils import (
     BASE_CURRENCY_SUFFIX,
@@ -181,7 +181,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
 
     def _init_welcome_screen(self) -> None:
         """Build startup welcome screen and connect startup actions."""
-        self.screen_welcome = WelcomeScreen(app_version=APP_VERSION, parent=self)
+        self.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=self)
         self.screen_welcome.open_last_btn.clicked.connect(self._on_welcome_open_last_clicked)
         self.screen_welcome.load_different_btn.clicked.connect(self._on_welcome_load_different_clicked)
         self.screen_welcome.start_new_btn.clicked.connect(self._on_welcome_start_new_clicked)

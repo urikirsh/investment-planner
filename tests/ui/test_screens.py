@@ -17,7 +17,7 @@ from portfolio_core.models import Exchange
 from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.ticker_input_delegate import TickerInputDelegate
-from ui.constants import APP_VERSION
+from ui.constants import get_app_version
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
@@ -57,14 +57,15 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
 
 def test_welcome_screen_builds_expected_controls(qapp) -> None:
     _ = qapp
-    screen = WelcomeScreen(app_version=APP_VERSION)
+    app_version = get_app_version()
+    screen = WelcomeScreen(app_version=app_version)
 
     title_label = screen.findChild(QLabel, "welcome_title")
     assert title_label is not None
     assert title_label.text() == "Welcome"
-    assert APP_VERSION is not None
+    assert app_version is not None
     assert screen.version_label is not None
-    assert screen.version_label.text() == f"Version {APP_VERSION}"
+    assert screen.version_label.text() == f"Version {app_version}"
     assert screen.open_last_btn.text() == "Open Last Portfolio"
     assert screen.load_different_btn.text() == "Load Portfolio..."
     assert screen.start_new_btn.text() == "Start New File"
@@ -100,7 +101,7 @@ def test_app_version_is_loaded_from_pyproject() -> None:
     assert isinstance(project, dict)
     version = project.get("version")
     assert isinstance(version, str)
-    assert APP_VERSION == version
+    assert get_app_version() == version
 
 
 def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
