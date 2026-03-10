@@ -124,7 +124,6 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self.stack.addWidget(self.screen_wizard)
         self.stack.setCurrentWidget(self.screen_welcome)
 
-        self._init_status_bar()
         self._update_file_context_ui()
         self._show_welcome_screen_on_startup()
 
@@ -159,15 +158,6 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         """Refresh window title from session state."""
         name = self._current_file_display_name()
         self.setWindowTitle(f"{self._base_window_title} - {name}")
-
-    def _init_status_bar(self) -> None:
-        """Legacy hook retained for future status-bar reintroduction.
-
-        The file-context status label was intentionally removed from the UI.
-        Active file context is now communicated via window title and the
-        welcome-screen remembered-path display.
-        """
-        return None
 
     def _load_portfolio_from_file(self, path: Path) -> None:
         """Load a portfolio from disk into editor state and refresh UI context."""

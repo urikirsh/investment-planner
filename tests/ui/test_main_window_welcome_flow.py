@@ -59,6 +59,22 @@ def test_welcome_open_last_transitions_to_main_on_success(window: MainWindow, mo
     assert window.stack.currentWidget() is window.screen_main
 
 
+def test_welcome_open_last_stays_on_welcome_when_open_fails(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    remembered_path = tmp_path / "remembered.json"
+    remembered_path.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(window.session, "get_remembered_portfolio_path", lambda: remembered_path)
+    monkeypatch.setattr(window, "_open_portfolio_from_path", lambda _path: False)
+
+    window._on_welcome_open_last_clicked()
+
+    assert window.stack.currentWidget() is window.screen_welcome
+    assert window.screen_welcome.open_last_btn.isEnabled()
+    assert "Last portfolio:" in window.screen_welcome.last_path_label.text()
+
+
 def test_welcome_load_different_keeps_welcome_screen_on_cancel(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(window, "_open_portfolio_from_picker", lambda: False)
 
