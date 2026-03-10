@@ -4,8 +4,7 @@ from __future__ import annotations
 Focused controller-flow tests for `MainWindow`.
 
 These tests validate cross-screen state transitions and prompt/action seams
-after extracting action and wizard flows into mixins, without invoking modal
-dialogs.
+in the composed-controller architecture, without invoking modal dialogs.
 """
 
 from collections.abc import Iterator
@@ -29,6 +28,7 @@ from ui.controllers import (
 )
 import ui.controllers.main_window_table_editing as table_editing
 import ui.main_window_controller as main_window_controller
+import ui.main_window_wizard as wizard_mod
 from ui.main_window_controller import MainWindow
 from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
 from ui.ui_state import UnsavedChangesDecision
@@ -91,6 +91,62 @@ def test_main_window_wrapper_methods_delegate_to_composed_controllers(
         getattr(window, wrapper_name)(*args, **kwargs)
 
     assert calls == [f"{controller}.{method}" for controller, method, *_ in cases]
+
+
+def test_welcome_screen_load_different_button_signal_enters_main_on_success(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(window, "_open_portfolio_from_picker", lambda: True)
+    assert window.stack.currentWidget() is window.screen_welcome
+
+    window.screen_welcome.load_different_btn.click()
+
+    assert window.stack.currentWidget() is window.screen_main
+
+
+def test_main_editor_add_group_button_signal_adds_top_level_row(window: MainWindow) -> None:
+    window.stack.setCurrentWidget(window.screen_main)
+    before = window.tree.topLevelItemCount()
+
+    window.screen_main.add_group_btn.click()
+
+    assert window.tree.topLevelItemCount() == before + 1
+
+
+def test_summary_next_button_signal_returns_to_main_when_no_steps(window: MainWindow) -> None:
+    window.planning_state.plan_steps = []
+    window.stack.setCurrentWidget(window.screen_summary)
+
+    window.screen_summary.next_btn.click()
+
+    assert window.stack.currentWidget() is window.screen_main
+
+
+def test_wizard_calculate_button_signal_runs_calculation_flow(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+    make_buy_calculation: Callable[..., BuyCalculation],
+) -> None:
+    step = make_plan_step(delta="20")
+    window.planning_state.plan_steps = [step]
+    window.planning_state.step_index = 0
+    window.price_edit.setText("10")
+
+    fake_calc = make_buy_calculation(
+        instrument_id=step.instrument_id,
+        price="10",
+        planned_money="20",
+        units=2,
+        spent="20",
+        leftover="0",
+    )
+    monkeypatch.setattr(wizard_mod, "calculate_buy_units", lambda **_kwargs: fake_calc)
+
+    window.screen_wizard.calculate_btn.click()
+
+    assert window.wizard_state.last_calc is fake_calc
+    assert "Units: 2" in window.wiz_result.text()
 
 
 @pytest.fixture()
