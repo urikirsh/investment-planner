@@ -13,11 +13,12 @@ and tests are organized.
 High-level dependency direction:
 
 1. `ui/screens/*` provides widget composition only.
-2. `ui/main_window_controller.py` wires screens and delegates flows.
-3. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
-   interaction flows.
-4. `ui/portfolio_editor_adapter.py` maps between widgets and domain payloads.
-5. `portfolio_core/*` performs validation, planning, persistence, and calculations.
+2. `ui/main_window_controller.py` composes screens and delegates per-screen logic.
+3. `ui/controllers/*` contains focused main-window controller mixins by concern.
+4. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
+   action/wizard flows.
+5. `ui/portfolio_editor_adapter.py` maps between widgets and domain payloads.
+6. `portfolio_core/*` performs validation, planning, persistence, and calculations.
 
 Rule of thumb: `portfolio_core` must not import from `ui`.
 
@@ -39,11 +40,19 @@ FX thread-safety guards in this flow:
 
 ## UI module map
 - `ui/main_window_controller.py`
-  - top-level coordinator for welcome/main/summary/wizard wiring and transitions
-  - composes focused mixins for file actions and wizard step flow
-  - renders remembered startup path state into welcome UI (enabled/disabled open-last behavior)
-  - centralizes welcome actions through one dispatcher and enters main editor on success
+  - thin composition root for welcome/main/summary/wizard wiring and transitions
+  - composes focused mixins from `ui/controllers/*` plus actions/wizard mixins
   - guards window close until in-flight wizard FX fetch thread is safely stopped
+- `ui/controllers/main_window_welcome.py`
+  - welcome screen setup, remembered-path status rendering, and startup transitions
+- `ui/controllers/main_window_main_editor.py`
+  - main editor screen wiring and direct row-level add/delete/new-document actions
+- `ui/controllers/main_window_table_editing.py`
+  - tree item normalization and validation/revert behavior for editable cells
+- `ui/controllers/main_window_metrics.py`
+  - derived totals/percentages/drift refresh pipeline and visual state updates
+- `ui/controllers/main_window_summary.py`
+  - summary screen setup and summary->wizard/main navigation behavior
 - `ui/constants.py`
   - shared static UI constants used by multiple UI modules
 - `ui/main_window_actions.py`

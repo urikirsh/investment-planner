@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QTreeWidgetItem
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
+import ui.controllers.main_window_table_editing as table_editing
 import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
 from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
@@ -184,7 +185,7 @@ def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: None)
+    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setText(Col.TICKER.value, "1234567")
@@ -198,7 +199,7 @@ def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
 
 def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     warnings: list[tuple[str, str]] = []
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
+    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setText(Col.QUANTITY.value, "5")
@@ -213,7 +214,7 @@ def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeyp
 
 def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: None)
+    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "7")
@@ -230,7 +231,7 @@ def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
 ) -> None:
     warnings: list[tuple[str, str]] = []
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
+    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
     child = QTreeWidgetItem(window.tree)
     set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
     child.setText(Col.EXCHANGE.value, "TASE")
