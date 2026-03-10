@@ -12,9 +12,9 @@ from typing import Optional, cast
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QWidget
 
 from portfolio_core.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import create_new_default_document, save_document_from_data, sync_document_from_data
+from portfolio_core.use_cases import save_document_from_data, sync_document_from_data
 from ui.dialogs import choose_open_path, choose_save_path, confirm_unsaved_changes, show_error, show_info
-from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor, populate_main_editor_from_portfolio
+from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor
 from ui.ui_state import UnsavedChangesDecision
 
 
@@ -47,6 +47,10 @@ class MainWindowActionsMixin:
 
     def _update_future_tax_visual_state(self) -> None:
         """Apply visual cues for current future-tax value."""
+        ...
+
+    def _load_default_document(self) -> None:
+        """Load default portfolio as a new unsaved document into main editor."""
         ...
 
     def _save_from_main_ui(self, target_path: Path) -> None:
@@ -158,19 +162,7 @@ class MainWindowActionsMixin:
         """Handle `New` action by loading default portfolio after confirmation."""
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
-        p = create_new_default_document(self.session)
-        populate_main_editor_from_portfolio(
-            tree=self.tree,
-            cash_value_edit=self.cash_value_edit,
-            cash_reserve_edit=self.cash_reserve_edit,
-            future_tax_edit=self.future_tax_edit,
-            portfolio=p,
-            non_investable_bucket_id=self._non_investable_bucket_id,
-            non_investable_bucket_title=self._non_investable_bucket_title,
-            on_future_tax_value_set=self._update_future_tax_visual_state,
-        )
-        self._refresh_data()
-        self._update_file_context_ui()
+        self._load_default_document()
 
     def _has_unsaved_main_changes(self) -> bool:
         """Compare current UI state against the last loaded/saved snapshot."""

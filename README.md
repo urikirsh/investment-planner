@@ -82,6 +82,12 @@ The application never executes trades automatically. All actions are explicit an
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
+- Startup welcome screen with:
+  - `Open Last Portfolio` (shows remembered path)
+  - remembered path appears directly under `Open Last Portfolio` (truncated in-label, full path in tooltip)
+  - `Load Portfolio...`
+  - `Start New File`
+  - `Quit`
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
@@ -122,7 +128,7 @@ For internal code structure and test architecture, see
 ## Running the application
 
 ### Requirements
-- Python 3.14.2
+- Python 3.13+
 - PySide6
 
 Install dependencies:
@@ -160,8 +166,14 @@ Notes:
 
 ## Saving your work
 
-- The app remembers the last portfolio file you worked on and reopens it next time.
-- If that file is missing, the app starts with a small default portfolio so you can keep working.
+- The app remembers the last portfolio file you worked on and shows it on startup.
+- Startup always opens a welcome screen where you can choose to:
+  - open the remembered portfolio
+  - load a different file
+  - start a new default portfolio
+  - quit
+- If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
+- If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - The app also stores the last successful USD/ILS quote in the same user config for fetch-failure fallback.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
@@ -177,7 +189,8 @@ Notes:
 ## Project metadata
 
 - Name: `investment-planner`
+- Version source: `pyproject.toml` (`[project].version`)
 - Type: Desktop GUI application (PySide6)
 - Primary language: Python
-- Python requirement: `3.14.2`
+- Python requirement: `>=3.13`
 - License: MIT (see [`LICENSE`](LICENSE))

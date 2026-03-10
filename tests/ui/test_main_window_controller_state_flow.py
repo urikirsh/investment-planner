@@ -32,7 +32,7 @@ D = Decimal
 @pytest.fixture()
 def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[MainWindow]:
     _ = qapp
-    monkeypatch.setattr(MainWindow, "_load_or_init", lambda self: None)
+    monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
     win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
     monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
     yield win

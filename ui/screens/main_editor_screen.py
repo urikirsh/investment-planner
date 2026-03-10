@@ -1,7 +1,7 @@
 """
 Main editor screen UI.
 
-This module defines `MainEditorScreen`, the presentational widget for screen 1
+This module defines `MainEditorScreen`, the presentational widget for screen 2
 of the application flow. It is responsible for:
 - building the editable portfolio UI (cash row, tree, controls, actions)
 - exposing key child widgets as attributes for external signal wiring
@@ -41,7 +41,7 @@ from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
 
 class MainEditorScreen(QWidget):
     """
-    Main editor UI (screen 1).
+    Main editor UI (screen 2).
 
     This widget owns the main editor controls and exposes child widgets
     so the coordinator can connect behavior and orchestrate workflow.

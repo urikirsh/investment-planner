@@ -9,12 +9,18 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
+from pathlib import Path
+import tomllib
+
+from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
+from portfolio_core.app_metadata import get_app_version
 from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.ticker_input_delegate import TickerInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
+from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_types import Col
 from ui.ui_utils import DEFAULT_CURRENCY, exchange_choices
@@ -47,6 +53,67 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.delete_row_btn.text() == "Delete Selected"
     assert screen.total_label.text() == "Total portfolio (ILS): -"
     assert screen.rebalance_btn.text() == "Invest & Rebalance"
+
+
+def test_welcome_screen_builds_expected_controls(qapp) -> None:
+    _ = qapp
+    app_version = get_app_version()
+    screen = WelcomeScreen(app_version=app_version)
+
+    title_label = screen.findChild(QLabel, "welcome_title")
+    assert title_label is not None
+    assert title_label.text() == "Welcome"
+    assert app_version is not None
+    assert screen.version_label.text() == f"Version {app_version}"
+    assert not screen.version_label.isHidden()
+    assert screen.open_last_btn.text() == "Open Last Portfolio"
+    assert screen.load_different_btn.text() == "Load Portfolio..."
+    assert screen.start_new_btn.text() == "Start New File"
+    assert screen.quit_btn.text() == "Quit"
+    layout = screen.layout()
+    assert layout is not None
+    assert layout.indexOf(screen.last_path_label) == layout.indexOf(screen.open_last_btn) + 1
+
+    screen.set_last_portfolio_status(
+        button_enabled=False,
+        path_text="Last portfolio: C:/missing.json (Not found)",
+        path_tooltip="C:/missing.json",
+        missing_path=True,
+    )
+    assert not screen.open_last_btn.isEnabled()
+    assert "Not found" in screen.last_path_label.text()
+    assert screen.last_path_label.toolTip() == "C:/missing.json"
+
+
+def test_welcome_screen_hides_version_label_when_app_version_is_unavailable(qapp) -> None:
+    _ = qapp
+    screen = WelcomeScreen(app_version=None)
+
+    assert screen.version_label.isHidden()
+    assert screen.version_label.text() == ""
+
+
+def test_welcome_screen_set_app_version_updates_visibility_and_text(qapp) -> None:
+    _ = qapp
+    screen = WelcomeScreen(app_version=None)
+
+    screen.set_app_version("9.9.9")
+    assert not screen.version_label.isHidden()
+    assert screen.version_label.text() == "Version 9.9.9"
+
+    screen.set_app_version(None)
+    assert screen.version_label.isHidden()
+    assert screen.version_label.text() == ""
+
+
+def test_app_version_is_loaded_from_pyproject() -> None:
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    project = pyproject.get("project")
+    assert isinstance(project, dict)
+    version = project.get("version")
+    assert isinstance(version, str)
+    assert get_app_version() == version
 
 
 def test_main_editor_screen_sets_header_tooltips(qapp) -> None:

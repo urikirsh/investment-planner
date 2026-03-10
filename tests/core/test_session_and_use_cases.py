@@ -41,6 +41,7 @@ def test_portfolio_session_set_active_file_path_persists_path_to_config(tmp_path
     session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
     session.set_active_file_path(target_path)
     assert session.current_file_path == target_path
+    assert session.get_remembered_portfolio_path() == target_path
     reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
     assert reloaded.resolve_startup_path() == target_path
 

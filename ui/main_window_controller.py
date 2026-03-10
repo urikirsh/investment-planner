@@ -8,6 +8,12 @@ user interaction, including portfolio editing, validation feedback,
 navigation through the investment workflow, and triggering planning
 and execution logic.
 
+Startup behavior:
+- Always opens with a dedicated welcome screen.
+- Lets the user open the remembered portfolio, load another file,
+  start a new default portfolio, or quit.
+- Transitions into the editor flow only after a startup selection.
+
 The main window acts as an orchestrator between the UI components and
 the underlying domain logic, while keeping calculation, validation,
 and persistence responsibilities in their respective modules.
@@ -20,24 +26,24 @@ coordination. Concrete Qt dialog primitives are centralized in `ui.dialogs`
 wrappers.
 """
 
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
-    QLabel,
     QMainWindow,
     QStackedWidget,
-    QStatusBar,
     QTreeWidgetItem,
 )
 
 from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.app_metadata import get_app_version
 from portfolio_core.use_cases import (
     PlanBuildResult,
     PlanStep,
@@ -48,6 +54,7 @@ from portfolio_core.use_cases import (
 
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
+from ui.constants import APP_NAME
 from ui.ui_types import RowKind, Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 from ui.ui_utils import (
     BASE_CURRENCY_SUFFIX,
@@ -72,6 +79,7 @@ from ui.portfolio_metrics import (
 
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
+from ui.screens.welcome_screen import WelcomeScreen
 from ui.ui_state import PlanningState, WizardState
 from ui.dialogs import show_error, show_warning
 
@@ -80,17 +88,29 @@ D = Decimal
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
 
+
+@dataclass(frozen=True)
+class _WelcomeLastPortfolioStatus:
+    """Render-ready welcome-state for remembered portfolio action."""
+
+    button_enabled: bool
+    path_text: str
+    path_tooltip: str
+    missing_path: bool
+
+
 class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
     """
-    3-screen flow:
-      1) main editor
-      2) summary
-      3) per-instrument wizard
+    4-screen flow:
+      1) welcome/startup
+      2) main editor
+      3) summary
+      4) per-instrument wizard
     """
 
     def __init__(self, json_path: str = "portfolio.json"):
         super().__init__()
-        self._base_window_title = "Investment Planner"
+        self._base_window_title = APP_NAME
         self.setWindowTitle(self._base_window_title)
 
         app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
@@ -106,23 +126,23 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
+        self._init_welcome_screen()
         self._init_main_screen()
         self._init_summary_screen()
         self._init_wizard_screen()
 
+        self.stack.addWidget(self.screen_welcome)
         self.stack.addWidget(self.screen_main)
         self.stack.addWidget(self.screen_summary)
         self.stack.addWidget(self.screen_wizard)
-        self.stack.setCurrentWidget(self.screen_main)
+        self.stack.setCurrentWidget(self.screen_welcome)
 
-        self._init_status_bar()
-        self._load_or_init()
+        self._update_file_context_ui()
+        self._show_welcome_screen_on_startup()
 
         self._suppress_item_changed = False
         self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
         self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
-
-        self._refresh_data()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure background FX thread is stopped before window teardown.
@@ -147,26 +167,10 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             return "Untitled"
         return self.session.current_file_path.name
 
-    def _current_file_full_path_text(self) -> str:
-        """Return full-path tooltip text for the current portfolio file context."""
-        if self.session.current_file_path is None:
-            return "No file path yet (new unsaved portfolio)."
-        return str(self.session.current_file_path)
-
     def _update_file_context_ui(self) -> None:
-        """Refresh window title and status-bar file indicator from session state."""
+        """Refresh window title from session state."""
         name = self._current_file_display_name()
         self.setWindowTitle(f"{self._base_window_title} - {name}")
-        self.file_context_label.setText(f"Open: {name}")
-        self.file_context_label.setToolTip(self._current_file_full_path_text())
-
-    def _init_status_bar(self) -> None:
-        """Create and attach status bar widgets used for active-file visibility."""
-        self.file_context_label = QLabel("Open: Untitled")
-        self.file_context_label.setToolTip("No file path yet (new unsaved portfolio).")
-        bar = QStatusBar(self)
-        bar.addPermanentWidget(self.file_context_label, 1)
-        self.setStatusBar(bar)
 
     def _load_portfolio_from_file(self, path: Path) -> None:
         """Load a portfolio from disk into editor state and refresh UI context."""
@@ -185,11 +189,119 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self._update_file_context_ui()
 
     # -------------------------
-    # Screen 1 (Main)
+    # Screen 1 (Welcome)
+    # -------------------------
+
+    def _init_welcome_screen(self) -> None:
+        """Build startup welcome screen and connect startup actions."""
+        self.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=self)
+        self.screen_welcome.open_last_btn.clicked.connect(self._on_welcome_open_last_clicked)
+        self.screen_welcome.load_different_btn.clicked.connect(self._on_welcome_load_different_clicked)
+        self.screen_welcome.start_new_btn.clicked.connect(self._on_welcome_start_new_clicked)
+        self.screen_welcome.quit_btn.clicked.connect(self._quit_app)
+
+    def _show_welcome_screen_on_startup(self) -> None:
+        """Show startup welcome screen and refresh remembered-file state."""
+        self.setWindowTitle(self._base_window_title)
+        self._refresh_welcome_last_portfolio_ui()
+        self.stack.setCurrentWidget(self.screen_welcome)
+        if self.screen_welcome.open_last_btn.isEnabled():
+            self.screen_welcome.open_last_btn.setFocus()
+        else:
+            self.screen_welcome.load_different_btn.setFocus()
+
+    def _enter_main_screen(self) -> None:
+        """Switch from startup screen to main editor with current file context."""
+        self._update_file_context_ui()
+        self.stack.setCurrentWidget(self.screen_main)
+
+    @staticmethod
+    def _truncate_middle(text: str, *, max_chars: int = 96) -> str:
+        """Return middle-truncated text for constrained path labels."""
+        if len(text) <= max_chars:
+            return text
+        part = max((max_chars - 3) // 2, 1)
+        return f"{text[:part]}...{text[-part:]}"
+
+    def _refresh_welcome_last_portfolio_ui(self) -> None:
+        """Refresh last-portfolio button state and path text on welcome screen."""
+        remembered_path = self.session.get_remembered_portfolio_path()
+        status = self._build_welcome_last_portfolio_status(remembered_path)
+        self.screen_welcome.set_last_portfolio_status(
+            button_enabled=status.button_enabled,
+            path_text=status.path_text,
+            path_tooltip=status.path_tooltip,
+            missing_path=status.missing_path,
+        )
+
+    def _build_welcome_last_portfolio_status(self, remembered_path: Path | None) -> _WelcomeLastPortfolioStatus:
+        """Build pure welcome-screen status payload from remembered path state."""
+        if remembered_path is None:
+            return _WelcomeLastPortfolioStatus(
+                button_enabled=False,
+                path_text="No recent portfolio",
+                path_tooltip="",
+                missing_path=False,
+            )
+
+        full_path = str(remembered_path)
+        display_path = self._truncate_middle(full_path)
+        path_exists = remembered_path.exists()
+        if path_exists:
+            path_text = f"Last portfolio: {display_path}"
+        else:
+            path_text = f"Last portfolio: {display_path} (Not found)"
+
+        return _WelcomeLastPortfolioStatus(
+            button_enabled=path_exists,
+            path_text=path_text,
+            path_tooltip=full_path,
+            missing_path=not path_exists,
+        )
+
+    def _on_welcome_open_last_clicked(self) -> None:
+        """Open remembered portfolio when available and enter main screen."""
+        remembered_path = self.session.get_remembered_portfolio_path()
+        if remembered_path is None or not remembered_path.exists():
+            self._refresh_welcome_last_portfolio_ui()
+            return
+        self._run_welcome_action(
+            action=lambda: self._open_portfolio_from_path(remembered_path),
+            on_failure=self._refresh_welcome_last_portfolio_ui,
+        )
+
+    def _on_welcome_load_different_clicked(self) -> None:
+        """Open picker flow from welcome screen and enter main on success."""
+        self._run_welcome_action(action=self._open_portfolio_from_picker)
+
+    def _on_welcome_start_new_clicked(self) -> None:
+        """Initialize default portfolio from welcome and enter main editor."""
+        self._run_welcome_action(action=self._start_default_document_from_welcome)
+
+    def _start_default_document_from_welcome(self) -> bool:
+        """Create default document for startup flow and report success."""
+        self._load_default_document()
+        return True
+
+    def _run_welcome_action(
+        self,
+        *,
+        action: Callable[[], bool],
+        on_failure: Callable[[], None] | None = None,
+    ) -> None:
+        """Run startup action; enter main editor on success."""
+        if not action():
+            if on_failure is not None:
+                on_failure()
+            return
+        self._enter_main_screen()
+
+    # -------------------------
+    # Screen 2 (Main)
     # -------------------------
 
     def _init_main_screen(self) -> None:
-        """Build screen-1 widget and wire all main-editor signal handlers."""
+        """Build screen-2 widget and wire all main-editor signal handlers."""
         self.screen_main = MainEditorScreen(self)
         self.tree = self.screen_main.tree
         self.cash_value_edit = self.screen_main.cash_value_edit
@@ -300,17 +412,8 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             parent.removeChild(sel)
         self._refresh_data()
 
-    def _load_or_init(self) -> None:
-        startup_path = self.session.resolve_startup_path()
-
-        if startup_path is not None:
-            try:
-                self._load_portfolio_from_file(startup_path)
-                return
-            except Exception as e:
-                show_error(self, "Load failed", f"Failed loading JSON:\n{e}")
-                self.session.set_active_file_path(None)
-
+    def _load_default_document(self) -> None:
+        """Load default portfolio into main editor as a new unsaved document."""
         p = create_new_default_document(self.session)
         populate_main_editor_from_portfolio(
             tree=self.tree,
@@ -403,11 +506,11 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             self._show_error("Plan failed", str(e))
 
     # -------------------------
-    # Screen 2 (Summary)
+    # Screen 3 (Summary)
     # -------------------------
 
     def _init_summary_screen(self) -> None:
-        """Build screen-2 widget and wire summary navigation actions."""
+        """Build screen-3 widget and wire summary navigation actions."""
         self.screen_summary = SummaryScreen(self)
         self.summary_text = self.screen_summary.summary_text
         self.screen_summary.quit_btn.clicked.connect(self._quit_app)
