@@ -94,7 +94,8 @@ def test_welcome_screen_hides_version_label_when_app_version_is_unavailable(qapp
 
 
 def test_app_version_is_loaded_from_pyproject() -> None:
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     project = pyproject.get("project")
     assert isinstance(project, dict)
     version = project.get("version")
