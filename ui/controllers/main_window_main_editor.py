@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication, QLineEdit, QTreeWidget, QTreeWidgetI
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import create_new_default_document
+from ui.controllers.protocols import MainWindowMainEditorDependencies
 from ui.dialogs import show_warning
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -30,6 +31,7 @@ class MainWindowMainEditorMixin:
 
     def _init_main_screen(self) -> None:
         """Build screen-2 widget and wire all main-editor signal handlers."""
+        deps = cast(MainWindowMainEditorDependencies, self)
         self.screen_main = MainEditorScreen(cast(QWidget, self))
         self.tree = self.screen_main.tree
         self.cash_value_edit = self.screen_main.cash_value_edit
@@ -44,22 +46,22 @@ class MainWindowMainEditorMixin:
         self.screen_main.quit_btn.clicked.connect(self._on_main_quit_clicked)
         self.screen_main.invest_btn.clicked.connect(self._on_invest_clicked)
         self.screen_main.rebalance_btn.clicked.connect(self._on_rebalance_clicked)
-        self.screen_main.save_btn.clicked.connect(self._on_save_clicked)  # type: ignore[attr-defined]
-        self.screen_main.save_as_btn.clicked.connect(self._on_save_as_clicked)  # type: ignore[attr-defined]
-        self.screen_main.open_btn.clicked.connect(self._on_open_clicked)  # type: ignore[attr-defined]
-        self.screen_main.new_btn.clicked.connect(self._on_new_clicked)  # type: ignore[attr-defined]
+        self.screen_main.save_btn.clicked.connect(deps._on_save_clicked)
+        self.screen_main.save_as_btn.clicked.connect(deps._on_save_as_clicked)
+        self.screen_main.open_btn.clicked.connect(deps._on_open_clicked)
+        self.screen_main.new_btn.clicked.connect(deps._on_new_clicked)
 
         self.tree.items_reordered.connect(self._on_main_refresh_requested)
         self.cash_value_edit.textChanged.connect(self._on_main_refresh_requested)
         self.cash_reserve_edit.textChanged.connect(self._on_main_refresh_requested)
         self.future_tax_edit.textChanged.connect(self._on_main_refresh_requested)
-        self.future_tax_edit.editingFinished.connect(self._normalize_future_tax_input)  # type: ignore[attr-defined]
+        self.future_tax_edit.editingFinished.connect(deps._normalize_future_tax_input)
 
     def _add_asset_group(self) -> None:
         gitem = QTreeWidgetItem(self.tree)
         set_group_tree_item(gitem, "New Asset Group", 0)
         self.tree.expandAll()
-        self._refresh_data()  # type: ignore[attr-defined]
+        cast(MainWindowMainEditorDependencies, self)._refresh_data()
 
     def _add_instrument(self) -> None:
         sel = self.tree.currentItem()
@@ -79,7 +81,7 @@ class MainWindowMainEditorMixin:
 
         add_instrument_item_to_group(parent, "0000000", "New Instrument", 0, "1", default_in_group_pct)
         self.tree.expandAll()
-        self._refresh_data()  # type: ignore[attr-defined]
+        cast(MainWindowMainEditorDependencies, self)._refresh_data()
 
     def _delete_selected_row(self) -> None:
         sel = self.tree.currentItem()
@@ -97,10 +99,11 @@ class MainWindowMainEditorMixin:
                 self.tree.takeTopLevelItem(idx)
         else:
             parent.removeChild(sel)
-        self._refresh_data()  # type: ignore[attr-defined]
+        cast(MainWindowMainEditorDependencies, self)._refresh_data()
 
     def _load_default_document(self) -> None:
         """Load default portfolio into main editor as a new unsaved document."""
+        deps = cast(MainWindowMainEditorDependencies, self)
         p = create_new_default_document(self.session)
         populate_main_editor_from_portfolio(
             tree=self.tree,
@@ -110,23 +113,24 @@ class MainWindowMainEditorMixin:
             portfolio=p,
             non_investable_bucket_id=self._non_investable_bucket_id,
             non_investable_bucket_title=self._non_investable_bucket_title,
-            on_future_tax_value_set=self._update_future_tax_visual_state,  # type: ignore[attr-defined]
+            on_future_tax_value_set=deps._update_future_tax_visual_state,
         )
-        self._refresh_data()  # type: ignore[attr-defined]
-        self._update_file_context_ui()  # type: ignore[attr-defined]
+        deps._refresh_data()
+        deps._update_file_context_ui()
 
     def _on_main_refresh_requested(self, *_args: object) -> None:
         """Single dispatcher for main-screen refresh requests from signals."""
-        self._refresh_data()  # type: ignore[attr-defined]
+        cast(MainWindowMainEditorDependencies, self)._refresh_data()
 
     def _on_invest_clicked(self) -> None:
-        self._run_planning(mode=PlanningMode.INVEST)  # type: ignore[attr-defined]
+        cast(MainWindowMainEditorDependencies, self)._run_planning(mode=PlanningMode.INVEST)
 
     def _on_rebalance_clicked(self) -> None:
-        self._run_planning(mode=PlanningMode.REBALANCE)  # type: ignore[attr-defined]
+        cast(MainWindowMainEditorDependencies, self)._run_planning(mode=PlanningMode.REBALANCE)
 
     def _on_main_quit_clicked(self) -> None:
-        if not self._confirm_continue_with_unsaved_changes("quitting"):  # type: ignore[attr-defined]
+        deps = cast(MainWindowMainEditorDependencies, self)
+        if not deps._confirm_continue_with_unsaved_changes("quitting"):
             return
         app = QApplication.instance()
         if app is not None:

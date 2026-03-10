@@ -53,6 +53,9 @@ FX thread-safety guards in this flow:
   - derived totals/percentages/drift refresh pipeline and visual state updates
 - `ui/controllers/main_window_summary.py`
   - summary screen setup and summary->wizard/main navigation behavior
+- `ui/controllers/protocols.py`
+  - protocol contracts for `MainWindow` mixin host methods/attributes
+  - removes `mypy` `attr-defined` suppression in controller mixins
 - `ui/constants.py`
   - shared static UI constants used by multiple UI modules
 - `ui/main_window_actions.py`

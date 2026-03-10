@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QStackedWidget, QWidget
 
 from portfolio_core.app_metadata import get_app_version
 from portfolio_core.portfolio_session import PortfolioSession
+from ui.controllers.protocols import MainWindowWelcomeDependencies
 from ui.screens.welcome_screen import WelcomeScreen
 
 
@@ -34,11 +35,12 @@ class MainWindowWelcomeMixin:
 
     def _init_welcome_screen(self) -> None:
         """Build startup welcome screen and connect startup actions."""
+        deps = cast(MainWindowWelcomeDependencies, self)
         self.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=cast(QWidget, self))
         self.screen_welcome.open_last_btn.clicked.connect(self._on_welcome_open_last_clicked)
         self.screen_welcome.load_different_btn.clicked.connect(self._on_welcome_load_different_clicked)
         self.screen_welcome.start_new_btn.clicked.connect(self._on_welcome_start_new_clicked)
-        self.screen_welcome.quit_btn.clicked.connect(self._quit_app)  # type: ignore[attr-defined]
+        self.screen_welcome.quit_btn.clicked.connect(deps._quit_app)
 
     def _show_welcome_screen_on_startup(self) -> None:
         """Show startup welcome screen and refresh remembered-file state."""
@@ -52,7 +54,8 @@ class MainWindowWelcomeMixin:
 
     def _enter_main_screen(self) -> None:
         """Switch from startup screen to main editor with current file context."""
-        self._update_file_context_ui()  # type: ignore[attr-defined]
+        deps = cast(MainWindowWelcomeDependencies, self)
+        deps._update_file_context_ui()
         self.stack.setCurrentWidget(self.screen_main)
 
     @staticmethod
@@ -101,18 +104,20 @@ class MainWindowWelcomeMixin:
 
     def _on_welcome_open_last_clicked(self) -> None:
         """Open remembered portfolio when available and enter main screen."""
+        deps = cast(MainWindowWelcomeDependencies, self)
         remembered_path = self.session.get_remembered_portfolio_path()
         if remembered_path is None or not remembered_path.exists():
             self._refresh_welcome_last_portfolio_ui()
             return
         self._run_welcome_action(
-            action=lambda: self._open_portfolio_from_path(remembered_path),  # type: ignore[attr-defined]
+            action=lambda: deps._open_portfolio_from_path(remembered_path),
             on_failure=self._refresh_welcome_last_portfolio_ui,
         )
 
     def _on_welcome_load_different_clicked(self) -> None:
         """Open picker flow from welcome screen and enter main on success."""
-        self._run_welcome_action(action=self._open_portfolio_from_picker)  # type: ignore[attr-defined]
+        deps = cast(MainWindowWelcomeDependencies, self)
+        self._run_welcome_action(action=deps._open_portfolio_from_picker)
 
     def _on_welcome_start_new_clicked(self) -> None:
         """Initialize default portfolio from welcome and enter main editor."""
@@ -120,7 +125,8 @@ class MainWindowWelcomeMixin:
 
     def _start_default_document_from_welcome(self) -> bool:
         """Create default document for startup flow and report success."""
-        self._load_default_document()  # type: ignore[attr-defined]
+        deps = cast(MainWindowWelcomeDependencies, self)
+        deps._load_default_document()
         return True
 
     def _run_welcome_action(
