@@ -113,6 +113,67 @@ def test_main_editor_add_group_button_signal_adds_top_level_row(window: MainWind
     assert window.tree.topLevelItemCount() == before + 1
 
 
+def test_main_editor_save_button_signal_triggers_save_flow(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_save_current_or_save_as(**kwargs: object) -> bool:
+        calls.append(kwargs)
+        return True
+
+    monkeypatch.setattr(window, "_save_current_or_save_as", fake_save_current_or_save_as)
+
+    window.screen_main.save_btn.click()
+
+    assert calls == [{"show_success": True}]
+
+
+def test_main_editor_save_as_button_signal_triggers_save_as_flow(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_save_current_or_save_as(**kwargs: object) -> bool:
+        calls.append(kwargs)
+        return True
+
+    monkeypatch.setattr(window, "_save_current_or_save_as", fake_save_current_or_save_as)
+
+    window.screen_main.save_as_btn.click()
+
+    assert calls == [{"show_success": True, "force_save_as": True}]
+
+
+def test_main_editor_open_button_signal_triggers_open_flow(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: list[bool] = []
+
+    def fake_open_from_picker() -> bool:
+        opened.append(True)
+        return True
+
+    monkeypatch.setattr(window, "_confirm_continue_with_unsaved_changes", lambda _action: True)
+    monkeypatch.setattr(window, "_open_portfolio_from_picker", fake_open_from_picker)
+
+    window.screen_main.open_btn.click()
+
+    assert opened == [True]
+
+
+def test_main_editor_new_button_signal_triggers_new_flow(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded: list[bool] = []
+    monkeypatch.setattr(window, "_confirm_continue_with_unsaved_changes", lambda _action: True)
+    monkeypatch.setattr(window, "_load_default_document", lambda: loaded.append(True))
+
+    window.screen_main.new_btn.click()
+
+    assert loaded == [True]
+
+
 def test_summary_next_button_signal_returns_to_main_when_no_steps(window: MainWindow) -> None:
     window.planning_state.plan_steps = []
     window.stack.setCurrentWidget(window.screen_summary)
