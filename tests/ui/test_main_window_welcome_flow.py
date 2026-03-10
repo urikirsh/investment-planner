@@ -24,6 +24,37 @@ def test_welcome_screen_shows_when_no_recent_portfolio(window: MainWindow) -> No
     assert window.screen_welcome.last_path_label.text() == "No recent portfolio"
 
 
+def test_build_welcome_last_portfolio_status_for_none_path(window: MainWindow) -> None:
+    status = window._build_welcome_last_portfolio_status(None)
+
+    assert status.button_enabled is False
+    assert status.path_text == "No recent portfolio"
+    assert status.path_tooltip == ""
+    assert status.missing_path is False
+
+
+def test_build_welcome_last_portfolio_status_for_missing_path(window: MainWindow, tmp_path) -> None:
+    missing_path = tmp_path / "missing.json"
+    status = window._build_welcome_last_portfolio_status(missing_path)
+
+    assert status.button_enabled is False
+    assert status.path_tooltip == str(missing_path)
+    assert status.missing_path is True
+    assert status.path_text.endswith("(Not found)")
+
+
+def test_build_welcome_last_portfolio_status_for_existing_path(window: MainWindow, tmp_path) -> None:
+    existing_path = tmp_path / "existing.json"
+    existing_path.write_text("{}", encoding="utf-8")
+    status = window._build_welcome_last_portfolio_status(existing_path)
+
+    assert status.button_enabled is True
+    assert status.path_tooltip == str(existing_path)
+    assert status.missing_path is False
+    assert status.path_text.startswith("Last portfolio: ")
+    assert "(Not found)" not in status.path_text
+
+
 def test_welcome_screen_marks_missing_recent_portfolio_in_red(
     qapp: object,
     monkeypatch: pytest.MonkeyPatch,

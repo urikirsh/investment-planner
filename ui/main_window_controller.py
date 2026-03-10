@@ -26,6 +26,7 @@ coordination. Concrete Qt dialog primitives are centralized in `ui.dialogs`
 wrappers.
 """
 
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Callable, List
@@ -85,6 +86,17 @@ D = Decimal
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
+
+
+@dataclass(frozen=True)
+class _WelcomeLastPortfolioStatus:
+    """Render-ready welcome-state for remembered portfolio action."""
+
+    button_enabled: bool
+    path_text: str
+    path_tooltip: str
+    missing_path: bool
+
 
 class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
     """
@@ -213,15 +225,23 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
     def _refresh_welcome_last_portfolio_ui(self) -> None:
         """Refresh last-portfolio button state and path text on welcome screen."""
         remembered_path = self.session.get_remembered_portfolio_path()
+        status = self._build_welcome_last_portfolio_status(remembered_path)
+        self.screen_welcome.set_last_portfolio_status(
+            button_enabled=status.button_enabled,
+            path_text=status.path_text,
+            path_tooltip=status.path_tooltip,
+            missing_path=status.missing_path,
+        )
 
+    def _build_welcome_last_portfolio_status(self, remembered_path: Path | None) -> _WelcomeLastPortfolioStatus:
+        """Build pure welcome-screen status payload from remembered path state."""
         if remembered_path is None:
-            self.screen_welcome.set_last_portfolio_status(
+            return _WelcomeLastPortfolioStatus(
                 button_enabled=False,
                 path_text="No recent portfolio",
                 path_tooltip="",
                 missing_path=False,
             )
-            return
 
         full_path = str(remembered_path)
         display_path = self._truncate_middle(full_path)
@@ -231,7 +251,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         else:
             path_text = f"Last portfolio: {display_path} (Not found)"
 
-        self.screen_welcome.set_last_portfolio_status(
+        return _WelcomeLastPortfolioStatus(
             button_enabled=path_exists,
             path_text=path_text,
             path_tooltip=full_path,
