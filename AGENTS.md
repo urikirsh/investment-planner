@@ -7,6 +7,7 @@ Project-level guidance for coding agents working in this repository.
 - Never commit directly to `main`.
 - If the current branch is `main`, create and switch to a new feature branch before making changes.
 - Always work on a feature branch.
+- Before the first commit on a newly created branch, if version files are touched, verify whether the version bump is major, minor, or patch and apply that decision consistently.
 - Commit only files touched for the requested task.
 - Do not include unrelated local artifacts in commits.
 - Keep commits single-purpose (for example: `fix`, `refactor`, `test`, `docs`) and avoid mixing unrelated categories.

@@ -9,10 +9,14 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
+from pathlib import Path
+import tomllib
+
 from portfolio_core.models import Exchange
 from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
 from ui.ticker_input_delegate import TickerInputDelegate
+from ui.constants import APP_VERSION
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
@@ -52,12 +56,12 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
 
 def test_welcome_screen_builds_expected_controls(qapp) -> None:
     _ = qapp
-    screen = WelcomeScreen(app_version="0.1.0")
+    screen = WelcomeScreen(app_version=APP_VERSION)
 
     title_label = screen.findChild(type(screen.version_label), "welcome_title")
     assert title_label is not None
     assert title_label.text() == "Welcome"
-    assert screen.version_label.text() == "Version 0.1.0"
+    assert screen.version_label.text() == f"Version {APP_VERSION}"
     assert screen.open_last_btn.text() == "Open Last Portfolio"
     assert screen.load_different_btn.text() == "Load Portfolio..."
     assert screen.start_new_btn.text() == "Start New File"
@@ -75,6 +79,15 @@ def test_welcome_screen_builds_expected_controls(qapp) -> None:
     assert not screen.open_last_btn.isEnabled()
     assert "Not found" in screen.last_path_label.text()
     assert screen.last_path_label.toolTip() == "C:/missing.json"
+
+
+def test_app_version_is_loaded_from_pyproject() -> None:
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    project = pyproject.get("project")
+    assert isinstance(project, dict)
+    version = project.get("version")
+    assert isinstance(version, str)
+    assert APP_VERSION == version
 
 
 def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
