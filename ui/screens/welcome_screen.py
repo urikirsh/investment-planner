@@ -25,12 +25,11 @@ class WelcomeScreen(QWidget):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
-        self.version_label: QLabel | None = None
-        if app_version is not None:
-            self.version_label = QLabel(f"Version {app_version}")
-            self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.version_label.setStyleSheet("color: #666666;")
-            layout.addWidget(self.version_label)
+        self.version_label = QLabel("")
+        self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.version_label.setStyleSheet("color: #666666;")
+        layout.addWidget(self.version_label)
+        self.set_app_version(app_version)
 
         self.open_last_btn = QPushButton("Open Last Portfolio")
         self.open_last_btn.setMinimumHeight(36)
@@ -49,6 +48,15 @@ class WelcomeScreen(QWidget):
             button.setMinimumHeight(36)
             layout.addWidget(button)
         layout.addStretch(1)
+
+    def set_app_version(self, app_version: str | None) -> None:
+        """Render version label from optional version text."""
+        if app_version is None:
+            self.version_label.setVisible(False)
+            self.version_label.setText("")
+            return
+        self.version_label.setText(f"Version {app_version}")
+        self.version_label.setVisible(True)
 
     def set_last_portfolio_status(
         self,

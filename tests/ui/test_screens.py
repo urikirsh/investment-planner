@@ -64,8 +64,8 @@ def test_welcome_screen_builds_expected_controls(qapp) -> None:
     assert title_label is not None
     assert title_label.text() == "Welcome"
     assert app_version is not None
-    assert screen.version_label is not None
     assert screen.version_label.text() == f"Version {app_version}"
+    assert not screen.version_label.isHidden()
     assert screen.open_last_btn.text() == "Open Last Portfolio"
     assert screen.load_different_btn.text() == "Load Portfolio..."
     assert screen.start_new_btn.text() == "Start New File"
@@ -89,9 +89,21 @@ def test_welcome_screen_hides_version_label_when_app_version_is_unavailable(qapp
     _ = qapp
     screen = WelcomeScreen(app_version=None)
 
-    assert screen.version_label is None
-    labels = [label.text() for label in screen.findChildren(QLabel)]
-    assert all(not text.startswith("Version ") for text in labels)
+    assert screen.version_label.isHidden()
+    assert screen.version_label.text() == ""
+
+
+def test_welcome_screen_set_app_version_updates_visibility_and_text(qapp) -> None:
+    _ = qapp
+    screen = WelcomeScreen(app_version=None)
+
+    screen.set_app_version("9.9.9")
+    assert not screen.version_label.isHidden()
+    assert screen.version_label.text() == "Version 9.9.9"
+
+    screen.set_app_version(None)
+    assert screen.version_label.isHidden()
+    assert screen.version_label.text() == ""
 
 
 def test_app_version_is_loaded_from_pyproject() -> None:
