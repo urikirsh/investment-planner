@@ -42,6 +42,7 @@ FX thread-safety guards in this flow:
   - top-level coordinator for welcome/main/summary/wizard wiring and transitions
   - composes focused mixins for file actions and wizard step flow
   - renders remembered startup path state into welcome UI (enabled/disabled open-last behavior)
+  - centralizes welcome actions through one dispatcher and enters main editor on success
   - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/constants.py`
   - shared static UI constants used by multiple UI modules
@@ -133,6 +134,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/app_metadata.py`
   - app-level metadata helpers shared across layers
   - lazily resolves app version from `pyproject.toml` (`[project].version`)
+  - returns `None` when metadata is unavailable (welcome screen hides version label)
 - `portfolio_core/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
   - exposes read-only remembered-path access for startup UI (`get_remembered_portfolio_path`)

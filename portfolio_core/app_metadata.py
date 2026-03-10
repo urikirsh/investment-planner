@@ -1,4 +1,7 @@
-"""Application metadata helpers."""
+"""Application metadata helpers.
+
+Version lookup is best-effort and returns ``None`` when unavailable.
+"""
 
 from __future__ import annotations
 
