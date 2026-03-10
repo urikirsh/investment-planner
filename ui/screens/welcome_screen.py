@@ -17,6 +17,7 @@ class WelcomeScreen(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 32, 32, 32)
         layout.setSpacing(12)
+        layout.addStretch(1)
 
         title = QLabel("Welcome")
         title.setObjectName("welcome_title")
@@ -30,18 +31,21 @@ class WelcomeScreen(QWidget):
         layout.addWidget(self.version_label)
 
         self.open_last_btn = QPushButton("Open Last Portfolio")
-        self.load_different_btn = QPushButton("Load Portfolio...")
-        self.start_new_btn = QPushButton("Start New File")
-        self.quit_btn = QPushButton("Quit")
-        for button in (self.open_last_btn, self.load_different_btn, self.start_new_btn, self.quit_btn):
-            button.setMinimumHeight(36)
-            layout.addWidget(button)
+        self.open_last_btn.setMinimumHeight(36)
+        layout.addWidget(self.open_last_btn)
 
         self.last_path_label = QLabel("No recent portfolio")
         self.last_path_label.setObjectName("welcome_last_path")
         self.last_path_label.setWordWrap(True)
         self.last_path_label.setToolTip("")
         layout.addWidget(self.last_path_label)
+
+        self.load_different_btn = QPushButton("Load Portfolio...")
+        self.start_new_btn = QPushButton("Start New File")
+        self.quit_btn = QPushButton("Quit")
+        for button in (self.load_different_btn, self.start_new_btn, self.quit_btn):
+            button.setMinimumHeight(36)
+            layout.addWidget(button)
         layout.addStretch(1)
 
     def set_last_portfolio_status(

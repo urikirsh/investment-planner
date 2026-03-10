@@ -62,6 +62,9 @@ def test_welcome_screen_builds_expected_controls(qapp) -> None:
     assert screen.load_different_btn.text() == "Load Portfolio..."
     assert screen.start_new_btn.text() == "Start New File"
     assert screen.quit_btn.text() == "Quit"
+    layout = screen.layout()
+    assert layout is not None
+    assert layout.indexOf(screen.last_path_label) == layout.indexOf(screen.open_last_btn) + 1
 
     screen.set_last_portfolio_status(
         button_enabled=False,
