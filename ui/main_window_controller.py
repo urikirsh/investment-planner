@@ -28,7 +28,7 @@ wrappers.
 
 from decimal import Decimal
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 
 from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtGui import QCloseEvent
@@ -244,20 +244,35 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         if remembered_path is None or not remembered_path.exists():
             self._refresh_welcome_last_portfolio_ui()
             return
-        if not self._open_portfolio_from_path(remembered_path):
-            self._refresh_welcome_last_portfolio_ui()
-            return
-        self._enter_main_screen()
+        self._run_welcome_action(
+            action=lambda: self._open_portfolio_from_path(remembered_path),
+            on_failure=self._refresh_welcome_last_portfolio_ui,
+        )
 
     def _on_welcome_load_different_clicked(self) -> None:
         """Open picker flow from welcome screen and enter main on success."""
-        if not self._open_portfolio_from_picker():
-            return
-        self._enter_main_screen()
+        self._run_welcome_action(action=self._open_portfolio_from_picker)
 
     def _on_welcome_start_new_clicked(self) -> None:
         """Initialize default portfolio from welcome and enter main editor."""
+        self._run_welcome_action(action=self._start_default_document_from_welcome)
+
+    def _start_default_document_from_welcome(self) -> bool:
+        """Create default document for startup flow and report success."""
         self._load_default_document()
+        return True
+
+    def _run_welcome_action(
+        self,
+        *,
+        action: Callable[[], bool],
+        on_failure: Callable[[], None] | None = None,
+    ) -> None:
+        """Run startup action; enter main editor on success."""
+        if not action():
+            if on_failure is not None:
+                on_failure()
+            return
         self._enter_main_screen()
 
     # -------------------------
