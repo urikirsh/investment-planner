@@ -42,6 +42,7 @@ Do not report completion if either command fails.
 
 - If any file is added or deleted, update `docs/ARCHITECTURE.md` in the same task to reflect the structural change.
 - If user-facing behavior changes, update `README.md` in the same task.
+- Keep `README.md` user-facing; put implementation details in `docs/ARCHITECTURE.md`.
 - Prefer documenting behavior contracts over implementation details so docs remain stable across refactors.
 - Keep documentation concise and behavior-accurate; avoid broad background text when a precise statement is enough.
 - Keep architecture/docs granularity symmetric: avoid over-documenting one field/module unless peers are documented at the same level or the exception is intentional.
