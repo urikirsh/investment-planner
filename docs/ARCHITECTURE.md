@@ -38,6 +38,14 @@ FX thread-safety guards in this flow:
 - Starting a new wizard run requires successful cancellation of any previous in-flight FX thread.
 - Window close waits for FX-thread shutdown (up to 12 seconds); close is blocked with a user-visible message if shutdown does not complete in time.
 
+## Controller composition rules
+- `MainWindow` is the composition root and owns long-lived controller instances.
+- Prefer direct signal wiring to composed controller methods for single-hop UI actions.
+- Keep `MainWindow` wrappers only when they are required by:
+  - `MainWindowActionsMixin` / `MainWindowWizardMixin` host-method contracts, or
+  - stable test seams for cross-controller orchestration points.
+- New screen behavior should be added to a dedicated controller object under `ui/controllers/*`, not as inline `MainWindow` logic.
+
 ## UI module map
 - `ui/main_window_controller.py`
   - thin composition root for welcome/main/summary/wizard wiring and transitions
@@ -164,6 +172,7 @@ FX thread-safety guards in this flow:
 UI-focused tests:
 - `tests/ui/test_main_window_controller_state_flow.py`
   - focused tests for planning/wizard state transitions and controller seam behavior
+  - includes table-driven wrapper->controller delegation guards for composed controllers
 - `tests/ui/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`
