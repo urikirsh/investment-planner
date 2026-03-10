@@ -35,9 +35,9 @@ class MainWindowWelcomeController:
         """Build startup welcome screen and connect startup actions."""
         host = self._host
         host.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=cast(QWidget, host))
-        host.screen_welcome.open_last_btn.clicked.connect(host._on_welcome_open_last_clicked)
-        host.screen_welcome.load_different_btn.clicked.connect(host._on_welcome_load_different_clicked)
-        host.screen_welcome.start_new_btn.clicked.connect(host._on_welcome_start_new_clicked)
+        host.screen_welcome.open_last_btn.clicked.connect(self.on_open_last_clicked)
+        host.screen_welcome.load_different_btn.clicked.connect(self.on_load_different_clicked)
+        host.screen_welcome.start_new_btn.clicked.connect(self.on_start_new_clicked)
         host.screen_welcome.quit_btn.clicked.connect(host._quit_app)
 
     def show_on_startup(self) -> None:

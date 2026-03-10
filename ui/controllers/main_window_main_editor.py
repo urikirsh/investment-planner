@@ -33,21 +33,21 @@ class MainWindowMainEditorController:
         host.investable_balance_label = host.screen_main.investable_balance_label
         host.total_label = host.screen_main.total_label
 
-        host.screen_main.add_group_btn.clicked.connect(host._add_asset_group)
-        host.screen_main.add_instrument_btn.clicked.connect(host._add_instrument)
-        host.screen_main.delete_row_btn.clicked.connect(host._delete_selected_row)
-        host.screen_main.quit_btn.clicked.connect(host._on_main_quit_clicked)
-        host.screen_main.invest_btn.clicked.connect(host._on_invest_clicked)
-        host.screen_main.rebalance_btn.clicked.connect(host._on_rebalance_clicked)
+        host.screen_main.add_group_btn.clicked.connect(self.add_asset_group)
+        host.screen_main.add_instrument_btn.clicked.connect(self.add_instrument)
+        host.screen_main.delete_row_btn.clicked.connect(self.delete_selected_row)
+        host.screen_main.quit_btn.clicked.connect(self.on_quit_clicked)
+        host.screen_main.invest_btn.clicked.connect(self.on_invest_clicked)
+        host.screen_main.rebalance_btn.clicked.connect(self.on_rebalance_clicked)
         host.screen_main.save_btn.clicked.connect(host._on_save_clicked)
         host.screen_main.save_as_btn.clicked.connect(host._on_save_as_clicked)
         host.screen_main.open_btn.clicked.connect(host._on_open_clicked)
         host.screen_main.new_btn.clicked.connect(host._on_new_clicked)
 
-        host.tree.items_reordered.connect(host._on_main_refresh_requested)
-        host.cash_value_edit.textChanged.connect(host._on_main_refresh_requested)
-        host.cash_reserve_edit.textChanged.connect(host._on_main_refresh_requested)
-        host.future_tax_edit.textChanged.connect(host._on_main_refresh_requested)
+        host.tree.items_reordered.connect(self.on_refresh_requested)
+        host.cash_value_edit.textChanged.connect(self.on_refresh_requested)
+        host.cash_reserve_edit.textChanged.connect(self.on_refresh_requested)
+        host.future_tax_edit.textChanged.connect(self.on_refresh_requested)
         host.future_tax_edit.editingFinished.connect(host._normalize_future_tax_input)
 
     def add_asset_group(self) -> None:

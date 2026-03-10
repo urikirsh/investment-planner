@@ -42,7 +42,8 @@ FX thread-safety guards in this flow:
 - `ui/main_window_controller.py`
   - thin composition root for welcome/main/summary/wizard wiring and transitions
   - composes focused controller objects from `ui/controllers/*`
-  - exposes thin wrapper methods consumed by actions/wizard flows and tests
+  - wires most Qt signals directly to composed controller methods
+  - keeps thin wrapper methods only for cross-flow contracts used by actions/wizard flows and tests
   - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/controllers/main_window_welcome.py`
   - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions

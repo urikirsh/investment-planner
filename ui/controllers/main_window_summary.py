@@ -27,8 +27,8 @@ class MainWindowSummaryController:
         host.screen_summary = SummaryScreen(cast(QWidget, host))
         host.summary_text = host.screen_summary.summary_text
         host.screen_summary.quit_btn.clicked.connect(host._quit_app)
-        host.screen_summary.back_btn.clicked.connect(host._summary_back)
-        host.screen_summary.next_btn.clicked.connect(host._summary_next)
+        host.screen_summary.back_btn.clicked.connect(self.summary_back)
+        host.screen_summary.next_btn.clicked.connect(self.summary_next)
 
     def populate_summary(self, p: Portfolio, steps: List[PlanStep], mode: PlanningMode) -> None:
         budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax

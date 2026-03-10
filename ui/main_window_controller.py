@@ -105,8 +105,8 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
         self._update_file_context_ui()
         self._show_welcome_screen_on_startup()
 
-        self.tree.itemChanged.connect(self._on_item_changed_guard_and_recalc)
-        self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree.itemChanged.connect(self._table_editing_controller.on_item_changed_guard_and_recalc)
+        self.tree.itemDoubleClicked.connect(self._table_editing_controller.on_item_double_clicked)
 
     # -------------------------
     # Main orchestrator behavior
