@@ -41,9 +41,11 @@ FX thread-safety guards in this flow:
 - `ui/main_window_controller.py`
   - top-level coordinator for welcome/main/summary/wizard wiring and transitions
   - composes focused mixins for file actions and wizard step flow
+  - renders remembered startup path state into welcome UI (enabled/disabled open-last behavior)
   - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/constants.py`
   - shared application metadata/constants used by multiple UI modules
+  - includes app version string displayed on the welcome screen
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
@@ -131,6 +133,7 @@ FX thread-safety guards in this flow:
     - dirty-state detection
 - `portfolio_core/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
+  - exposes read-only remembered-path access for startup UI (`get_remembered_portfolio_path`)
   - persists/reads cached last successful USD/ILS quote in the same user config
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder

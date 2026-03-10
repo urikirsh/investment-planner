@@ -84,6 +84,7 @@ The application never executes trades automatically. All actions are explicit an
 ### UI and UX
 - Startup welcome screen with:
   - `Open Last Portfolio` (shows remembered path)
+  - remembered path appears directly under `Open Last Portfolio` (truncated in-label, full path in tooltip)
   - `Load Portfolio...`
   - `Start New File`
   - `Quit`
@@ -171,6 +172,7 @@ Notes:
   - load a different file
   - start a new default portfolio
   - quit
+- If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - The app also stores the last successful USD/ILS quote in the same user config for fetch-failure fallback.
 - `Save` updates the current file.

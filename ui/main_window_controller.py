@@ -8,6 +8,12 @@ user interaction, including portfolio editing, validation feedback,
 navigation through the investment workflow, and triggering planning
 and execution logic.
 
+Startup behavior:
+- Always opens with a dedicated welcome screen.
+- Lets the user open the remembered portfolio, load another file,
+  start a new default portfolio, or quit.
+- Transitions into the editor flow only after a startup selection.
+
 The main window acts as an orchestrator between the UI components and
 the underlying domain logic, while keeping calculation, validation,
 and persistence responsibilities in their respective modules.
@@ -155,7 +161,12 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
         self.setWindowTitle(f"{self._base_window_title} - {name}")
 
     def _init_status_bar(self) -> None:
-        """No-op: status bar file-context label was intentionally removed."""
+        """Legacy hook retained for future status-bar reintroduction.
+
+        The file-context status label was intentionally removed from the UI.
+        Active file context is now communicated via window title and the
+        welcome-screen remembered-path display.
+        """
         return None
 
     def _load_portfolio_from_file(self, path: Path) -> None:
