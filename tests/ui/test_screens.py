@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 import tomllib
 
+from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from ui.exchange_delegate import ExchangeDelegate
 from ui.decimal_input_delegate import DecimalInputDelegate
@@ -58,9 +59,11 @@ def test_welcome_screen_builds_expected_controls(qapp) -> None:
     _ = qapp
     screen = WelcomeScreen(app_version=APP_VERSION)
 
-    title_label = screen.findChild(type(screen.version_label), "welcome_title")
+    title_label = screen.findChild(QLabel, "welcome_title")
     assert title_label is not None
     assert title_label.text() == "Welcome"
+    assert APP_VERSION is not None
+    assert screen.version_label is not None
     assert screen.version_label.text() == f"Version {APP_VERSION}"
     assert screen.open_last_btn.text() == "Open Last Portfolio"
     assert screen.load_different_btn.text() == "Load Portfolio..."
@@ -79,6 +82,15 @@ def test_welcome_screen_builds_expected_controls(qapp) -> None:
     assert not screen.open_last_btn.isEnabled()
     assert "Not found" in screen.last_path_label.text()
     assert screen.last_path_label.toolTip() == "C:/missing.json"
+
+
+def test_welcome_screen_hides_version_label_when_app_version_is_unavailable(qapp) -> None:
+    _ = qapp
+    screen = WelcomeScreen(app_version=None)
+
+    assert screen.version_label is None
+    labels = [label.text() for label in screen.findChildren(QLabel)]
+    assert all(not text.startswith("Version ") for text in labels)
 
 
 def test_app_version_is_loaded_from_pyproject() -> None:
