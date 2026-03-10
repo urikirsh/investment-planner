@@ -49,7 +49,7 @@ class MainWindowActionsMixin:
         """Apply visual cues for current future-tax value."""
         ...
 
-    def _load_or_init(self) -> None:
+    def _load_default_document(self) -> None:
         """Load default portfolio as a new unsaved document into main editor."""
         ...
 
@@ -162,7 +162,7 @@ class MainWindowActionsMixin:
         """Handle `New` action by loading default portfolio after confirmation."""
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
-        self._load_or_init()
+        self._load_default_document()
 
     def _has_unsaved_main_changes(self) -> bool:
         """Compare current UI state against the last loaded/saved snapshot."""

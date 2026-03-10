@@ -257,7 +257,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
 
     def _on_welcome_start_new_clicked(self) -> None:
         """Initialize default portfolio from welcome and enter main editor."""
-        self._load_or_init()
+        self._load_default_document()
         self._enter_main_screen()
 
     # -------------------------
@@ -376,7 +376,7 @@ class MainWindow(MainWindowActionsMixin, MainWindowWizardMixin, QMainWindow):
             parent.removeChild(sel)
         self._refresh_data()
 
-    def _load_or_init(self) -> None:
+    def _load_default_document(self) -> None:
         """Load default portfolio into main editor as a new unsaved document."""
         p = create_new_default_document(self.session)
         populate_main_editor_from_portfolio(
