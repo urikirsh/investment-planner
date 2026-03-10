@@ -9,10 +9,23 @@ import portfolio_core.portfolio_session as session_mod
 from ui.main_window_controller import MainWindow
 
 
+def _mock_remembered_portfolio_path(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    path: Path | None,
+    window: MainWindow | None = None,
+) -> None:
+    """Mock remembered-path lookup either globally or for a specific window."""
+    if window is None:
+        monkeypatch.setattr(session_mod.PortfolioSession, "get_remembered_portfolio_path", lambda _self: path)
+        return
+    monkeypatch.setattr(window.session, "get_remembered_portfolio_path", lambda: path)
+
+
 @pytest.fixture()
 def window(qapp: object, monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[MainWindow]:
     _ = qapp
-    monkeypatch.setattr(session_mod.PortfolioSession, "get_remembered_portfolio_path", lambda _self: None)
+    _mock_remembered_portfolio_path(monkeypatch, path=None)
     win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
     yield win
     win.close()
@@ -62,7 +75,7 @@ def test_welcome_screen_marks_missing_recent_portfolio_in_red(
 ) -> None:
     _ = qapp
     missing_path = tmp_path / "missing.json"
-    monkeypatch.setattr(session_mod.PortfolioSession, "get_remembered_portfolio_path", lambda _self: missing_path)
+    _mock_remembered_portfolio_path(monkeypatch, path=missing_path)
     win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
     try:
         assert not win.screen_welcome.open_last_btn.isEnabled()
@@ -81,7 +94,7 @@ def test_welcome_open_last_transitions_to_main_on_success(window: MainWindow, mo
         seen_paths.append(path)
         return True
 
-    monkeypatch.setattr(window.session, "get_remembered_portfolio_path", lambda: remembered_path)
+    _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
     monkeypatch.setattr(window, "_open_portfolio_from_path", fake_open_portfolio)
 
     window._on_welcome_open_last_clicked()
@@ -96,7 +109,7 @@ def test_welcome_open_last_stays_on_welcome_when_open_fails(
     remembered_path = tmp_path / "remembered.json"
     remembered_path.write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr(window.session, "get_remembered_portfolio_path", lambda: remembered_path)
+    _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
     monkeypatch.setattr(window, "_open_portfolio_from_path", lambda _path: False)
 
     window._on_welcome_open_last_clicked()
