@@ -1,13 +1,29 @@
 from __future__ import annotations
 
-"""Typing contracts for controller mixin dependencies."""
+"""Typing contracts for composed main-window controllers."""
 
 from pathlib import Path
 from typing import Protocol
 
-from portfolio_core.planning_types import PlanningMode
+from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTextEdit, QTreeWidget, QWidget
 
-class MainWindowWelcomeDependencies(Protocol):
+from portfolio_core.planning_types import PlanningMode
+from portfolio_core.portfolio_session import PortfolioSession
+from ui.screens.main_editor_screen import MainEditorScreen
+from ui.screens.summary_screen import SummaryScreen
+from ui.screens.welcome_screen import WelcomeScreen
+from ui.screens.wizard_screen import WizardScreen
+from ui.ui_state import PlanningState
+
+
+class MainWindowWelcomeHost(Protocol):
+    _base_window_title: str
+    session: PortfolioSession
+    stack: QStackedWidget
+    screen_welcome: WelcomeScreen
+    screen_main: MainEditorScreen
+
+    def setWindowTitle(self, title: str) -> None: ...
 
     def _quit_app(self) -> None: ...
 
@@ -19,8 +35,24 @@ class MainWindowWelcomeDependencies(Protocol):
 
     def _load_default_document(self) -> None: ...
 
+    def _on_welcome_open_last_clicked(self) -> None: ...
 
-class MainWindowMainEditorDependencies(Protocol):
+    def _on_welcome_load_different_clicked(self) -> None: ...
+
+    def _on_welcome_start_new_clicked(self) -> None: ...
+
+
+class MainWindowMainEditorHost(Protocol):
+    session: PortfolioSession
+    tree: QTreeWidget
+    cash_value_edit: QLineEdit
+    cash_reserve_edit: QLineEdit
+    future_tax_edit: QLineEdit
+    investable_balance_label: QLabel
+    total_label: QLabel
+    _non_investable_bucket_id: str
+    _non_investable_bucket_title: str
+    screen_main: MainEditorScreen
 
     def _on_save_clicked(self) -> None: ...
 
@@ -42,11 +74,52 @@ class MainWindowMainEditorDependencies(Protocol):
 
     def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool: ...
 
+    def _add_asset_group(self) -> None: ...
 
-class MainWindowSummaryDependencies(Protocol):
+    def _add_instrument(self) -> None: ...
+
+    def _delete_selected_row(self) -> None: ...
+
+    def _on_main_quit_clicked(self) -> None: ...
+
+    def _on_invest_clicked(self) -> None: ...
+
+    def _on_rebalance_clicked(self) -> None: ...
+
+    def _on_main_refresh_requested(self, *_args: object) -> None: ...
+
+
+class MainWindowTableEditingHost(Protocol):
+    _suppress_item_changed: bool
+    tree: QTreeWidget
+
+    def _refresh_data(self) -> None: ...
+
+
+class MainWindowMetricsHost(Protocol):
+    _suppress_item_changed: bool
+    tree: QTreeWidget
+    cash_value_edit: QLineEdit
+    cash_reserve_edit: QLineEdit
+    future_tax_edit: QLineEdit
+    investable_balance_label: QLabel
+    total_label: QLabel
+
+
+class MainWindowSummaryHost(Protocol):
+    stack: QStackedWidget
+    planning_state: PlanningState
+    screen_main: MainEditorScreen
+    screen_wizard: WizardScreen
+    screen_summary: SummaryScreen
+    summary_text: QTextEdit
 
     def _quit_app(self) -> None: ...
 
     def _show_current_wizard_step(self) -> None: ...
 
     def _prepare_wizard_fx_rate_cache(self) -> None: ...
+
+    def _summary_back(self) -> None: ...
+
+    def _summary_next(self) -> None: ...

@@ -6,37 +6,35 @@ from decimal import Decimal
 from typing import cast
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QWidget
+from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
+from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
 from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
 from ui.ui_utils import DEFAULT_EXCHANGE, _is_cell_editable, get_item_kind, parse_exchange_code
 
 
-class MainWindowTableEditingMixin:
-    """Mixin containing guarded tree cell editing and validation flows."""
+class MainWindowTableEditingController:
+    """Controller containing guarded tree cell editing and validation flows."""
 
-    _suppress_item_changed: bool
-    tree: QTreeWidget
+    def __init__(self, host: MainWindowTableEditingHost) -> None:
+        self._host = host
 
-    def _refresh_data(self) -> None:
-        ...
-
-    def _on_item_changed_guard_and_recalc(self, item: QTreeWidgetItem, column: int) -> None:
-        if self._suppress_item_changed:
+    def on_item_changed_guard_and_recalc(self, item: QTreeWidgetItem, column: int) -> None:
+        host = self._host
+        if host._suppress_item_changed:
             return
 
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TICKER.value:
-            # Defensive normalization for programmatic edits/pastes/tests.
             raw_ticker = item.text(column)
             sanitized_ticker = "".join(ch for ch in raw_ticker if ch.isascii() and ch.isalnum())
             normalized_ticker = sanitized_ticker.upper()
             if normalized_ticker != raw_ticker:
-                self._suppress_item_changed = True
+                host._suppress_item_changed = True
                 try:
                     item.setText(column, normalized_ticker)
                 finally:
-                    self._suppress_item_changed = False
+                    host._suppress_item_changed = False
 
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.EXCHANGE.value:
             raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
@@ -44,26 +42,23 @@ class MainWindowTableEditingMixin:
             item.setData(0, ROLE_EXCHANGE, raw)
 
         if get_item_kind(item) == RowKind.GROUP and column == Col.TARGET_PCT.value:
-            if not self._validate_target_pct_cell_or_revert(item):
-                self._refresh_data()
+            if not self.validate_target_pct_cell_or_revert(item):
+                host._refresh_data()
                 return
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
-            if not self._validate_instrument_target_pct_cell_or_revert(item):
-                self._refresh_data()
+            if not self.validate_instrument_target_pct_cell_or_revert(item):
+                host._refresh_data()
                 return
         if get_item_kind(item) == RowKind.INSTRUMENT and column == Col.QUANTITY.value:
-            if not self._validate_instrument_quantity_cell_or_revert(item):
-                self._refresh_data()
+            if not self.validate_instrument_quantity_cell_or_revert(item):
+                host._refresh_data()
                 return
 
-        self._refresh_data()
+        host._refresh_data()
 
-    def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
-        """
-        Start guarded cell editing on double-click for editable cells only.
-
-        Previous text is captured for possible validation-driven revert.
-        """
+    def on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
+        """Start guarded cell editing on double-click for editable cells only."""
+        host = self._host
         kind = get_item_kind(item)
 
         if kind == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
@@ -78,29 +73,24 @@ class MainWindowTableEditingMixin:
         if _is_cell_editable(kind, column):
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-            self.tree.editItem(item, column)
+            host.tree.editItem(item, column)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
-    def _validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
-        """Validate group target-% cell. Return False when value is reverted."""
+    def validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         col = Col.TARGET_PCT.value
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
-
         try:
             p = Decimal(raw)
         except Exception:
-            self._warn_and_revert(item, col, raw, prev, "Target % must be a number.")
+            self.warn_and_revert(item, col, raw, prev, "Target % must be a number.")
             return False
-
         if p > 100:
-            self._warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
+            self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
-
         return True
 
-    def _validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
-        """Validate instrument row target-% (in-group target) and revert if invalid."""
+    def validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         parent = item.parent()
         if parent is None:
             return False
@@ -110,55 +100,46 @@ class MainWindowTableEditingMixin:
         col = Col.TARGET_PCT.value
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
-
         try:
             p = Decimal(raw)
         except Exception:
-            self._warn_and_revert(item, col, raw, prev, "Target % must be a number.")
+            self.warn_and_revert(item, col, raw, prev, "Target % must be a number.")
             return False
-
         if p < 0:
-            self._warn_and_revert(item, col, raw, prev, "Target % cannot be negative.")
+            self.warn_and_revert(item, col, raw, prev, "Target % cannot be negative.")
             return False
         if p > 100:
-            self._warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
+            self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
-
         return True
 
-    def _validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
-        """Validate instrument quantity cell (non-negative integer; empty -> 0)."""
+    def validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
+        host = self._host
         col = Col.QUANTITY.value
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
 
         if raw == "":
-            self._suppress_item_changed = True
+            host._suppress_item_changed = True
             try:
                 item.setText(col, "0")
             finally:
-                self._suppress_item_changed = False
+                host._suppress_item_changed = False
             return True
         if not raw.isdigit():
-            self._warn_and_revert(
-                item,
-                col,
-                raw,
-                prev,
-                "Quantity must be a non-negative integer.",
-            )
+            self.warn_and_revert(item, col, raw, prev, "Quantity must be a non-negative integer.")
             return False
         return True
 
-    def _warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
-        """Show validation warning and revert edited cell to previous value."""
-        self._suppress_item_changed = True
+    def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
+        host = self._host
+        host._suppress_item_changed = True
         try:
             show_warning(
-                cast(QWidget, self),
+                cast(QWidget, host),
                 "Invalid input",
                 f"{msg}\n\nYou entered: {bad}\nReverting to previous value: {prev}",
             )
             item.setText(col, prev if prev is not None else "")
         finally:
-            self._suppress_item_changed = False
+            host._suppress_item_changed = False

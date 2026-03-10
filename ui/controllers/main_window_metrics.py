@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from PySide6.QtWidgets import QLineEdit, QLabel, QTreeWidget, QTreeWidgetItem
+from PySide6.QtWidgets import QTreeWidgetItem
 
+from ui.controllers.protocols import MainWindowMetricsHost
 from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor
 from ui.portfolio_metrics import (
     MetricGroupRow,
@@ -20,32 +21,26 @@ D = Decimal
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
 
 
-class MainWindowMetricsMixin:
-    """Mixin containing main-editor recalculation and visual refresh logic."""
+class MainWindowMetricsController:
+    """Controller containing main-editor recalculation and visual refresh logic."""
 
-    _suppress_item_changed: bool
-    tree: QTreeWidget
-    cash_value_edit: QLineEdit
-    cash_reserve_edit: QLineEdit
-    future_tax_edit: QLineEdit
-    investable_balance_label: QLabel
-    total_label: QLabel
+    def __init__(self, host: MainWindowMetricsHost) -> None:
+        self._host = host
 
-    def _refresh_data(self) -> None:
-        """Refresh all derived main-screen values and visuals from current inputs."""
-        self._refresh_total_portfolio()
-        self._update_investable_balance_visual_state()
-        self._update_future_tax_visual_state()
-        self._recalc_totals_and_pcts()
+    def refresh_data(self) -> None:
+        self.refresh_total_portfolio()
+        self.update_investable_balance_visual_state()
+        self.update_future_tax_visual_state()
+        self.recalc_totals_and_pcts()
 
-    def _refresh_total_portfolio(self) -> None:
-        """Update total-portfolio label from current editable UI values."""
+    def refresh_total_portfolio(self) -> None:
+        host = self._host
         try:
             data = build_portfolio_data_from_main_editor(
-                tree=self.tree,
-                cash_value_edit=self.cash_value_edit,
-                cash_reserve_edit=self.cash_reserve_edit,
-                future_tax_edit=self.future_tax_edit,
+                tree=host.tree,
+                cash_value_edit=host.cash_value_edit,
+                cash_reserve_edit=host.cash_reserve_edit,
+                future_tax_edit=host.future_tax_edit,
                 allow_partial=True,
             )
             cash_amt = D(str(data["cash"]["value"]))
@@ -54,15 +49,15 @@ class MainWindowMetricsMixin:
             for ins in data.get("instruments", []):
                 total += D(str(ins["value"]))
             total -= future_tax
-            self.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
+            host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
         except Exception:
-            self.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
+            host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
-    def _recalc_totals_and_pcts(self) -> None:
-        """Recompute all derived table values from editable inputs."""
-        self._suppress_item_changed = True
+    def recalc_totals_and_pcts(self) -> None:
+        host = self._host
+        host._suppress_item_changed = True
         try:
-            snapshot, item_by_key = self._build_metrics_snapshot()
+            snapshot, item_by_key = self.build_metrics_snapshot()
             metrics = compute_portfolio_metrics(snapshot)
 
             for key, total in metrics.top_total_by_key.items():
@@ -78,43 +73,41 @@ class MainWindowMetricsMixin:
             for key, drift in metrics.drift_value_by_key.items():
                 apply_drift_color(item_by_key[key], Col.DRIFT_PP.value, drift)
         finally:
-            self._suppress_item_changed = False
+            host._suppress_item_changed = False
 
-    def _normalize_future_tax_input(self) -> None:
-        """Normalize empty future-tax input to zero on edit completion."""
-        if not self.future_tax_edit.text().strip():
-            self.future_tax_edit.setText("0")
+    def normalize_future_tax_input(self) -> None:
+        if not self._host.future_tax_edit.text().strip():
+            self._host.future_tax_edit.setText("0")
 
-    def _update_future_tax_visual_state(self) -> None:
-        """Highlight future-tax field when value is positive."""
-        future_tax = parse_value_cell(self.future_tax_edit.text())
+    def update_future_tax_visual_state(self) -> None:
+        future_tax = parse_value_cell(self._host.future_tax_edit.text())
         if future_tax > 0:
-            self.future_tax_edit.setStyleSheet("color: #b00020;")
+            self._host.future_tax_edit.setStyleSheet("color: #b00020;")
         else:
-            self.future_tax_edit.setStyleSheet("")
+            self._host.future_tax_edit.setStyleSheet("")
 
-    def _update_investable_balance_visual_state(self) -> None:
-        """Show investable balance and color-code against minimum investable amount."""
-        cash_value = parse_value_cell(self.cash_value_edit.text())
-        cash_reserve = parse_value_cell(self.cash_reserve_edit.text())
-        future_tax = parse_value_cell(self.future_tax_edit.text())
+    def update_investable_balance_visual_state(self) -> None:
+        host = self._host
+        cash_value = parse_value_cell(host.cash_value_edit.text())
+        cash_reserve = parse_value_cell(host.cash_reserve_edit.text())
+        future_tax = parse_value_cell(host.future_tax_edit.text())
         investable_balance = cash_value - cash_reserve - future_tax
         if investable_balance < 0:
             investable_balance = D("0")
 
-        self.investable_balance_label.setText(f"Investable balance {BASE_CURRENCY_SUFFIX}: {investable_balance}")
+        host.investable_balance_label.setText(f"Investable balance {BASE_CURRENCY_SUFFIX}: {investable_balance}")
         if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
-            self.investable_balance_label.setStyleSheet("color: #1b5e20;")
+            host.investable_balance_label.setStyleSheet("color: #1b5e20;")
         else:
-            self.investable_balance_label.setStyleSheet("color: #777777;")
+            host.investable_balance_label.setStyleSheet("color: #777777;")
 
-    def _build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
-        """Build pure metrics input plus key->item lookup for UI render updates."""
+    def build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
+        host = self._host
         groups: list[MetricGroupRow] = []
         item_by_key: dict[str, QTreeWidgetItem] = {}
 
-        for i in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(i)
+        for i in range(host.tree.topLevelItemCount()):
+            top = host.tree.topLevelItem(i)
             if top is None:
                 continue
 
@@ -150,7 +143,7 @@ class MainWindowMetricsMixin:
 
         snapshot = MetricsSnapshot(
             groups=tuple(groups),
-            cash_value_text=self.cash_value_edit.text(),
-            future_tax_text=self.future_tax_edit.text(),
+            cash_value_text=host.cash_value_edit.text(),
+            future_tax_text=host.future_tax_edit.text(),
         )
         return snapshot, item_by_key

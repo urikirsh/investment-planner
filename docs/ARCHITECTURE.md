@@ -14,7 +14,7 @@ High-level dependency direction:
 
 1. `ui/screens/*` provides widget composition only.
 2. `ui/main_window_controller.py` composes screens and delegates per-screen logic.
-3. `ui/controllers/*` contains focused main-window controller mixins by concern.
+3. `ui/controllers/*` contains focused composed controller objects by concern.
 4. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
    action/wizard flows.
 5. `ui/portfolio_editor_adapter.py` maps between widgets and domain payloads.
@@ -41,21 +41,22 @@ FX thread-safety guards in this flow:
 ## UI module map
 - `ui/main_window_controller.py`
   - thin composition root for welcome/main/summary/wizard wiring and transitions
-  - composes focused mixins from `ui/controllers/*` plus actions/wizard mixins
+  - composes focused controller objects from `ui/controllers/*`
+  - exposes thin wrapper methods consumed by actions/wizard flows and tests
   - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/controllers/main_window_welcome.py`
-  - welcome screen setup, remembered-path status rendering, and startup transitions
+  - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions
 - `ui/controllers/main_window_main_editor.py`
-  - main editor screen wiring and direct row-level add/delete/new-document actions
+  - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
 - `ui/controllers/main_window_table_editing.py`
-  - tree item normalization and validation/revert behavior for editable cells
+  - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
 - `ui/controllers/main_window_metrics.py`
-  - derived totals/percentages/drift refresh pipeline and visual state updates
+  - `MainWindowMetricsController`: derived totals/percentages/drift refresh and visual state updates
 - `ui/controllers/main_window_summary.py`
-  - summary screen setup and summary->wizard/main navigation behavior
+  - `MainWindowSummaryController`: summary setup and summary->wizard/main navigation behavior
 - `ui/controllers/protocols.py`
-  - protocol contracts for `MainWindow` mixin host methods/attributes
-  - removes `mypy` `attr-defined` suppression in controller mixins
+  - protocol contracts for controller-host dependencies
+  - keeps controller object composition statically typed without MRO coupling
 - `ui/constants.py`
   - shared static UI constants used by multiple UI modules
 - `ui/main_window_actions.py`

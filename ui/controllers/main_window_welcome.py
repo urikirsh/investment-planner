@@ -1,21 +1,22 @@
 from __future__ import annotations
 
-"""Welcome-screen behavior extracted from the main window controller."""
+"""Welcome-screen behavior for the composed main window controller."""
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable, Final, cast
 
-from PySide6.QtWidgets import QStackedWidget, QWidget
+from PySide6.QtWidgets import QWidget
 
 from portfolio_core.app_metadata import get_app_version
-from portfolio_core.portfolio_session import PortfolioSession
-from ui.controllers.protocols import MainWindowWelcomeDependencies
+from ui.controllers.protocols import MainWindowWelcomeHost
 from ui.screens.welcome_screen import WelcomeScreen
+
+_DEFAULT_PATH_MAX_CHARS: Final[int] = 96
 
 
 @dataclass(frozen=True)
-class _WelcomeLastPortfolioStatus:
+class WelcomeLastPortfolioStatus:
     """Render-ready welcome-state for remembered portfolio action."""
 
     button_enabled: bool
@@ -24,63 +25,62 @@ class _WelcomeLastPortfolioStatus:
     missing_path: bool
 
 
-class MainWindowWelcomeMixin:
-    """Mixin containing welcome-screen setup and startup action flow."""
+class MainWindowWelcomeController:
+    """Controller for welcome-screen setup and startup action flow."""
 
-    _base_window_title: str
-    session: PortfolioSession
-    stack: QStackedWidget
-    screen_welcome: WelcomeScreen
-    screen_main: QWidget
+    def __init__(self, host: MainWindowWelcomeHost) -> None:
+        self._host = host
 
-    def _init_welcome_screen(self) -> None:
+    def init_screen(self) -> None:
         """Build startup welcome screen and connect startup actions."""
-        deps = cast(MainWindowWelcomeDependencies, self)
-        self.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=cast(QWidget, self))
-        self.screen_welcome.open_last_btn.clicked.connect(self._on_welcome_open_last_clicked)
-        self.screen_welcome.load_different_btn.clicked.connect(self._on_welcome_load_different_clicked)
-        self.screen_welcome.start_new_btn.clicked.connect(self._on_welcome_start_new_clicked)
-        self.screen_welcome.quit_btn.clicked.connect(deps._quit_app)
+        host = self._host
+        host.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=cast(QWidget, host))
+        host.screen_welcome.open_last_btn.clicked.connect(host._on_welcome_open_last_clicked)
+        host.screen_welcome.load_different_btn.clicked.connect(host._on_welcome_load_different_clicked)
+        host.screen_welcome.start_new_btn.clicked.connect(host._on_welcome_start_new_clicked)
+        host.screen_welcome.quit_btn.clicked.connect(host._quit_app)
 
-    def _show_welcome_screen_on_startup(self) -> None:
+    def show_on_startup(self) -> None:
         """Show startup welcome screen and refresh remembered-file state."""
-        cast(QWidget, self).setWindowTitle(self._base_window_title)
-        self._refresh_welcome_last_portfolio_ui()
-        self.stack.setCurrentWidget(self.screen_welcome)
-        if self.screen_welcome.open_last_btn.isEnabled():
-            self.screen_welcome.open_last_btn.setFocus()
+        host = self._host
+        host.setWindowTitle(host._base_window_title)
+        self.refresh_last_portfolio_ui()
+        host.stack.setCurrentWidget(host.screen_welcome)
+        if host.screen_welcome.open_last_btn.isEnabled():
+            host.screen_welcome.open_last_btn.setFocus()
         else:
-            self.screen_welcome.load_different_btn.setFocus()
+            host.screen_welcome.load_different_btn.setFocus()
 
-    def _enter_main_screen(self) -> None:
+    def enter_main_screen(self) -> None:
         """Switch from startup screen to main editor with current file context."""
-        deps = cast(MainWindowWelcomeDependencies, self)
-        deps._update_file_context_ui()
-        self.stack.setCurrentWidget(self.screen_main)
+        host = self._host
+        host._update_file_context_ui()
+        host.stack.setCurrentWidget(host.screen_main)
 
     @staticmethod
-    def _truncate_middle(text: str, *, max_chars: int = 96) -> str:
+    def truncate_middle(text: str, *, max_chars: int = _DEFAULT_PATH_MAX_CHARS) -> str:
         """Return middle-truncated text for constrained path labels."""
         if len(text) <= max_chars:
             return text
         part = max((max_chars - 3) // 2, 1)
         return f"{text[:part]}...{text[-part:]}"
 
-    def _refresh_welcome_last_portfolio_ui(self) -> None:
+    def refresh_last_portfolio_ui(self) -> None:
         """Refresh last-portfolio button state and path text on welcome screen."""
-        remembered_path = self.session.get_remembered_portfolio_path()
-        status = self._build_welcome_last_portfolio_status(remembered_path)
-        self.screen_welcome.set_last_portfolio_status(
+        host = self._host
+        remembered_path = host.session.get_remembered_portfolio_path()
+        status = self.build_last_portfolio_status(remembered_path)
+        host.screen_welcome.set_last_portfolio_status(
             button_enabled=status.button_enabled,
             path_text=status.path_text,
             path_tooltip=status.path_tooltip,
             missing_path=status.missing_path,
         )
 
-    def _build_welcome_last_portfolio_status(self, remembered_path: Path | None) -> _WelcomeLastPortfolioStatus:
+    def build_last_portfolio_status(self, remembered_path: Path | None) -> WelcomeLastPortfolioStatus:
         """Build pure welcome-screen status payload from remembered path state."""
         if remembered_path is None:
-            return _WelcomeLastPortfolioStatus(
+            return WelcomeLastPortfolioStatus(
                 button_enabled=False,
                 path_text="No recent portfolio",
                 path_tooltip="",
@@ -88,48 +88,42 @@ class MainWindowWelcomeMixin:
             )
 
         full_path = str(remembered_path)
-        display_path = self._truncate_middle(full_path)
+        display_path = self.truncate_middle(full_path)
         path_exists = remembered_path.exists()
-        if path_exists:
-            path_text = f"Last portfolio: {display_path}"
-        else:
-            path_text = f"Last portfolio: {display_path} (Not found)"
+        path_text = f"Last portfolio: {display_path}" if path_exists else f"Last portfolio: {display_path} (Not found)"
 
-        return _WelcomeLastPortfolioStatus(
+        return WelcomeLastPortfolioStatus(
             button_enabled=path_exists,
             path_text=path_text,
             path_tooltip=full_path,
             missing_path=not path_exists,
         )
 
-    def _on_welcome_open_last_clicked(self) -> None:
+    def on_open_last_clicked(self) -> None:
         """Open remembered portfolio when available and enter main screen."""
-        deps = cast(MainWindowWelcomeDependencies, self)
-        remembered_path = self.session.get_remembered_portfolio_path()
+        remembered_path = self._host.session.get_remembered_portfolio_path()
         if remembered_path is None or not remembered_path.exists():
-            self._refresh_welcome_last_portfolio_ui()
+            self.refresh_last_portfolio_ui()
             return
-        self._run_welcome_action(
-            action=lambda: deps._open_portfolio_from_path(remembered_path),
-            on_failure=self._refresh_welcome_last_portfolio_ui,
+        self.run_action(
+            action=lambda: self._host._open_portfolio_from_path(remembered_path),
+            on_failure=self.refresh_last_portfolio_ui,
         )
 
-    def _on_welcome_load_different_clicked(self) -> None:
+    def on_load_different_clicked(self) -> None:
         """Open picker flow from welcome screen and enter main on success."""
-        deps = cast(MainWindowWelcomeDependencies, self)
-        self._run_welcome_action(action=deps._open_portfolio_from_picker)
+        self.run_action(action=self._host._open_portfolio_from_picker)
 
-    def _on_welcome_start_new_clicked(self) -> None:
+    def on_start_new_clicked(self) -> None:
         """Initialize default portfolio from welcome and enter main editor."""
-        self._run_welcome_action(action=self._start_default_document_from_welcome)
+        self.run_action(action=self.start_default_document)
 
-    def _start_default_document_from_welcome(self) -> bool:
+    def start_default_document(self) -> bool:
         """Create default document for startup flow and report success."""
-        deps = cast(MainWindowWelcomeDependencies, self)
-        deps._load_default_document()
+        self._host._load_default_document()
         return True
 
-    def _run_welcome_action(
+    def run_action(
         self,
         *,
         action: Callable[[], bool],
@@ -140,4 +134,4 @@ class MainWindowWelcomeMixin:
             if on_failure is not None:
                 on_failure()
             return
-        self._enter_main_screen()
+        self.enter_main_screen()
