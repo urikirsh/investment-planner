@@ -83,11 +83,11 @@ FX thread-safety guards in this flow:
     - generation-token guard so stale async completions are ignored
     - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
-- `ui/exchange_delegate.py`
-  - combo-box delegate for instrument exchange editing in the main tree (`TASE`/`NYSE`)
-- `ui/ticker_input_delegate.py`
-  - line-edit delegate for instrument ticker editing
-  - enforces live ASCII alphanumeric-only input while allowing empty interim text
+- `ui/delegates/*`
+  - delegate package for editable tree-cell widgets in the main editor screen
+  - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
+  - `exchange_delegate.py`: combo-box delegate for instrument exchange editing (`TASE`/`NYSE`)
+  - `ticker_input_delegate.py`: line-edit delegate for ticker editing with live ASCII alphanumeric filtering
   - required/exact exchange-specific ticker format is validated at save/planning time
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor

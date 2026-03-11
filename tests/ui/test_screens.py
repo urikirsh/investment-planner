@@ -15,9 +15,9 @@ import tomllib
 from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
-from ui.exchange_delegate import ExchangeDelegate
-from ui.decimal_input_delegate import DecimalInputDelegate
-from ui.ticker_input_delegate import TickerInputDelegate
+from ui.delegates.exchange_delegate import ExchangeDelegate
+from ui.delegates.decimal_input_delegate import DecimalInputDelegate
+from ui.delegates.ticker_input_delegate import TickerInputDelegate
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
