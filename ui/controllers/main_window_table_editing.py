@@ -96,16 +96,27 @@ class MainWindowTableEditingController:
             host.tree.editItem(item, column)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
-    def validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
-        col = Col.TARGET_PCT.value
+    @staticmethod
+    def _read_edit_cell(item: QTreeWidgetItem, col: int) -> tuple[str, str | None]:
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
+        return raw, prev
+
+    def _parse_decimal_cell_or_revert(self, item: QTreeWidgetItem, *, col: int, label: str) -> Decimal | None:
+        raw, prev = self._read_edit_cell(item, col)
         try:
-            p = Decimal(raw)
+            return Decimal(raw)
         except Exception:
-            self.warn_and_revert(item, col, raw, prev, "Target % must be a number.")
+            self.warn_and_revert(item, col, raw, prev, f"{label} must be a number.")
+            return None
+
+    def validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
+        col = Col.TARGET_PCT.value
+        p = self._parse_decimal_cell_or_revert(item, col=col, label="Target %")
+        if p is None:
             return False
         if p > 100:
+            raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
         return True
@@ -118,17 +129,15 @@ class MainWindowTableEditingController:
             return False
 
         col = Col.TARGET_PCT.value
-        raw = item.text(col).strip()
-        prev = item.data(col, ROLE_PREV_TEXT)
-        try:
-            p = Decimal(raw)
-        except Exception:
-            self.warn_and_revert(item, col, raw, prev, "Target % must be a number.")
+        p = self._parse_decimal_cell_or_revert(item, col=col, label="Target %")
+        if p is None:
             return False
         if p < 0:
+            raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot be negative.")
             return False
         if p > 100:
+            raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
         return True
@@ -136,8 +145,7 @@ class MainWindowTableEditingController:
     def validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         host = self._host
         col = Col.QUANTITY.value
-        raw = item.text(col).strip()
-        prev = item.data(col, ROLE_PREV_TEXT)
+        raw, prev = self._read_edit_cell(item, col)
 
         if raw == "":
             host._suppress_item_changed = True
