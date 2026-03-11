@@ -12,7 +12,7 @@ from ui.controllers import (
     MainWindowTableEditingController,
     MainWindowWelcomeController,
 )
-from ui.main_window_controller import MainWindow
+from ui.main_window import MainWindow
 from ui.ui_types import Col
 
 

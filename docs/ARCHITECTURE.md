@@ -13,7 +13,7 @@ and tests are organized.
 High-level dependency direction:
 
 1. `ui/screens/*` provides widget composition only.
-2. `ui/main_window_controller.py` composes screens and delegates per-screen logic.
+2. `ui/main_window.py` composes screens and delegates per-screen logic.
 3. `ui/controllers/*` contains focused composed controller objects by concern.
 4. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
    action/wizard flows.
@@ -47,7 +47,7 @@ FX thread-safety guards in this flow:
 - New screen behavior should be added to a dedicated controller object under `ui/controllers/*`, not as inline `MainWindow` logic.
 
 ## UI module map
-- `ui/main_window_controller.py`
+- `ui/main_window.py`
   - thin composition root for welcome/main/summary/wizard wiring and transitions
   - composes focused controller objects from `ui/controllers/*`
   - wires most Qt signals directly to composed controller methods

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.models import Exchange
 from portfolio_core.use_cases import PlanStep
-from ui.main_window_controller import MainWindow
+from ui.main_window import MainWindow
 from ui.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in

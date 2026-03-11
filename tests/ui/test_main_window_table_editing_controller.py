@@ -8,7 +8,7 @@ import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
 import ui.controllers.main_window_table_editing as table_editing
-from ui.main_window_controller import MainWindow
+from ui.main_window import MainWindow
 from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 
 

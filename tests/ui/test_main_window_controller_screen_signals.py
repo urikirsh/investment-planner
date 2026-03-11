@@ -10,7 +10,7 @@ import pytest
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_wizard as wizard_mod
-from ui.main_window_controller import MainWindow
+from ui.main_window import MainWindow
 
 D = Decimal
 

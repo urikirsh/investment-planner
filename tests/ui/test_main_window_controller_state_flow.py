@@ -19,8 +19,8 @@ from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
-import ui.main_window_controller as main_window_controller
-from ui.main_window_controller import MainWindow
+import ui.main_window as main_window
+from ui.main_window import MainWindow
 from ui.ui_state import UnsavedChangesDecision
 
 D = Decimal
@@ -74,7 +74,7 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
         portfolio=SimpleNamespace(),
     )
     monkeypatch.setattr(window, "_save_current_or_save_as", lambda **_: True)
-    monkeypatch.setattr(main_window_controller, "build_plan_for_current_document", lambda *_: fake_plan_result)
+    monkeypatch.setattr(main_window, "build_plan_for_current_document", lambda *_: fake_plan_result)
     monkeypatch.setattr(window, "_populate_summary", lambda *_: None)
 
     window.planning_state.step_index = 99
@@ -111,7 +111,7 @@ def test_run_planning_aborts_when_wizard_fx_reset_cannot_cancel(
     errors: list[tuple[str, str]] = []
 
     monkeypatch.setattr(window, "_save_current_or_save_as", lambda **_: True)
-    monkeypatch.setattr(main_window_controller, "build_plan_for_current_document", lambda *_: fake_plan_result)
+    monkeypatch.setattr(main_window, "build_plan_for_current_document", lambda *_: fake_plan_result)
     monkeypatch.setattr(window, "_reset_wizard_fx_state_for_new_run", lambda: False)
     monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
 
