@@ -6,7 +6,7 @@ from math import ceil
 
 from PySide6.QtCore import QEvent, QObject, QPointF, QTimer, Qt
 from PySide6.QtGui import QColor, QHideEvent, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QShowEvent
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 
 class SpinningTicker(QWidget):
@@ -75,10 +75,18 @@ class LoadingOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._spinner = SpinningTicker(parent=self)
+        self._status_label = QLabel("fetching data", self)
+        self._status_label.setObjectName("loading_overlay_status")
+        self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status_label.setStyleSheet(
+            "font-size: 34px; font-weight: 700; color: #1f1f1f; border: none; background: transparent;"
+        )
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(24)
         layout.addStretch(1)
         layout.addWidget(self._spinner, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._status_label, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addStretch(1)
         parent.installEventFilter(self)
         self._sync_to_parent_geometry()
