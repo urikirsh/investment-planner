@@ -25,6 +25,12 @@ class MainWindowMainEditorController:
     def _host_widget(self) -> QWidget:
         return cast(QWidget, self._host)
 
+    @staticmethod
+    def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
+        if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
+            return ""
+        return "100" if parent.childCount() == 0 else "0"
+
     def init_screen(self) -> None:
         """Build main-editor widget and wire all signal handlers."""
         host = self._host
@@ -72,11 +78,7 @@ class MainWindowMainEditorController:
             return
 
         parent = sel.parent() or sel
-        default_in_group_pct = (
-            ""
-            if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET
-            else ("100" if parent.childCount() == 0 else "0")
-        )
+        default_in_group_pct = self._determine_default_in_group_pct(parent)
         add_instrument_item_to_group(parent, "0000000", "New Instrument", 0, "1", default_in_group_pct)
         host.tree.expandAll()
         host._refresh_data()
