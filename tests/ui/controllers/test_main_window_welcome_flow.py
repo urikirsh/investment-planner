@@ -165,7 +165,9 @@ def test_close_during_startup_transition_hides_overlay_immediately(window: MainW
 
     assert not window._startup_loading_overlay.isHidden()
     assert not window.stack.isEnabled()
+    assert window._welcome_controller._startup_transition_timer.isActive()
 
     window.close()
 
     assert window._startup_loading_overlay.isHidden()
+    assert not window._welcome_controller._startup_transition_timer.isActive()
