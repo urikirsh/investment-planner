@@ -29,6 +29,7 @@ class MainWindowMetricsController:
 
     @staticmethod
     def _compute_total_portfolio_amount(data: PortfolioPayload) -> D:
+        """Return total portfolio amount after subtracting future tax from assets."""
         cash = data["cash"]
         cash_amt = D(str(cash["value"]))
         future_tax = D(str(cash["future_tax"]))
@@ -39,12 +40,14 @@ class MainWindowMetricsController:
         return total - future_tax
 
     def refresh_data(self) -> None:
+        """Refresh all derived editor values that depend on current table/cash inputs."""
         self.refresh_total_portfolio()
         self.update_investable_balance_visual_state()
         self.update_future_tax_visual_state()
         self.recalc_totals_and_pcts()
 
     def refresh_total_portfolio(self) -> None:
+        """Recompute and render total portfolio label, tolerating partial/invalid input."""
         host = self._host
         try:
             data = build_portfolio_data_from_main_editor(
@@ -60,6 +63,7 @@ class MainWindowMetricsController:
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
     def recalc_totals_and_pcts(self) -> None:
+        """Recompute group/instrument metrics and write them back to table cells."""
         host = self._host
         host._suppress_item_changed = True
         try:
@@ -82,10 +86,12 @@ class MainWindowMetricsController:
             host._suppress_item_changed = False
 
     def normalize_future_tax_input(self) -> None:
+        """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""
         if not self._host.future_tax_edit.text().strip():
             self._host.future_tax_edit.setText("0")
 
     def update_future_tax_visual_state(self) -> None:
+        """Apply warning color when future tax is positive, clear style otherwise."""
         future_tax = parse_value_cell(self._host.future_tax_edit.text())
         if future_tax > 0:
             self._host.future_tax_edit.setStyleSheet("color: #b00020;")
@@ -93,6 +99,7 @@ class MainWindowMetricsController:
             self._host.future_tax_edit.setStyleSheet("")
 
     def update_investable_balance_visual_state(self) -> None:
+        """Recompute investable balance text and color by minimum-investable threshold."""
         host = self._host
         cash_value = parse_value_cell(host.cash_value_edit.text())
         cash_reserve = parse_value_cell(host.cash_reserve_edit.text())
@@ -108,6 +115,22 @@ class MainWindowMetricsController:
             host.investable_balance_label.setStyleSheet("color: #777777;")
 
     def build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
+        """Build metrics input snapshot and UI item index for write-back.
+
+        Returns:
+            A tuple of:
+            - ``MetricsSnapshot`` with immutable group/instrument metric inputs.
+            - ``item_by_key`` mapping stable traversal keys to concrete tree items.
+
+        Key format:
+            - Top-level group rows: ``top:{i}``
+            - Instrument child rows: ``top:{i}:child:{j}``
+
+        The key convention intentionally matches the keys emitted by
+        ``compute_portfolio_metrics`` so recalculated texts/colors can be
+        applied back to the correct ``QTreeWidgetItem`` without a second tree
+        traversal.
+        """
         host = self._host
         groups: list[MetricGroupRow] = []
         item_by_key: dict[str, QTreeWidgetItem] = {}
