@@ -49,6 +49,7 @@ FX thread-safety guards in this flow:
 ## UI module map
 - `ui/controllers/main_window_welcome.py`
   - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions
+  - successful startup actions use a fixed 1-second blocking overlay before switching to main editor
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
 - `ui/controllers/main_window_table_editing.py`
@@ -82,6 +83,7 @@ FX thread-safety guards in this flow:
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
+  - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
   - `__init__.py`: re-export surface for common shared symbols
@@ -200,6 +202,8 @@ UI-focused tests:
   - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
+- `tests/ui/shared/test_loading_overlay.py`
+  - loading overlay structure/geometry behavior and visibility toggling
 - `tests/ui/conftest.py`
   - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
 - `tests/ui/test_main_window_actions.py`

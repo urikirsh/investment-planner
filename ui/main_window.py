@@ -38,6 +38,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_utils import NON_INVESTABLE_BUCKET_ID
 from ui.ui_state import PlanningState, WizardState
 
@@ -83,6 +84,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
+        self._startup_loading_overlay = LoadingOverlay(self.stack)
         self._suppress_item_changed = False
 
         self._welcome_controller = MainWindowWelcomeController(self)
@@ -114,6 +116,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure background FX thread is stopped before window teardown."""
+        self._welcome_controller.cancel_pending_startup_transition()
         stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
         if not stopped:
             show_error(
@@ -225,6 +228,16 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
         on_failure: Callable[[], None] | None = None,
     ) -> None:
         self._welcome_controller.run_action(action=action, on_failure=on_failure)
+
+    def _show_startup_loading_overlay(self) -> None:
+        """Show blocking startup overlay while welcome transition is pending."""
+        self.stack.setEnabled(False)
+        self._startup_loading_overlay.show_overlay()
+
+    def _hide_startup_loading_overlay(self) -> None:
+        """Hide startup overlay and restore stacked-screen interaction."""
+        self._startup_loading_overlay.hide_overlay()
+        self.stack.setEnabled(True)
 
     # -------------------------
     # Main editor controller delegates

@@ -88,6 +88,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Load Portfolio...`
   - `Start New File`
   - `Quit`
+  - after choosing a startup action that opens the main editor, a 1-second blocking transition overlay appears with a large spinner and `fetching data` text
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
