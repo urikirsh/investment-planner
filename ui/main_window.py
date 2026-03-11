@@ -229,10 +229,12 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
         self._welcome_controller.run_action(action=action, on_failure=on_failure)
 
     def _show_startup_loading_overlay(self) -> None:
+        """Show blocking startup overlay while welcome transition is pending."""
         self.stack.setEnabled(False)
         self._startup_loading_overlay.show_overlay()
 
     def _hide_startup_loading_overlay(self) -> None:
+        """Hide startup overlay and restore stacked-screen interaction."""
         self._startup_loading_overlay.hide_overlay()
         self.stack.setEnabled(True)
 

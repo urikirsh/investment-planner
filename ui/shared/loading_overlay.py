@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-"""Reusable blocking loading overlay with a centered spinning ticker."""
+"""Reusable blocking loading overlay used during startup/async transitions.
+
+The overlay is intentionally host-agnostic so it can be reused on other
+screens (for example, future main-window data fetch flows).
+"""
 
 from math import ceil
 
@@ -10,7 +14,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 
 class SpinningTicker(QWidget):
-    """Simple painted spinner with fading ticks and steady rotation."""
+    """Painted spinner with fading ticks and timer-driven rotation."""
 
     def __init__(
         self,
@@ -66,7 +70,11 @@ class SpinningTicker(QWidget):
 
 
 class LoadingOverlay(QWidget):
-    """Fullscreen semi-transparent overlay that blocks interaction."""
+    """Semi-transparent overlay that blocks interaction and shows loading state.
+
+    The overlay always tracks its parent geometry and consumes mouse/keyboard
+    events while shown, so host widgets cannot be interacted with underneath.
+    """
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -93,18 +101,19 @@ class LoadingOverlay(QWidget):
         self.hide()
 
     def show_overlay(self) -> None:
-        """Show overlay and capture focus to block keyboard interaction."""
+        """Show overlay and capture focus so keyboard events stay blocked."""
         self._sync_to_parent_geometry()
         self.show()
         self.raise_()
         self.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def hide_overlay(self) -> None:
-        """Hide overlay and release focus back to normal widgets."""
+        """Hide overlay and release focus back to regular widget flow."""
         self.hide()
         self.clearFocus()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Keep overlay geometry in sync when the parent moves or resizes."""
         if watched is self.parent() and event.type() in {QEvent.Type.Resize, QEvent.Type.Move}:
             self._sync_to_parent_geometry()
         return super().eventFilter(watched, event)
@@ -122,6 +131,7 @@ class LoadingOverlay(QWidget):
         event.accept()
 
     def _sync_to_parent_geometry(self) -> None:
+        """Resize overlay to fully cover the current parent client rect."""
         parent = self.parentWidget()
         if parent is None:
             return
