@@ -27,6 +27,7 @@ from ui.controllers import (
     MainWindowWelcomeController,
 )
 import ui.controllers.main_window_table_editing as table_editing
+import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window_controller as main_window_controller
 import ui.main_window_wizard as wizard_mod
 from ui.main_window_controller import MainWindow
@@ -172,6 +173,18 @@ def test_main_editor_new_button_signal_triggers_new_flow(
     window.screen_main.new_btn.click()
 
     assert loaded == [True]
+
+
+def test_refresh_total_portfolio_propagates_unexpected_errors(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_build_portfolio_data_from_main_editor(**_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(metrics_mod, "build_portfolio_data_from_main_editor", fail_build_portfolio_data_from_main_editor)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        window._refresh_total_portfolio()
 
 
 def test_summary_next_button_signal_returns_to_main_when_no_steps(window: MainWindow) -> None:

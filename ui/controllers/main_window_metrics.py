@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Derived-value refresh and metrics projection for the main editor."""
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from PySide6.QtWidgets import QTreeWidgetItem
 
@@ -50,7 +50,7 @@ class MainWindowMetricsController:
                 total += D(str(ins["value"]))
             total -= future_tax
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
-        except Exception:
+        except (InvalidOperation, KeyError, TypeError, ValueError):
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
     def recalc_totals_and_pcts(self) -> None:

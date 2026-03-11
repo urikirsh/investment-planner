@@ -31,10 +31,13 @@ class MainWindowWelcomeController:
     def __init__(self, host: MainWindowWelcomeHost) -> None:
         self._host = host
 
+    def _host_widget(self) -> QWidget:
+        return cast(QWidget, self._host)
+
     def init_screen(self) -> None:
         """Build startup welcome screen and connect startup actions."""
         host = self._host
-        host.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=cast(QWidget, host))
+        host.screen_welcome = WelcomeScreen(app_version=get_app_version(), parent=self._host_widget())
         host.screen_welcome.open_last_btn.clicked.connect(self.on_open_last_clicked)
         host.screen_welcome.load_different_btn.clicked.connect(self.on_load_different_clicked)
         host.screen_welcome.start_new_btn.clicked.connect(self.on_start_new_clicked)

@@ -22,10 +22,13 @@ class MainWindowMainEditorController:
     def __init__(self, host: MainWindowMainEditorHost) -> None:
         self._host = host
 
+    def _host_widget(self) -> QWidget:
+        return cast(QWidget, self._host)
+
     def init_screen(self) -> None:
         """Build main-editor widget and wire all signal handlers."""
         host = self._host
-        host.screen_main = MainEditorScreen(cast(QWidget, host))
+        host.screen_main = MainEditorScreen(self._host_widget())
         host.tree = host.screen_main.tree
         host.cash_value_edit = host.screen_main.cash_value_edit
         host.cash_reserve_edit = host.screen_main.cash_reserve_edit
@@ -62,14 +65,18 @@ class MainWindowMainEditorController:
         sel = host.tree.currentItem()
         if sel is None:
             show_warning(
-                cast(QWidget, host),
+                self._host_widget(),
                 "Add instrument",
                 "Select a group (or an instrument under a group) first.",
             )
             return
 
         parent = sel.parent() or sel
-        default_in_group_pct = "" if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET else ("100" if parent.childCount() == 0 else "0")
+        default_in_group_pct = (
+            ""
+            if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET
+            else ("100" if parent.childCount() == 0 else "0")
+        )
         add_instrument_item_to_group(parent, "0000000", "New Instrument", 0, "1", default_in_group_pct)
         host.tree.expandAll()
         host._refresh_data()
@@ -81,7 +88,7 @@ class MainWindowMainEditorController:
             return
 
         if get_item_kind(sel) == RowKind.NON_INVESTABLE_BUCKET:
-            show_warning(cast(QWidget, host), "Not allowed", "The non-investable bucket cannot be deleted.")
+            show_warning(self._host_widget(), "Not allowed", "The non-investable bucket cannot be deleted.")
             return
 
         parent = sel.parent()
