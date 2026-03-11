@@ -171,8 +171,11 @@ FX thread-safety guards in this flow:
 ## Test map
 UI-focused tests:
 - `tests/ui/test_main_window_controller_state_flow.py`
-  - focused tests for planning/wizard state transitions and controller seam behavior
-  - includes table-driven wrapper->controller delegation guards for composed controllers
+  - focused tests for planning/wizard state transitions and controller/action seams
+- `tests/ui/test_main_window_controller_delegation.py`
+  - table-driven wrapper->controller delegation guards for composed controllers
+- `tests/ui/test_main_window_controller_screen_signals.py`
+  - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
 - `tests/ui/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`

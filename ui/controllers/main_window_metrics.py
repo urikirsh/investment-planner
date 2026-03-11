@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from ui.controllers.protocols import MainWindowMetricsHost
-from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor
+from ui.portfolio_editor_adapter import PortfolioPayload, build_portfolio_data_from_main_editor
 from ui.portfolio_metrics import (
     MetricGroupRow,
     MetricInstrumentRow,
@@ -27,6 +27,17 @@ class MainWindowMetricsController:
     def __init__(self, host: MainWindowMetricsHost) -> None:
         self._host = host
 
+    @staticmethod
+    def _compute_total_portfolio_amount(data: PortfolioPayload) -> D:
+        cash = data["cash"]
+        cash_amt = D(str(cash["value"]))
+        future_tax = D(str(cash["future_tax"]))
+        total = cash_amt
+        instruments = data["instruments"]
+        for ins in instruments:
+            total += D(str(ins["value"]))
+        return total - future_tax
+
     def refresh_data(self) -> None:
         self.refresh_total_portfolio()
         self.update_investable_balance_visual_state()
@@ -43,12 +54,7 @@ class MainWindowMetricsController:
                 future_tax_edit=host.future_tax_edit,
                 allow_partial=True,
             )
-            cash_amt = D(str(data["cash"]["value"]))
-            future_tax = D(str(data["cash"]["future_tax"]))
-            total = cash_amt
-            for ins in data.get("instruments", []):
-                total += D(str(ins["value"]))
-            total -= future_tax
+            total = self._compute_total_portfolio_amount(data)
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
         except (InvalidOperation, KeyError, TypeError, ValueError):
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")

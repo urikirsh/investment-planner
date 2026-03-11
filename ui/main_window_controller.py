@@ -190,6 +190,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _show_welcome_screen_on_startup(self) -> None:
         self._welcome_controller.show_on_startup()
 
+    # Stable wrapper kept as a startup-flow seam for tests and orchestrator calls.
     def _enter_main_screen(self) -> None:
         self._welcome_controller.enter_main_screen()
 
@@ -212,9 +213,11 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _on_welcome_start_new_clicked(self) -> None:
         self._welcome_controller.on_start_new_clicked()
 
+    # Required by `MainWindowActionsMixin` host contract.
     def _start_default_document_from_welcome(self) -> bool:
         return self._welcome_controller.start_default_document()
 
+    # Stable wrapper kept as a startup-flow seam for tests and orchestrator calls.
     def _run_welcome_action(
         self,
         *,
@@ -239,6 +242,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _delete_selected_row(self) -> None:
         self._main_editor_controller.delete_selected_row()
 
+    # Required by `MainWindowActionsMixin` host contract.
     def _load_default_document(self) -> None:
         self._main_editor_controller.load_default_document()
 
@@ -264,6 +268,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _populate_summary(self, p: Portfolio, steps: List[PlanStep], mode: PlanningMode) -> None:
         self._summary_controller.populate_summary(p, steps, mode)
 
+    # Stable wrappers kept as summary/wizard transition seams for tests.
     def _summary_next(self) -> None:
         self._summary_controller.summary_next()
 
@@ -286,6 +291,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _normalize_future_tax_input(self) -> None:
         self._metrics_controller.normalize_future_tax_input()
 
+    # Required by `MainWindowActionsMixin` and `MainWindowWizardMixin` host contracts.
     def _update_future_tax_visual_state(self) -> None:
         self._metrics_controller.update_future_tax_visual_state()
 
