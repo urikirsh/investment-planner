@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Callable
 
 import pytest
 
@@ -20,6 +21,10 @@ def _mock_remembered_portfolio_path(
         monkeypatch.setattr(session_mod.PortfolioSession, "get_remembered_portfolio_path", lambda _self: path)
         return
     monkeypatch.setattr(window.session, "get_remembered_portfolio_path", lambda: path)
+
+
+def _run_welcome_transition_immediately(monkeypatch: pytest.MonkeyPatch, window: MainWindow) -> None:
+    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", lambda callback: callback())
 
 
 @pytest.fixture()
@@ -96,6 +101,7 @@ def test_welcome_open_last_transitions_to_main_on_success(window: MainWindow, mo
 
     _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
     monkeypatch.setattr(window, "_open_portfolio_from_path", fake_open_portfolio)
+    _run_welcome_transition_immediately(monkeypatch, window)
 
     window._on_welcome_open_last_clicked()
 
@@ -127,9 +133,30 @@ def test_welcome_load_different_keeps_welcome_screen_on_cancel(window: MainWindo
     assert window.stack.currentWidget() is window.screen_welcome
 
 
-def test_welcome_start_new_loads_default_and_enters_main(window: MainWindow) -> None:
+def test_welcome_start_new_loads_default_and_enters_main(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    _run_welcome_transition_immediately(monkeypatch, window)
     window._on_welcome_start_new_clicked()
 
     assert window.stack.currentWidget() is window.screen_main
     assert window.session.current_file_path is None
     assert window.tree.topLevelItemCount() > 0
+
+
+def test_welcome_success_action_shows_overlay_before_delayed_main_transition(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deferred_callbacks: list[Callable[[], None]] = []
+    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", deferred_callbacks.append)
+
+    window._on_welcome_start_new_clicked()
+
+    assert deferred_callbacks
+    assert window.stack.currentWidget() is window.screen_welcome
+    assert not window._startup_loading_overlay.isHidden()
+    assert not window.stack.isEnabled()
+
+    deferred_callbacks[0]()
+
+    assert window.stack.currentWidget() is window.screen_main
+    assert window._startup_loading_overlay.isHidden()
+    assert window.stack.isEnabled()

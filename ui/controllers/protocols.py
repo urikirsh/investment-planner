@@ -40,6 +40,10 @@ class MainWindowWelcomeHost(Protocol):
 
     def _load_default_document(self) -> None: ...
 
+    def _show_startup_loading_overlay(self) -> None: ...
+
+    def _hide_startup_loading_overlay(self) -> None: ...
+
 
 class MainWindowMainEditorHost(Protocol):
     """Host contract consumed by ``MainWindowMainEditorController``."""

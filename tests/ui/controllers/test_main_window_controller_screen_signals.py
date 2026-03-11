@@ -19,6 +19,7 @@ def test_welcome_screen_load_different_button_signal_enters_main_on_success(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(window, "_open_portfolio_from_picker", lambda: True)
+    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", lambda callback: callback())
     assert window.stack.currentWidget() is window.screen_welcome
 
     window.screen_welcome.load_different_btn.click()

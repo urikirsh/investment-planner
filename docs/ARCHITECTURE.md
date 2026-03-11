@@ -82,6 +82,7 @@ FX thread-safety guards in this flow:
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
+  - `loading_overlay.py`: reusable blocking loading overlay with centered spinner for timed/async UI transitions
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
   - `__init__.py`: re-export surface for common shared symbols
@@ -200,6 +201,8 @@ UI-focused tests:
   - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
+- `tests/ui/shared/test_loading_overlay.py`
+  - loading overlay structure/geometry behavior and visibility toggling
 - `tests/ui/conftest.py`
   - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
 - `tests/ui/test_main_window_actions.py`

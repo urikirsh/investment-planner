@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Final, cast
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QWidget
 
 from portfolio_core.app_metadata import get_app_version
@@ -13,6 +14,7 @@ from ui.controllers.protocols import MainWindowWelcomeHost
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
+_STARTUP_TRANSITION_DELAY_MS: Final[int] = 2000
 
 
 @dataclass(frozen=True)
@@ -138,4 +140,19 @@ class MainWindowWelcomeController:
             if on_failure is not None:
                 on_failure()
             return
+        self._begin_startup_transition_to_main()
+
+    def _begin_startup_transition_to_main(self) -> None:
+        """Show loading overlay and enter main screen after a fixed delay."""
+        self._host._show_startup_loading_overlay()
+        self._schedule_main_screen_transition(self._complete_startup_transition_to_main)
+
+    def _complete_startup_transition_to_main(self) -> None:
+        """Hide transition overlay and complete navigation to main screen."""
+        self._host._hide_startup_loading_overlay()
         self.enter_main_screen()
+
+    @staticmethod
+    def _schedule_main_screen_transition(callback: Callable[[], None]) -> None:
+        """Schedule main-screen transition callback after fixed startup delay."""
+        QTimer.singleShot(_STARTUP_TRANSITION_DELAY_MS, callback)
