@@ -177,15 +177,15 @@ FX thread-safety guards in this flow:
 UI-focused tests:
 - `tests/ui/conftest.py`
   - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
-- `tests/ui/test_main_window_controller_state_flow.py`
+- `tests/ui/controllers/test_main_window_controller_state_flow.py`
   - focused tests for planning/wizard state transitions and controller/action seams
-- `tests/ui/test_main_window_controller_delegation.py`
+- `tests/ui/controllers/test_main_window_controller_delegation.py`
   - table-driven wrapper->controller delegation guards for composed controllers
-- `tests/ui/test_main_window_controller_screen_signals.py`
+- `tests/ui/controllers/test_main_window_controller_screen_signals.py`
   - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
-- `tests/ui/test_main_window_table_editing_controller.py`
+- `tests/ui/controllers/test_main_window_table_editing_controller.py`
   - focused table-editing normalization and validation/revert behavior tests
-- `tests/ui/test_main_window_welcome_flow.py`
+- `tests/ui/controllers/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`
   - focused tests for save-target resolution and unsaved-changes action decisions
@@ -195,13 +195,13 @@ UI-focused tests:
   - adapter mapping behavior and partial/strict input handling
 - `tests/ui/test_portfolio_metrics.py`
   - pure recalculation rules and zero-denominator edge cases
-- `tests/ui/test_screens.py`
+- `tests/ui/screens/test_screens.py`
   - structural tests for screen modules (defaults, controls, static setup)
-- `tests/ui/test_ticker_input_delegate.py`
+- `tests/ui/delegates/test_ticker_input_delegate.py`
   - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
-- `tests/ui/test_ui_utils.py`
+- `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/test_wizard_fx_coordinator.py`
   - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)

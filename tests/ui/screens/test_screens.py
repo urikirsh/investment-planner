@@ -107,7 +107,7 @@ def test_welcome_screen_set_app_version_updates_visibility_and_text(qapp) -> Non
 
 
 def test_app_version_is_loaded_from_pyproject() -> None:
-    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject_path = Path(__file__).resolve().parents[3] / "pyproject.toml"
     pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     project = pyproject.get("project")
     assert isinstance(project, dict)
