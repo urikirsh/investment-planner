@@ -47,12 +47,6 @@ FX thread-safety guards in this flow:
 - New screen behavior should be added to a dedicated controller object under `ui/controllers/*`, not as inline `MainWindow` logic.
 
 ## UI module map
-- `ui/main_window.py`
-  - thin composition root for welcome/main/summary/wizard wiring and transitions
-  - composes focused controller objects from `ui/controllers/*`
-  - wires most Qt signals directly to composed controller methods
-  - keeps thin wrapper methods only for cross-flow contracts used by actions/wizard flows and tests
-  - guards window close until in-flight wizard FX fetch thread is safely stopped
 - `ui/controllers/main_window_welcome.py`
   - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions
 - `ui/controllers/main_window_main_editor.py`
@@ -66,27 +60,6 @@ FX thread-safety guards in this flow:
 - `ui/controllers/protocols.py`
   - protocol contracts for controller-host dependencies
   - keeps controller object composition statically typed without MRO coupling
-- `ui/shared/*`
-  - package for cross-cutting UI primitives reused by screens/controllers/adapters
-  - `constants.py`: shared static UI constants used by multiple UI modules
-  - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
-  - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
-  - `__init__.py`: re-export surface for common shared symbols
-- `ui/main_window_actions.py`
-  - save/open/new action flows and unsaved-changes decision handling
-  - wraps dialog interactions behind typed helper methods to keep action logic testable
-- `ui/main_window_wizard.py`
-  - wizard screen wiring and per-step calculate/save/advance behavior
-  - handles transition back to main editor when wizard execution completes
-- `ui/wizard_fx_coordinator.py`
-  - extracted FX-only coordinator used by `MainWindowWizardMixin`
-  - owns transient USD/ILS FX orchestration for wizard runs:
-    - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
-    - non-blocking background BOI fetch (wizard opens immediately)
-    - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
-    - generation-token guard so stale async completions are ignored
-    - explicit cancel-failure handling before starting new fetch/reset/finish transitions
-    - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
 - `ui/delegates/*`
   - delegate package for editable tree-cell widgets in the main editor screen
   - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
@@ -94,22 +67,6 @@ FX thread-safety guards in this flow:
   - `ticker_input_delegate.py`: line-edit delegate for ticker editing with live ASCII alphanumeric filtering
   - `__init__.py`: re-export surface for delegate classes
   - required/exact exchange-specific ticker format is validated at save/planning time
-- `ui/portfolio_editor_adapter.py`
-  - UI/domain mapping layer for the main editor
-  - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
-- `ui/portfolio_metrics.py`
-  - pure recalculation service for derived table values
-  - computes totals, portfolio %, strategy %, and drift from row snapshots
-  - core dataclasses:
-    - `MetricInstrumentRow`: snapshot of one instrument row (`value_text`, target % text, row kind)
-    - `MetricGroupRow`: snapshot of one top-level row plus its instrument rows
-    - `MetricsSnapshot`: immutable input payload for a full recalculation pass
-    - `MetricsResult`: render-ready output maps and aggregate totals
-- `ui/ui_state.py`
-  - typed mutable workflow state shared by controller logic
-  - `UnsavedChangesDecision`: typed save/discard/cancel prompt result
-  - `PlanningState`: generated steps, active wizard index, and planning mode
-  - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
 - `ui/screens/main_editor_screen.py`
   - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
@@ -122,6 +79,55 @@ FX thread-safety guards in this flow:
 - `ui/screens/wizard_screen.py`
   - screen 4 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
+- `ui/shared/*`
+  - package for cross-cutting UI primitives reused by screens/controllers/adapters
+  - `constants.py`: shared static UI constants used by multiple UI modules
+  - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
+  - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
+  - `__init__.py`: re-export surface for common shared symbols
+- `ui/dialogs.py`
+  - typed wrappers around common `QMessageBox`/`QFileDialog` interactions
+  - centralizes dialog seams to keep controller/action code easier to test
+- `ui/main_window.py`
+  - thin composition root for welcome/main/summary/wizard wiring and transitions
+  - composes focused controller objects from `ui/controllers/*`
+  - wires most Qt signals directly to composed controller methods
+  - keeps thin wrapper methods only for cross-flow contracts used by actions/wizard flows and tests
+  - guards window close until in-flight wizard FX fetch thread is safely stopped
+- `ui/main_window_actions.py`
+  - save/open/new action flows and unsaved-changes decision handling
+  - wraps dialog interactions behind typed helper methods to keep action logic testable
+- `ui/main_window_wizard.py`
+  - wizard screen wiring and per-step calculate/save/advance behavior
+  - handles transition back to main editor when wizard execution completes
+- `ui/portfolio_editor_adapter.py`
+  - UI/domain mapping layer for the main editor
+  - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
+- `ui/portfolio_metrics.py`
+  - pure recalculation service for derived table values
+  - computes totals, portfolio %, strategy %, and drift from row snapshots
+  - core dataclasses:
+    - `MetricInstrumentRow`: snapshot of one instrument row (`value_text`, target % text, row kind)
+    - `MetricGroupRow`: snapshot of one top-level row plus its instrument rows
+    - `MetricsSnapshot`: immutable input payload for a full recalculation pass
+    - `MetricsResult`: render-ready output maps and aggregate totals
+- `ui/tree_widget.py`
+  - specialized `QTreeWidget` behavior and drag/drop guardrails for investment rows
+  - enforces tree-level edit/move constraints before controller-level validation
+- `ui/ui_state.py`
+  - typed mutable workflow state shared by controller logic
+  - `UnsavedChangesDecision`: typed save/discard/cancel prompt result
+  - `PlanningState`: generated steps, active wizard index, and planning mode
+  - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
+- `ui/wizard_fx_coordinator.py`
+  - extracted FX-only coordinator used by `MainWindowWizardMixin`
+  - owns transient USD/ILS FX orchestration for wizard runs:
+    - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
+    - non-blocking background BOI fetch (wizard opens immediately)
+    - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
+    - generation-token guard so stale async completions are ignored
+    - explicit cancel-failure handling before starting new fetch/reset/finish transitions
+    - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
 
 ## portfolio_core module map
 - `portfolio_core/models.py`
@@ -175,18 +181,27 @@ FX thread-safety guards in this flow:
 
 ## Test map
 UI-focused tests:
+- `tests/ui/*`
+  - layout mirrors `ui/*` where practical (`controllers/`, `screens/`, `delegates/`, `shared/`)
+  - cross-cutting/integration-focused UI tests remain at `tests/ui/` root
+- `tests/ui/controllers/test_main_window_controller_state_flow.py`
+  - focused tests for planning/wizard state transitions and controller/action seams
+- `tests/ui/controllers/test_main_window_controller_delegation.py`
+  - table-driven wrapper->controller delegation guards for composed controllers
+- `tests/ui/controllers/test_main_window_controller_screen_signals.py`
+  - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
+- `tests/ui/controllers/test_main_window_table_editing_controller.py`
+  - focused table-editing normalization and validation/revert behavior tests
+- `tests/ui/controllers/test_main_window_welcome_flow.py`
+  - startup welcome behavior tests (button state and transition flows)
+- `tests/ui/screens/test_screens.py`
+  - structural tests for screen modules (defaults, controls, static setup)
+- `tests/ui/delegates/test_ticker_input_delegate.py`
+  - ticker delegate behavior (live alphanumeric filtering and editor wiring)
+- `tests/ui/shared/test_ui_utils.py`
+  - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/conftest.py`
   - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
-- `tests/ui/test_main_window_controller_state_flow.py`
-  - focused tests for planning/wizard state transitions and controller/action seams
-- `tests/ui/test_main_window_controller_delegation.py`
-  - table-driven wrapper->controller delegation guards for composed controllers
-- `tests/ui/test_main_window_controller_screen_signals.py`
-  - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
-- `tests/ui/test_main_window_table_editing_controller.py`
-  - focused table-editing normalization and validation/revert behavior tests
-- `tests/ui/test_main_window_welcome_flow.py`
-  - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`
   - focused tests for save-target resolution and unsaved-changes action decisions
 - `tests/ui/test_main_window_wizard.py`
@@ -195,14 +210,8 @@ UI-focused tests:
   - adapter mapping behavior and partial/strict input handling
 - `tests/ui/test_portfolio_metrics.py`
   - pure recalculation rules and zero-denominator edge cases
-- `tests/ui/test_screens.py`
-  - structural tests for screen modules (defaults, controls, static setup)
-- `tests/ui/test_ticker_input_delegate.py`
-  - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
-- `tests/ui/test_ui_utils.py`
-  - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/test_wizard_fx_coordinator.py`
   - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)
 
