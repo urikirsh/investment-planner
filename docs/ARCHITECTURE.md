@@ -13,11 +13,12 @@ and tests are organized.
 High-level dependency direction:
 
 1. `ui/screens/*` provides widget composition only.
-2. `ui/main_window_controller.py` wires screens and delegates flows.
-3. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
-   interaction flows.
-4. `ui/portfolio_editor_adapter.py` maps between widgets and domain payloads.
-5. `portfolio_core/*` performs validation, planning, persistence, and calculations.
+2. `ui/main_window.py` composes screens and delegates per-screen logic.
+3. `ui/controllers/*` contains focused composed controller objects by concern.
+4. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
+   action/wizard flows.
+5. `ui/portfolio_editor_adapter.py` maps between widgets and domain payloads.
+6. `portfolio_core/*` performs validation, planning, persistence, and calculations.
 
 Rule of thumb: `portfolio_core` must not import from `ui`.
 
@@ -37,13 +38,34 @@ FX thread-safety guards in this flow:
 - Starting a new wizard run requires successful cancellation of any previous in-flight FX thread.
 - Window close waits for FX-thread shutdown (up to 12 seconds); close is blocked with a user-visible message if shutdown does not complete in time.
 
+## Controller composition rules
+- `MainWindow` is the composition root and owns long-lived controller instances.
+- Prefer direct signal wiring to composed controller methods for single-hop UI actions.
+- Keep `MainWindow` wrappers only when they are required by:
+  - `MainWindowActionsMixin` / `MainWindowWizardMixin` host-method contracts, or
+  - stable test seams for cross-controller orchestration points.
+- New screen behavior should be added to a dedicated controller object under `ui/controllers/*`, not as inline `MainWindow` logic.
+
 ## UI module map
-- `ui/main_window_controller.py`
-  - top-level coordinator for welcome/main/summary/wizard wiring and transitions
-  - composes focused mixins for file actions and wizard step flow
-  - renders remembered startup path state into welcome UI (enabled/disabled open-last behavior)
-  - centralizes welcome actions through one dispatcher and enters main editor on success
+- `ui/main_window.py`
+  - thin composition root for welcome/main/summary/wizard wiring and transitions
+  - composes focused controller objects from `ui/controllers/*`
+  - wires most Qt signals directly to composed controller methods
+  - keeps thin wrapper methods only for cross-flow contracts used by actions/wizard flows and tests
   - guards window close until in-flight wizard FX fetch thread is safely stopped
+- `ui/controllers/main_window_welcome.py`
+  - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions
+- `ui/controllers/main_window_main_editor.py`
+  - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
+- `ui/controllers/main_window_table_editing.py`
+  - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
+- `ui/controllers/main_window_metrics.py`
+  - `MainWindowMetricsController`: derived totals/percentages/drift refresh and visual state updates
+- `ui/controllers/main_window_summary.py`
+  - `MainWindowSummaryController`: summary setup and summary->wizard/main navigation behavior
+- `ui/controllers/protocols.py`
+  - protocol contracts for controller-host dependencies
+  - keeps controller object composition statically typed without MRO coupling
 - `ui/constants.py`
   - shared static UI constants used by multiple UI modules
 - `ui/main_window_actions.py`
@@ -148,8 +170,16 @@ FX thread-safety guards in this flow:
 
 ## Test map
 UI-focused tests:
+- `tests/ui/conftest.py`
+  - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
 - `tests/ui/test_main_window_controller_state_flow.py`
-  - focused tests for planning/wizard state transitions and controller seam behavior
+  - focused tests for planning/wizard state transitions and controller/action seams
+- `tests/ui/test_main_window_controller_delegation.py`
+  - table-driven wrapper->controller delegation guards for composed controllers
+- `tests/ui/test_main_window_controller_screen_signals.py`
+  - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
+- `tests/ui/test_main_window_table_editing_controller.py`
+  - focused table-editing normalization and validation/revert behavior tests
 - `tests/ui/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`

@@ -4,11 +4,9 @@ from __future__ import annotations
 Focused controller-flow tests for `MainWindow`.
 
 These tests validate cross-screen state transitions and prompt/action seams
-after extracting action and wizard flows into mixins, without invoking modal
-dialogs.
+in the composed-controller architecture, without invoking modal dialogs.
 """
 
-from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,23 +18,24 @@ from PySide6.QtWidgets import QTreeWidgetItem
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
-import ui.main_window_controller as main_window_controller
-from ui.main_window_controller import MainWindow
-from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
+import ui.controllers.main_window_metrics as metrics_mod
+import ui.main_window as main_window
+from ui.main_window import MainWindow
 from ui.ui_state import UnsavedChangesDecision
-from ui.ui_utils import add_instrument_item_to_group, set_group_tree_item, set_item_meta
 
 D = Decimal
 
 
-@pytest.fixture()
-def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[MainWindow]:
-    _ = qapp
-    monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
-    monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
-    yield win
-    win.close()
+def test_refresh_total_portfolio_propagates_unexpected_errors(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_build_portfolio_data_from_main_editor(**_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(metrics_mod, "build_portfolio_data_from_main_editor", fail_build_portfolio_data_from_main_editor)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        window._refresh_total_portfolio()
 
 
 def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
@@ -75,7 +74,7 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
         portfolio=SimpleNamespace(),
     )
     monkeypatch.setattr(window, "_save_current_or_save_as", lambda **_: True)
-    monkeypatch.setattr(main_window_controller, "build_plan_for_current_document", lambda *_: fake_plan_result)
+    monkeypatch.setattr(main_window, "build_plan_for_current_document", lambda *_: fake_plan_result)
     monkeypatch.setattr(window, "_populate_summary", lambda *_: None)
 
     window.planning_state.step_index = 99
@@ -112,7 +111,7 @@ def test_run_planning_aborts_when_wizard_fx_reset_cannot_cancel(
     errors: list[tuple[str, str]] = []
 
     monkeypatch.setattr(window, "_save_current_or_save_as", lambda **_: True)
-    monkeypatch.setattr(main_window_controller, "build_plan_for_current_document", lambda *_: fake_plan_result)
+    monkeypatch.setattr(main_window, "build_plan_for_current_document", lambda *_: fake_plan_result)
     monkeypatch.setattr(window, "_reset_wizard_fx_state_for_new_run", lambda: False)
     monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
 
@@ -180,72 +179,11 @@ def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkey
     assert seen_timeout and seen_timeout[0] == 12000
 
 
-def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
-    window: MainWindow, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: None)
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
-    child.setText(Col.TICKER.value, "1234567")
-    child.setText(Col.EXCHANGE.value, "invalid")
-
-    window._on_item_changed_guard_and_recalc(child, Col.EXCHANGE.value)
-
-    assert child.text(Col.EXCHANGE.value) == "TASE"
-    assert child.data(0, ROLE_EXCHANGE) == "TASE"
-
-
-def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    warnings: list[tuple[str, str]] = []
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
-    child.setText(Col.QUANTITY.value, "5")
-    child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "5")
-    child.setText(Col.QUANTITY.value, "2.5")
-
-    window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
-
-    assert warnings
-    assert child.text(Col.QUANTITY.value) == "5"
-
-
-def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: None)
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
-    child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "7")
-    child.setText(Col.QUANTITY.value, "")
-
-    window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
-
-    assert child.text(Col.QUANTITY.value) == "0"
-
-
-def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
-    window: MainWindow,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    warnings: list[tuple[str, str]] = []
-    monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(main_window_controller, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
-    child.setText(Col.EXCHANGE.value, "TASE")
-    child.setText(Col.TICKER.value, "ab-c_1 ")
-
-    window._on_item_changed_guard_and_recalc(child, Col.TICKER.value)
-
-    assert not warnings
-    assert child.text(Col.TICKER.value) == "ABC1"
-
-
 def test_save_blocks_invalid_ticker_exchange_combination(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
 ) -> None:
     errors: list[tuple[str, str]] = []
     target = tmp_path / "invalid_save.json"
@@ -254,17 +192,10 @@ def test_save_blocks_invalid_ticker_exchange_combination(
     window.cash_reserve_edit.setText("0")
     window.future_tax_edit.setText("0")
 
-    group = QTreeWidgetItem(window.tree)
-    set_group_tree_item(group, "Group 1", "100", "g1")
-    add_instrument_item_to_group(
-        group,
-        "1234567",  # Invalid for NYSE (valid only for TASE)
-        "Instrument 1",
-        1,
-        "100",
-        "100",
-        "i1",
-        "NYSE",
+    add_instrument_row(
+        tree=window.tree,
+        ticker="1234567",  # Invalid for NYSE (valid only for TASE)
+        exchange="NYSE",
     )
 
     monkeypatch.setattr(window, "_resolve_save_target", lambda **_: target)

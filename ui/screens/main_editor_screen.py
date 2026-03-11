@@ -14,7 +14,7 @@ Main tree note:
 
 The class intentionally contains no business logic, persistence logic, or
 navigation flow control. Those concerns stay in
-`ui.main_window_controller.MainWindow`.
+`ui.main_window.MainWindow`.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import portfolio_core.portfolio_session as session_mod
-from ui.main_window_controller import MainWindow
+from ui.main_window import MainWindow
 
 
 def _mock_remembered_portfolio_path(
