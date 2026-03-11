@@ -17,12 +17,16 @@ from ui.ui_state import PlanningState
 
 
 class MainWindowWelcomeHost(Protocol):
+    # state
     _base_window_title: str
     session: PortfolioSession
+
+    # widgets
     stack: QStackedWidget
     screen_welcome: WelcomeScreen
     screen_main: MainEditorScreen
 
+    # callbacks
     def setWindowTitle(self, title: str) -> None: ...
 
     def _quit_app(self) -> None: ...
@@ -35,18 +39,23 @@ class MainWindowWelcomeHost(Protocol):
 
     def _load_default_document(self) -> None: ...
 
+
 class MainWindowMainEditorHost(Protocol):
+    # state
     session: PortfolioSession
+    _non_investable_bucket_id: str
+    _non_investable_bucket_title: str
+
+    # widgets
     tree: QTreeWidget
     cash_value_edit: QLineEdit
     cash_reserve_edit: QLineEdit
     future_tax_edit: QLineEdit
     investable_balance_label: QLabel
     total_label: QLabel
-    _non_investable_bucket_id: str
-    _non_investable_bucket_title: str
     screen_main: MainEditorScreen
 
+    # callbacks
     def _on_save_clicked(self) -> None: ...
 
     def _on_save_as_clicked(self) -> None: ...
@@ -67,15 +76,23 @@ class MainWindowMainEditorHost(Protocol):
 
     def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool: ...
 
+
 class MainWindowTableEditingHost(Protocol):
+    # state
     _suppress_item_changed: bool
+
+    # widgets
     tree: QTreeWidget
 
+    # callbacks
     def _refresh_data(self) -> None: ...
 
 
 class MainWindowMetricsHost(Protocol):
+    # state
     _suppress_item_changed: bool
+
+    # widgets
     tree: QTreeWidget
     cash_value_edit: QLineEdit
     cash_reserve_edit: QLineEdit
@@ -85,13 +102,17 @@ class MainWindowMetricsHost(Protocol):
 
 
 class MainWindowSummaryHost(Protocol):
-    stack: QStackedWidget
+    # state
     planning_state: PlanningState
+
+    # widgets
+    stack: QStackedWidget
     screen_main: MainEditorScreen
     screen_wizard: WizardScreen
     screen_summary: SummaryScreen
     summary_text: QTextEdit
 
+    # callbacks
     def _quit_app(self) -> None: ...
 
     def _show_current_wizard_step(self) -> None: ...
