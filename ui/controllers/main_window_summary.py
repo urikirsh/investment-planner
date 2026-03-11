@@ -24,10 +24,12 @@ class MainWindowSummaryController:
         self._host = host
 
     def _host_widget(self) -> QWidget:
+        """Return host cast to QWidget for screen construction."""
         return cast(QWidget, self._host)
 
     @staticmethod
     def _build_summary_header_lines(p: Portfolio, mode: PlanningMode) -> list[str]:
+        """Build fixed summary header lines from portfolio cash and selected mode."""
         budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
         if budget < 0:
             budget = D("0")
@@ -40,6 +42,7 @@ class MainWindowSummaryController:
 
     @staticmethod
     def _build_summary_action_lines(steps: Sequence[PlanStep]) -> list[str]:
+        """Build human-readable action lines from computed plan steps."""
         if not steps:
             return ["No actions required."]
 
@@ -50,6 +53,7 @@ class MainWindowSummaryController:
         return lines
 
     def init_screen(self) -> None:
+        """Create summary screen and connect navigation actions."""
         host = self._host
         host.screen_summary = SummaryScreen(self._host_widget())
         host.summary_text = host.screen_summary.summary_text
@@ -58,6 +62,7 @@ class MainWindowSummaryController:
         host.screen_summary.next_btn.clicked.connect(self.summary_next)
 
     def populate_summary(self, p: Portfolio, steps: Sequence[PlanStep], mode: PlanningMode) -> None:
+        """Render summary text block for the current plan result."""
         lines = self._build_summary_header_lines(p, mode)
         lines.extend(self._build_summary_action_lines(steps))
         if mode == PlanningMode.REBALANCE:
@@ -67,6 +72,7 @@ class MainWindowSummaryController:
         self._host.summary_text.setText("\n".join(lines))
 
     def summary_next(self) -> None:
+        """Advance from summary to wizard (or back to main when no steps)."""
         host = self._host
         if not host.planning_state.plan_steps:
             host.stack.setCurrentWidget(host.screen_main)
@@ -76,4 +82,5 @@ class MainWindowSummaryController:
         host._prepare_wizard_fx_rate_cache()
 
     def summary_back(self) -> None:
+        """Return from summary screen to main editor screen."""
         self._host.stack.setCurrentWidget(self._host.screen_main)

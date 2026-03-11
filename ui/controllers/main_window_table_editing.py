@@ -21,15 +21,18 @@ class MainWindowTableEditingController:
         self._host = host
 
     def _host_widget(self) -> QWidget:
+        """Return host cast to QWidget for warning-dialog parenting."""
         return cast(QWidget, self._host)
 
     @staticmethod
     def _normalize_ticker(raw_ticker: str) -> str:
+        """Return uppercase ASCII alphanumeric ticker text."""
         sanitized_ticker = "".join(ch for ch in raw_ticker if ch.isascii() and ch.isalnum())
         return sanitized_ticker.upper()
 
     @staticmethod
     def _is_non_investable_instrument_cell(item: QTreeWidgetItem, *, kind: RowKind | None, column: int) -> bool:
+        """Return whether edit targets a non-investable instrument restricted column."""
         if kind != RowKind.INSTRUMENT:
             return False
         if column not in (Col.TARGET_PCT.value, Col.EXCHANGE.value):
@@ -40,6 +43,7 @@ class MainWindowTableEditingController:
     def _normalize_instrument_ticker_if_needed(
         self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int
     ) -> None:
+        """Normalize edited ticker in place while guarding recursive itemChanged."""
         host = self._host
         if kind != RowKind.INSTRUMENT or column != Col.TICKER.value:
             return
@@ -56,6 +60,7 @@ class MainWindowTableEditingController:
     def _normalize_instrument_exchange_if_needed(
         self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int
     ) -> None:
+        """Normalize exchange code text/data to supported canonical value."""
         if kind != RowKind.INSTRUMENT or column != Col.EXCHANGE.value:
             return
         raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
@@ -63,6 +68,7 @@ class MainWindowTableEditingController:
         item.setData(0, ROLE_EXCHANGE, raw)
 
     def _validate_edited_cell(self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int) -> bool:
+        """Dispatch edited-cell validation by row kind and edited column."""
         if kind == RowKind.GROUP and column == Col.TARGET_PCT.value:
             return self.validate_target_pct_cell_or_revert(item)
         if kind == RowKind.INSTRUMENT and column == Col.TARGET_PCT.value:
@@ -72,6 +78,7 @@ class MainWindowTableEditingController:
         return True
 
     def on_item_changed_guard_and_recalc(self, item: QTreeWidgetItem, column: int) -> None:
+        """Handle itemChanged with guard, normalization, validation, and refresh."""
         host = self._host
         if host._suppress_item_changed:
             return
@@ -98,11 +105,13 @@ class MainWindowTableEditingController:
 
     @staticmethod
     def _read_edit_cell(item: QTreeWidgetItem, col: int) -> tuple[str, str | None]:
+        """Return stripped current text and cached previous text for edited cell."""
         raw = item.text(col).strip()
         prev = item.data(col, ROLE_PREV_TEXT)
         return raw, prev
 
     def _parse_decimal_cell_or_revert(self, item: QTreeWidgetItem, *, col: int, label: str) -> Decimal | None:
+        """Parse numeric cell value, warning/reverting when parsing fails."""
         raw, prev = self._read_edit_cell(item, col)
         try:
             return Decimal(raw)
@@ -111,6 +120,7 @@ class MainWindowTableEditingController:
             return None
 
     def validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
+        """Validate group target percentage and revert invalid edits."""
         col = Col.TARGET_PCT.value
         p = self._parse_decimal_cell_or_revert(item, col=col, label="Target %")
         if p is None:
@@ -122,6 +132,7 @@ class MainWindowTableEditingController:
         return True
 
     def validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
+        """Validate instrument target percentage and revert invalid edits."""
         parent = item.parent()
         if parent is None:
             return False
@@ -143,6 +154,7 @@ class MainWindowTableEditingController:
         return True
 
     def validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
+        """Validate instrument quantity as non-negative integer; blank becomes zero."""
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
@@ -160,6 +172,7 @@ class MainWindowTableEditingController:
         return True
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
+        """Show warning and revert edited cell to previous value under change guard."""
         host = self._host
         host._suppress_item_changed = True
         try:

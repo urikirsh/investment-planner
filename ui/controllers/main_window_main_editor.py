@@ -23,10 +23,12 @@ class MainWindowMainEditorController:
         self._host = host
 
     def _host_widget(self) -> QWidget:
+        """Return host cast to QWidget for dialog parenting/screen construction."""
         return cast(QWidget, self._host)
 
     @staticmethod
     def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
+        """Return default in-group target for newly added instrument rows."""
         if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
             return ""
         return "100" if parent.childCount() == 0 else "0"
@@ -60,6 +62,7 @@ class MainWindowMainEditorController:
         host.future_tax_edit.editingFinished.connect(host._normalize_future_tax_input)
 
     def add_asset_group(self) -> None:
+        """Append a new editable asset-group row and refresh derived values."""
         host = self._host
         new_item = QTreeWidgetItem(host.tree)
         set_group_tree_item(new_item, "New Asset Group", 0)
@@ -67,6 +70,7 @@ class MainWindowMainEditorController:
         host._refresh_data()
 
     def add_instrument(self) -> None:
+        """Add a new instrument under selected group (or selected instrument's parent)."""
         host = self._host
         sel = host.tree.currentItem()
         if sel is None:
@@ -84,6 +88,7 @@ class MainWindowMainEditorController:
         host._refresh_data()
 
     def delete_selected_row(self) -> None:
+        """Delete selected group/instrument row unless it is the protected bucket."""
         host = self._host
         sel = host.tree.currentItem()
         if sel is None:
@@ -124,12 +129,15 @@ class MainWindowMainEditorController:
         self._host._refresh_data()
 
     def on_invest_clicked(self) -> None:
+        """Start invest planning from current main-editor state."""
         self._host._run_planning(mode=PlanningMode.INVEST)
 
     def on_rebalance_clicked(self) -> None:
+        """Start rebalance planning from current main-editor state."""
         self._host._run_planning(mode=PlanningMode.REBALANCE)
 
     def on_quit_clicked(self) -> None:
+        """Quit app after unsaved-changes confirmation when needed."""
         host = self._host
         if not host._confirm_continue_with_unsaved_changes("quitting"):
             return

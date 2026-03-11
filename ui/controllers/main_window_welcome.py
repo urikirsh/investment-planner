@@ -32,6 +32,7 @@ class MainWindowWelcomeController:
         self._host = host
 
     def _host_widget(self) -> QWidget:
+        """Return host cast to QWidget for screen/dialog parenting."""
         return cast(QWidget, self._host)
 
     def init_screen(self) -> None:

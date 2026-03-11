@@ -17,6 +17,7 @@ from ui.ui_state import PlanningState
 
 
 class MainWindowWelcomeHost(Protocol):
+    """Host contract consumed by ``MainWindowWelcomeController``."""
     # state
     _base_window_title: str
     session: PortfolioSession
@@ -41,6 +42,7 @@ class MainWindowWelcomeHost(Protocol):
 
 
 class MainWindowMainEditorHost(Protocol):
+    """Host contract consumed by ``MainWindowMainEditorController``."""
     # state
     session: PortfolioSession
     _non_investable_bucket_id: str
@@ -78,6 +80,7 @@ class MainWindowMainEditorHost(Protocol):
 
 
 class MainWindowTableEditingHost(Protocol):
+    """Host contract consumed by ``MainWindowTableEditingController``."""
     # state
     _suppress_item_changed: bool
 
@@ -89,6 +92,7 @@ class MainWindowTableEditingHost(Protocol):
 
 
 class MainWindowMetricsHost(Protocol):
+    """Host contract consumed by ``MainWindowMetricsController``."""
     # state
     _suppress_item_changed: bool
 
@@ -102,6 +106,7 @@ class MainWindowMetricsHost(Protocol):
 
 
 class MainWindowSummaryHost(Protocol):
+    """Host contract consumed by ``MainWindowSummaryController``."""
     # state
     planning_state: PlanningState
 
