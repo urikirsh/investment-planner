@@ -14,7 +14,7 @@ from ui.controllers.protocols import MainWindowWelcomeHost
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
-_STARTUP_TRANSITION_DELAY_MS: Final[int] = 2000
+_STARTUP_TRANSITION_DELAY_MS: Final[int] = 1000
 
 
 @dataclass(frozen=True)
