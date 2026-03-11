@@ -190,7 +190,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _show_welcome_screen_on_startup(self) -> None:
         self._welcome_controller.show_on_startup()
 
-    # Stable wrapper kept as a startup-flow seam for tests and orchestrator calls.
+    # Wrapper Contract: test seam.
     def _enter_main_screen(self) -> None:
         self._welcome_controller.enter_main_screen()
 
@@ -213,11 +213,11 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _on_welcome_start_new_clicked(self) -> None:
         self._welcome_controller.on_start_new_clicked()
 
-    # Required by `MainWindowActionsMixin` host contract.
+    # Wrapper Contract: actions.
     def _start_default_document_from_welcome(self) -> bool:
         return self._welcome_controller.start_default_document()
 
-    # Stable wrapper kept as a startup-flow seam for tests and orchestrator calls.
+    # Wrapper Contract: test seam.
     def _run_welcome_action(
         self,
         *,
@@ -242,7 +242,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _delete_selected_row(self) -> None:
         self._main_editor_controller.delete_selected_row()
 
-    # Required by `MainWindowActionsMixin` host contract.
+    # Wrapper Contract: actions.
     def _load_default_document(self) -> None:
         self._main_editor_controller.load_default_document()
 
@@ -268,7 +268,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _populate_summary(self, p: Portfolio, steps: List[PlanStep], mode: PlanningMode) -> None:
         self._summary_controller.populate_summary(p, steps, mode)
 
-    # Stable wrappers kept as summary/wizard transition seams for tests.
+    # Wrapper Contract: test seam.
     def _summary_next(self) -> None:
         self._summary_controller.summary_next()
 
@@ -279,25 +279,31 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     # Metrics controller delegates
     # -------------------------
 
+    # Wrapper Contract: actions.
     def _refresh_data(self) -> None:
         self._metrics_controller.refresh_data()
 
-    def _refresh_total_portfolio(self) -> None:
-        self._metrics_controller.refresh_total_portfolio()
-
-    def _recalc_totals_and_pcts(self) -> None:
-        self._metrics_controller.recalc_totals_and_pcts()
-
-    def _normalize_future_tax_input(self) -> None:
-        self._metrics_controller.normalize_future_tax_input()
-
-    # Required by `MainWindowActionsMixin` and `MainWindowWizardMixin` host contracts.
+    # Wrapper Contract: actions.
     def _update_future_tax_visual_state(self) -> None:
         self._metrics_controller.update_future_tax_visual_state()
 
+    # Wrapper Contract: test seam.
+    def _refresh_total_portfolio(self) -> None:
+        self._metrics_controller.refresh_total_portfolio()
+
+    # Wrapper Contract: test seam.
+    def _recalc_totals_and_pcts(self) -> None:
+        self._metrics_controller.recalc_totals_and_pcts()
+
+    # Wrapper Contract: test seam.
+    def _normalize_future_tax_input(self) -> None:
+        self._metrics_controller.normalize_future_tax_input()
+
+    # Wrapper Contract: test seam.
     def _update_investable_balance_visual_state(self) -> None:
         self._metrics_controller.update_investable_balance_visual_state()
 
+    # Wrapper Contract: test seam.
     def _build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
         return self._metrics_controller.build_metrics_snapshot()
 
@@ -305,20 +311,26 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     # Table-editing controller delegates
     # -------------------------
 
+    # Wrapper Contract: test seam.
     def _on_item_changed_guard_and_recalc(self, item: QTreeWidgetItem, column: int) -> None:
         self._table_editing_controller.on_item_changed_guard_and_recalc(item, column)
 
+    # Wrapper Contract: test seam.
     def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         self._table_editing_controller.on_item_double_clicked(item, column)
 
+    # Wrapper Contract: test seam.
     def _validate_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         return self._table_editing_controller.validate_target_pct_cell_or_revert(item)
 
+    # Wrapper Contract: test seam.
     def _validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         return self._table_editing_controller.validate_instrument_target_pct_cell_or_revert(item)
 
+    # Wrapper Contract: test seam.
     def _validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
         return self._table_editing_controller.validate_instrument_quantity_cell_or_revert(item)
 
+    # Wrapper Contract: test seam.
     def _warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
         self._table_editing_controller.warn_and_revert(item, col, bad, prev, msg)
