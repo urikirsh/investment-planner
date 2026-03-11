@@ -2,8 +2,6 @@ from __future__ import annotations
 
 """Delegation seams for composed `MainWindow` controller objects."""
 
-from collections.abc import Iterator
-
 import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
@@ -72,13 +70,3 @@ def test_main_window_wrapper_methods_delegate_to_composed_controllers(
         getattr(window, wrapper_name)(*args, **kwargs)
 
     assert calls == [f"{controller}.{method}" for controller, method, *_ in cases]
-
-
-@pytest.fixture()
-def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[MainWindow]:
-    _ = qapp
-    monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
-    monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
-    yield win
-    win.close()

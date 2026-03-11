@@ -7,7 +7,6 @@ These tests validate cross-screen state transitions and prompt/action seams
 in the composed-controller architecture, without invoking modal dialogs.
 """
 
-from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -40,18 +39,6 @@ def test_refresh_total_portfolio_propagates_unexpected_errors(
 
     with pytest.raises(RuntimeError, match="boom"):
         window._refresh_total_portfolio()
-
-
-@pytest.fixture()
-def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[MainWindow]:
-    _ = qapp
-    monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
-    monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
-    yield win
-    win.close()
-
-
 def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

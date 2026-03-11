@@ -11,6 +11,8 @@ object setup.
 import os
 from collections.abc import Callable
 from decimal import Decimal
+from pathlib import Path
+from typing import Iterator
 
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import QApplication
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.models import Exchange
 from portfolio_core.use_cases import PlanStep
+from ui.main_window_controller import MainWindow
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
 # headless environments (e.g., CI runners without an active display server).
@@ -87,3 +90,14 @@ def make_buy_calculation() -> Callable[..., BuyCalculation]:
         )
 
     return _make_buy_calculation
+
+
+@pytest.fixture
+def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path: Path) -> Iterator[MainWindow]:
+    """Return a `MainWindow` with disk/UI side effects neutralized for tests."""
+    _ = qapp
+    monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
+    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
+    monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
+    yield win
+    win.close()

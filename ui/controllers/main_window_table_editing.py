@@ -77,14 +77,9 @@ class MainWindowTableEditingController:
             return
 
         kind = get_item_kind(item)
-
         self._normalize_instrument_ticker_if_needed(item, kind=kind, column=column)
         self._normalize_instrument_exchange_if_needed(item, kind=kind, column=column)
-
-        if not self._validate_edited_cell(item, kind=kind, column=column):
-            host._refresh_data()
-            return
-
+        _ = self._validate_edited_cell(item, kind=kind, column=column)
         host._refresh_data()
 
     def on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:

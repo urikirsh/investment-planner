@@ -2,7 +2,6 @@ from __future__ import annotations
 
 """Screen-level integration tests for `MainWindow` signal wiring."""
 
-from collections.abc import Iterator
 from decimal import Decimal
 from typing import Callable
 
@@ -131,13 +130,3 @@ def test_wizard_calculate_button_signal_runs_calculation_flow(
 
     assert window.wizard_state.last_calc is fake_calc
     assert "Units: 2" in window.wiz_result.text()
-
-
-@pytest.fixture()
-def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path) -> Iterator[MainWindow]:
-    _ = qapp
-    monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
-    monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
-    yield win
-    win.close()
