@@ -4,8 +4,8 @@ from __future__ import annotations
 
 This file centralizes Qt test setup so individual tests can focus on widget
 behavior rather than process-level initialization details. It also provides
-shared builders (`make_plan_step`, `make_buy_calculation`) for common UI test
-object setup.
+shared builders (`make_plan_step`, `make_buy_calculation`,
+`add_instrument_row`) for common UI test object setup.
 """
 
 import os
@@ -106,7 +106,11 @@ def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path: Path) -> Ite
 
 @pytest.fixture
 def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
-    """Return helper that creates one top-level group with one instrument row."""
+    """Return helper that creates one top-level group with one instrument row.
+
+    The helper returns the created instrument child item, so tests can mutate
+    the row directly without repeating tree/group bootstrap code.
+    """
 
     def _add_instrument_row(
         *,

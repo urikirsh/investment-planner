@@ -170,6 +170,8 @@ FX thread-safety guards in this flow:
 
 ## Test map
 UI-focused tests:
+- `tests/ui/conftest.py`
+  - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
 - `tests/ui/test_main_window_controller_state_flow.py`
   - focused tests for planning/wizard state transitions and controller/action seams
 - `tests/ui/test_main_window_controller_delegation.py`
