@@ -4,7 +4,7 @@ from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QAbstractItemView, QTreeWidget, QTreeWidgetItem, QWidget
 from PySide6.QtCore import Qt, Signal
 
-from ui.ui_types import RowKind, ROLE_KIND
+from ui.shared.ui_types import RowKind, ROLE_KIND
 
 
 class InvestmentTreeWidget(QTreeWidget):

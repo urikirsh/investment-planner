@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ui.ui_utils import DEFAULT_CURRENCY
+from ui.shared.ui_utils import DEFAULT_CURRENCY
 
 
 DEFAULT_PRICE_LABEL = "Price (Agorot):"

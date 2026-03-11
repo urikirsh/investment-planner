@@ -13,7 +13,7 @@ from ui.controllers import (
     MainWindowWelcomeController,
 )
 from ui.main_window import MainWindow
-from ui.ui_types import Col
+from ui.shared.ui_types import Col
 
 
 def test_main_window_composes_screen_controllers(window: MainWindow) -> None:

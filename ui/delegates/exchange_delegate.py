@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 from PySide6.QtWidgets import QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
-from ui.ui_utils import DEFAULT_EXCHANGE, exchange_choices
+from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices
 
 
 class ExchangeDelegate(QStyledItemDelegate):

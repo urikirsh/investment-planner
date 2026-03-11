@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QTreeWidgetItem
 
-from ui.ui_types import Col, ROLE_EXCHANGE
-from ui.ui_utils import add_instrument_item_to_group, get_item_exchange
+from ui.shared.ui_types import Col, ROLE_EXCHANGE
+from ui.shared.ui_utils import add_instrument_item_to_group, get_item_exchange
 
 
 def test_get_item_exchange_prefers_valid_visible_text_over_role_data() -> None:

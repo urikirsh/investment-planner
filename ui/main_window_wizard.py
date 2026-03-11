@@ -23,7 +23,7 @@ from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, WizardState
-from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
+from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
 from ui.wizard_fx_coordinator import WizardFxCoordinator
 
 D = Decimal

@@ -10,8 +10,8 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
 from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
-from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
-from ui.ui_utils import DEFAULT_EXCHANGE, _is_cell_editable, get_item_kind, parse_exchange_code
+from ui.shared.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
+from ui.shared.ui_utils import DEFAULT_EXCHANGE, _is_cell_editable, get_item_kind, parse_exchange_code
 
 
 class MainWindowTableEditingController:

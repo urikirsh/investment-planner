@@ -22,8 +22,8 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.ui_types import Col
-from ui.ui_utils import DEFAULT_CURRENCY, exchange_choices
+from ui.shared.ui_types import Col
+from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
 
 
 def test_main_editor_screen_builds_expected_controls(qapp) -> None:

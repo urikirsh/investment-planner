@@ -16,7 +16,7 @@ from ui.portfolio_metrics import (
     MetricsSnapshot,
     compute_portfolio_metrics,
 )
-from ui.ui_types import RowKind
+from ui.shared.ui_types import RowKind
 
 D = Decimal
 

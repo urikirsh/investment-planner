@@ -21,8 +21,8 @@ from typing import Callable, NotRequired, TypedDict
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.models import Portfolio
-from ui.ui_types import Col, RowKind
-from ui.ui_utils import (
+from ui.shared.ui_types import Col, RowKind
+from ui.shared.ui_utils import (
     add_instrument_item_to_group,
     get_item_exchange,
     get_item_id,

@@ -66,7 +66,7 @@ FX thread-safety guards in this flow:
 - `ui/controllers/protocols.py`
   - protocol contracts for controller-host dependencies
   - keeps controller object composition statically typed without MRO coupling
-- `ui/constants.py`
+- `ui/shared/constants.py`
   - shared static UI constants used by multiple UI modules
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
