@@ -31,12 +31,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ui.decimal_input_delegate import DecimalInputDelegate
-from ui.exchange_delegate import ExchangeDelegate
-from ui.ticker_input_delegate import TickerInputDelegate
+from ui.delegates.decimal_input_delegate import DecimalInputDelegate
+from ui.delegates.exchange_delegate import ExchangeDelegate
+from ui.delegates.ticker_input_delegate import TickerInputDelegate
 from ui.tree_widget import InvestmentTreeWidget
-from ui.ui_types import Col
-from ui.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
+from ui.shared.ui_types import Col
+from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
 
 
 class MainEditorScreen(QWidget):

@@ -66,8 +66,12 @@ FX thread-safety guards in this flow:
 - `ui/controllers/protocols.py`
   - protocol contracts for controller-host dependencies
   - keeps controller object composition statically typed without MRO coupling
-- `ui/constants.py`
-  - shared static UI constants used by multiple UI modules
+- `ui/shared/*`
+  - package for cross-cutting UI primitives reused by screens/controllers/adapters
+  - `constants.py`: shared static UI constants used by multiple UI modules
+  - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
+  - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
+  - `__init__.py`: re-export surface for common shared symbols
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
@@ -83,11 +87,12 @@ FX thread-safety guards in this flow:
     - generation-token guard so stale async completions are ignored
     - explicit cancel-failure handling before starting new fetch/reset/finish transitions
     - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
-- `ui/exchange_delegate.py`
-  - combo-box delegate for instrument exchange editing in the main tree (`TASE`/`NYSE`)
-- `ui/ticker_input_delegate.py`
-  - line-edit delegate for instrument ticker editing
-  - enforces live ASCII alphanumeric-only input while allowing empty interim text
+- `ui/delegates/*`
+  - delegate package for editable tree-cell widgets in the main editor screen
+  - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
+  - `exchange_delegate.py`: combo-box delegate for instrument exchange editing (`TASE`/`NYSE`)
+  - `ticker_input_delegate.py`: line-edit delegate for ticker editing with live ASCII alphanumeric filtering
+  - `__init__.py`: re-export surface for delegate classes
   - required/exact exchange-specific ticker format is validated at save/planning time
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor

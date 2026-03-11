@@ -19,8 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from ui.ui_types import RowKind
-from ui.ui_utils import fmt_pct, fmt_pp, parse_value_cell, safe_pct
+from ui.shared.ui_types import RowKind
+from ui.shared.ui_utils import fmt_pct, fmt_pp, parse_value_cell, safe_pct
 
 D = Decimal
 

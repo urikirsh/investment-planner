@@ -21,8 +21,8 @@ from ui.portfolio_editor_adapter import (
     populate_main_editor_from_portfolio,
 )
 from ui.screens.main_editor_screen import MainEditorScreen
-from ui.ui_types import Col
-from ui.ui_utils import NON_INVESTABLE_BUCKET_ID, add_instrument_item_to_group, set_group_tree_item
+from ui.shared.ui_types import Col
+from ui.shared.ui_utils import NON_INVESTABLE_BUCKET_ID, add_instrument_item_to_group, set_group_tree_item
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 

@@ -14,8 +14,8 @@ from ui.portfolio_metrics import (
     MetricsSnapshot,
     compute_portfolio_metrics,
 )
-from ui.ui_types import Col
-from ui.ui_utils import BASE_CURRENCY_SUFFIX, apply_drift_color, get_item_kind, parse_value_cell
+from ui.shared.ui_types import Col
+from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, apply_drift_color, get_item_kind, parse_value_cell
 
 D = Decimal
 MIN_INVESTABLE_AMOUNT_ILS = D("100")

@@ -20,7 +20,7 @@ from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import PlanBuildResult, PlanStep, build_plan_for_current_document, load_document
-from ui.constants import APP_NAME
+from ui.shared.constants import APP_NAME
 from ui.controllers import (
     MainWindowMainEditorController,
     MainWindowMetricsController,
@@ -38,7 +38,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.ui_utils import NON_INVESTABLE_BUCKET_ID
+from ui.shared.ui_utils import NON_INVESTABLE_BUCKET_ID
 from ui.ui_state import PlanningState, WizardState
 
 D = Decimal

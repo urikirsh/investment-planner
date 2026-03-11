@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QTreeWidgetItem
 
 import ui.controllers.main_window_table_editing as table_editing
 from ui.main_window import MainWindow
-from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
+from ui.shared.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 
 
 def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(

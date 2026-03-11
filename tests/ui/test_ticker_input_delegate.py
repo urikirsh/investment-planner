@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QModelIndex
 from PySide6.QtWidgets import QLineEdit, QStyleOptionViewItem, QWidget
 
-from ui.ticker_input_delegate import TickerInputDelegate
+from ui.delegates.ticker_input_delegate import TickerInputDelegate
 
 
 def test_ticker_delegate_accepts_ascii_alnum_and_rejects_symbols(qapp) -> None:
