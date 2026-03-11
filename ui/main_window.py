@@ -116,6 +116,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure background FX thread is stopped before window teardown."""
+        self._welcome_controller.cancel_pending_startup_transition()
         stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
         if not stopped:
             show_error(

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Callable
-
 import pytest
 
 import portfolio_core.portfolio_session as session_mod
@@ -24,7 +22,7 @@ def _mock_remembered_portfolio_path(
 
 
 def _run_welcome_transition_immediately(monkeypatch: pytest.MonkeyPatch, window: MainWindow) -> None:
-    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", lambda callback: callback())
+    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", window._welcome_controller._complete_startup_transition_to_main)
 
 
 @pytest.fixture()
@@ -145,18 +143,29 @@ def test_welcome_start_new_loads_default_and_enters_main(window: MainWindow, mon
 def test_welcome_success_action_shows_overlay_before_delayed_main_transition(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    deferred_callbacks: list[Callable[[], None]] = []
-    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", deferred_callbacks.append)
+    scheduled: list[bool] = []
+    monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", lambda: scheduled.append(True))
 
     window._on_welcome_start_new_clicked()
 
-    assert deferred_callbacks
+    assert scheduled
     assert window.stack.currentWidget() is window.screen_welcome
     assert not window._startup_loading_overlay.isHidden()
     assert not window.stack.isEnabled()
 
-    deferred_callbacks[0]()
+    window._welcome_controller._complete_startup_transition_to_main()
 
     assert window.stack.currentWidget() is window.screen_main
     assert window._startup_loading_overlay.isHidden()
     assert window.stack.isEnabled()
+
+
+def test_close_during_startup_transition_hides_overlay_immediately(window: MainWindow) -> None:
+    window._on_welcome_start_new_clicked()
+
+    assert not window._startup_loading_overlay.isHidden()
+    assert not window.stack.isEnabled()
+
+    window.close()
+
+    assert window._startup_loading_overlay.isHidden()
