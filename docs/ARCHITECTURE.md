@@ -176,6 +176,8 @@ UI-focused tests:
   - table-driven wrapper->controller delegation guards for composed controllers
 - `tests/ui/test_main_window_controller_screen_signals.py`
   - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
+- `tests/ui/test_main_window_table_editing_controller.py`
+  - focused table-editing normalization and validation/revert behavior tests
 - `tests/ui/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/test_main_window_actions.py`
