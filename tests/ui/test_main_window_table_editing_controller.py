@@ -2,22 +2,24 @@ from __future__ import annotations
 
 """Focused table-editing behavior tests for the main-window table controller."""
 
+from collections.abc import Callable
+
 import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
 import ui.controllers.main_window_table_editing as table_editing
 from ui.main_window_controller import MainWindow
-from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
-from ui.ui_utils import set_item_meta
+from ui.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
 
 
 def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
-    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
 ) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
     monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child = add_instrument_row(tree=window.tree, ticker="1234567")
     child.setText(Col.TICKER.value, "1234567")
     child.setText(Col.EXCHANGE.value, "invalid")
 
@@ -27,11 +29,14 @@ def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
     assert child.data(0, ROLE_EXCHANGE) == "TASE"
 
 
-def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_item_changed_quantity_reverts_invalid_value(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
     warnings: list[tuple[str, str]] = []
     monkeypatch.setattr(table_editing, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child = add_instrument_row(tree=window.tree, quantity=5, value="100")
     child.setText(Col.QUANTITY.value, "5")
     child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "5")
     child.setText(Col.QUANTITY.value, "2.5")
@@ -42,11 +47,14 @@ def test_item_changed_quantity_reverts_invalid_value(window: MainWindow, monkeyp
     assert child.text(Col.QUANTITY.value) == "5"
 
 
-def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_item_changed_quantity_normalizes_empty_to_zero(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
     monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child = add_instrument_row(tree=window.tree, quantity=7)
     child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "7")
     child.setText(Col.QUANTITY.value, "")
 
@@ -58,12 +66,12 @@ def test_item_changed_quantity_normalizes_empty_to_zero(window: MainWindow, monk
 def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
 ) -> None:
     warnings: list[tuple[str, str]] = []
     monkeypatch.setattr(window, "_refresh_data", lambda: None)
     monkeypatch.setattr(table_editing, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
-    child = QTreeWidgetItem(window.tree)
-    set_item_meta(child, RowKind.INSTRUMENT, "ins-1")
+    child = add_instrument_row(tree=window.tree, exchange="TASE")
     child.setText(Col.EXCHANGE.value, "TASE")
     child.setText(Col.TICKER.value, "ab-c_1 ")
 

@@ -22,7 +22,6 @@ import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window_controller as main_window_controller
 from ui.main_window_controller import MainWindow
 from ui.ui_state import UnsavedChangesDecision
-from ui.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 D = Decimal
 
@@ -37,6 +36,8 @@ def test_refresh_total_portfolio_propagates_unexpected_errors(
 
     with pytest.raises(RuntimeError, match="boom"):
         window._refresh_total_portfolio()
+
+
 def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
@@ -182,6 +183,7 @@ def test_save_blocks_invalid_ticker_exchange_combination(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
 ) -> None:
     errors: list[tuple[str, str]] = []
     target = tmp_path / "invalid_save.json"
@@ -190,17 +192,10 @@ def test_save_blocks_invalid_ticker_exchange_combination(
     window.cash_reserve_edit.setText("0")
     window.future_tax_edit.setText("0")
 
-    group = QTreeWidgetItem(window.tree)
-    set_group_tree_item(group, "Group 1", "100", "g1")
-    add_instrument_item_to_group(
-        group,
-        "1234567",  # Invalid for NYSE (valid only for TASE)
-        "Instrument 1",
-        1,
-        "100",
-        "100",
-        "i1",
-        "NYSE",
+    add_instrument_row(
+        tree=window.tree,
+        ticker="1234567",  # Invalid for NYSE (valid only for TASE)
+        exchange="NYSE",
     )
 
     monkeypatch.setattr(window, "_resolve_save_target", lambda **_: target)

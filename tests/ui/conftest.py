@@ -15,12 +15,13 @@ from pathlib import Path
 from typing import Iterator
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.calc_stock_units import BuyCalculation
 from portfolio_core.models import Exchange
 from portfolio_core.use_cases import PlanStep
 from ui.main_window_controller import MainWindow
+from ui.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
 # headless environments (e.g., CI runners without an active display server).
@@ -101,3 +102,40 @@ def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path: Path) -> Ite
     monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
     yield win
     win.close()
+
+
+@pytest.fixture
+def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
+    """Return helper that creates one top-level group with one instrument row."""
+
+    def _add_instrument_row(
+        *,
+        tree: QTreeWidget,
+        group_name: str = "Group 1",
+        group_target_pct: Decimal | int | str = "100",
+        group_id: str = "g1",
+        ticker: str = "0000000",
+        instrument_name: str = "Instrument 1",
+        quantity: int = 1,
+        value: str = "100",
+        target_in_group_pct: str = "100",
+        instrument_id: str = "i1",
+        exchange: str = "TASE",
+    ) -> QTreeWidgetItem:
+        group = QTreeWidgetItem(tree)
+        set_group_tree_item(group, group_name, group_target_pct, group_id)
+        add_instrument_item_to_group(
+            group,
+            ticker,
+            instrument_name,
+            quantity,
+            value,
+            target_in_group_pct,
+            instrument_id,
+            exchange,
+        )
+        child = group.child(group.childCount() - 1)
+        assert child is not None
+        return child
+
+    return _add_instrument_row
