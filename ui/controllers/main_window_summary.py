@@ -2,8 +2,9 @@ from __future__ import annotations
 
 """Summary-screen setup and summary-to-wizard navigation behavior."""
 
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import List, cast
+from typing import cast
 
 from PySide6.QtWidgets import QWidget
 
@@ -38,7 +39,7 @@ class MainWindowSummaryController:
         ]
 
     @staticmethod
-    def _build_summary_action_lines(steps: list[PlanStep]) -> list[str]:
+    def _build_summary_action_lines(steps: Sequence[PlanStep]) -> list[str]:
         if not steps:
             return ["No actions required."]
 
@@ -56,9 +57,9 @@ class MainWindowSummaryController:
         host.screen_summary.back_btn.clicked.connect(self.summary_back)
         host.screen_summary.next_btn.clicked.connect(self.summary_next)
 
-    def populate_summary(self, p: Portfolio, steps: List[PlanStep], mode: PlanningMode) -> None:
+    def populate_summary(self, p: Portfolio, steps: Sequence[PlanStep], mode: PlanningMode) -> None:
         lines = self._build_summary_header_lines(p, mode)
-        lines.extend(self._build_summary_action_lines(list(steps)))
+        lines.extend(self._build_summary_action_lines(steps))
         if mode == PlanningMode.REBALANCE:
             lines.append("")
             lines.append("Note: SELL steps follow per-instrument in-group targets.")
