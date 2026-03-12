@@ -61,10 +61,6 @@ class WizardFxCoordinator:
             state.usd_ils_used_last_published = False
             state.usd_ils_rate_from_cache = False
             state.usd_ils_rate_cached_at = None
-        state.usd_ils_fetch_attempted = True
-        state.usd_ils_fetch_error = None
-        state.manual_override_usd_ils_rate = None
-        state.usd_ils_fetch_in_progress = False
         if hasattr(self._host, "manual_rate_edit"):
             self._host.manual_rate_edit.setText("")
         return True

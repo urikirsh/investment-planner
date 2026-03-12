@@ -168,10 +168,6 @@ class _FakeHost(MainWindowWizardMixin):
             usd_ils_rate=None,
             usd_ils_rate_date=None,
             usd_ils_used_last_published=False,
-            usd_ils_fetch_attempted=False,
-            usd_ils_fetch_error=None,
-            manual_override_usd_ils_rate=None,
-            usd_ils_fetch_in_progress=False,
             usd_ils_rate_from_cache=False,
             usd_ils_rate_cached_at=None,
         )
@@ -339,9 +335,8 @@ def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
     make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.wizard_state.usd_ils_fetch_attempted = False
     host._prepare_wizard_fx_rate_cache()
-    assert host.wizard_state.usd_ils_fetch_attempted is False
+    assert host.screen_wizard.fx_visible is True
 
 
 def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
@@ -351,7 +346,7 @@ def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
 
     host._prepare_wizard_fx_rate_cache()
 
-    assert host.wizard_state.usd_ils_fetch_attempted is False
+    assert host.screen_wizard.fx_visible is False
 
 
 def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
@@ -364,34 +359,28 @@ def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
 
     host._prepare_wizard_fx_rate_cache()
 
-    assert host.wizard_state.usd_ils_fetch_attempted is False
     assert shown == []
 
 
 def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
-    host.wizard_state.usd_ils_fetch_attempted = True
     host.manual_rate_edit.setText("3.4")
 
     result = host._reset_wizard_fx_state_for_new_run()
 
     assert result is True
-    assert host.wizard_state.manual_override_usd_ils_rate is None
-    assert host.wizard_state.usd_ils_fetch_attempted is True
     assert host.manual_rate_edit.text() == ""
 
 
 def test_reset_wizard_fx_state_returns_false_when_cancel_fails(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
     host.manual_rate_edit.setText("3.4")
     setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
 
     result = host._reset_wizard_fx_state_for_new_run()
 
     assert result is False
-    assert host.wizard_state.manual_override_usd_ils_rate == Decimal("3.4")
+    assert host.manual_rate_edit.text() == "3.4"
 
 
 def test_wizard_save_continue_requires_successful_calculation(

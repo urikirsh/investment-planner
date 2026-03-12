@@ -89,14 +89,6 @@ class WizardState:
         Effective date of `usd_ils_rate`.
     usd_ils_used_last_published:
         Indicates that BOI returned a prior published business-day quote.
-    usd_ils_fetch_attempted:
-        Guard field retained for compatibility with existing wizard flow state.
-    usd_ils_fetch_error:
-        Optional FX-state error surfaced in wizard UI when cache is unavailable.
-    manual_override_usd_ils_rate:
-        Transitional field retained for compatibility; manual override is no longer used.
-    usd_ils_fetch_in_progress:
-        Transitional field retained for compatibility with existing cleanup guards.
     usd_ils_rate_from_cache:
         True when the effective rate currently comes from local cache.
     usd_ils_rate_cached_at:
@@ -112,9 +104,5 @@ class WizardState:
     usd_ils_rate: Decimal | None = None
     usd_ils_rate_date: date | None = None
     usd_ils_used_last_published: bool = False
-    usd_ils_fetch_attempted: bool = False
-    usd_ils_fetch_error: str | None = None
-    manual_override_usd_ils_rate: Decimal | None = None
-    usd_ils_fetch_in_progress: bool = False
     usd_ils_rate_from_cache: bool = False
     usd_ils_rate_cached_at: datetime | None = None

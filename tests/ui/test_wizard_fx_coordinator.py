@@ -78,7 +78,7 @@ def test_prepare_wizard_fx_rate_cache_shows_wait_when_cancel_fails(
 
     coordinator.prepare_wizard_fx_rate_cache()
 
-    assert host.wizard_state.usd_ils_fetch_attempted is False
+    assert host.screen_wizard.panel_calls
 
 
 def test_render_fx_panel_hides_for_non_usd_steps(make_plan_step: Callable[..., PlanStep]) -> None:

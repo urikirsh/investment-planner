@@ -192,7 +192,7 @@ class MainWindowWizardMixin:
         self._wizard_fx_coordinator().prepare_wizard_fx_rate_cache()
 
     def _reset_wizard_fx_state_for_new_run(self) -> bool:
-        """Reset transient USD/ILS state and clear manual FX input for a new run."""
+        """Reset transient USD/ILS state for a new run."""
         return self._wizard_fx_coordinator().reset_wizard_fx_state_for_new_run()
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
@@ -218,7 +218,6 @@ class MainWindowWizardMixin:
                 "Still finishing cleanup tasks. Try again in a few seconds.",
             )
             return False
-        self.wizard_state.usd_ils_fetch_in_progress = False
         return True
 
     def _wizard_save_continue(self) -> None:
