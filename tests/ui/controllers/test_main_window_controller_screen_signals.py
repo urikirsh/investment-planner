@@ -131,3 +131,14 @@ def test_wizard_calculate_button_signal_runs_calculation_flow(
 
     assert window.wizard_state.last_calc is fake_calc
     assert "Units: 2" in window.wiz_result.text()
+
+
+def test_wizard_back_to_portfolio_button_signal_runs_back_flow(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[bool] = []
+    monkeypatch.setattr(window, "_wizard_back_to_portfolio", lambda: calls.append(True))
+
+    window.screen_wizard.back_to_portfolio_btn.click()
+
+    assert calls == [True]

@@ -447,6 +447,40 @@ def test_wizard_save_continue_shows_quantity_error_and_advances(
     assert advance_calls == 1
 
 
+def test_wizard_back_to_portfolio_returns_to_main_and_populates_editor(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    current_portfolio = object()
+    host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
+    populate_calls: list[dict[str, Any]] = []
+
+    def fake_populate_main_editor_from_portfolio(**kwargs: Any) -> None:
+        populate_calls.append(kwargs)
+
+    monkeypatch.setattr(wizard_mod, "populate_main_editor_from_portfolio", fake_populate_main_editor_from_portfolio)
+
+    host._wizard_back_to_portfolio()
+
+    assert host.planning_state.step_index == 0
+    assert len(populate_calls) == 1
+    assert populate_calls[0]["portfolio"] is current_portfolio
+    assert host.stack.current_widget is host.screen_main
+
+
+def test_wizard_back_to_portfolio_blocks_when_cancel_fails(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=object())
+    shown: list[tuple[str, str]] = []
+    setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    host._wizard_back_to_portfolio()
+
+    assert shown and shown[0][0] == "Please wait"
+    assert host.stack.current_widget is None
+
+
 def test_advance_wizard_step_shows_next_step_when_more_steps(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:

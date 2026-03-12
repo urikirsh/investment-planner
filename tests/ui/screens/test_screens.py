@@ -154,6 +154,7 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.calculate_btn.text() == "Calculate"
     assert screen.wiz_result.text() == "Units: - | Spent: - | Leftover vs plan: -"
     assert screen.quit_btn.text() == "Quit"
+    assert screen.back_to_portfolio_btn.text() == "Back to Portfolio"
     assert screen.save_continue_btn.text() == "Save and continue"
     assert screen.continue_without_save_btn.text() == "Continue without saving"
 

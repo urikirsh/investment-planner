@@ -77,6 +77,7 @@ class MainWindowWizardMixin:
         self.wiz_result = self.screen_wizard.wiz_result
         self.screen_wizard.calculate_btn.clicked.connect(self._wizard_calculate)
         self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
+        self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._wizard_back_to_portfolio)
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
         self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
@@ -244,6 +245,40 @@ class MainWindowWizardMixin:
         except Exception as e:
             show_error(cast(QWidget, self), "Continue failed", str(e))
 
+    def _wizard_back_to_portfolio(self) -> None:
+        """Exit wizard immediately and return to portfolio editor without applying current step."""
+        try:
+            if self.session.document.current_portfolio is None:
+                raise ValueError("No portfolio loaded")
+            if not self._cancel_wizard_fx_fetch():
+                show_error(
+                    cast(QWidget, self),
+                    "Please wait",
+                    "Still finishing background USD/ILS fetch. Try again in a few seconds.",
+                )
+                return
+            self.wizard_state.usd_ils_fetch_in_progress = False
+            self.wizard_state.usd_ils_active_fetch_generation = None
+            self._return_to_main_editor_from_current_portfolio()
+        except Exception as e:
+            show_error(cast(QWidget, self), "Back failed", str(e))
+
+    def _return_to_main_editor_from_current_portfolio(self) -> None:
+        """Populate main editor from current portfolio state and switch back to main screen."""
+        current = self.session.document.current_portfolio
+        assert current is not None
+        populate_main_editor_from_portfolio(
+            tree=self.tree,
+            cash_value_edit=self.cash_value_edit,
+            cash_reserve_edit=self.cash_reserve_edit,
+            future_tax_edit=self.future_tax_edit,
+            portfolio=current,
+            non_investable_bucket_id=self._non_investable_bucket_id,
+            non_investable_bucket_title=self._non_investable_bucket_title,
+            on_future_tax_value_set=self._update_future_tax_visual_state,
+        )
+        self.stack.setCurrentWidget(self.screen_main)
+
     def _advance_wizard_step(self) -> None:
         """Move to next step, or repopulate main editor and return when complete.
 
@@ -263,18 +298,6 @@ class MainWindowWizardMixin:
                 return
             self.wizard_state.usd_ils_fetch_in_progress = False
             self.wizard_state.usd_ils_active_fetch_generation = None
-            current = self.session.document.current_portfolio
-            assert current is not None
-            populate_main_editor_from_portfolio(
-                tree=self.tree,
-                cash_value_edit=self.cash_value_edit,
-                cash_reserve_edit=self.cash_reserve_edit,
-                future_tax_edit=self.future_tax_edit,
-                portfolio=current,
-                non_investable_bucket_id=self._non_investable_bucket_id,
-                non_investable_bucket_title=self._non_investable_bucket_title,
-                on_future_tax_value_set=self._update_future_tax_visual_state,
-            )
-            self.stack.setCurrentWidget(self.screen_main)
+            self._return_to_main_editor_from_current_portfolio()
         else:
             self._show_current_wizard_step()

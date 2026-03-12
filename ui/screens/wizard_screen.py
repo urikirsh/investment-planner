@@ -102,6 +102,9 @@ class WizardScreen(QWidget):
         self.quit_btn = QPushButton("Quit")
         btns_layout.addWidget(self.quit_btn)
 
+        self.back_to_portfolio_btn = QPushButton("Back to Portfolio")
+        btns_layout.addWidget(self.back_to_portfolio_btn)
+
         self.save_continue_btn = QPushButton("Save and continue")
         btns_layout.addWidget(self.save_continue_btn)
 
