@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QW
 from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
 from portfolio_core.models import Currency
 from portfolio_core.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import InsufficientQuantityForSellError, apply_wizard_step
+from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
 from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.wizard_screen import WizardScreen
@@ -86,31 +86,22 @@ class MainWindowWizardMixin:
 
     def _show_current_wizard_step(self) -> None:
         """Render current wizard step details and reset last calculation state."""
-        s = self.planning_state.plan_steps[self.planning_state.step_index]
+        s = self._current_step()
         idx = self.planning_state.step_index + 1
         total = len(self.planning_state.plan_steps)
 
         action = "BUY" if s.planned_delta_money > 0 else "SELL"
         planned_amount_text = f"{abs(s.planned_delta_money)} {BASE_CURRENCY_SUFFIX}"
-        if hasattr(self.screen_wizard, "set_step_context"):
-            self.screen_wizard.set_step_context(
-                step_index=idx,
-                total_steps=total,
-                asset_group_name=s.asset_group_name,
-                instrument_name=s.instrument_name,
-                action=action,
-                planned_amount_text=planned_amount_text,
-            )
-        else:
-            self.wiz_info.setText(
-                f"Step {idx}/{total}\n"
-                f"Asset group: {s.asset_group_name}\n"
-                f"Instrument: {s.instrument_name}\n"
-                f"Planned {action} value {BASE_CURRENCY_SUFFIX}: {abs(s.planned_delta_money)}"
-            )
-        if hasattr(self, "screen_wizard"):
-            self.screen_wizard.set_price_mode(s.exchange)
-            self._render_fx_panel_for_current_step()
+        self.screen_wizard.set_step_context(
+            step_index=idx,
+            total_steps=total,
+            asset_group_name=s.asset_group_name,
+            instrument_name=s.instrument_name,
+            action=action,
+            planned_amount_text=planned_amount_text,
+        )
+        self.screen_wizard.set_price_mode(s.exchange)
+        self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
         self._set_wizard_result_placeholder_for_current_step()
         self._set_save_continue_enabled(False)
@@ -144,7 +135,7 @@ class MainWindowWizardMixin:
         remains stable during typing/focus navigation.
         """
         try:
-            s = self.planning_state.plan_steps[self.planning_state.step_index]
+            s = self._current_step()
             entered_price = d_from_text(self.price_edit.text(), "price")
 
             planned = abs(s.planned_delta_money)
@@ -263,7 +254,7 @@ class MainWindowWizardMixin:
             if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
 
-            s = self.planning_state.plan_steps[self.planning_state.step_index]
+            s = self._current_step()
             if self.wizard_state.last_calc is None:
                 raise ValueError("Please calculate units before saving this step.")
             calc_units = self.wizard_state.last_calc.units
@@ -321,7 +312,7 @@ class MainWindowWizardMixin:
 
     def _set_wizard_result_placeholder_for_current_step(self) -> None:
         """Render action-specific placeholder text before calculation."""
-        planned_delta_money = self.planning_state.plan_steps[self.planning_state.step_index].planned_delta_money
+        planned_delta_money = self._current_step().planned_delta_money
         self.wiz_result.setText(
             self._format_wizard_result_text(
                 units="-",
@@ -333,8 +324,11 @@ class MainWindowWizardMixin:
 
     def _sync_wizard_focus_row_widths(self) -> None:
         """Refresh optional focus-row width alignment on wizard result changes."""
-        if hasattr(self.screen_wizard, "sync_focus_row_widths"):
-            self.screen_wizard.sync_focus_row_widths()
+        self.screen_wizard.sync_focus_row_widths()
+
+    def _current_step(self) -> PlanStep:
+        """Return the active wizard step from planning state."""
+        return self.planning_state.plan_steps[self.planning_state.step_index]
 
     def _wizard_continue_without_saving(self) -> None:
         """Skip current step without mutating portfolio and move forward."""

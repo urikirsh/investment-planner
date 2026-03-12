@@ -66,6 +66,8 @@ class _FakeWizardScreen:
     def __init__(self, price_label: _FakeLabel, price_edit: _FakeLineEdit) -> None:
         self._price_label = price_label
         self._price_edit = price_edit
+        self.step_progress = _FakeLabel()
+        self.wiz_info = _FakeLabel()
         self.fx_visible = False
         self.fx_info_text = ""
         self.fx_error_text = ""
@@ -97,6 +99,26 @@ class _FakeWizardScreen:
         if manual_visible and manual_value:
             self._price_edit.setText(self._price_edit.text())
         _ = manual_value
+
+    def set_step_context(
+        self,
+        *,
+        step_index: int,
+        total_steps: int,
+        asset_group_name: str,
+        instrument_name: str,
+        action: str,
+        planned_amount_text: str,
+    ) -> None:
+        self.step_progress.setText(f"Step {step_index}/{total_steps}")
+        self.wiz_info.setText(
+            f"Instrument: {instrument_name}\n"
+            f"Asset group: {asset_group_name}\n"
+            f"Action: {action} {planned_amount_text}"
+        )
+
+    def sync_focus_row_widths(self) -> None:
+        return None
 
 
 class _FakeStack:
@@ -162,7 +184,7 @@ class _FakeHost(MainWindowWizardMixin):
         self.manual_rate_edit = _FakeLineEdit()
         self.price_label = _FakeLabel()
         self.screen_wizard = _FakeWizardScreen(self.price_label, self.price_edit)
-        self.wiz_info = _FakeLabel()
+        self.wiz_info = self.screen_wizard.wiz_info
         self.wiz_result = _FakeLabel()
         self._non_investable_bucket_id = "non_investable_bucket"
         self._non_investable_bucket_title = "Non-investable holdings (excluded from strategy)"
@@ -187,8 +209,8 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
 
     host._show_current_wizard_step()
 
-    assert "Step 1/1" in host.wiz_info.value
-    assert "Planned BUY value (ILS): 125" in host.wiz_info.value
+    assert host.screen_wizard.step_progress.value == "Step 1/1"
+    assert "Action: BUY 125 (ILS)" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
     assert host.wiz_result.value == "Units: - | Spent (ILS): - | Leftover vs plan (ILS): -"
