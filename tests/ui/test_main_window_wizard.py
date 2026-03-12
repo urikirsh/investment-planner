@@ -155,6 +155,7 @@ class _FakeHost(MainWindowWizardMixin):
     wiz_result: Any
     _file_context_updates: int
     _future_tax_updates: int
+    _refresh_data_calls: int
 
     def __init__(self, *, steps: list[PlanStep], step_index: int = 0, current_portfolio: object | None = object()) -> None:
         self.session = SimpleNamespace(
@@ -194,6 +195,7 @@ class _FakeHost(MainWindowWizardMixin):
         self._non_investable_bucket_title = "Non-investable holdings (excluded from strategy)"
         self._file_context_updates = 0
         self._future_tax_updates = 0
+        self._refresh_data_calls = 0
         self._fx_fetch_thread = None
         self._fx_fetch_worker = None
 
@@ -205,6 +207,9 @@ class _FakeHost(MainWindowWizardMixin):
 
     def _update_future_tax_visual_state(self) -> None:
         self._future_tax_updates += 1
+
+    def _refresh_data(self) -> None:
+        self._refresh_data_calls += 1
 
 
 def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step: Callable[..., PlanStep]) -> None:
@@ -547,6 +552,7 @@ def test_wizard_back_to_portfolio_returns_to_main_and_populates_editor(
     assert host.planning_state.step_index == 0
     assert len(populate_calls) == 1
     assert populate_calls[0]["portfolio"] is current_portfolio
+    assert host._refresh_data_calls == 1
     assert host.stack.current_widget is host.screen_main
 
 
@@ -600,6 +606,7 @@ def test_advance_wizard_step_returns_to_main_and_populates_editor(
     assert host.planning_state.step_index == 1
     assert len(populate_calls) == 1
     assert populate_calls[0]["portfolio"] is current_portfolio
+    assert host._refresh_data_calls == 1
     assert host.stack.current_widget is host.screen_main
 
 

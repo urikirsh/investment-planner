@@ -67,6 +67,10 @@ class MainWindowWizardMixin:
         """Apply visual cues when the editor is repopulated after wizard completion."""
         ...
 
+    def _refresh_data(self) -> None:
+        """Recompute and rerender derived values on the main screen."""
+        ...
+
     def _init_wizard_screen(self) -> None:
         """Build screen-4 wizard widget and wire wizard actions."""
         self.screen_wizard = WizardScreen(cast(QWidget, self))
@@ -384,6 +388,7 @@ class MainWindowWizardMixin:
             non_investable_bucket_title=self._non_investable_bucket_title,
             on_future_tax_value_set=self._update_future_tax_visual_state,
         )
+        self._refresh_data()
         self.stack.setCurrentWidget(self.screen_main)
 
     def _advance_wizard_step(self) -> None:
