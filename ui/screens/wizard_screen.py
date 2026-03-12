@@ -41,6 +41,9 @@ from ui.shared.ui_utils import DEFAULT_CURRENCY
 DEFAULT_PRICE_LABEL = "Price (Agorot):"
 USD_PRICE_LABEL = f"Price ({Exchange.NYSE.currency.value}):"
 USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/{DEFAULT_CURRENCY.value} rate:"
+# Neutral bootstrap text shown before the first step is rendered by
+# `MainWindowWizardMixin`, which then switches to action-specific labels
+# ("Spent" for buy / "Proceeds" for sell).
 DEFAULT_WIZARD_RESULT_TEXT = "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
 
 

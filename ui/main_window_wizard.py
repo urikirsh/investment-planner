@@ -123,7 +123,11 @@ class MainWindowWizardMixin:
         self._wizard_calculate_impl(show_error_dialog=True)
 
     def _wizard_calculate_implicit(self) -> None:
-        """Calculate on price edit commit (Enter/focus-out) without modal errors."""
+        """Calculate on price edit commit (Enter/focus-out) without modal errors.
+
+        Empty/whitespace input clears any previous calculation and restores the
+        step-aware placeholder so stale values cannot be committed.
+        """
         if not self.price_edit.text().strip():
             self.wizard_state.last_calc = None
             self._set_wizard_result_placeholder_for_current_step()
@@ -303,7 +307,11 @@ class MainWindowWizardMixin:
         leftover_value: object,
         conversion_info: str = "",
     ) -> str:
-        """Build consistent wizard result-line text for placeholder and calculated states."""
+        """Build one canonical wizard result-line format.
+
+        Used for both placeholder and calculated states so wording/order/units
+        remain consistent across step refreshes and recalculations.
+        """
         return (
             f"{conversion_info}"
             f"Units: {units} | "
@@ -312,7 +320,7 @@ class MainWindowWizardMixin:
         )
 
     def _set_wizard_result_placeholder_for_current_step(self) -> None:
-        """Render step-aware placeholder text before calculation."""
+        """Render action-specific placeholder text before calculation."""
         planned_delta_money = self.planning_state.plan_steps[self.planning_state.step_index].planned_delta_money
         self.wiz_result.setText(
             self._format_wizard_result_text(
