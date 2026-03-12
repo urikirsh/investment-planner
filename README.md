@@ -75,11 +75,13 @@ The application never executes trades automatically. All actions are explicit an
   - stale async fetch completions are ignored (wizard-run generation guard) to avoid cross-run state leaks
   - integer unit calculation (rounded down)
 - Wizard actions:
-  - Save and continue
-  - Continue without saving
+  - Quit (application-level exit)
   - Back to Portfolio (returns to the portfolio screen without applying the current step)
+  - Continue without saving (skips current step)
+  - Save and continue
   - Save-and-continue updates instrument `quantity` for executed wizard trades (buy adds units, sell subtracts units)
   - If a sell step requests more units than the tracked quantity, the wizard shows a clear error and skips that step after acknowledgement
+  - Action-row layout separates concerns: `Quit` is left-aligned, while step actions are right-aligned
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX

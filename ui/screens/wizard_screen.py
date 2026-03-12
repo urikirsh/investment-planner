@@ -6,6 +6,11 @@ This module defines `WizardScreen`, the per-instrument execution view
 for step information, price entry, FX status/override inputs, calculation
 feedback, and step actions.
 
+Action-row intent:
+- `Quit` is kept on the far left as an application-level action.
+- Wizard-step actions are grouped on the right:
+  `Back to Portfolio`, `Continue without saving`, and `Save and continue`.
+
 Price-entry semantics:
 - ILS steps use agorot input (`Price (Agorot)`), matching
   `portfolio_core.calc_stock_units.calculate_buy_units`.
@@ -43,6 +48,8 @@ class WizardScreen(QWidget):
     Exposes controls so the coordinator can attach flow behavior.
     Input units are intentionally explicit in labels to reduce cross-unit
     entry mistakes during wizard execution.
+    The action row intentionally separates app-level and step-level actions
+    to reduce accidental exits during step execution.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:

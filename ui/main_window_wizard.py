@@ -246,7 +246,11 @@ class MainWindowWizardMixin:
             show_error(cast(QWidget, self), "Continue failed", str(e))
 
     def _wizard_back_to_portfolio(self) -> None:
-        """Exit wizard immediately and return to portfolio editor without applying current step."""
+        """Exit wizard early and return to main editor without applying the active step.
+
+        This path is intentionally non-mutating for the active step; only
+        previously saved wizard steps are reflected when repopulating editor UI.
+        """
         try:
             if self.session.document.current_portfolio is None:
                 raise ValueError("No portfolio loaded")
@@ -264,7 +268,11 @@ class MainWindowWizardMixin:
             show_error(cast(QWidget, self), "Back failed", str(e))
 
     def _return_to_main_editor_from_current_portfolio(self) -> None:
-        """Populate main editor from current portfolio state and switch back to main screen."""
+        """Populate main editor from current portfolio and switch to screen 2.
+
+        Shared by full wizard completion and explicit "Back to Portfolio" exit
+        to keep main-screen refresh behavior identical across both transitions.
+        """
         current = self.session.document.current_portfolio
         assert current is not None
         populate_main_editor_from_portfolio(

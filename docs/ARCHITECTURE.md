@@ -31,7 +31,7 @@ Main user flow:
 4. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
 5. Summary screen presents generated plan steps.
 6. Wizard execution is managed by `MainWindowWizardMixin`.
-7. Completed wizard flow repopulates the main editor and returns to screen 2.
+7. Wizard returns to screen 2 either after completion or via explicit "Back to Portfolio"; both paths repopulate the main editor from current session state.
 
 FX thread-safety guards in this flow:
 - Wizard FX fetch uses generation tokens so stale async completions are ignored.
@@ -80,6 +80,7 @@ FX thread-safety guards in this flow:
 - `ui/screens/wizard_screen.py`
   - screen 4 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
+  - action-row layout keeps app-level `Quit` separated from step-level actions (`Back to Portfolio`, `Continue without saving`, `Save and continue`)
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
@@ -101,7 +102,7 @@ FX thread-safety guards in this flow:
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
-  - handles transition back to main editor when wizard execution completes
+  - handles transition back to main editor when wizard execution completes or when user exits early via `Back to Portfolio`
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
