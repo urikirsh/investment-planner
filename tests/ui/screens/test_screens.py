@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 import tomllib
 
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
@@ -148,14 +149,44 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     _ = qapp
     screen = WizardScreen()
 
+    labels = [label.text() for label in screen.findChildren(QLabel)]
+    assert "Execute Plan Step" in labels
+    assert "Step -/-" in labels
+    assert "font-size: 15px" in screen.step_progress.styleSheet()
     assert screen.wiz_info.text() == "-"
     assert screen.wiz_info.wordWrap()
+    assert "font-size: 15px" in screen.wiz_info.styleSheet()
     assert screen.price_edit.placeholderText() == "Enter unit price (e.g. 123.45)"
+    assert screen.price_edit.maxLength() == 11
     assert screen.calculate_btn.text() == "Calculate"
-    assert screen.wiz_result.text() == "Units: - | Spent: - | Leftover vs plan: -"
+    assert screen.calculate_btn.parentWidget() is screen.price_edit.parentWidget()
+    assert "font-size: 15px" in screen.price_label.styleSheet()
+    assert "font-size: 15px" in screen.price_edit.styleSheet()
+    assert "font-size: 15px" in screen.calculate_btn.styleSheet()
+    assert screen.wiz_result.text() == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
+    assert not screen.wiz_result.wordWrap()
+    assert "font-size: 15px" in screen.wiz_result.styleSheet()
     assert screen.quit_btn.text() == "Quit"
+    assert screen.back_to_portfolio_btn.text() == "Exit Wizard"
     assert screen.save_continue_btn.text() == "Save and continue"
-    assert screen.continue_without_save_btn.text() == "Continue without saving"
+    assert not screen.save_continue_btn.isEnabled()
+    assert "font-size: 15px" in screen.save_continue_btn.styleSheet()
+    assert screen.continue_without_save_btn.text() == "Skip Step"
+    assert screen.save_continue_btn.parentWidget() is screen.wiz_result.parentWidget()
+    btns_parent = screen.quit_btn.parentWidget()
+    assert btns_parent is not None
+    btns_layout = btns_parent.layout()
+    assert btns_layout is not None
+    assert btns_layout.indexOf(screen.quit_btn) < btns_layout.indexOf(screen.back_to_portfolio_btn)
+    assert btns_layout.indexOf(screen.back_to_portfolio_btn) < btns_layout.indexOf(screen.continue_without_save_btn)
+    assert btns_layout.indexOf(screen.save_continue_btn) == -1
+    price_row_parent = screen.price_label.parentWidget()
+    result_row_parent = screen.wiz_result.parentWidget()
+    assert price_row_parent is not None
+    assert result_row_parent is not None
+    assert price_row_parent.width() == result_row_parent.width()
+    min_input_width = QFontMetrics(screen.price_edit.font()).horizontalAdvance("0" * 11) + 24
+    assert screen.price_edit.minimumWidth() >= min_input_width
 
 
 def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value(qapp) -> None:

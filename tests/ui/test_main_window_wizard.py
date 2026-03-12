@@ -47,17 +47,33 @@ class _FakeLineEdit:
         return self._placeholder
 
 
+class _FakeButton:
+    """Minimal button double exposing enabled-state mutation."""
+
+    def __init__(self, enabled: bool = True) -> None:
+        self._enabled = enabled
+
+    def setEnabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+
+    def isEnabled(self) -> bool:
+        return self._enabled
+
+
 class _FakeWizardScreen:
     """Minimal wizard-screen double exposing price-mode behavior."""
 
     def __init__(self, price_label: _FakeLabel, price_edit: _FakeLineEdit) -> None:
         self._price_label = price_label
         self._price_edit = price_edit
+        self.step_progress = _FakeLabel()
+        self.wiz_info = _FakeLabel()
         self.fx_visible = False
         self.fx_info_text = ""
         self.fx_error_text = ""
         self.manual_visible = False
-        self.calculate_btn = SimpleNamespace(setEnabled=lambda *_args, **_kwargs: None)
+        self.calculate_btn = _FakeButton()
+        self.save_continue_btn = _FakeButton(False)
 
     def set_price_mode(self, exchange: Exchange) -> None:
         if exchange.currency == Exchange.NYSE.currency:
@@ -83,6 +99,26 @@ class _FakeWizardScreen:
         if manual_visible and manual_value:
             self._price_edit.setText(self._price_edit.text())
         _ = manual_value
+
+    def set_step_context(
+        self,
+        *,
+        step_index: int,
+        total_steps: int,
+        asset_group_name: str,
+        instrument_name: str,
+        action: str,
+        planned_amount_text: str,
+    ) -> None:
+        self.step_progress.setText(f"Step {step_index}/{total_steps}")
+        self.wiz_info.setText(
+            f"Instrument: {instrument_name}\n"
+            f"Asset group: {asset_group_name}\n"
+            f"Action: {action} {planned_amount_text}"
+        )
+
+    def sync_focus_row_widths(self) -> None:
+        return None
 
 
 class _FakeStack:
@@ -148,7 +184,7 @@ class _FakeHost(MainWindowWizardMixin):
         self.manual_rate_edit = _FakeLineEdit()
         self.price_label = _FakeLabel()
         self.screen_wizard = _FakeWizardScreen(self.price_label, self.price_edit)
-        self.wiz_info = _FakeLabel()
+        self.wiz_info = self.screen_wizard.wiz_info
         self.wiz_result = _FakeLabel()
         self._non_investable_bucket_id = "non_investable_bucket"
         self._non_investable_bucket_title = "Non-investable holdings (excluded from strategy)"
@@ -173,12 +209,22 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
 
     host._show_current_wizard_step()
 
-    assert "Step 1/1" in host.wiz_info.value
-    assert "Planned BUY value (ILS): 125" in host.wiz_info.value
+    assert host.screen_wizard.step_progress.value == "Step 1/1"
+    assert "Action: BUY 125 (ILS)" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
-    assert host.wiz_result.value == "Units: - | Spent/Proceeds: - | Leftover vs plan: -"
+    assert host.wiz_result.value == "Units: - | Spent (ILS): - | Leftover vs plan (ILS): -"
     assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
+
+
+def test_show_current_wizard_step_uses_proceeds_placeholder_for_sell(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="-125")])
+
+    host._show_current_wizard_step()
+
+    assert host.wiz_result.value == "Units: - | Proceeds (ILS): - | Leftover vs plan (ILS): -"
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
 
 
 def test_wizard_calculate_sets_last_calc_and_result_text(
@@ -200,7 +246,8 @@ def test_wizard_calculate_sets_last_calc_and_result_text(
 
     assert calls == [{"instrument_id": "ins-1", "planned_money": Decimal("50"), "price_ag": Decimal("10")}]
     assert host.wizard_state.last_calc is fake_calc
-    assert host.wiz_result.value == "Units: 5 | Proceeds (ILS): 50 | Leftover vs plan: 0"
+    assert host.wiz_result.value == "Units: 5 | Proceeds (ILS): 50 | Leftover vs plan (ILS): 0"
+    assert host.screen_wizard.save_continue_btn.isEnabled() is True
 
 
 def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_plan_step: Callable[..., PlanStep]) -> None:
@@ -256,9 +303,39 @@ def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
     host._wizard_calculate()
 
     assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
     assert errors
     assert errors[0][0] == "Calculation failed"
     assert "USD/ILS rate unavailable" in errors[0][1]
+
+
+def test_wizard_implicit_failure_clears_last_calc_and_disables_save(
+    make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="20")])
+    host.wizard_state.last_calc = SimpleNamespace(units=2, spent=Decimal("20"), leftover=Decimal("0"))
+    host.screen_wizard.save_continue_btn.setEnabled(True)
+    host.price_edit.setText("bad-price")
+
+    host._wizard_calculate_implicit()
+
+    assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
+    assert "Calculation not updated:" in host.wiz_result.value
+
+
+def test_wizard_implicit_empty_input_clears_last_calc_and_disables_save(
+    make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="20")])
+    host.wizard_state.last_calc = SimpleNamespace(units=2, spent=Decimal("20"), leftover=Decimal("0"))
+    host.screen_wizard.save_continue_btn.setEnabled(True)
+    host.price_edit.setText("   ")
+
+    host._wizard_calculate_implicit()
+
+    assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
 
 
 def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
@@ -385,12 +462,13 @@ def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[
     assert host.wizard_state.usd_ils_rate == Decimal("3.7")
 
 
-def test_wizard_save_continue_uses_zero_when_no_last_calc(
+def test_wizard_save_continue_requires_successful_calculation(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="10")])
     host.wizard_state.last_calc = None
 
+    shown: list[tuple[str, str]] = []
     apply_calls: list[dict[str, Any]] = []
     advance_calls = 0
 
@@ -403,17 +481,16 @@ def test_wizard_save_continue_uses_zero_when_no_last_calc(
         advance_calls += 1
 
     monkeypatch.setattr(wizard_mod, "apply_wizard_step", fake_apply)
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
     monkeypatch.setattr(host, "_advance_wizard_step", fake_advance)
 
     host._wizard_save_continue()
 
-    assert len(apply_calls) == 1
-    assert apply_calls[0]["session"] is host.session
-    assert apply_calls[0]["step"] is host.planning_state.plan_steps[0]
-    assert apply_calls[0]["calc_units"] == 0
-    assert apply_calls[0]["spent"] == Decimal("0")
-    assert host._file_context_updates == 1
-    assert advance_calls == 1
+    assert apply_calls == []
+    assert shown and shown[0][0] == "Save failed"
+    assert "Please calculate units before saving this step." in shown[0][1]
+    assert host._file_context_updates == 0
+    assert advance_calls == 0
 
 
 def test_wizard_save_continue_shows_quantity_error_and_advances(
@@ -445,6 +522,40 @@ def test_wizard_save_continue_shows_quantity_error_and_advances(
     assert "tried to sell 3 units" in shown[0][1]
     assert "only 1 units are available" in shown[0][1]
     assert advance_calls == 1
+
+
+def test_wizard_back_to_portfolio_returns_to_main_and_populates_editor(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    current_portfolio = object()
+    host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
+    populate_calls: list[dict[str, Any]] = []
+
+    def fake_populate_main_editor_from_portfolio(**kwargs: Any) -> None:
+        populate_calls.append(kwargs)
+
+    monkeypatch.setattr(wizard_mod, "populate_main_editor_from_portfolio", fake_populate_main_editor_from_portfolio)
+
+    host._wizard_back_to_portfolio()
+
+    assert host.planning_state.step_index == 0
+    assert len(populate_calls) == 1
+    assert populate_calls[0]["portfolio"] is current_portfolio
+    assert host.stack.current_widget is host.screen_main
+
+
+def test_wizard_back_to_portfolio_blocks_when_cancel_fails(
+    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=object())
+    shown: list[tuple[str, str]] = []
+    setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    host._wizard_back_to_portfolio()
+
+    assert shown and shown[0][0] == "Please wait"
+    assert host.stack.current_widget is None
 
 
 def test_advance_wizard_step_shows_next_step_when_more_steps(

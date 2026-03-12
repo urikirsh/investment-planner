@@ -89,13 +89,13 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     window._show_current_wizard_step()
     assert window.planning_state.step_index == 0
     assert window.wizard_state.last_calc is None
-    assert "Step 1/2" in window.wiz_info.text()
+    assert window.screen_wizard.step_progress.text() == "Step 1/2"
 
     window.wizard_state.last_calc = calc
     window._advance_wizard_step()
     assert window.planning_state.step_index == 1
     assert window.wizard_state.last_calc is None
-    assert "Step 2/2" in window.wiz_info.text()
+    assert window.screen_wizard.step_progress.text() == "Step 2/2"
 
 
 def test_run_planning_aborts_when_wizard_fx_reset_cannot_cancel(

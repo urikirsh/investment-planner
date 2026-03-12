@@ -31,7 +31,7 @@ Main user flow:
 4. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
 5. Summary screen presents generated plan steps.
 6. Wizard execution is managed by `MainWindowWizardMixin`.
-7. Completed wizard flow repopulates the main editor and returns to screen 2.
+7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state.
 
 FX thread-safety guards in this flow:
 - Wizard FX fetch uses generation tokens so stale async completions are ignored.
@@ -80,6 +80,11 @@ FX thread-safety guards in this flow:
 - `ui/screens/wizard_screen.py`
   - screen 4 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
+  - action layout keeps app-level `Quit` separated from right-aligned step navigation actions (`Exit Wizard`, `Skip Step`)
+  - primary commit action (`Save and continue`) is colocated with the result row (`Units/Spent/Leftover`) for higher focus
+  - `Save and continue` is disabled by default and only enabled after a successful calculation for the active step
+  - centered price row and centered result row are width-aligned with a minimum 11-character input width guard
+  - row-width syncing is responsive: widths are clamped to available space and revert to natural sizing on narrow windows
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
@@ -101,7 +106,10 @@ FX thread-safety guards in this flow:
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
-  - handles transition back to main editor when wizard execution completes
+  - handles transition back to main editor when wizard execution completes or when user exits early via `Exit Wizard`
+  - explicit calculate uses modal errors; implicit calculate (`Enter`/focus-out) writes non-modal inline status in the result row
+  - implicit inline calculation errors are shortened to keep the result row compact
+  - any calculation failure invalidates cached `last_calc` and re-disables `Save and continue` to prevent stale-step commits
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
