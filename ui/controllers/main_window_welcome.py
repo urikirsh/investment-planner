@@ -275,13 +275,14 @@ class MainWindowWelcomeController:
         self._startup_fx_fetch_thread = None
         return True
 
-    def cancel_pending_startup_transition(self) -> None:
-        """Cancel any pending startup transition and hide transition overlay."""
+    def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = 1000) -> bool:
+        """Cancel startup transition and return whether FX worker cleanup completed."""
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
         self._startup_transition_pending = False
         self._startup_min_delay_elapsed = False
         self._startup_fx_fetch_completed = False
         self._startup_fx_fetch_error = None
-        self._cancel_startup_fx_fetch()
+        stopped = self._cancel_startup_fx_fetch(wait_timeout_ms=wait_timeout_ms)
         self._host._hide_startup_loading_overlay()
+        return stopped

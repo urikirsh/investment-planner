@@ -116,9 +116,9 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure startup/wizard FX cleanup is done before window teardown."""
-        self._welcome_controller.cancel_pending_startup_transition()
-        stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
-        if not stopped:
+        startup_stopped = self._welcome_controller.cancel_pending_startup_transition(wait_timeout_ms=12000)
+        wizard_stopped = startup_stopped and self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
+        if not startup_stopped or not wizard_stopped:
             show_error(
                 self,
                 "Please wait",
