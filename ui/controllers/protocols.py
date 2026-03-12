@@ -7,6 +7,7 @@ from typing import Protocol
 
 from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTextEdit, QTreeWidget, QWidget
 
+from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -78,6 +79,8 @@ class MainWindowMainEditorHost(Protocol):
     def _update_future_tax_visual_state(self) -> None: ...
 
     def _update_file_context_ui(self) -> None: ...
+
+    def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None: ...
 
     def _run_planning(self, mode: PlanningMode) -> None: ...
 

@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 import pytest
 
-from portfolio_core.models import Exchange
+from portfolio_core.models import Exchange, Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote
 from portfolio_core.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep
@@ -106,6 +106,8 @@ class _FakeWizardScreen:
         step_index: int,
         total_steps: int,
         asset_group_name: str,
+        ticker: str,
+        exchange: Exchange,
         instrument_name: str,
         action: str,
         planned_amount_text: str,
@@ -113,6 +115,8 @@ class _FakeWizardScreen:
         self.step_progress.setText(f"Step {step_index}/{total_steps}")
         self.wiz_info.setText(
             f"Instrument: {instrument_name}\n"
+            f"Ticker: {ticker}\n"
+            f"Exchange: {exchange.value}\n"
             f"Asset group: {asset_group_name}\n"
             f"Action: {action} {planned_amount_text}"
         )
@@ -151,6 +155,8 @@ class _FakeHost(MainWindowWizardMixin):
     wiz_result: Any
     _file_context_updates: int
     _future_tax_updates: int
+    _refresh_data_calls: int
+    _render_main_editor_calls: list[dict[str, object]]
 
     def __init__(self, *, steps: list[PlanStep], step_index: int = 0, current_portfolio: object | None = object()) -> None:
         self.session = SimpleNamespace(
@@ -190,6 +196,8 @@ class _FakeHost(MainWindowWizardMixin):
         self._non_investable_bucket_title = "Non-investable holdings (excluded from strategy)"
         self._file_context_updates = 0
         self._future_tax_updates = 0
+        self._refresh_data_calls = 0
+        self._render_main_editor_calls = []
         self._fx_fetch_thread = None
         self._fx_fetch_worker = None
 
@@ -202,6 +210,15 @@ class _FakeHost(MainWindowWizardMixin):
     def _update_future_tax_visual_state(self) -> None:
         self._future_tax_updates += 1
 
+    def _refresh_data(self) -> None:
+        self._refresh_data_calls += 1
+
+    def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
+        self._render_main_editor_calls.append({"portfolio": portfolio, "switch_to_main": switch_to_main})
+        self._refresh_data()
+        if switch_to_main:
+            self.stack.setCurrentWidget(self.screen_main)
+
 
 def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="125")])
@@ -210,6 +227,8 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     host._show_current_wizard_step()
 
     assert host.screen_wizard.step_progress.value == "Step 1/1"
+    assert "Ticker: 1234567" in host.wiz_info.value
+    assert "Exchange: TASE" in host.wiz_info.value
     assert "Action: BUY 125 (ILS)" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
@@ -525,22 +544,18 @@ def test_wizard_save_continue_shows_quantity_error_and_advances(
 
 
 def test_wizard_back_to_portfolio_returns_to_main_and_populates_editor(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+    make_plan_step: Callable[..., PlanStep]
 ) -> None:
     current_portfolio = object()
     host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
-    populate_calls: list[dict[str, Any]] = []
-
-    def fake_populate_main_editor_from_portfolio(**kwargs: Any) -> None:
-        populate_calls.append(kwargs)
-
-    monkeypatch.setattr(wizard_mod, "populate_main_editor_from_portfolio", fake_populate_main_editor_from_portfolio)
 
     host._wizard_back_to_portfolio()
 
     assert host.planning_state.step_index == 0
-    assert len(populate_calls) == 1
-    assert populate_calls[0]["portfolio"] is current_portfolio
+    assert len(host._render_main_editor_calls) == 1
+    assert host._render_main_editor_calls[0]["portfolio"] is current_portfolio
+    assert host._render_main_editor_calls[0]["switch_to_main"] is True
+    assert host._refresh_data_calls == 1
     assert host.stack.current_widget is host.screen_main
 
 
@@ -578,22 +593,18 @@ def test_advance_wizard_step_shows_next_step_when_more_steps(
 
 
 def test_advance_wizard_step_returns_to_main_and_populates_editor(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
+    make_plan_step: Callable[..., PlanStep]
 ) -> None:
     current_portfolio = object()
     host = _FakeHost(steps=[make_plan_step(delta="10")], step_index=0, current_portfolio=current_portfolio)
-    populate_calls: list[dict[str, Any]] = []
-
-    def fake_populate_main_editor_from_portfolio(**kwargs: Any) -> None:
-        populate_calls.append(kwargs)
-
-    monkeypatch.setattr(wizard_mod, "populate_main_editor_from_portfolio", fake_populate_main_editor_from_portfolio)
 
     host._advance_wizard_step()
 
     assert host.planning_state.step_index == 1
-    assert len(populate_calls) == 1
-    assert populate_calls[0]["portfolio"] is current_portfolio
+    assert len(host._render_main_editor_calls) == 1
+    assert host._render_main_editor_calls[0]["portfolio"] is current_portfolio
+    assert host._render_main_editor_calls[0]["switch_to_main"] is True
+    assert host._refresh_data_calls == 1
     assert host.stack.current_widget is host.screen_main
 
 

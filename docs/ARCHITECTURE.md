@@ -31,7 +31,7 @@ Main user flow:
 4. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
 5. Summary screen presents generated plan steps.
 6. Wizard execution is managed by `MainWindowWizardMixin`.
-7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state.
+7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
 
 FX thread-safety guards in this flow:
 - Wizard FX fetch uses generation tokens so stale async completions are ignored.
@@ -107,6 +107,7 @@ FX thread-safety guards in this flow:
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
   - handles transition back to main editor when wizard execution completes or when user exits early via `Exit Wizard`
+  - wizard step info card includes instrument name, ticker, exchange, asset group, and action amount context
   - explicit calculate uses modal errors; implicit calculate (`Enter`/focus-out) writes non-modal inline status in the result row
   - implicit inline calculation errors are shortened to keep the result row compact
   - any calculation failure invalidates cached `last_calc` and re-disables `Save and continue` to prevent stale-step commits

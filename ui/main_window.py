@@ -142,18 +142,24 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     def _load_portfolio_from_file(self, path: Path) -> None:
         """Load a portfolio from disk into editor state and refresh UI context."""
         p = load_document(self.session, path)
+        self._render_main_editor_from_portfolio(p, switch_to_main=False)
+        self._update_file_context_ui()
+
+    def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
+        """Render a portfolio in screen 2 widgets and recompute all derived fields."""
         populate_main_editor_from_portfolio(
             tree=self.tree,
             cash_value_edit=self.cash_value_edit,
             cash_reserve_edit=self.cash_reserve_edit,
             future_tax_edit=self.future_tax_edit,
-            portfolio=p,
+            portfolio=portfolio,
             non_investable_bucket_id=NON_INVESTABLE_BUCKET_ID,
             non_investable_bucket_title=NON_INVESTABLE_BUCKET_TITLE,
             on_future_tax_value_set=self._update_future_tax_visual_state,
         )
         self._refresh_data()
-        self._update_file_context_ui()
+        if switch_to_main:
+            self.stack.setCurrentWidget(self.screen_main)
 
     def _run_planning(self, mode: PlanningMode) -> None:
         """Execute planning flow from current UI state and open summary screen."""

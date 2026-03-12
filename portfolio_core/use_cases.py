@@ -64,6 +64,8 @@ class PlanStep:
     Notes
     -----
     - `planned_delta_money` is always expressed in ILS.
+    - `ticker` is copied from the selected instrument and is intended for
+      wizard-step context display and user verification before execution.
     - `exchange` describes the instrument's trading exchange and drives
       wizard price-entry semantics via exchange->currency mapping.
     - Supported values are members of `Exchange`.
@@ -72,6 +74,7 @@ class PlanStep:
     asset_group_id: str
     asset_group_name: str
     instrument_id: str
+    ticker: str
     instrument_name: str
     exchange: Exchange
     planned_delta_money: D
@@ -227,6 +230,7 @@ def build_plan_for_current_document(session: PortfolioSession, mode: PlanningMod
                 asset_group_id=group_id,
                 asset_group_name=group_name,
                 instrument_id=instrument_id,
+                ticker=instrument.ticker,
                 instrument_name=instrument.name,
                 exchange=instrument.exchange,
                 planned_delta_money=planned_delta,
