@@ -297,11 +297,6 @@ class MainWindowWizardMixin:
         if sync_widths:
             self._sync_wizard_focus_row_widths()
 
-    def _wizard_money_label(self, planned_delta_money: D) -> str:
-        """Return action-specific money label for the active step."""
-        _, money_label = self._wizard_step_direction_labels(planned_delta_money)
-        return money_label
-
     def _wizard_step_direction_labels(self, planned_delta_money: D) -> tuple[str, str]:
         """Return `(action_label, money_label)` for step direction."""
         if planned_delta_money > 0:
@@ -331,11 +326,11 @@ class MainWindowWizardMixin:
 
     def _set_wizard_result_placeholder_for_current_step(self) -> None:
         """Render action-specific placeholder text before calculation."""
-        planned_delta_money = self._current_step().planned_delta_money
+        _, money_label = self._wizard_step_direction_labels(self._current_step().planned_delta_money)
         self.wiz_result.setText(
             self._format_wizard_result_text(
                 units="-",
-                money_label=self._wizard_money_label(planned_delta_money),
+                money_label=money_label,
                 money_value="-",
                 leftover_value="-",
             )
