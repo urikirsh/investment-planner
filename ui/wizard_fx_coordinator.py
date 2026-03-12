@@ -17,8 +17,8 @@ from ui.ui_state import PlanningState, WizardState
 class WizardFxHost(Protocol):
     """Host contract required by ``WizardFxCoordinator``.
 
-    The host is expected to provide wizard/session state plus small callback
-    seams that are already part of ``MainWindowWizardMixin``.
+    The host provides wizard/session state plus a cancellation seam reused by
+    existing wizard flow guards.
     """
 
     session: PortfolioSession
@@ -70,7 +70,7 @@ class WizardFxCoordinator:
         return True
 
     def cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
-        """Return host cleanup status for wizard FX background work."""
+        """Return no-op success for backward-compatible cleanup call sites."""
         _ = wait_timeout_ms
         return True
 

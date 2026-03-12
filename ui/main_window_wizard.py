@@ -196,7 +196,7 @@ class MainWindowWizardMixin:
         return self._wizard_fx_coordinator().reset_wizard_fx_state_for_new_run()
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
-        """Run compatibility cleanup for any legacy in-flight FX worker."""
+        """Run wizard FX cleanup seam (currently a no-op compatibility call)."""
         return self._wizard_fx_coordinator().cancel_wizard_fx_fetch(wait_timeout_ms=wait_timeout_ms)
 
     def _render_fx_panel_for_current_step(self) -> None:
@@ -210,7 +210,7 @@ class MainWindowWizardMixin:
         return self._wizard_fx
 
     def _try_finish_wizard_fx_cleanup(self) -> bool:
-        """Ensure wizard FX background work is stopped before leaving wizard flow."""
+        """Run wizard FX cleanup guard before leaving wizard flow."""
         if not self._cancel_wizard_fx_fetch():
             show_error(
                 cast(QWidget, self),
@@ -365,7 +365,7 @@ class MainWindowWizardMixin:
     def _advance_wizard_step(self) -> None:
         """Move to next step, or repopulate main editor and return when complete.
 
-        Final-step transition is guarded by FX-thread cancellation; if cleanup
+        Final-step transition is guarded by FX cleanup; if cleanup
         cannot complete yet, the method keeps the current step active and
         informs the user to retry shortly.
         """

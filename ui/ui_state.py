@@ -90,13 +90,13 @@ class WizardState:
     usd_ils_used_last_published:
         Indicates that BOI returned a prior published business-day quote.
     usd_ils_fetch_attempted:
-        Legacy guard kept for compatibility with coordinator seams.
+        Guard field retained for compatibility with existing wizard flow state.
     usd_ils_fetch_error:
         Optional FX-state error surfaced in wizard UI when cache is unavailable.
     manual_override_usd_ils_rate:
-        Legacy field retained for compatibility; manual override is no longer used.
+        Transitional field retained for compatibility; manual override is no longer used.
     usd_ils_fetch_in_progress:
-        Legacy field retained for compatibility with old async-fetch paths.
+        Transitional field retained for compatibility with existing cleanup guards.
     usd_ils_rate_from_cache:
         True when the effective rate currently comes from local cache.
     usd_ils_rate_cached_at:

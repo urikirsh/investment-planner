@@ -84,6 +84,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Start New File`
   - `Quit`
   - after choosing a startup action that opens the main editor, a blocking transition overlay appears for at least 1 second while the app fetches USD/ILS
+  - this fetch is always performed during startup transition, even when the current portfolio has no USD-priced instruments
   - if USD/ILS fetch fails, the app shows an error dialog with a `Back` button and returns to the welcome screen
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero

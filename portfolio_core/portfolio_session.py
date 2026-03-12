@@ -20,7 +20,7 @@ This module centralizes:
 - startup path resolution from global user config
 - a PortfolioDocument with current portfolio model, active file path,
   saved snapshot, and dirty-state
-- config-backed cache for last successful USD/ILS quote (used by wizard fallback)
+- config-backed + in-memory session cache for last successful USD/ILS quote
 - building the minimal default in-memory portfolio
 
 Important startup behavior:
@@ -103,8 +103,8 @@ class PortfolioSession:
 
         The payload currently stores (when available):
         - `last_portfolio_path`: absolute path string for startup restore
-        - `last_usd_ils_quote`: last successful BOI quote cache used for
-          wizard fallback when network fetch fails
+        - `last_usd_ils_quote`: last successful BOI quote cache loaded into
+          in-memory session state for startup/wizard flows
         """
         if not self._config_path.exists():
             return {}
@@ -127,11 +127,11 @@ class PortfolioSession:
     def read_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
         """Read last successful USD/ILS quote cache from session config.
 
-        Returns ``None`` for any missing/corrupt/incomplete payload so callers
-        can treat cache as optional and fail soft to manual entry.
+        Returns cached in-memory value first. When memory cache is empty, falls
+        back to config payload parsing.
 
-        This method is intentionally fail-soft: unreadable or partially-invalid
-        cache payloads are treated as "no cache" instead of raising.
+        Returns ``None`` for missing/corrupt/incomplete payloads. Parsing is
+        intentionally fail-soft and never raises to callers.
         """
         if self._session_cached_usd_ils_quote is not None:
             return self._session_cached_usd_ils_quote
@@ -213,8 +213,8 @@ class PortfolioSession:
     ) -> None:
         """Persist last successful USD/ILS quote cache to session config.
 
-        This intentionally writes only successful official fetches. Manual
-        overrides are transient wizard state and are never persisted.
+        This intentionally writes only successful official fetches and keeps
+        the in-memory session cache in sync with persisted state.
         """
         now = cached_at or datetime.now(timezone.utc)
         if now.tzinfo is None:

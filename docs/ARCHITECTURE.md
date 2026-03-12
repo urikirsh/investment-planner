@@ -101,7 +101,7 @@ FX thread-safety guards in this flow:
   - composes focused controller objects from `ui/controllers/*`
   - wires most Qt signals directly to composed controller methods
   - keeps thin wrapper methods only for cross-flow contracts used by actions/wizard flows and tests
-  - guards window close by canceling any active startup transition/fetch and running wizard FX cleanup
+  - guards window close by canceling any active startup transition/fetch and invoking wizard FX cleanup seam
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
