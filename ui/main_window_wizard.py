@@ -68,7 +68,7 @@ class MainWindowWizardMixin:
         ...
 
     def _init_wizard_screen(self) -> None:
-        """Build screen-3 widget and wire wizard actions."""
+        """Build screen-4 wizard widget and wire wizard actions."""
         self.screen_wizard = WizardScreen(cast(QWidget, self))
         self.wiz_info = self.screen_wizard.wiz_info
         self.price_label = self.screen_wizard.price_label
@@ -301,7 +301,7 @@ class MainWindowWizardMixin:
     def _return_to_main_editor_from_current_portfolio(self) -> None:
         """Populate main editor from current portfolio and switch to screen 2.
 
-        Shared by full wizard completion and explicit "Back to Portfolio" exit
+        Shared by full wizard completion and explicit "Exit Wizard" exit
         to keep main-screen refresh behavior identical across both transitions.
         """
         current = self.session.document.current_portfolio

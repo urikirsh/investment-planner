@@ -82,6 +82,7 @@ FX thread-safety guards in this flow:
   - exposes price input, calculation feedback, and step action controls
   - action layout keeps app-level `Quit` separated from right-aligned step navigation actions (`Exit Wizard`, `Skip Step`)
   - primary commit action (`Save and continue`) is colocated with the result row (`Units/Spent/Leftover`) for higher focus
+  - centered price row and centered result row are width-aligned with a minimum 11-character input width guard
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
@@ -104,6 +105,7 @@ FX thread-safety guards in this flow:
 - `ui/main_window_wizard.py`
   - wizard screen wiring and per-step calculate/save/advance behavior
   - handles transition back to main editor when wizard execution completes or when user exits early via `Exit Wizard`
+  - explicit calculate uses modal errors; implicit calculate (`Enter`/focus-out) writes non-modal inline status in the result row
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads

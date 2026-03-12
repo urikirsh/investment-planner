@@ -75,6 +75,7 @@ The application never executes trades automatically. All actions are explicit an
   - stale async fetch completions are ignored (wizard-run generation guard) to avoid cross-run state leaks
   - integer unit calculation (rounded down)
   - price input supports quick calculation on `Enter` or when leaving the input field
+  - implicit calculation failures (from `Enter`/focus-out) are shown inline in the result row, without a modal dialog
   - `Calculate` remains available next to the price input for explicit/manual recalculation
   - price row (`Price + input + Calculate`) is centered and width-aligned with the centered result row (`Units/Spent/Leftover + Save and continue`) while preserving at least 11 visible input characters
 - Wizard actions:

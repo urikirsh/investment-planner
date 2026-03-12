@@ -13,6 +13,11 @@ Action-row intent:
 - Primary step commit action (`Save and continue`) is grouped with result data
   in a centered row to keep attention on the decision point.
 
+Focused-row layout:
+- Price row (`Price + input + Calculate`) and result row
+  (`Units/Spent/Leftover + Save and continue`) are centered and width-synced.
+- Price input keeps a minimum visual width for at least 11 characters.
+
 Price-entry semantics:
 - ILS steps use agorot input (`Price (Agorot)`), matching
   `portfolio_core.calc_stock_units.calculate_buy_units`.
