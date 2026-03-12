@@ -133,6 +133,51 @@ def test_wizard_calculate_button_signal_runs_calculation_flow(
     assert "Units: 2" in window.wiz_result.text()
 
 
+def test_wizard_price_editing_finished_signal_runs_implicit_calculation_flow(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+    make_buy_calculation: Callable[..., BuyCalculation],
+) -> None:
+    step = make_plan_step(delta="20")
+    window.planning_state.plan_steps = [step]
+    window.planning_state.step_index = 0
+    window.price_edit.setText("10")
+
+    fake_calc = make_buy_calculation(
+        instrument_id=step.instrument_id,
+        price="10",
+        planned_money="20",
+        units=2,
+        spent="20",
+        leftover="0",
+    )
+    monkeypatch.setattr(wizard_mod, "calculate_buy_units", lambda **_kwargs: fake_calc)
+
+    window.price_edit.editingFinished.emit()
+
+    assert window.wizard_state.last_calc is fake_calc
+    assert "Units: 2" in window.wiz_result.text()
+
+
+def test_wizard_price_editing_finished_does_not_show_modal_error_on_invalid_input(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+) -> None:
+    step = make_plan_step(delta="20")
+    window.planning_state.plan_steps = [step]
+    window.planning_state.step_index = 0
+    window.price_edit.setText("abc")
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
+
+    window.price_edit.editingFinished.emit()
+
+    assert shown == []
+    assert "Calculation not updated:" in window.wiz_result.text()
+
+
 def test_wizard_back_to_portfolio_button_signal_runs_back_flow(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:

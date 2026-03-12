@@ -74,10 +74,12 @@ The application never executes trades automatically. All actions are explicit an
   - if official fetch fails and cached rate is unavailable/unreadable, wizard prompts for manual USD/ILS input
   - stale async fetch completions are ignored (wizard-run generation guard) to avoid cross-run state leaks
   - integer unit calculation (rounded down)
+  - price input supports quick calculation on `Enter` or when leaving the input field
+  - `Calculate` remains available next to the price input for explicit/manual recalculation
 - Wizard actions:
   - Quit (application-level exit)
-  - Back to Portfolio (returns to the portfolio screen without applying the current step)
-  - Continue without saving (skips current step)
+  - Exit Wizard (returns to the portfolio screen without applying the current step)
+  - Skip Step (moves to the next step without applying this step)
   - Save and continue
   - Save-and-continue updates instrument `quantity` for executed wizard trades (buy adds units, sell subtracts units)
   - If a sell step requests more units than the tracked quantity, the wizard shows a clear error and skips that step after acknowledgement
@@ -186,7 +188,8 @@ Notes:
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
 - In the step-by-step wizard:
   - `Save and continue` writes progress after that step.
-  - `Continue without saving` moves on without writing that step.
+  - `Skip Step` moves on without writing that step.
+  - `Exit Wizard` returns to the portfolio screen without applying the active step.
 
 ---
 

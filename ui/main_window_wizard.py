@@ -76,6 +76,7 @@ class MainWindowWizardMixin:
         self.manual_rate_edit = self.screen_wizard.manual_rate_edit
         self.wiz_result = self.screen_wizard.wiz_result
         self.screen_wizard.calculate_btn.clicked.connect(self._wizard_calculate)
+        self.price_edit.editingFinished.connect(self._wizard_calculate_implicit)
         self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
         self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._wizard_back_to_portfolio)
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
@@ -89,22 +90,43 @@ class MainWindowWizardMixin:
         total = len(self.planning_state.plan_steps)
 
         action = "BUY" if s.planned_delta_money > 0 else "SELL"
-        self.wiz_info.setText(
-            f"Step {idx}/{total}\n"
-            f"Asset group: {s.asset_group_name}\n"
-            f"Instrument: {s.instrument_name}\n"
-            f"Planned {action} value {BASE_CURRENCY_SUFFIX}: {abs(s.planned_delta_money)}"
-        )
+        planned_amount_text = f"{abs(s.planned_delta_money)} {BASE_CURRENCY_SUFFIX}"
+        if hasattr(self.screen_wizard, "set_step_context"):
+            self.screen_wizard.set_step_context(
+                step_index=idx,
+                total_steps=total,
+                asset_group_name=s.asset_group_name,
+                instrument_name=s.instrument_name,
+                action=action,
+                planned_amount_text=planned_amount_text,
+            )
+        else:
+            self.wiz_info.setText(
+                f"Step {idx}/{total}\n"
+                f"Asset group: {s.asset_group_name}\n"
+                f"Instrument: {s.instrument_name}\n"
+                f"Planned {action} value {BASE_CURRENCY_SUFFIX}: {abs(s.planned_delta_money)}"
+            )
         if hasattr(self, "screen_wizard"):
             self.screen_wizard.set_price_mode(s.exchange)
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
-        self.wiz_result.setText("Units: - | Spent/Proceeds: - | Leftover vs plan: -")
+        self.wiz_result.setText(f"Units: - | Spent/Proceeds {BASE_CURRENCY_SUFFIX}: - | Leftover vs plan: -")
 
         self.wizard_state.last_calc = None
 
     def _wizard_calculate(self) -> None:
         """Calculate units/spend for the current wizard step from entered price."""
+        self._wizard_calculate_impl(show_error_dialog=True)
+
+    def _wizard_calculate_implicit(self) -> None:
+        """Calculate on price edit commit (Enter/focus-out) without modal errors."""
+        if not self.price_edit.text().strip():
+            return
+        self._wizard_calculate_impl(show_error_dialog=False)
+
+    def _wizard_calculate_impl(self, *, show_error_dialog: bool) -> None:
+        """Shared calculation logic for explicit and implicit wizard triggers."""
         try:
             s = self.planning_state.plan_steps[self.planning_state.step_index]
             entered_price = d_from_text(self.price_edit.text(), "price")
@@ -140,7 +162,10 @@ class MainWindowWizardMixin:
                 f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
             )
         except Exception as e:
-            show_error(cast(QWidget, self), "Calculation failed", str(e))
+            if show_error_dialog:
+                show_error(cast(QWidget, self), "Calculation failed", str(e))
+                return
+            self.wiz_result.setText(f"Calculation not updated: {e}")
 
     def _get_effective_usd_ils_rate(self) -> D:
         """Return USD/ILS rate for current wizard run, with override fallback."""

@@ -9,7 +9,7 @@ feedback, and step actions.
 Action-row intent:
 - `Quit` is kept on the far left as an application-level action.
 - Wizard-step actions are grouped on the right:
-  `Back to Portfolio`, `Continue without saving`, and `Save and continue`.
+  `Exit Wizard`, `Skip Step`, and `Save and continue`.
 
 Price-entry semantics:
 - ILS steps use agorot input (`Price (Agorot)`), matching
@@ -23,15 +23,7 @@ All trade execution behavior is intentionally delegated to the coordinator.
 from __future__ import annotations
 
 from portfolio_core.models import Currency, Exchange
-from PySide6.QtWidgets import (
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from ui.shared.ui_utils import DEFAULT_CURRENCY
 
@@ -58,21 +50,47 @@ class WizardScreen(QWidget):
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setSpacing(12)
 
-        title = QLabel("Invest per asset group")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        title = QLabel("Execute Plan Step")
+        title.setStyleSheet("font-size: 20px; font-weight: 600;")
         layout.addWidget(title)
+
+        subtitle = QLabel("Review the step details, calculate units, then apply or skip this step.")
+        subtitle.setWordWrap(True)
+        subtitle.setStyleSheet("color: #4a4a4a;")
+        layout.addWidget(subtitle)
+
+        info_card = QWidget(self)
+        info_card.setStyleSheet("background: #f5f7fa; border: 1px solid #d8dde6; border-radius: 6px;")
+        info_layout = QVBoxLayout(info_card)
+        info_layout.setContentsMargins(10, 8, 10, 8)
+        info_layout.setSpacing(6)
+
+        self.step_progress = QLabel("Step -/-")
+        self.step_progress.setStyleSheet("font-size: 12px; font-weight: 600; color: #34495e;")
+        info_layout.addWidget(self.step_progress)
 
         self.wiz_info = QLabel("-")
         self.wiz_info.setWordWrap(True)
-        layout.addWidget(self.wiz_info)
+        info_layout.addWidget(self.wiz_info)
+        layout.addWidget(info_card)
 
         form = QWidget(self)
         form_layout = QFormLayout(form)
+        form_layout.setVerticalSpacing(8)
         self.price_label = QLabel(DEFAULT_PRICE_LABEL)
+        price_row = QWidget(self)
+        price_row_layout = QHBoxLayout(price_row)
+        price_row_layout.setContentsMargins(0, 0, 0, 0)
+        price_row_layout.setSpacing(8)
         self.price_edit = QLineEdit()
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
-        form_layout.addRow(self.price_label, self.price_edit)
+        self.price_edit.setMaxLength(11)
+        price_row_layout.addWidget(self.price_edit, 1)
+        self.calculate_btn = QPushButton("Calculate")
+        price_row_layout.addWidget(self.calculate_btn)
+        form_layout.addRow(self.price_label, price_row)
 
         self.fx_info_label = QLabel("")
         self.fx_info_label.setWordWrap(True)
@@ -93,33 +111,47 @@ class WizardScreen(QWidget):
         form_layout.addRow(self.manual_rate_label, self.manual_rate_edit)
         layout.addWidget(form)
 
-        calc_row = QWidget(self)
-        calc_layout = QHBoxLayout(calc_row)
-        self.calculate_btn = QPushButton("Calculate")
-        calc_layout.addWidget(self.calculate_btn)
-
-        self.wiz_result = QLabel("Units: - | Spent: - | Leftover vs plan: -")
+        self.wiz_result = QLabel("Units: - | Spent/Proceeds (ILS): - | Leftover vs plan: -")
         self.wiz_result.setWordWrap(True)
-        calc_layout.addWidget(self.wiz_result, 1)
-        layout.addWidget(calc_row)
+        self.wiz_result.setStyleSheet("background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; padding: 8px;")
+        layout.addWidget(self.wiz_result)
 
         btns = QWidget(self)
         btns_layout = QHBoxLayout(btns)
+        btns_layout.setContentsMargins(0, 0, 0, 0)
 
         self.quit_btn = QPushButton("Quit")
         btns_layout.addWidget(self.quit_btn)
 
         btns_layout.addStretch(1)
 
-        self.back_to_portfolio_btn = QPushButton("Back to Portfolio")
+        self.back_to_portfolio_btn = QPushButton("Exit Wizard")
         btns_layout.addWidget(self.back_to_portfolio_btn)
 
-        self.continue_without_save_btn = QPushButton("Continue without saving")
+        self.continue_without_save_btn = QPushButton("Skip Step")
         btns_layout.addWidget(self.continue_without_save_btn)
 
         self.save_continue_btn = QPushButton("Save and continue")
         btns_layout.addWidget(self.save_continue_btn)
         layout.addWidget(btns)
+
+    def set_step_context(
+        self,
+        *,
+        step_index: int,
+        total_steps: int,
+        asset_group_name: str,
+        instrument_name: str,
+        action: str,
+        planned_amount_text: str,
+    ) -> None:
+        """Render a compact, readable summary block for the active wizard step."""
+        self.step_progress.setText(f"Step {step_index}/{total_steps}")
+        self.wiz_info.setText(
+            f"Instrument: {instrument_name}\n"
+            f"Asset group: {asset_group_name}\n"
+            f"Action: {action} {planned_amount_text}"
+        )
 
     def set_price_mode(self, exchange: Exchange) -> None:
         """Configure price-label context for the current instrument exchange."""
