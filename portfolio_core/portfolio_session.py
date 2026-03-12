@@ -73,6 +73,7 @@ class PortfolioSession:
         self.default_json_path = default_json_path
         self.document = PortfolioDocument()
         self._config_path = config_path
+        self._session_cached_usd_ils_quote: CachedUsdIlsQuote | None = None
 
     @property
     def current_file_path(self) -> Optional[Path]:
@@ -132,6 +133,9 @@ class PortfolioSession:
         This method is intentionally fail-soft: unreadable or partially-invalid
         cache payloads are treated as "no cache" instead of raising.
         """
+        if self._session_cached_usd_ils_quote is not None:
+            return self._session_cached_usd_ils_quote
+
         payload = self._read_config_payload().get("last_usd_ils_quote")
         if not isinstance(payload, dict):
             return None
@@ -165,12 +169,39 @@ class PortfolioSession:
         if cached_at.tzinfo is None:
             cached_at = cached_at.replace(tzinfo=timezone.utc)
 
-        return CachedUsdIlsQuote(
+        quote = CachedUsdIlsQuote(
             rate=rate,
             effective_date=effective_date,
             used_last_published=bool(raw_last_published),
             cached_at=cached_at,
         )
+        self._session_cached_usd_ils_quote = quote
+        return quote
+
+    def get_session_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
+        """Return in-memory USD/ILS quote cached during this app session, if any."""
+        return self._session_cached_usd_ils_quote
+
+    def set_session_cached_usd_ils_quote(
+        self,
+        *,
+        rate: Decimal,
+        effective_date: date,
+        used_last_published: bool,
+        cached_at: datetime | None = None,
+    ) -> CachedUsdIlsQuote:
+        """Update in-memory USD/ILS quote cache used across wizard runs."""
+        now = cached_at or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        quote = CachedUsdIlsQuote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=used_last_published,
+            cached_at=now,
+        )
+        self._session_cached_usd_ils_quote = quote
+        return quote
 
     def write_cached_usd_ils_quote(
         self,
@@ -197,6 +228,12 @@ class PortfolioSession:
             "cached_at": now.isoformat(),
         }
         self._write_config_payload(payload)
+        self._session_cached_usd_ils_quote = CachedUsdIlsQuote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=bool(used_last_published),
+            cached_at=now,
+        )
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""

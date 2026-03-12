@@ -3,18 +3,39 @@ from __future__ import annotations
 """Welcome-screen behavior for the composed main window controller."""
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Final, cast
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
 from portfolio_core.app_metadata import get_app_version
+from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from ui.controllers.protocols import MainWindowWelcomeHost
+from ui.dialogs import show_error_with_back
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
-_STARTUP_TRANSITION_DELAY_MS: Final[int] = 1000
+_STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
+
+
+class _StartupFxFetchWorker(QObject):
+    """Background BOI fetch worker for welcome->main transition."""
+
+    finished = Signal(object, object)  # (UsdIlsRateQuote | None, error_text | None)
+
+    def __init__(self, *, timeout_seconds: float = 10.0) -> None:
+        super().__init__()
+        self._timeout_seconds = timeout_seconds
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
+            self.finished.emit(quote, None)
+        except Exception as exc:
+            self.finished.emit(None, str(exc))
 
 
 @dataclass(frozen=True)
@@ -35,6 +56,12 @@ class MainWindowWelcomeController:
         self._startup_transition_timer = QTimer(self._host_widget())
         self._startup_transition_timer.setSingleShot(True)
         self._startup_transition_timer.timeout.connect(self._complete_startup_transition_to_main)
+        self._startup_fx_fetch_thread: QThread | None = None
+        self._startup_fx_fetch_worker: _StartupFxFetchWorker | None = None
+        self._startup_transition_pending = False
+        self._startup_min_delay_elapsed = False
+        self._startup_fx_fetch_completed = False
+        self._startup_fx_fetch_error: str | None = None
 
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for screen/dialog parenting."""
@@ -146,21 +173,115 @@ class MainWindowWelcomeController:
         self._begin_startup_transition_to_main()
 
     def _begin_startup_transition_to_main(self) -> None:
-        """Show loading overlay and enter main screen after a fixed delay."""
+        """Show loading overlay and enter main only after delay + FX fetch."""
+        self._startup_transition_pending = True
+        self._startup_min_delay_elapsed = False
+        self._startup_fx_fetch_completed = False
+        self._startup_fx_fetch_error = None
         self._host._show_startup_loading_overlay()
         self._schedule_main_screen_transition()
+        self._start_startup_fx_fetch()
 
     def _complete_startup_transition_to_main(self) -> None:
-        """Hide transition overlay and complete navigation to main screen."""
-        self._host._hide_startup_loading_overlay()
-        self.enter_main_screen()
+        """Mark the min-delay timer complete and try finalizing transition."""
+        self._startup_min_delay_elapsed = True
+        self._try_finalize_startup_transition()
 
     def _schedule_main_screen_transition(self) -> None:
-        """Schedule fixed-delay transition with a cancelable timer."""
-        self._startup_transition_timer.start(_STARTUP_TRANSITION_DELAY_MS)
+        """Schedule minimum-delay transition with a cancelable timer."""
+        self._startup_transition_timer.start(_STARTUP_TRANSITION_MIN_DELAY_MS)
+
+    def _start_startup_fx_fetch(self) -> None:
+        """Start USD/ILS fetch unless already cached for this app session."""
+        if self._host.session.get_session_cached_usd_ils_quote() is not None:
+            self._startup_fx_fetch_completed = True
+            self._try_finalize_startup_transition()
+            return
+
+        self._cancel_startup_fx_fetch()
+        self._startup_fx_fetch_thread = QThread(self._host_widget())
+        self._startup_fx_fetch_worker = _StartupFxFetchWorker(timeout_seconds=10.0)
+        self._startup_fx_fetch_worker.moveToThread(self._startup_fx_fetch_thread)
+        self._startup_fx_fetch_thread.started.connect(self._startup_fx_fetch_worker.run)
+        self._startup_fx_fetch_worker.finished.connect(self._on_startup_fx_fetch_finished)
+        self._startup_fx_fetch_worker.finished.connect(self._startup_fx_fetch_thread.quit)
+        self._startup_fx_fetch_worker.finished.connect(self._startup_fx_fetch_worker.deleteLater)
+        self._startup_fx_fetch_thread.finished.connect(self._startup_fx_fetch_thread.deleteLater)
+        self._startup_fx_fetch_thread.start()
+
+    @Slot(object, object)
+    def _on_startup_fx_fetch_finished(self, quote_obj: object, error_obj: object) -> None:
+        """Store startup fetch result and finalize transition when ready."""
+        self._startup_fx_fetch_worker = None
+        self._startup_fx_fetch_thread = None
+        quote = quote_obj if isinstance(quote_obj, UsdIlsRateQuote) else None
+        error_text = str(error_obj) if isinstance(error_obj, str) else ""
+
+        if quote is not None and not error_text:
+            now = datetime.now(timezone.utc)
+            self._host.session.set_session_cached_usd_ils_quote(
+                rate=quote.rate,
+                effective_date=quote.effective_date,
+                used_last_published=quote.used_last_published,
+                cached_at=now,
+            )
+            try:
+                self._host.session.write_cached_usd_ils_quote(
+                    rate=quote.rate,
+                    effective_date=quote.effective_date,
+                    used_last_published=quote.used_last_published,
+                    cached_at=now,
+                )
+            except Exception:
+                pass
+            self._startup_fx_fetch_error = None
+        else:
+            self._startup_fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
+
+        self._startup_fx_fetch_completed = True
+        self._try_finalize_startup_transition()
+
+    def _try_finalize_startup_transition(self) -> None:
+        """Finalize welcome transition after both min-delay and FX-fetch complete."""
+        if not self._startup_transition_pending:
+            return
+        if not self._startup_min_delay_elapsed or not self._startup_fx_fetch_completed:
+            return
+
+        self._startup_transition_pending = False
+        self._host._hide_startup_loading_overlay()
+        if self._startup_fx_fetch_error:
+            self._host.stack.setCurrentWidget(self._host.screen_welcome)
+            show_error_with_back(
+                self._host_widget(),
+                "Exchange rate fetch failed",
+                self._startup_fx_fetch_error,
+            )
+            self.refresh_last_portfolio_ui()
+            return
+        self.enter_main_screen()
+
+    def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
+        """Stop and detach in-flight startup FX fetch worker, if any."""
+        thread = self._startup_fx_fetch_thread
+        worker = self._startup_fx_fetch_worker
+        if thread is not None and thread.isRunning():
+            thread.quit()
+            if not thread.wait(wait_timeout_ms):
+                return False
+        if worker is not None:
+            worker.deleteLater()
+        self._startup_fx_fetch_worker = None
+        self._startup_fx_fetch_thread = None
+        return True
 
     def cancel_pending_startup_transition(self) -> None:
         """Cancel any pending startup transition and hide transition overlay."""
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
+        self._startup_transition_pending = False
+        self._startup_min_delay_elapsed = False
+        self._startup_fx_fetch_completed = False
+        self._startup_fx_fetch_error = None
+        self._cancel_startup_fx_fetch()
         self._host._hide_startup_loading_overlay()

@@ -34,8 +34,8 @@ Main user flow:
 7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
 
 FX thread-safety guards in this flow:
-- Wizard FX fetch uses generation tokens so stale async completions are ignored.
-- Starting a new wizard run requires successful cancellation of any previous in-flight FX thread.
+- Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
+- Wizard runs reuse session-cached USD/ILS data populated during welcome transition (no wizard-side refetch).
 - Window close waits for FX-thread shutdown (up to 12 seconds); close is blocked with a user-visible message if shutdown does not complete in time.
 
 ## Controller composition rules
@@ -49,7 +49,8 @@ FX thread-safety guards in this flow:
 ## UI module map
 - `ui/controllers/main_window_welcome.py`
   - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions
-  - successful startup actions use a fixed 1-second blocking overlay before switching to main editor
+  - successful startup actions show a blocking overlay for at least 1 second while fetching USD/ILS
+  - fetch failures show a Back-only error dialog and keep the user on the welcome screen
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
 - `ui/controllers/main_window_table_editing.py`
@@ -132,13 +133,8 @@ FX thread-safety guards in this flow:
   - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
 - `ui/wizard_fx_coordinator.py`
   - extracted FX-only coordinator used by `MainWindowWizardMixin`
-  - owns transient USD/ILS FX orchestration for wizard runs:
-    - one-at-most BOI fetch attempt per wizard run (only when USD steps exist)
-    - non-blocking background BOI fetch (wizard opens immediately)
-    - USD-step calculate disabled while fetch is in progress (up to 10 seconds)
-    - generation-token guard so stale async completions are ignored
-    - explicit cancel-failure handling before starting new fetch/reset/finish transitions
-    - fallback manual USD/ILS override state (wizard-run scoped, non-persistent)
+  - owns USD-step FX panel rendering and reset behavior for wizard runs
+  - reads session-cached USD/ILS quote; wizard does not trigger BOI fetch
 
 ## portfolio_core module map
 - `portfolio_core/models.py`

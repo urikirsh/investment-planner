@@ -64,7 +64,7 @@ The application never executes trades automatically. All actions are explicit an
   - per-instrument allocation based on your target portfolio mix
   - wizard step info shows instrument name, ticker, exchange, asset group, and action amount
   - enter instrument price and calculate how many units to buy/sell
-  - for USD-priced instruments, the app fetches USD/ILS automatically and lets you enter a manual rate if needed
+  - for USD-priced instruments, the app uses one USD/ILS rate fetched during the startup wait screen
   - calculation can be triggered by button click, pressing `Enter`, or leaving the price field
   - unit amounts are rounded down to whole numbers
 - Wizard actions:
@@ -83,7 +83,8 @@ The application never executes trades automatically. All actions are explicit an
   - `Load Portfolio...`
   - `Start New File`
   - `Quit`
-  - after choosing a startup action that opens the main editor, a 1-second blocking transition overlay appears with a large spinner and `fetching data` text
+  - after choosing a startup action that opens the main editor, a blocking transition overlay appears for at least 1 second while the app fetches USD/ILS
+  - if USD/ILS fetch fails, the app shows an error dialog with a `Back` button and returns to the welcome screen
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
@@ -170,7 +171,7 @@ Notes:
   - quit
 - If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
-- The app also stores the last successful USD/ILS quote in the same user config for fetch-failure fallback.
+- The app stores the latest successful USD/ILS quote in the same user config and reuses it across wizard runs in the current app session.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.

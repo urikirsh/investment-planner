@@ -3,10 +3,9 @@ from __future__ import annotations
 """FX-specific wizard orchestration extracted from ``MainWindowWizardMixin``.
 
 This module isolates USD/ILS concerns from general wizard step flow:
-- one-at-most official BOI fetch per wizard run,
-- background fetch lifecycle (thread/worker setup and teardown),
-- loud failure messaging and local cache fallback,
-- FX panel rendering and manual override visibility state.
+- session-cached quote loading for new wizard runs,
+- FX panel rendering for USD steps,
+- defensive shutdown helpers for legacy fetch thread seams.
 
 The coordinator mutates only wizard-run transient state (`WizardState`) and
 delegates host-specific UI calls through a small protocol.
@@ -76,47 +75,11 @@ class WizardFxCoordinator:
         self._fx_fetch_worker: _FxFetchWorker | None = None
 
     def prepare_wizard_fx_rate_cache(self) -> None:
-        """Begin async BOI fetch once per wizard run when USD steps exist."""
-        state = self._host.wizard_state
-        if state.usd_ils_fetch_attempted:
-            return
-        if not self._host._wizard_has_usd_steps():
-            return
-
-        if not self._host._cancel_wizard_fx_fetch():
-            self._show_error(
-                cast(QWidget, self._host),
-                "Please wait",
-                "Still finishing background USD/ILS fetch. Try again in a few seconds.",
-            )
-            return
-        state.usd_ils_fetch_attempted = True
-        state.usd_ils_fetch_in_progress = True
-        state.usd_ils_fetch_error = None
-        state.usd_ils_fetch_generation += 1
-        generation = state.usd_ils_fetch_generation
-        state.usd_ils_active_fetch_generation = generation
-
+        """No-op: FX is fetched during welcome wait and reused from session cache."""
         self.render_fx_panel_for_current_step()
 
-        parent = cast(QObject, self._host)
-        self._fx_fetch_thread = QThread(parent)
-        self._fx_fetch_worker = _FxFetchWorker(timeout_seconds=10.0, generation=generation)
-        self._fx_fetch_worker.moveToThread(self._fx_fetch_thread)
-        self._fx_fetch_thread.started.connect(self._fx_fetch_worker.run)
-        self._fx_fetch_worker.finished.connect(self._host._on_fx_fetch_finished)
-        self._fx_fetch_worker.finished.connect(self._fx_fetch_thread.quit)
-        self._fx_fetch_worker.finished.connect(self._fx_fetch_worker.deleteLater)
-        self._fx_fetch_thread.finished.connect(self._fx_fetch_thread.deleteLater)
-        self._fx_fetch_thread.start()
-
     def on_fx_fetch_finished(self, quote_obj: object, error_obj: object, generation: int) -> None:
-        """Handle completion of async BOI fetch and apply fallback logic.
-
-        On success, stores the official quote and persists it as cache.
-        On failure, uses cached quote when readable; otherwise keeps manual
-        override path available and raises one loud error modal per run.
-        """
+        """Handle legacy async BOI completion callbacks for compatibility."""
         state = self._host.wizard_state
         if generation != state.usd_ils_active_fetch_generation:
             if self._fx_fetch_thread is not None and not self._fx_fetch_thread.isRunning():
@@ -194,16 +157,24 @@ class WizardFxCoordinator:
         if not self._host._cancel_wizard_fx_fetch():
             return False
         state = self._host.wizard_state
-        state.usd_ils_rate = None
-        state.usd_ils_rate_date = None
-        state.usd_ils_used_last_published = False
-        state.usd_ils_fetch_attempted = False
+        cached = self._read_session_cached_quote()
+        if cached is not None:
+            state.usd_ils_rate = cached.rate
+            state.usd_ils_rate_date = cached.effective_date
+            state.usd_ils_used_last_published = cached.used_last_published
+            state.usd_ils_rate_from_cache = True
+            state.usd_ils_rate_cached_at = cached.cached_at
+        else:
+            state.usd_ils_rate = None
+            state.usd_ils_rate_date = None
+            state.usd_ils_used_last_published = False
+            state.usd_ils_rate_from_cache = False
+            state.usd_ils_rate_cached_at = None
+        state.usd_ils_fetch_attempted = True
         state.usd_ils_fetch_error = None
         state.manual_override_usd_ils_rate = None
         state.usd_ils_fetch_in_progress = False
         state.usd_ils_failure_dialog_shown = False
-        state.usd_ils_rate_from_cache = False
-        state.usd_ils_rate_cached_at = None
         state.usd_ils_active_fetch_generation = None
         if hasattr(self._host, "manual_rate_edit"):
             self._host.manual_rate_edit.setText("")
@@ -249,9 +220,6 @@ class WizardFxCoordinator:
             return
 
         info_lines: list[str] = []
-        if state.usd_ils_fetch_in_progress:
-            info_lines.append("Fetching official USD/ILS rate (can take up to 10 seconds)...")
-
         if state.usd_ils_rate is not None:
             info_lines.append(
                 f"USD/ILS rate: {state.usd_ils_rate} | "
@@ -261,32 +229,32 @@ class WizardFxCoordinator:
                 info_lines.append("No new official rate for today; using last published rate.")
             if state.usd_ils_rate_from_cache:
                 info_lines.append(
-                    f"Official fetch failed. Using cached rate saved at: {state.usd_ils_rate_cached_at}."
+                    f"Using startup-cached rate saved at: {state.usd_ils_rate_cached_at}."
                 )
 
-        if state.manual_override_usd_ils_rate is not None:
-            info_lines.append(f"Using manual override USD/ILS rate: {state.manual_override_usd_ils_rate}")
+        error_text = ""
+        if state.usd_ils_rate is None:
+            error_text = "USD/ILS rate unavailable. Return to welcome and try again."
 
-        error_text = state.usd_ils_fetch_error or ""
-        if error_text:
-            error_text = (
-                f"Official USD/ILS fetch failed after up to 10 seconds ({error_text}). "
-                + (
-                    "Using cached rate shown above."
-                    if state.usd_ils_rate_from_cache
-                    else "No readable cached rate available. Enter manual USD/ILS rate."
-                )
-            )
-
-        self._host.screen_wizard.calculate_btn.setEnabled(not state.usd_ils_fetch_in_progress)
+        self._host.screen_wizard.calculate_btn.setEnabled(state.usd_ils_rate is not None)
         self._host.screen_wizard.set_fx_panel(
             visible=True,
             info_text="\n".join(info_lines),
             error_text=error_text,
-            manual_visible=bool(error_text and not state.usd_ils_rate_from_cache),
-            manual_value=(
-                str(state.manual_override_usd_ils_rate)
-                if state.manual_override_usd_ils_rate is not None
-                else ""
-            ),
+            manual_visible=False,
+            manual_value="",
         )
+
+    def _read_session_cached_quote(self) -> CachedUsdIlsQuote | None:
+        """Read session-memory USD/ILS cache, falling back to persisted cache."""
+        read_session = getattr(self._host.session, "get_session_cached_usd_ils_quote", None)
+        if callable(read_session):
+            cached = read_session()
+            if isinstance(cached, CachedUsdIlsQuote):
+                return cached
+        read_disk = getattr(self._host.session, "read_cached_usd_ils_quote", None)
+        if callable(read_disk):
+            cached = read_disk()
+            if isinstance(cached, CachedUsdIlsQuote):
+                return cached
+        return None

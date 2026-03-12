@@ -35,6 +35,17 @@ def show_warning(parent: QWidget, title: str, message: str) -> None:
     QMessageBox.warning(parent, title, message)
 
 
+def show_error_with_back(parent: QWidget, title: str, message: str) -> None:
+    """Show an error dialog with a single ``Back`` action."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Critical)
+    box.setWindowTitle(title)
+    box.setText(message)
+    back_btn = box.addButton("Back", QMessageBox.ButtonRole.AcceptRole)
+    box.setDefaultButton(back_btn)
+    box.exec()
+
+
 def choose_save_path(parent: QWidget, *, start_path: Path) -> Path | None:
     """Prompt for save destination and normalize suffix to ``.json``.
 

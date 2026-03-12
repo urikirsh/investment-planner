@@ -182,34 +182,17 @@ class MainWindowWizardMixin:
             self._sync_wizard_focus_row_widths()
 
     def _get_effective_usd_ils_rate(self) -> D:
-        """Return USD/ILS rate for current wizard run, with override fallback."""
+        """Return startup-cached USD/ILS rate for current wizard run."""
         if self.wizard_state.usd_ils_rate is not None:
             return self.wizard_state.usd_ils_rate
-        if self.wizard_state.usd_ils_fetch_in_progress:
-            raise ValueError("Still fetching official USD/ILS rate (can take up to 10 seconds). Please wait.")
-        if self.wizard_state.manual_override_usd_ils_rate is not None:
-            return self.wizard_state.manual_override_usd_ils_rate
-
-        raw = self.manual_rate_edit.text().strip()
-        if raw:
-            rate = d_from_text(raw, "manual USD/ILS rate")
-            if rate <= 0:
-                raise ValueError("manual USD/ILS rate must be positive")
-            self.wizard_state.manual_override_usd_ils_rate = rate
-            self._render_fx_panel_for_current_step()
-            return rate
-
-        raise ValueError(
-            "USD/ILS rate unavailable. Could not fetch from Bank of Israel. "
-            "Enter a manual USD/ILS rate to continue."
-        )
+        raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
 
     def _wizard_has_usd_steps(self) -> bool:
         """Return whether current plan includes at least one USD-priced step."""
         return any(step.exchange.currency == Currency.USD for step in self.planning_state.plan_steps)
 
     def _prepare_wizard_fx_rate_cache(self) -> None:
-        """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed."""
+        """No-op wrapper; FX is fetched during welcome wait and reused from cache."""
         self._wizard_fx_coordinator().prepare_wizard_fx_rate_cache()
 
     def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object, generation: int) -> None:

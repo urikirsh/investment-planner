@@ -162,6 +162,7 @@ class _FakeHost(MainWindowWizardMixin):
         self.session = SimpleNamespace(
             document=SimpleNamespace(current_portfolio=current_portfolio),
             read_cached_usd_ils_quote=lambda: None,
+            get_session_cached_usd_ils_quote=lambda: None,
             write_cached_usd_ils_quote=lambda **_kwargs: None,
         )
         self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
@@ -291,32 +292,15 @@ def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_pla
     assert "Units: 1 | Spent (ILS): 31" in host.wiz_result.value
 
 
-def test_wizard_calculate_usd_uses_manual_override_when_fetch_failed(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.price_edit = _FakeLineEdit("10")
-    host.manual_rate_edit = _FakeLineEdit("3.2")
-    host.price_label = _FakeLabel()
-    host.screen_wizard = _FakeWizardScreen(host.price_label, host.price_edit)
-    host.wizard_state.usd_ils_fetch_error = "network"
-
-    host._show_current_wizard_step()
-    host.price_edit.setText("10")
-    host._wizard_calculate()
-
-    assert host.wizard_state.manual_override_usd_ils_rate == Decimal("3.2")
-    assert host.wizard_state.last_calc is not None
-    assert host.wizard_state.last_calc.spent == Decimal("32")
-
-
-def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
+def test_wizard_calculate_usd_without_rate_blocks_calculation(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.price_edit = _FakeLineEdit("10")
     host.manual_rate_edit = _FakeLineEdit("")
-    host.wizard_state.usd_ils_fetch_error = "network"
+    host.price_label = _FakeLabel()
+    host.screen_wizard = _FakeWizardScreen(host.price_label, host.price_edit)
     errors: list[tuple[str, str]] = []
-
     monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: errors.append((t, m)))
 
     host._wizard_calculate()
@@ -325,7 +309,7 @@ def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
     assert host.screen_wizard.save_continue_btn.isEnabled() is False
     assert errors
     assert errors[0][0] == "Calculation failed"
-    assert "USD/ILS rate unavailable" in errors[0][1]
+    assert "Return to the welcome screen" in errors[0][1]
 
 
 def test_wizard_implicit_failure_clears_last_calc_and_disables_save(
@@ -361,19 +345,9 @@ def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
     make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-
-    host._on_fx_fetch_finished(
-        UsdIlsRateQuote(
-            rate=Decimal("3.9"),
-            effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
-            used_last_published=False,
-        ),
-        None,
-        1,
-    )
-
-    assert host.wizard_state.usd_ils_rate == Decimal("3.9")
-    assert host.wizard_state.usd_ils_fetch_error is None
+    host.wizard_state.usd_ils_fetch_attempted = False
+    host._prepare_wizard_fx_rate_cache()
+    assert host.wizard_state.usd_ils_fetch_attempted is False
 
 
 def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
@@ -397,7 +371,7 @@ def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
     host._prepare_wizard_fx_rate_cache()
 
     assert host.wizard_state.usd_ils_fetch_attempted is False
-    assert shown and shown[0][0] == "Please wait"
+    assert shown == []
 
 
 def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
@@ -447,7 +421,7 @@ def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: 
 
     assert result is True
     assert host.wizard_state.manual_override_usd_ils_rate is None
-    assert host.wizard_state.usd_ils_fetch_attempted is False
+    assert host.wizard_state.usd_ils_fetch_attempted is True
     assert host.manual_rate_edit.text() == ""
 
 

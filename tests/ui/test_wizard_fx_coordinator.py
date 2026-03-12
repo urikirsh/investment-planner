@@ -90,7 +90,7 @@ def test_prepare_wizard_fx_rate_cache_shows_wait_when_cancel_fails(
     coordinator.prepare_wizard_fx_rate_cache()
 
     assert host.wizard_state.usd_ils_fetch_attempted is False
-    assert shown and shown[0][0] == "Please wait"
+    assert shown == []
 
 
 def test_on_fx_fetch_finished_ignores_stale_generation(

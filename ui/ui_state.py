@@ -21,7 +21,7 @@ Lifecycle
   summary/wizard steps.
 - `WizardState` is reset per wizard run and stores:
   - step-local transient calculation output, and
-  - run-scoped USD/ILS fetch/cache/failure state for USD-priced steps.
+  - run-scoped USD/ILS display state populated from startup cache.
 - `UnsavedChangesDecision` encodes save/discard/cancel outcomes for
   unsaved-changes confirmation flows.
 """
@@ -84,19 +84,19 @@ class WizardState:
         Latest units/spend calculation for the current step, or ``None`` when
         no calculation has been performed yet for the active step.
     usd_ils_rate:
-        Cached BOI USD/ILS rate for the current wizard run, when fetch succeeds.
+        Cached USD/ILS rate for the current wizard run, loaded from startup cache.
     usd_ils_rate_date:
         Effective date of `usd_ils_rate`.
     usd_ils_used_last_published:
         Indicates that BOI returned a prior published business-day quote.
     usd_ils_fetch_attempted:
-        Guard to ensure BOI fetch is attempted at most once per wizard run.
+        Legacy guard kept for compatibility with coordinator seams.
     usd_ils_fetch_error:
-        Captured fetch/parsing error shown to the user when quote retrieval fails.
+        Optional FX-state error surfaced in wizard UI when cache is unavailable.
     manual_override_usd_ils_rate:
-        User-entered USD/ILS override reused across USD steps in the same wizard run.
+        Legacy field retained for compatibility; manual override is no longer used.
     usd_ils_fetch_in_progress:
-        True while background BOI fetch is active (can take up to 10 seconds).
+        Legacy field retained for compatibility with old async-fetch paths.
     usd_ils_failure_dialog_shown:
         Guard to show loud fetch-failure modal at most once per wizard run.
     usd_ils_rate_from_cache:
