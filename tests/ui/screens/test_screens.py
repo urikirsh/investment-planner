@@ -152,8 +152,10 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     labels = [label.text() for label in screen.findChildren(QLabel)]
     assert "Execute Plan Step" in labels
     assert "Step -/-" in labels
+    assert "font-size: 15px" in screen.step_progress.styleSheet()
     assert screen.wiz_info.text() == "-"
     assert screen.wiz_info.wordWrap()
+    assert "font-size: 15px" in screen.wiz_info.styleSheet()
     assert screen.price_edit.placeholderText() == "Enter unit price (e.g. 123.45)"
     assert screen.price_edit.maxLength() == 11
     assert screen.calculate_btn.text() == "Calculate"

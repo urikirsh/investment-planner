@@ -71,11 +71,12 @@ class WizardScreen(QWidget):
         info_layout.setSpacing(6)
 
         self.step_progress = QLabel("Step -/-")
-        self.step_progress.setStyleSheet("font-size: 12px; font-weight: 600; color: #34495e;")
+        self.step_progress.setStyleSheet("font-size: 15px; font-weight: 600; color: #34495e;")
         info_layout.addWidget(self.step_progress)
 
         self.wiz_info = QLabel("-")
         self.wiz_info.setWordWrap(True)
+        self.wiz_info.setStyleSheet("font-size: 15px;")
         info_layout.addWidget(self.wiz_info)
         layout.addWidget(info_card)
         layout.addStretch(1)
