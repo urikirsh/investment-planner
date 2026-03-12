@@ -66,10 +66,6 @@ class MainWindowWizardMixin:
         """Apply visual cues when the editor is repopulated after wizard completion."""
         ...
 
-    def _refresh_data(self) -> None:
-        """Recompute and rerender derived values on the main screen."""
-        ...
-
     def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
         """Render provided portfolio into main editor, refresh metrics, and optionally show screen 2."""
         ...
@@ -238,6 +234,19 @@ class MainWindowWizardMixin:
             self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
         return self._wizard_fx
 
+    def _try_finish_wizard_fx_cleanup(self) -> bool:
+        """Ensure wizard FX background work is stopped before leaving wizard flow."""
+        if not self._cancel_wizard_fx_fetch():
+            show_error(
+                cast(QWidget, self),
+                "Please wait",
+                "Still finishing background USD/ILS fetch. Try again in a few seconds.",
+            )
+            return False
+        self.wizard_state.usd_ils_fetch_in_progress = False
+        self.wizard_state.usd_ils_active_fetch_generation = None
+        return True
+
     def _wizard_save_continue(self) -> None:
         """Apply current step trade, persist if applied, then advance.
 
@@ -361,15 +370,8 @@ class MainWindowWizardMixin:
         """
         try:
             self._require_current_portfolio()
-            if not self._cancel_wizard_fx_fetch():
-                show_error(
-                    cast(QWidget, self),
-                    "Please wait",
-                    "Still finishing background USD/ILS fetch. Try again in a few seconds.",
-                )
+            if not self._try_finish_wizard_fx_cleanup():
                 return
-            self.wizard_state.usd_ils_fetch_in_progress = False
-            self.wizard_state.usd_ils_active_fetch_generation = None
             self._return_to_main_editor_from_current_portfolio()
         except Exception as e:
             show_error(cast(QWidget, self), "Back failed", str(e))
@@ -396,16 +398,9 @@ class MainWindowWizardMixin:
         """
         self.planning_state.step_index += 1
         if self.planning_state.step_index >= len(self.planning_state.plan_steps):
-            if not self._cancel_wizard_fx_fetch():
+            if not self._try_finish_wizard_fx_cleanup():
                 self.planning_state.step_index -= 1
-                show_error(
-                    cast(QWidget, self),
-                    "Please wait",
-                    "Still finishing background USD/ILS fetch. Try again in a few seconds.",
-                )
                 return
-            self.wizard_state.usd_ils_fetch_in_progress = False
-            self.wizard_state.usd_ils_active_fetch_generation = None
             self._return_to_main_editor_from_current_portfolio()
         else:
             self._show_current_wizard_step()
