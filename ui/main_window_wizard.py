@@ -21,7 +21,7 @@ from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, apply_wizard_step
 from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
-from ui.screens.wizard_screen import DEFAULT_WIZARD_RESULT_TEXT, WizardScreen
+from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, WizardState
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
 from ui.wizard_fx_coordinator import WizardFxCoordinator
@@ -112,7 +112,7 @@ class MainWindowWizardMixin:
             self.screen_wizard.set_price_mode(s.exchange)
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
-        self.wiz_result.setText(DEFAULT_WIZARD_RESULT_TEXT)
+        self._set_wizard_result_placeholder_for_current_step()
         self._set_save_continue_enabled(False)
         self._sync_wizard_focus_row_widths()
 
@@ -126,7 +126,9 @@ class MainWindowWizardMixin:
         """Calculate on price edit commit (Enter/focus-out) without modal errors."""
         if not self.price_edit.text().strip():
             self.wizard_state.last_calc = None
+            self._set_wizard_result_placeholder_for_current_step()
             self._set_save_continue_enabled(False)
+            self._sync_wizard_focus_row_widths()
             return
         self._wizard_calculate_impl(show_error_dialog=False)
 
@@ -170,7 +172,13 @@ class MainWindowWizardMixin:
                 else f"Proceeds {BASE_CURRENCY_SUFFIX}"
             )
             self.wiz_result.setText(
-                f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan {BASE_CURRENCY_SUFFIX}: {calc.leftover}"
+                self._format_wizard_result_text(
+                    units=calc.units,
+                    money_label=label_money,
+                    money_value=calc.spent,
+                    leftover_value=calc.leftover,
+                    conversion_info=conversion_info,
+                )
             )
             self._sync_wizard_focus_row_widths()
         except Exception as e:
@@ -279,6 +287,41 @@ class MainWindowWizardMixin:
     def _set_save_continue_enabled(self, enabled: bool) -> None:
         """Enable/disable step commit action based on calculation validity."""
         self.screen_wizard.save_continue_btn.setEnabled(enabled)
+
+    def _wizard_money_label(self, planned_delta_money: D) -> str:
+        """Return action-specific money label for the active step."""
+        if planned_delta_money > 0:
+            return f"Spent {BASE_CURRENCY_SUFFIX}"
+        return f"Proceeds {BASE_CURRENCY_SUFFIX}"
+
+    def _format_wizard_result_text(
+        self,
+        *,
+        units: object,
+        money_label: str,
+        money_value: object,
+        leftover_value: object,
+        conversion_info: str = "",
+    ) -> str:
+        """Build consistent wizard result-line text for placeholder and calculated states."""
+        return (
+            f"{conversion_info}"
+            f"Units: {units} | "
+            f"{money_label}: {money_value} | "
+            f"Leftover vs plan {BASE_CURRENCY_SUFFIX}: {leftover_value}"
+        )
+
+    def _set_wizard_result_placeholder_for_current_step(self) -> None:
+        """Render step-aware placeholder text before calculation."""
+        planned_delta_money = self.planning_state.plan_steps[self.planning_state.step_index].planned_delta_money
+        self.wiz_result.setText(
+            self._format_wizard_result_text(
+                units="-",
+                money_label=self._wizard_money_label(planned_delta_money),
+                money_value="-",
+                leftover_value="-",
+            )
+        )
 
     def _sync_wizard_focus_row_widths(self) -> None:
         """Refresh optional focus-row width alignment on wizard result changes."""

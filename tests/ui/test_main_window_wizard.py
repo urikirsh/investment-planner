@@ -191,7 +191,7 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     assert "Planned BUY value (ILS): 125" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
-    assert host.wiz_result.value == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
+    assert host.wiz_result.value == "Units: - | Spent (ILS): - | Leftover vs plan (ILS): -"
     assert host.wizard_state.last_calc is None
     assert host.screen_wizard.save_continue_btn.isEnabled() is False
 
