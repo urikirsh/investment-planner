@@ -61,34 +61,18 @@ The application never executes trades automatically. All actions are explicit an
 - Invest budget formula:
   - `cash - minimal reserve - future tax` (floored at zero)
 - Step-by-step investment flow:
-  - per-instrument allocation based on desired post-investment in-group targets
-  - dynamic price input mode by exchange:
-    - `TASE` instruments: price entered in agorot
-    - `NYSE` instruments: price entered in USD
-    - ILS wizard label is `Price (Agorot)`, and input is converted with `agorot / 100` to ILS before unit calculation
-  - USD/ILS conversion fetched from Bank of Israel representative rates (latest published)
-  - fetch runs in the background and can take up to 10 seconds; wizard opens immediately
-  - during fetch, USD-step `Calculate` is disabled with a visible loading notice
-  - if official fetch fails, a temporary manual USD/ILS override can be entered in the wizard
-  - if official fetch fails but a readable cached rate exists, the cached rate is used and its cache timestamp is shown
-  - if official fetch fails and cached rate is unavailable/unreadable, wizard prompts for manual USD/ILS input
-  - stale async fetch completions are ignored (wizard-run generation guard) to avoid cross-run state leaks
-  - integer unit calculation (rounded down)
-  - price input supports quick calculation on `Enter` or when leaving the input field
-  - implicit calculation failures (from `Enter`/focus-out) are shown inline in the result row, without a modal dialog
-  - `Calculate` remains available next to the price input for explicit/manual recalculation
-  - price row (`Price + input + Calculate`) is centered and width-aligned with the centered result row (`Units/Spent/Leftover + Save and continue`) while preserving at least 11 visible input characters
+  - per-instrument allocation based on your target portfolio mix
+  - enter instrument price and calculate how many units to buy/sell
+  - for USD-priced instruments, the app fetches USD/ILS automatically and lets you enter a manual rate if needed
+  - calculation can be triggered by button click, pressing `Enter`, or leaving the price field
+  - unit amounts are rounded down to whole numbers
 - Wizard actions:
-  - Save and continue (primary action, displayed next to Units/Spent/Leftover result line)
-  - `Save and continue` is disabled until a successful calculation is available for the active step
-  - if calculation fails (explicitly or implicitly), the previous calculation is invalidated and `Save and continue` is disabled again
-  - Quit (application-level exit)
-  - Exit Wizard (returns to the portfolio screen without applying the current step)
-  - Skip Step (moves to the next step without applying this step)
-  - Save-and-continue updates instrument `quantity` for executed wizard trades (buy adds units, sell subtracts units)
-  - If a sell step requests more units than the tracked quantity, the wizard shows a clear error and skips that step after acknowledgement
-  - Action-row layout separates concerns: `Quit` is left-aligned, while `Exit Wizard` and `Skip Step` are right-aligned
-  - Units/Spent/Leftover result line is rendered as a single emphasized row for quick scan-and-confirm flow
+  - `Save and continue` applies the current step and moves forward
+  - `Save and continue` is enabled only after a valid calculation
+  - `Skip Step` moves on without applying the current step
+  - `Exit Wizard` returns to the portfolio screen without applying the current step
+  - `Quit` exits the app
+  - if a sell step asks for more units than available, the app shows a clear error and skips that step
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
