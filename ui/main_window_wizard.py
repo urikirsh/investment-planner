@@ -375,6 +375,9 @@ class MainWindowWizardMixin:
 
         Shared by full wizard completion and explicit "Exit Wizard" exit
         to keep main-screen refresh behavior identical across both transitions.
+        A full main-screen refresh is executed after repopulating widgets so
+        derived values (totals/percentages/drift/investable balance) are always
+        recomputed and rendered on return.
         """
         current = self.session.document.current_portfolio
         assert current is not None

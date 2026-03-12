@@ -64,6 +64,8 @@ class PlanStep:
     Notes
     -----
     - `planned_delta_money` is always expressed in ILS.
+    - `ticker` is copied from the selected instrument and is intended for
+      wizard-step context display and user verification before execution.
     - `exchange` describes the instrument's trading exchange and drives
       wizard price-entry semantics via exchange->currency mapping.
     - Supported values are members of `Exchange`.

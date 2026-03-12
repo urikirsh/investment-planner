@@ -232,7 +232,12 @@ class WizardScreen(QWidget):
         action: str,
         planned_amount_text: str,
     ) -> None:
-        """Render a compact, readable summary block for the active wizard step."""
+        """Render a compact, readable summary block for the active wizard step.
+
+        The info card intentionally surfaces `ticker` and `exchange` alongside
+        instrument/group/action details so users can validate they are applying
+        the step to the intended traded symbol and market.
+        """
         self.step_progress.setText(f"Step {step_index}/{total_steps}")
         self.wiz_info.setText(
             f"Instrument: {instrument_name}\n"
