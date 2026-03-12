@@ -169,7 +169,10 @@ class MainWindowWizardMixin:
             if show_error_dialog:
                 show_error(cast(QWidget, self), "Calculation failed", str(e))
                 return
-            self.wiz_result.setText(f"Calculation not updated: {e}")
+            inline_error = str(e).strip().splitlines()[0]
+            if len(inline_error) > 60:
+                inline_error = f"{inline_error[:57]}..."
+            self.wiz_result.setText(f"Calculation not updated: {inline_error}")
             if hasattr(self.screen_wizard, "sync_focus_row_widths"):
                 self.screen_wizard.sync_focus_row_widths()
 

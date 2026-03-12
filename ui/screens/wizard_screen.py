@@ -30,7 +30,7 @@ All trade execution behavior is intentionally delegated to the coordinator.
 from __future__ import annotations
 
 from portfolio_core.models import Currency, Exchange
-from PySide6.QtGui import QFontMetrics
+from PySide6.QtGui import QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from ui.shared.ui_utils import DEFAULT_CURRENCY
@@ -213,16 +213,38 @@ class WizardScreen(QWidget):
     def sync_focus_row_widths(self) -> None:
         """Keep price row and result row visual widths aligned when feasible."""
         spacing = 8
+        max_qt_width = 16777215
         input_metrics = QFontMetrics(self.price_edit.font())
         min_input_width = input_metrics.horizontalAdvance("0" * 11) + 24
         self.price_edit.setMinimumWidth(min_input_width)
+
         result_combo_width = self.wiz_result.sizeHint().width() + self.save_continue_btn.sizeHint().width() + spacing
         price_combo_min_width = (
             self.price_label.sizeHint().width() + min_input_width + self.calculate_btn.sizeHint().width() + spacing * 2
         )
         target_width = max(result_combo_width, price_combo_min_width)
-        self._price_focus_row.setFixedWidth(target_width)
-        self._result_focus_row.setFixedWidth(target_width)
+
+        margins = self.contentsMargins()
+        available_width = max(self.width() - margins.left() - margins.right() - 24, 0)
+
+        # Reset any previously fixed width before deciding final sizing mode.
+        self._price_focus_row.setMinimumWidth(0)
+        self._price_focus_row.setMaximumWidth(max_qt_width)
+        self._result_focus_row.setMinimumWidth(0)
+        self._result_focus_row.setMaximumWidth(max_qt_width)
+
+        if available_width < price_combo_min_width:
+            # Window too narrow: avoid forcing horizontal overflow; let rows size naturally.
+            return
+
+        clamped_width = min(target_width, available_width)
+        self._price_focus_row.setFixedWidth(clamped_width)
+        self._result_focus_row.setFixedWidth(clamped_width)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """Recompute aligned row widths on window resize to keep layout responsive."""
+        super().resizeEvent(event)
+        self.sync_focus_row_widths()
 
     def set_price_mode(self, exchange: Exchange) -> None:
         """Configure price-label context for the current instrument exchange."""
