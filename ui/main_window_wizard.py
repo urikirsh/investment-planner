@@ -385,8 +385,10 @@ class MainWindowWizardMixin:
         derived values (totals/percentages/drift/investable balance) are always
         recomputed and rendered on return.
         """
+        self._require_current_portfolio()
         current = self.session.document.current_portfolio
-        assert current is not None
+        if current is None:
+            return
         self._render_main_editor_from_portfolio(current, switch_to_main=True)
 
     def _advance_wizard_step(self) -> None:
