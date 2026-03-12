@@ -196,6 +196,15 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     assert host.screen_wizard.save_continue_btn.isEnabled() is False
 
 
+def test_show_current_wizard_step_uses_proceeds_placeholder_for_sell(make_plan_step: Callable[..., PlanStep]) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="-125")])
+
+    host._show_current_wizard_step()
+
+    assert host.wiz_result.value == "Units: - | Proceeds (ILS): - | Leftover vs plan (ILS): -"
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
+
+
 def test_wizard_calculate_sets_last_calc_and_result_text(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
