@@ -382,6 +382,8 @@ class MainWindowWizardMixin:
         """
         self._require_current_portfolio()
         current = self.session.document.current_portfolio
+        # Defensive fallback: `_require_current_portfolio()` should already
+        # guarantee non-None, so this path is not expected in normal flow.
         if current is None:
             return
         self._render_main_editor_from_portfolio(current, switch_to_main=True)
