@@ -126,6 +126,8 @@ class MainWindowWizardMixin:
     def _wizard_calculate_implicit(self) -> None:
         """Calculate on price edit commit (Enter/focus-out) without modal errors."""
         if not self.price_edit.text().strip():
+            self.wizard_state.last_calc = None
+            self._set_save_continue_enabled(False)
             return
         self._wizard_calculate_impl(show_error_dialog=False)
 

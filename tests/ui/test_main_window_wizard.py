@@ -293,6 +293,20 @@ def test_wizard_implicit_failure_clears_last_calc_and_disables_save(
     assert "Calculation not updated:" in host.wiz_result.value
 
 
+def test_wizard_implicit_empty_input_clears_last_calc_and_disables_save(
+    make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="20")])
+    host.wizard_state.last_calc = SimpleNamespace(units=2, spent=Decimal("20"), leftover=Decimal("0"))
+    host.screen_wizard.save_continue_btn.setEnabled(True)
+    host.price_edit.setText("   ")
+
+    host._wizard_calculate_implicit()
+
+    assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
+
+
 def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
     make_plan_step: Callable[..., PlanStep]
 ) -> None:

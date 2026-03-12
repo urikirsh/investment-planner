@@ -192,6 +192,31 @@ def test_wizard_price_editing_finished_does_not_show_modal_error_on_invalid_inpu
     assert "Calculation not updated:" in window.wiz_result.text()
 
 
+def test_wizard_price_editing_finished_with_empty_input_clears_calc_and_disables_save(
+    window: MainWindow,
+    make_plan_step: Callable[..., PlanStep],
+    make_buy_calculation: Callable[..., BuyCalculation],
+) -> None:
+    step = make_plan_step(delta="20")
+    window.planning_state.plan_steps = [step]
+    window.planning_state.step_index = 0
+    window.wizard_state.last_calc = make_buy_calculation(
+        instrument_id=step.instrument_id,
+        price="10",
+        planned_money="20",
+        units=2,
+        spent="20",
+        leftover="0",
+    )
+    window.screen_wizard.save_continue_btn.setEnabled(True)
+    window.price_edit.setText("   ")
+
+    window.price_edit.editingFinished.emit()
+
+    assert window.wizard_state.last_calc is None
+    assert not window.screen_wizard.save_continue_btn.isEnabled()
+
+
 def test_wizard_back_to_portfolio_button_signal_runs_back_flow(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
