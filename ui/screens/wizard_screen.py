@@ -17,6 +17,8 @@ Focused-row layout:
 - Price row (`Price + input + Calculate`) and result row
   (`Units/Spent/Leftover + Save and continue`) are centered and width-synced.
 - Price input keeps a minimum visual width for at least 11 characters.
+- `Save and continue` starts disabled and is enabled only after a successful
+  calculation by flow logic in `MainWindowWizardMixin`.
 
 Price-entry semantics:
 - ILS steps use agorot input (`Price (Agorot)`), matching
