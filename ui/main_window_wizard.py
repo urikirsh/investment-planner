@@ -81,7 +81,7 @@ class MainWindowWizardMixin:
         self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._wizard_back_to_portfolio)
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
-        self._set_save_continue_enabled(False)
+        self._invalidate_current_calc(reset_result=False, sync_widths=False)
         self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
 
     def _show_current_wizard_step(self) -> None:
@@ -103,11 +103,7 @@ class MainWindowWizardMixin:
         self.screen_wizard.set_price_mode(s.exchange)
         self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
-        self._set_wizard_result_placeholder_for_current_step()
-        self._set_save_continue_enabled(False)
-        self._sync_wizard_focus_row_widths()
-
-        self.wizard_state.last_calc = None
+        self._invalidate_current_calc(reset_result=True, sync_widths=True)
 
     def _wizard_calculate(self) -> None:
         """Calculate units/spend for the current wizard step from entered price."""
@@ -120,10 +116,7 @@ class MainWindowWizardMixin:
         step-aware placeholder so stale values cannot be committed.
         """
         if not self.price_edit.text().strip():
-            self.wizard_state.last_calc = None
-            self._set_wizard_result_placeholder_for_current_step()
-            self._set_save_continue_enabled(False)
-            self._sync_wizard_focus_row_widths()
+            self._invalidate_current_calc(reset_result=True, sync_widths=True)
             return
         self._wizard_calculate_impl(show_error_dialog=False)
 
@@ -177,8 +170,7 @@ class MainWindowWizardMixin:
             )
             self._sync_wizard_focus_row_widths()
         except Exception as e:
-            self.wizard_state.last_calc = None
-            self._set_save_continue_enabled(False)
+            self._invalidate_current_calc(reset_result=False, sync_widths=False)
             if show_error_dialog:
                 show_error(cast(QWidget, self), "Calculation failed", str(e))
                 return
@@ -282,6 +274,15 @@ class MainWindowWizardMixin:
     def _set_save_continue_enabled(self, enabled: bool) -> None:
         """Enable/disable step commit action based on calculation validity."""
         self.screen_wizard.save_continue_btn.setEnabled(enabled)
+
+    def _invalidate_current_calc(self, *, reset_result: bool, sync_widths: bool) -> None:
+        """Clear cached calculation and disable save for the current step."""
+        self.wizard_state.last_calc = None
+        self._set_save_continue_enabled(False)
+        if reset_result:
+            self._set_wizard_result_placeholder_for_current_step()
+        if sync_widths:
+            self._sync_wizard_focus_row_widths()
 
     def _wizard_money_label(self, planned_delta_money: D) -> str:
         """Return action-specific money label for the active step."""
