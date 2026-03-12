@@ -157,6 +157,13 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.back_to_portfolio_btn.text() == "Back to Portfolio"
     assert screen.save_continue_btn.text() == "Save and continue"
     assert screen.continue_without_save_btn.text() == "Continue without saving"
+    btns_parent = screen.quit_btn.parentWidget()
+    assert btns_parent is not None
+    btns_layout = btns_parent.layout()
+    assert btns_layout is not None
+    assert btns_layout.indexOf(screen.quit_btn) < btns_layout.indexOf(screen.back_to_portfolio_btn)
+    assert btns_layout.indexOf(screen.back_to_portfolio_btn) < btns_layout.indexOf(screen.continue_without_save_btn)
+    assert btns_layout.indexOf(screen.continue_without_save_btn) < btns_layout.indexOf(screen.save_continue_btn)
 
 
 def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value(qapp) -> None:
