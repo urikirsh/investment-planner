@@ -96,6 +96,8 @@ class MainWindowWizardMixin:
             step_index=idx,
             total_steps=total,
             asset_group_name=s.asset_group_name,
+            ticker=s.ticker,
+            exchange=s.exchange.value,
             instrument_name=s.instrument_name,
             action=action,
             planned_amount_text=planned_amount_text,

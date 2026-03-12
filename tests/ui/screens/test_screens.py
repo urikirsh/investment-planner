@@ -189,6 +189,29 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.price_edit.minimumWidth() >= min_input_width
 
 
+def test_wizard_screen_set_step_context_includes_ticker_and_exchange(qapp) -> None:
+    _ = qapp
+    screen = WizardScreen()
+
+    screen.set_step_context(
+        step_index=2,
+        total_steps=4,
+        asset_group_name="US Equity",
+        ticker="AB12",
+        exchange="NYSE",
+        instrument_name="ETF A",
+        action="BUY",
+        planned_amount_text="500 (ILS)",
+    )
+
+    assert screen.step_progress.text() == "Step 2/4"
+    assert "Instrument: ETF A" in screen.wiz_info.text()
+    assert "Ticker: AB12" in screen.wiz_info.text()
+    assert "Exchange: NYSE" in screen.wiz_info.text()
+    assert "Asset group: US Equity" in screen.wiz_info.text()
+    assert "Action: BUY 500 (ILS)" in screen.wiz_info.text()
+
+
 def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value(qapp) -> None:
     _ = qapp
     screen = WizardScreen()

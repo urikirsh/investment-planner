@@ -181,11 +181,13 @@ def test_use_case_build_plan_for_current_document_returns_steps(tmp_path):
     assert result.steps[0].asset_group_id == "g1"
     assert result.steps[0].asset_group_name == "Asset 1"
     assert result.steps[0].instrument_id == "i1"
+    assert result.steps[0].ticker == "1234567"
     assert result.steps[0].instrument_name == "Inst 1"
     assert result.steps[0].planned_delta_money == D("6000")
     assert result.steps[1].asset_group_id == "g2"
     assert result.steps[1].asset_group_name == "Asset 2"
     assert result.steps[1].instrument_id == "i2"
+    assert result.steps[1].ticker == "2345678"
     assert result.steps[1].instrument_name == "Inst 2"
     assert result.steps[1].planned_delta_money == D("4000")
 
@@ -202,6 +204,7 @@ def test_use_case_apply_wizard_step_persists_buy_trade(tmp_path):
         asset_group_id="g1",
         asset_group_name="Asset 1",
         instrument_id="i1",
+        ticker="1234567",
         instrument_name="Inst 1",
         exchange=Exchange.TASE,
         planned_delta_money=D("500"),
@@ -226,6 +229,7 @@ def test_use_case_apply_wizard_step_skips_when_not_actionable(tmp_path):
         asset_group_id="g1",
         asset_group_name="Asset 1",
         instrument_id="i1",
+        ticker="1234567",
         instrument_name="Inst 1",
         exchange=Exchange.TASE,
         planned_delta_money=D("500"),
@@ -270,6 +274,7 @@ def test_use_case_apply_wizard_step_persists_sell_trade_and_decrements_quantity(
         asset_group_id="g1",
         asset_group_name="Asset 1",
         instrument_id="i1",
+        ticker="1234567",
         instrument_name="Inst 1",
         exchange=Exchange.TASE,
         planned_delta_money=D("-500"),
@@ -317,6 +322,7 @@ def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tm
         asset_group_id="g1",
         asset_group_name="Asset 1",
         instrument_id="i1",
+        ticker="1234567",
         instrument_name="Inst 1",
         exchange=Exchange.TASE,
         planned_delta_money=D("-500"),

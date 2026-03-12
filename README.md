@@ -62,6 +62,7 @@ The application never executes trades automatically. All actions are explicit an
   - `cash - minimal reserve - future tax` (floored at zero)
 - Step-by-step investment flow:
   - per-instrument allocation based on your target portfolio mix
+  - wizard step info shows instrument name, ticker, exchange, asset group, and action amount
   - enter instrument price and calculate how many units to buy/sell
   - for USD-priced instruments, the app fetches USD/ILS automatically and lets you enter a manual rate if needed
   - calculation can be triggered by button click, pressing `Enter`, or leaving the price field

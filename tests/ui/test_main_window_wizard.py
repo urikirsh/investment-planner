@@ -106,6 +106,8 @@ class _FakeWizardScreen:
         step_index: int,
         total_steps: int,
         asset_group_name: str,
+        ticker: str,
+        exchange: str,
         instrument_name: str,
         action: str,
         planned_amount_text: str,
@@ -113,6 +115,8 @@ class _FakeWizardScreen:
         self.step_progress.setText(f"Step {step_index}/{total_steps}")
         self.wiz_info.setText(
             f"Instrument: {instrument_name}\n"
+            f"Ticker: {ticker}\n"
+            f"Exchange: {exchange}\n"
             f"Asset group: {asset_group_name}\n"
             f"Action: {action} {planned_amount_text}"
         )
@@ -210,6 +214,8 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     host._show_current_wizard_step()
 
     assert host.screen_wizard.step_progress.value == "Step 1/1"
+    assert "Ticker: 1234567" in host.wiz_info.value
+    assert "Exchange: TASE" in host.wiz_info.value
     assert "Action: BUY 125 (ILS)" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""

@@ -226,6 +226,8 @@ class WizardScreen(QWidget):
         step_index: int,
         total_steps: int,
         asset_group_name: str,
+        ticker: str,
+        exchange: str,
         instrument_name: str,
         action: str,
         planned_amount_text: str,
@@ -234,6 +236,8 @@ class WizardScreen(QWidget):
         self.step_progress.setText(f"Step {step_index}/{total_steps}")
         self.wiz_info.setText(
             f"Instrument: {instrument_name}\n"
+            f"Ticker: {ticker}\n"
+            f"Exchange: {exchange}\n"
             f"Asset group: {asset_group_name}\n"
             f"Action: {action} {planned_amount_text}"
         )
