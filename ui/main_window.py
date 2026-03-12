@@ -115,14 +115,14 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     # -------------------------
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Ensure background FX thread is stopped before window teardown."""
+        """Ensure startup/wizard FX cleanup is done before window teardown."""
         self._welcome_controller.cancel_pending_startup_transition()
         stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
         if not stopped:
             show_error(
                 self,
                 "Please wait",
-                "Still finishing background USD/ILS fetch. Try closing again in a few seconds.",
+                "Still finishing cleanup tasks. Try closing again in a few seconds.",
             )
             event.ignore()
             return
@@ -174,7 +174,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
             self.planning_state.step_index = 0
             self.planning_state.mode = mode
             if not self._reset_wizard_fx_state_for_new_run():
-                self._show_error("Please wait", "Still finishing background USD/ILS fetch. Try again in a few seconds.")
+                self._show_error("Please wait", "Still finishing cleanup tasks. Try again in a few seconds.")
                 return
             self.wizard_state.last_calc = None
 

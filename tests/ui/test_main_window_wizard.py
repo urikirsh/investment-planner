@@ -2,7 +2,6 @@ from __future__ import annotations
 
 """Focused tests for ``MainWindowWizardMixin`` behavior."""
 
-from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any, Callable
@@ -10,8 +9,6 @@ from typing import Any, Callable
 import pytest
 
 from portfolio_core.models import Exchange, Portfolio
-from portfolio_core.fx_service import UsdIlsRateQuote
-from portfolio_core.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep
 import ui.main_window_wizard as wizard_mod
 from ui.main_window_wizard import MainWindowWizardMixin
@@ -175,11 +172,8 @@ class _FakeHost(MainWindowWizardMixin):
             usd_ils_fetch_error=None,
             manual_override_usd_ils_rate=None,
             usd_ils_fetch_in_progress=False,
-            usd_ils_failure_dialog_shown=False,
             usd_ils_rate_from_cache=False,
             usd_ils_rate_cached_at=None,
-            usd_ils_fetch_generation=1,
-            usd_ils_active_fetch_generation=1,
         )
         self.stack = _FakeStack()
         self.screen_main = object()
@@ -374,43 +368,6 @@ def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
     assert shown == []
 
 
-def test_on_fx_fetch_finished_uses_cached_quote_after_failure(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
-) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.session.read_cached_usd_ils_quote = lambda: CachedUsdIlsQuote(
-        rate=Decimal("3.8"),
-        effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
-        used_last_published=False,
-        cached_at=datetime.fromisoformat("2026-03-05T12:00:00+00:00"),
-    )
-    shown: list[tuple[str, str]] = []
-    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
-
-    host._on_fx_fetch_finished(None, "network", 1)
-
-    assert host.wizard_state.usd_ils_rate == Decimal("3.8")
-    assert host.wizard_state.usd_ils_rate_from_cache is True
-    assert shown and shown[0][0] == "Official USD/ILS fetch failed"
-    assert "Using cached USD/ILS rate" in shown[0][1]
-
-
-def test_on_fx_fetch_finished_requires_manual_when_cache_unreadable(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
-) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.session.read_cached_usd_ils_quote = lambda: None
-    shown: list[tuple[str, str]] = []
-    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
-
-    host._on_fx_fetch_finished(None, "network", 1)
-
-    assert host.wizard_state.usd_ils_rate is None
-    assert host.wizard_state.usd_ils_rate_from_cache is False
-    assert shown and shown[0][0] == "Official USD/ILS fetch failed"
-    assert "No readable cached rate is available" in shown[0][1]
-
-
 def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.wizard_state.manual_override_usd_ils_rate = Decimal("3.4")
@@ -435,24 +392,6 @@ def test_reset_wizard_fx_state_returns_false_when_cancel_fails(make_plan_step: C
 
     assert result is False
     assert host.wizard_state.manual_override_usd_ils_rate == Decimal("3.4")
-
-
-def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[..., PlanStep]) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.wizard_state.usd_ils_active_fetch_generation = 2
-    host.wizard_state.usd_ils_rate = Decimal("3.7")
-
-    host._on_fx_fetch_finished(
-        UsdIlsRateQuote(
-            rate=Decimal("3.9"),
-            effective_date=datetime.fromisoformat("2026-03-01T00:00:00").date(),
-            used_last_published=False,
-        ),
-        None,
-        1,
-    )
-
-    assert host.wizard_state.usd_ils_rate == Decimal("3.7")
 
 
 def test_wizard_save_continue_requires_successful_calculation(

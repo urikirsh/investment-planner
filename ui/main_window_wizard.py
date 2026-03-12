@@ -5,9 +5,9 @@ from __future__ import annotations
 This mixin encapsulates wizard screen wiring plus step calculation/save/advance
 behavior so `MainWindow` can remain focused on high-level orchestration.
 
-Wizard-run-scoped FX handling for USD-priced instruments is delegated to
-`ui.wizard_fx_coordinator.WizardFxCoordinator` via thin wrapper methods in
-this mixin.
+Wizard FX handling for USD-priced instruments is delegated to
+`ui.wizard_fx_coordinator.WizardFxCoordinator`, which reads startup-cached
+USD/ILS state and renders wizard FX panel context.
 """
 
 from decimal import Decimal
@@ -85,7 +85,7 @@ class MainWindowWizardMixin:
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
         self._invalidate_current_calc(reset_result=False, sync_widths=False)
-        self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
+        self._wizard_fx = WizardFxCoordinator(self)
 
     def _show_current_wizard_step(self) -> None:
         """Render current wizard step details and reset last calculation state."""
@@ -187,34 +187,26 @@ class MainWindowWizardMixin:
             return self.wizard_state.usd_ils_rate
         raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
 
-    def _wizard_has_usd_steps(self) -> bool:
-        """Return whether current plan includes at least one USD-priced step."""
-        return any(step.exchange.currency == Currency.USD for step in self.planning_state.plan_steps)
-
     def _prepare_wizard_fx_rate_cache(self) -> None:
         """No-op wrapper; FX is fetched during welcome wait and reused from cache."""
         self._wizard_fx_coordinator().prepare_wizard_fx_rate_cache()
-
-    def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object, generation: int) -> None:
-        """Handle completion of asynchronous BOI fetch."""
-        self._wizard_fx_coordinator().on_fx_fetch_finished(quote_obj, error_obj, generation)
 
     def _reset_wizard_fx_state_for_new_run(self) -> bool:
         """Reset transient USD/ILS state and clear manual FX input for a new run."""
         return self._wizard_fx_coordinator().reset_wizard_fx_state_for_new_run()
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
-        """Stop and detach the in-flight FX fetch thread, if any."""
+        """Run compatibility cleanup for any legacy in-flight FX worker."""
         return self._wizard_fx_coordinator().cancel_wizard_fx_fetch(wait_timeout_ms=wait_timeout_ms)
 
     def _render_fx_panel_for_current_step(self) -> None:
-        """Render FX quote/fallback/override status for the active step."""
+        """Render FX cached-rate status for the active step."""
         self._wizard_fx_coordinator().render_fx_panel_for_current_step()
 
     def _wizard_fx_coordinator(self) -> WizardFxCoordinator:
         """Lazily create coordinator for tests that bypass widget initialization."""
         if not hasattr(self, "_wizard_fx"):
-            self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
+            self._wizard_fx = WizardFxCoordinator(self)
         return self._wizard_fx
 
     def _try_finish_wizard_fx_cleanup(self) -> bool:
@@ -223,11 +215,10 @@ class MainWindowWizardMixin:
             show_error(
                 cast(QWidget, self),
                 "Please wait",
-                "Still finishing background USD/ILS fetch. Try again in a few seconds.",
+                "Still finishing cleanup tasks. Try again in a few seconds.",
             )
             return False
         self.wizard_state.usd_ils_fetch_in_progress = False
-        self.wizard_state.usd_ils_active_fetch_generation = None
         return True
 
     def _wizard_save_continue(self) -> None:

@@ -36,7 +36,7 @@ Main user flow:
 FX thread-safety guards in this flow:
 - Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
 - Wizard runs reuse session-cached USD/ILS data populated during welcome transition (no wizard-side refetch).
-- Window close waits for FX-thread shutdown (up to 12 seconds); close is blocked with a user-visible message if shutdown does not complete in time.
+- Window close cancels any active startup FX fetch before teardown.
 
 ## Controller composition rules
 - `MainWindow` is the composition root and owns long-lived controller instances.
@@ -101,7 +101,7 @@ FX thread-safety guards in this flow:
   - composes focused controller objects from `ui/controllers/*`
   - wires most Qt signals directly to composed controller methods
   - keeps thin wrapper methods only for cross-flow contracts used by actions/wizard flows and tests
-  - guards window close until in-flight wizard FX fetch thread is safely stopped
+  - guards window close by canceling any active startup transition/fetch and running wizard FX cleanup
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
@@ -130,7 +130,7 @@ FX thread-safety guards in this flow:
   - typed mutable workflow state shared by controller logic
   - `UnsavedChangesDecision`: typed save/discard/cancel prompt result
   - `PlanningState`: generated steps, active wizard index, and planning mode
-  - `WizardState`: per-step transient calculation cache plus USD/ILS wizard-run FX cache/override fields
+  - `WizardState`: per-step transient calculation cache plus startup-cached USD/ILS display state
 - `ui/wizard_fx_coordinator.py`
   - extracted FX-only coordinator used by `MainWindowWizardMixin`
   - owns USD-step FX panel rendering and reset behavior for wizard runs
@@ -222,7 +222,7 @@ UI-focused tests:
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
 - `tests/ui/test_wizard_fx_coordinator.py`
-  - FX coordinator lifecycle behavior (cancel guards, stale generations, USD-step panel rendering)
+  - FX coordinator behavior (session-cache hydration and USD-step panel rendering)
 
 Core/domain tests:
 - `tests/core/helpers.py`
