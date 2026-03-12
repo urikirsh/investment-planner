@@ -128,7 +128,12 @@ class MainWindowWizardMixin:
         self._wizard_calculate_impl(show_error_dialog=False)
 
     def _wizard_calculate_impl(self, *, show_error_dialog: bool) -> None:
-        """Shared calculation logic for explicit and implicit wizard triggers."""
+        """Shared calculation logic for explicit and implicit wizard triggers.
+
+        Explicit failures are shown in a modal dialog. Implicit failures update
+        the result row inline with a shortened single-line message so layout
+        remains stable during typing/focus navigation.
+        """
         try:
             s = self.planning_state.plan_steps[self.planning_state.step_index]
             entered_price = d_from_text(self.price_edit.text(), "price")
