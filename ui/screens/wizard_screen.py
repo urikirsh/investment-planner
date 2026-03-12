@@ -227,7 +227,7 @@ class WizardScreen(QWidget):
         total_steps: int,
         asset_group_name: str,
         ticker: str,
-        exchange: str,
+        exchange: Exchange,
         instrument_name: str,
         action: str,
         planned_amount_text: str,
@@ -242,7 +242,7 @@ class WizardScreen(QWidget):
         self.wiz_info.setText(
             f"Instrument: {instrument_name}\n"
             f"Ticker: {ticker}\n"
-            f"Exchange: {exchange}\n"
+            f"Exchange: {exchange.value}\n"
             f"Asset group: {asset_group_name}\n"
             f"Action: {action} {planned_amount_text}"
         )

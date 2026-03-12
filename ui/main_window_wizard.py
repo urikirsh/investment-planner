@@ -16,11 +16,10 @@ from typing import cast
 from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
-from portfolio_core.models import Currency
+from portfolio_core.models import Currency, Portfolio
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
 from ui.dialogs import show_error
-from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState, WizardState
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
@@ -71,6 +70,10 @@ class MainWindowWizardMixin:
         """Recompute and rerender derived values on the main screen."""
         ...
 
+    def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
+        """Render provided portfolio into main editor, refresh metrics, and optionally show screen 2."""
+        ...
+
     def _init_wizard_screen(self) -> None:
         """Build screen-4 wizard widget and wire wizard actions."""
         self.screen_wizard = WizardScreen(cast(QWidget, self))
@@ -94,14 +97,14 @@ class MainWindowWizardMixin:
         idx = self.planning_state.step_index + 1
         total = len(self.planning_state.plan_steps)
 
-        action = "BUY" if s.planned_delta_money > 0 else "SELL"
+        action, _ = self._wizard_step_direction_labels(s.planned_delta_money)
         planned_amount_text = f"{abs(s.planned_delta_money)} {BASE_CURRENCY_SUFFIX}"
         self.screen_wizard.set_step_context(
             step_index=idx,
             total_steps=total,
             asset_group_name=s.asset_group_name,
             ticker=s.ticker,
-            exchange=s.exchange.value,
+            exchange=s.exchange,
             instrument_name=s.instrument_name,
             action=action,
             planned_amount_text=planned_amount_text,
@@ -160,11 +163,7 @@ class MainWindowWizardMixin:
             self.wizard_state.last_calc = calc
             self._set_save_continue_enabled(True)
 
-            label_money = (
-                f"Spent {BASE_CURRENCY_SUFFIX}"
-                if s.planned_delta_money > 0
-                else f"Proceeds {BASE_CURRENCY_SUFFIX}"
-            )
+            _, label_money = self._wizard_step_direction_labels(s.planned_delta_money)
             self.wiz_result.setText(
                 self._format_wizard_result_text(
                     units=calc.units,
@@ -291,9 +290,14 @@ class MainWindowWizardMixin:
 
     def _wizard_money_label(self, planned_delta_money: D) -> str:
         """Return action-specific money label for the active step."""
+        _, money_label = self._wizard_step_direction_labels(planned_delta_money)
+        return money_label
+
+    def _wizard_step_direction_labels(self, planned_delta_money: D) -> tuple[str, str]:
+        """Return `(action_label, money_label)` for step direction."""
         if planned_delta_money > 0:
-            return f"Spent {BASE_CURRENCY_SUFFIX}"
-        return f"Proceeds {BASE_CURRENCY_SUFFIX}"
+            return ("BUY", f"Spent {BASE_CURRENCY_SUFFIX}")
+        return ("SELL", f"Proceeds {BASE_CURRENCY_SUFFIX}")
 
     def _format_wizard_result_text(
         self,
@@ -381,18 +385,7 @@ class MainWindowWizardMixin:
         """
         current = self.session.document.current_portfolio
         assert current is not None
-        populate_main_editor_from_portfolio(
-            tree=self.tree,
-            cash_value_edit=self.cash_value_edit,
-            cash_reserve_edit=self.cash_reserve_edit,
-            future_tax_edit=self.future_tax_edit,
-            portfolio=current,
-            non_investable_bucket_id=self._non_investable_bucket_id,
-            non_investable_bucket_title=self._non_investable_bucket_title,
-            on_future_tax_value_set=self._update_future_tax_visual_state,
-        )
-        self._refresh_data()
-        self.stack.setCurrentWidget(self.screen_main)
+        self._render_main_editor_from_portfolio(current, switch_to_main=True)
 
     def _advance_wizard_step(self) -> None:
         """Move to next step, or repopulate main editor and return when complete.

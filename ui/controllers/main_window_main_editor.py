@@ -10,7 +10,6 @@ from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
-from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
@@ -111,17 +110,7 @@ class MainWindowMainEditorController:
         """Load default portfolio into main editor as a new unsaved document."""
         host = self._host
         p = create_new_default_document(host.session)
-        populate_main_editor_from_portfolio(
-            tree=host.tree,
-            cash_value_edit=host.cash_value_edit,
-            cash_reserve_edit=host.cash_reserve_edit,
-            future_tax_edit=host.future_tax_edit,
-            portfolio=p,
-            non_investable_bucket_id=host._non_investable_bucket_id,
-            non_investable_bucket_title=host._non_investable_bucket_title,
-            on_future_tax_value_set=host._update_future_tax_visual_state,
-        )
-        host._refresh_data()
+        host._render_main_editor_from_portfolio(p, switch_to_main=False)
         host._update_file_context_ui()
 
     def on_refresh_requested(self, *_args: object) -> None:

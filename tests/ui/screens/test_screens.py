@@ -198,7 +198,7 @@ def test_wizard_screen_set_step_context_includes_ticker_and_exchange(qapp) -> No
         total_steps=4,
         asset_group_name="US Equity",
         ticker="AB12",
-        exchange="NYSE",
+        exchange=Exchange.NYSE,
         instrument_name="ETF A",
         action="BUY",
         planned_amount_text="500 (ILS)",
