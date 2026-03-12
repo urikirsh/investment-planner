@@ -41,6 +41,7 @@ from ui.shared.ui_utils import DEFAULT_CURRENCY
 DEFAULT_PRICE_LABEL = "Price (Agorot):"
 USD_PRICE_LABEL = f"Price ({Exchange.NYSE.currency.value}):"
 USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/{DEFAULT_CURRENCY.value} rate:"
+DEFAULT_WIZARD_RESULT_TEXT = "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
 
 
 class WizardScreen(QWidget):
@@ -158,7 +159,7 @@ class WizardScreen(QWidget):
         result_focus_layout.setContentsMargins(0, 0, 0, 0)
         result_focus_layout.setSpacing(8)
 
-        self.wiz_result = QLabel("Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -")
+        self.wiz_result = QLabel(DEFAULT_WIZARD_RESULT_TEXT)
         self.wiz_result.setWordWrap(False)
         self.wiz_result.setStyleSheet(
             "background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; "

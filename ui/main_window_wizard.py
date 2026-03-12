@@ -21,7 +21,7 @@ from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, apply_wizard_step
 from ui.dialogs import show_error
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
-from ui.screens.wizard_screen import WizardScreen
+from ui.screens.wizard_screen import DEFAULT_WIZARD_RESULT_TEXT, WizardScreen
 from ui.ui_state import PlanningState, WizardState
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
 from ui.wizard_fx_coordinator import WizardFxCoordinator
@@ -112,10 +112,9 @@ class MainWindowWizardMixin:
             self.screen_wizard.set_price_mode(s.exchange)
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
-        self.wiz_result.setText(f"Units: - | Spent/Proceeds {BASE_CURRENCY_SUFFIX}: - | Leftover vs plan {BASE_CURRENCY_SUFFIX}: -")
+        self.wiz_result.setText(DEFAULT_WIZARD_RESULT_TEXT)
         self._set_save_continue_enabled(False)
-        if hasattr(self.screen_wizard, "sync_focus_row_widths"):
-            self.screen_wizard.sync_focus_row_widths()
+        self._sync_wizard_focus_row_widths()
 
         self.wizard_state.last_calc = None
 
@@ -173,8 +172,7 @@ class MainWindowWizardMixin:
             self.wiz_result.setText(
                 f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan {BASE_CURRENCY_SUFFIX}: {calc.leftover}"
             )
-            if hasattr(self.screen_wizard, "sync_focus_row_widths"):
-                self.screen_wizard.sync_focus_row_widths()
+            self._sync_wizard_focus_row_widths()
         except Exception as e:
             self.wizard_state.last_calc = None
             self._set_save_continue_enabled(False)
@@ -185,8 +183,7 @@ class MainWindowWizardMixin:
             if len(inline_error) > 60:
                 inline_error = f"{inline_error[:57]}..."
             self.wiz_result.setText(f"Calculation not updated: {inline_error}")
-            if hasattr(self.screen_wizard, "sync_focus_row_widths"):
-                self.screen_wizard.sync_focus_row_widths()
+            self._sync_wizard_focus_row_widths()
 
     def _get_effective_usd_ils_rate(self) -> D:
         """Return USD/ILS rate for current wizard run, with override fallback."""
@@ -282,6 +279,11 @@ class MainWindowWizardMixin:
     def _set_save_continue_enabled(self, enabled: bool) -> None:
         """Enable/disable step commit action based on calculation validity."""
         self.screen_wizard.save_continue_btn.setEnabled(enabled)
+
+    def _sync_wizard_focus_row_widths(self) -> None:
+        """Refresh optional focus-row width alignment on wizard result changes."""
+        if hasattr(self.screen_wizard, "sync_focus_row_widths"):
+            self.screen_wizard.sync_focus_row_widths()
 
     def _wizard_continue_without_saving(self) -> None:
         """Skip current step without mutating portfolio and move forward."""
