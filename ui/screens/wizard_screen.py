@@ -63,9 +63,19 @@ class WizardScreen(QWidget):
         self._build()
 
     def _build(self) -> None:
+        """Compose the full wizard screen layout from section builders."""
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
+        self._build_header(layout)
+        self._build_info_card(layout)
+        layout.addStretch(1)
+        layout.addWidget(self._build_trade_cluster())
+        layout.addStretch(2)
+        layout.addWidget(self._build_bottom_actions())
+        self.sync_focus_row_widths()
 
+    def _build_header(self, layout: QVBoxLayout) -> None:
+        """Add title and subtitle text at the top of the screen."""
         title = QLabel("Execute Plan Step")
         title.setStyleSheet("font-size: 20px; font-weight: 600;")
         layout.addWidget(title)
@@ -75,6 +85,8 @@ class WizardScreen(QWidget):
         subtitle.setStyleSheet("color: #4a4a4a;")
         layout.addWidget(subtitle)
 
+    def _build_info_card(self, layout: QVBoxLayout) -> None:
+        """Add the step-progress/info card section."""
         info_card = QWidget(self)
         info_card.setStyleSheet("background: #f5f7fa; border: 1px solid #d8dde6; border-radius: 6px;")
         info_layout = QVBoxLayout(info_card)
@@ -90,13 +102,22 @@ class WizardScreen(QWidget):
         self.wiz_info.setStyleSheet("font-size: 15px;")
         info_layout.addWidget(self.wiz_info)
         layout.addWidget(info_card)
-        layout.addStretch(1)
 
+    def _build_trade_cluster(self) -> QWidget:
+        """Build and return the center cluster with price, FX, and result rows."""
         trade_cluster = QWidget(self)
         trade_layout = QVBoxLayout(trade_cluster)
         trade_layout.setContentsMargins(0, 0, 0, 0)
         trade_layout.setSpacing(2)
 
+        trade_layout.addWidget(self._build_price_row())
+        trade_layout.addWidget(self._build_fx_panel())
+        trade_layout.setSpacing(2)
+        trade_layout.addWidget(self._build_result_row())
+        return trade_cluster
+
+    def _build_price_row(self) -> QWidget:
+        """Build and return the centered price-entry row."""
         price_outer_row = QWidget(self)
         price_outer_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         price_outer_layout = QHBoxLayout(price_outer_row)
@@ -122,8 +143,10 @@ class WizardScreen(QWidget):
         price_focus_layout.addWidget(self.calculate_btn)
         price_outer_layout.addWidget(self._price_focus_row)
         price_outer_layout.addStretch(1)
-        trade_layout.addWidget(price_outer_row)
+        return price_outer_row
 
+    def _build_fx_panel(self) -> QWidget:
+        """Build and return the FX status/override panel."""
         form = QWidget(self)
         form.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         form_layout = QFormLayout(form)
@@ -147,9 +170,10 @@ class WizardScreen(QWidget):
         self.manual_rate_edit.setPlaceholderText("e.g. 3.65")
         self.manual_rate_edit.setVisible(False)
         form_layout.addRow(self.manual_rate_label, self.manual_rate_edit)
-        trade_layout.addWidget(form)
-        trade_layout.setSpacing(2)
+        return form
 
+    def _build_result_row(self) -> QWidget:
+        """Build and return the centered result row with the primary commit action."""
         result_row = QWidget(self)
         result_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         result_row_layout = QHBoxLayout(result_row)
@@ -176,11 +200,10 @@ class WizardScreen(QWidget):
         result_focus_layout.addWidget(self.save_continue_btn)
         result_row_layout.addWidget(self._result_focus_row)
         result_row_layout.addStretch(1)
-        trade_layout.addWidget(result_row)
+        return result_row
 
-        layout.addWidget(trade_cluster)
-        layout.addStretch(2)
-
+    def _build_bottom_actions(self) -> QWidget:
+        """Build and return the bottom action row (`Quit`, `Exit Wizard`, `Skip Step`)."""
         btns = QWidget(self)
         btns.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         btns_layout = QHBoxLayout(btns)
@@ -196,8 +219,7 @@ class WizardScreen(QWidget):
 
         self.continue_without_save_btn = QPushButton("Skip Step")
         btns_layout.addWidget(self.continue_without_save_btn)
-        layout.addWidget(btns)
-        self.sync_focus_row_widths()
+        return btns
 
     def set_step_context(
         self,
