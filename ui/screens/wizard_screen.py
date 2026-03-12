@@ -119,7 +119,7 @@ class WizardScreen(QWidget):
         result_row_layout.setSpacing(8)
         result_row_layout.addStretch(1)
 
-        self.wiz_result = QLabel("Units: - | Spent/Proceeds (ILS): - | Leftover vs plan: -")
+        self.wiz_result = QLabel("Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -")
         self.wiz_result.setWordWrap(False)
         self.wiz_result.setStyleSheet(
             "background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; "

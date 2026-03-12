@@ -111,7 +111,7 @@ class MainWindowWizardMixin:
             self.screen_wizard.set_price_mode(s.exchange)
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
-        self.wiz_result.setText(f"Units: - | Spent/Proceeds {BASE_CURRENCY_SUFFIX}: - | Leftover vs plan: -")
+        self.wiz_result.setText(f"Units: - | Spent/Proceeds {BASE_CURRENCY_SUFFIX}: - | Leftover vs plan {BASE_CURRENCY_SUFFIX}: -")
 
         self.wizard_state.last_calc = None
 
@@ -159,7 +159,7 @@ class MainWindowWizardMixin:
                 else f"Proceeds {BASE_CURRENCY_SUFFIX}"
             )
             self.wiz_result.setText(
-                f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan: {calc.leftover}"
+                f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan {BASE_CURRENCY_SUFFIX}: {calc.leftover}"
             )
         except Exception as e:
             if show_error_dialog:

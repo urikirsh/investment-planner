@@ -106,7 +106,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows) with dropdown editing (`TASE`, `NYSE`)
-- Wizard displays all planned/spent/proceeds amounts explicitly in ILS
+- Wizard displays all planned/spent/proceeds/leftover amounts explicitly in ILS
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket

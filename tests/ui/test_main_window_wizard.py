@@ -177,7 +177,7 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     assert "Planned BUY value (ILS): 125" in host.wiz_info.value
     assert host.price_label.value == "Price (Agorot):"
     assert host.price_edit.text() == ""
-    assert host.wiz_result.value == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan: -"
+    assert host.wiz_result.value == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
     assert host.wizard_state.last_calc is None
 
 
@@ -200,7 +200,7 @@ def test_wizard_calculate_sets_last_calc_and_result_text(
 
     assert calls == [{"instrument_id": "ins-1", "planned_money": Decimal("50"), "price_ag": Decimal("10")}]
     assert host.wizard_state.last_calc is fake_calc
-    assert host.wiz_result.value == "Units: 5 | Proceeds (ILS): 50 | Leftover vs plan: 0"
+    assert host.wiz_result.value == "Units: 5 | Proceeds (ILS): 50 | Leftover vs plan (ILS): 0"
 
 
 def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_plan_step: Callable[..., PlanStep]) -> None:

@@ -157,7 +157,7 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.price_edit.maxLength() == 11
     assert screen.calculate_btn.text() == "Calculate"
     assert screen.calculate_btn.parentWidget() is screen.price_edit.parentWidget()
-    assert screen.wiz_result.text() == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan: -"
+    assert screen.wiz_result.text() == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
     assert not screen.wiz_result.wordWrap()
     assert "font-size: 15px" in screen.wiz_result.styleSheet()
     assert screen.quit_btn.text() == "Quit"
