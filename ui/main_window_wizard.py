@@ -330,12 +330,10 @@ class MainWindowWizardMixin:
         """Return the active wizard step from planning state."""
         return self.planning_state.plan_steps[self.planning_state.step_index]
 
-    def _require_current_portfolio(self) -> object:
-        """Return current portfolio or raise when wizard flow has no loaded document."""
-        current = self.session.document.current_portfolio
-        if current is None:
+    def _require_current_portfolio(self) -> None:
+        """Validate that wizard flow has a loaded current portfolio."""
+        if self.session.document.current_portfolio is None:
             raise ValueError("No portfolio loaded")
-        return current
 
     def _wizard_continue_without_saving(self) -> None:
         """Skip current step without mutating portfolio and move forward."""
