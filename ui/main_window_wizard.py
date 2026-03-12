@@ -112,6 +112,8 @@ class MainWindowWizardMixin:
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
         self.wiz_result.setText(f"Units: - | Spent/Proceeds {BASE_CURRENCY_SUFFIX}: - | Leftover vs plan {BASE_CURRENCY_SUFFIX}: -")
+        if hasattr(self.screen_wizard, "sync_focus_row_widths"):
+            self.screen_wizard.sync_focus_row_widths()
 
         self.wizard_state.last_calc = None
 
@@ -161,11 +163,15 @@ class MainWindowWizardMixin:
             self.wiz_result.setText(
                 f"{conversion_info}Units: {calc.units} | {label_money}: {calc.spent} | Leftover vs plan {BASE_CURRENCY_SUFFIX}: {calc.leftover}"
             )
+            if hasattr(self.screen_wizard, "sync_focus_row_widths"):
+                self.screen_wizard.sync_focus_row_widths()
         except Exception as e:
             if show_error_dialog:
                 show_error(cast(QWidget, self), "Calculation failed", str(e))
                 return
             self.wiz_result.setText(f"Calculation not updated: {e}")
+            if hasattr(self.screen_wizard, "sync_focus_row_widths"):
+                self.screen_wizard.sync_focus_row_widths()
 
     def _get_effective_usd_ils_rate(self) -> D:
         """Return USD/ILS rate for current wizard run, with override fallback."""

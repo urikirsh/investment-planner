@@ -25,7 +25,8 @@ All trade execution behavior is intentionally delegated to the coordinator.
 from __future__ import annotations
 
 from portfolio_core.models import Currency, Exchange
-from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from ui.shared.ui_utils import DEFAULT_CURRENCY
 
@@ -77,22 +78,45 @@ class WizardScreen(QWidget):
         self.wiz_info.setWordWrap(True)
         info_layout.addWidget(self.wiz_info)
         layout.addWidget(info_card)
+        layout.addStretch(1)
 
-        form = QWidget(self)
-        form_layout = QFormLayout(form)
-        form_layout.setVerticalSpacing(8)
+        trade_cluster = QWidget(self)
+        trade_layout = QVBoxLayout(trade_cluster)
+        trade_layout.setContentsMargins(0, 0, 0, 0)
+        trade_layout.setSpacing(2)
+
+        price_outer_row = QWidget(self)
+        price_outer_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        price_outer_layout = QHBoxLayout(price_outer_row)
+        price_outer_layout.setContentsMargins(0, 0, 0, 0)
+        price_outer_layout.setSpacing(0)
+        price_outer_layout.addStretch(1)
+
+        self._price_focus_row = QWidget(self)
+        price_focus_layout = QHBoxLayout(self._price_focus_row)
+        price_focus_layout.setContentsMargins(0, 0, 0, 0)
+        price_focus_layout.setSpacing(6)
         self.price_label = QLabel(DEFAULT_PRICE_LABEL)
-        price_row = QWidget(self)
-        price_row_layout = QHBoxLayout(price_row)
-        price_row_layout.setContentsMargins(0, 0, 0, 0)
-        price_row_layout.setSpacing(8)
+        self.price_label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        price_focus_layout.addWidget(self.price_label)
+
         self.price_edit = QLineEdit()
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
         self.price_edit.setMaxLength(11)
-        price_row_layout.addWidget(self.price_edit, 1)
+        self.price_edit.setStyleSheet("font-size: 15px; padding: 5px 8px;")
+        price_focus_layout.addWidget(self.price_edit, 1)
         self.calculate_btn = QPushButton("Calculate")
-        price_row_layout.addWidget(self.calculate_btn)
-        form_layout.addRow(self.price_label, price_row)
+        self.calculate_btn.setStyleSheet("font-size: 15px; padding: 5px 10px;")
+        price_focus_layout.addWidget(self.calculate_btn)
+        price_outer_layout.addWidget(self._price_focus_row)
+        price_outer_layout.addStretch(1)
+        trade_layout.addWidget(price_outer_row)
+
+        form = QWidget(self)
+        form.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        form_layout = QFormLayout(form)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setVerticalSpacing(1)
 
         self.fx_info_label = QLabel("")
         self.fx_info_label.setWordWrap(True)
@@ -111,13 +135,20 @@ class WizardScreen(QWidget):
         self.manual_rate_edit.setPlaceholderText("e.g. 3.65")
         self.manual_rate_edit.setVisible(False)
         form_layout.addRow(self.manual_rate_label, self.manual_rate_edit)
-        layout.addWidget(form)
+        trade_layout.addWidget(form)
+        trade_layout.setSpacing(2)
 
         result_row = QWidget(self)
+        result_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         result_row_layout = QHBoxLayout(result_row)
         result_row_layout.setContentsMargins(0, 0, 0, 0)
         result_row_layout.setSpacing(8)
         result_row_layout.addStretch(1)
+
+        self._result_focus_row = QWidget(self)
+        result_focus_layout = QHBoxLayout(self._result_focus_row)
+        result_focus_layout.setContentsMargins(0, 0, 0, 0)
+        result_focus_layout.setSpacing(8)
 
         self.wiz_result = QLabel("Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -")
         self.wiz_result.setWordWrap(False)
@@ -125,15 +156,20 @@ class WizardScreen(QWidget):
             "background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; "
             "padding: 10px 12px; font-size: 15px; font-weight: 600;"
         )
-        result_row_layout.addWidget(self.wiz_result)
+        result_focus_layout.addWidget(self.wiz_result)
 
         self.save_continue_btn = QPushButton("Save and continue")
         self.save_continue_btn.setStyleSheet("font-size: 15px; padding: 8px 12px;")
-        result_row_layout.addWidget(self.save_continue_btn)
+        result_focus_layout.addWidget(self.save_continue_btn)
+        result_row_layout.addWidget(self._result_focus_row)
         result_row_layout.addStretch(1)
-        layout.addWidget(result_row)
+        trade_layout.addWidget(result_row)
+
+        layout.addWidget(trade_cluster)
+        layout.addStretch(2)
 
         btns = QWidget(self)
+        btns.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         btns_layout = QHBoxLayout(btns)
         btns_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -148,6 +184,7 @@ class WizardScreen(QWidget):
         self.continue_without_save_btn = QPushButton("Skip Step")
         btns_layout.addWidget(self.continue_without_save_btn)
         layout.addWidget(btns)
+        self.sync_focus_row_widths()
 
     def set_step_context(
         self,
@@ -167,15 +204,31 @@ class WizardScreen(QWidget):
             f"Action: {action} {planned_amount_text}"
         )
 
+    def sync_focus_row_widths(self) -> None:
+        """Keep price row and result row visual widths aligned when feasible."""
+        spacing = 8
+        input_metrics = QFontMetrics(self.price_edit.font())
+        min_input_width = input_metrics.horizontalAdvance("0" * 11) + 24
+        self.price_edit.setMinimumWidth(min_input_width)
+        result_combo_width = self.wiz_result.sizeHint().width() + self.save_continue_btn.sizeHint().width() + spacing
+        price_combo_min_width = (
+            self.price_label.sizeHint().width() + min_input_width + self.calculate_btn.sizeHint().width() + spacing * 2
+        )
+        target_width = max(result_combo_width, price_combo_min_width)
+        self._price_focus_row.setFixedWidth(target_width)
+        self._result_focus_row.setFixedWidth(target_width)
+
     def set_price_mode(self, exchange: Exchange) -> None:
         """Configure price-label context for the current instrument exchange."""
         if exchange.currency == Currency.USD:
             self.price_label.setText(USD_PRICE_LABEL)
             self.price_edit.setPlaceholderText(f"Enter unit price in {Exchange.NYSE.currency.value} (e.g. 12.34)")
+            self.sync_focus_row_widths()
             return
 
         self.price_label.setText(DEFAULT_PRICE_LABEL)
         self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
+        self.sync_focus_row_widths()
 
     def set_fx_panel(
         self,

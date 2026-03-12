@@ -76,6 +76,7 @@ The application never executes trades automatically. All actions are explicit an
   - integer unit calculation (rounded down)
   - price input supports quick calculation on `Enter` or when leaving the input field
   - `Calculate` remains available next to the price input for explicit/manual recalculation
+  - price row (`Price + input + Calculate`) is centered and width-aligned with the centered result row (`Units/Spent/Leftover + Save and continue`) while preserving at least 11 visible input characters
 - Wizard actions:
   - Save and continue (primary action, displayed next to Units/Spent/Leftover result line)
   - Quit (application-level exit)

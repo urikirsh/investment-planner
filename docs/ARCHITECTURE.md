@@ -80,7 +80,8 @@ FX thread-safety guards in this flow:
 - `ui/screens/wizard_screen.py`
   - screen 4 presentation/layout (per-instrument execution wizard)
   - exposes price input, calculation feedback, and step action controls
-  - action-row layout keeps app-level `Quit` separated from step-level actions (`Exit Wizard`, `Skip Step`, `Save and continue`)
+  - action layout keeps app-level `Quit` separated from right-aligned step navigation actions (`Exit Wizard`, `Skip Step`)
+  - primary commit action (`Save and continue`) is colocated with the result row (`Units/Spent/Leftover`) for higher focus
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
