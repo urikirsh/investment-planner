@@ -9,7 +9,9 @@ feedback, and step actions.
 Action-row intent:
 - `Quit` is kept on the far left as an application-level action.
 - Wizard-step actions are grouped on the right:
-  `Exit Wizard`, `Skip Step`, and `Save and continue`.
+  `Exit Wizard` and `Skip Step`.
+- Primary step commit action (`Save and continue`) is grouped with result data
+  in a centered row to keep attention on the decision point.
 
 Price-entry semantics:
 - ILS steps use agorot input (`Price (Agorot)`), matching
@@ -111,10 +113,25 @@ class WizardScreen(QWidget):
         form_layout.addRow(self.manual_rate_label, self.manual_rate_edit)
         layout.addWidget(form)
 
+        result_row = QWidget(self)
+        result_row_layout = QHBoxLayout(result_row)
+        result_row_layout.setContentsMargins(0, 0, 0, 0)
+        result_row_layout.setSpacing(8)
+        result_row_layout.addStretch(1)
+
         self.wiz_result = QLabel("Units: - | Spent/Proceeds (ILS): - | Leftover vs plan: -")
-        self.wiz_result.setWordWrap(True)
-        self.wiz_result.setStyleSheet("background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; padding: 8px;")
-        layout.addWidget(self.wiz_result)
+        self.wiz_result.setWordWrap(False)
+        self.wiz_result.setStyleSheet(
+            "background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; "
+            "padding: 10px 12px; font-size: 15px; font-weight: 600;"
+        )
+        result_row_layout.addWidget(self.wiz_result)
+
+        self.save_continue_btn = QPushButton("Save and continue")
+        self.save_continue_btn.setStyleSheet("font-size: 15px; padding: 8px 12px;")
+        result_row_layout.addWidget(self.save_continue_btn)
+        result_row_layout.addStretch(1)
+        layout.addWidget(result_row)
 
         btns = QWidget(self)
         btns_layout = QHBoxLayout(btns)
@@ -130,9 +147,6 @@ class WizardScreen(QWidget):
 
         self.continue_without_save_btn = QPushButton("Skip Step")
         btns_layout.addWidget(self.continue_without_save_btn)
-
-        self.save_continue_btn = QPushButton("Save and continue")
-        btns_layout.addWidget(self.save_continue_btn)
         layout.addWidget(btns)
 
     def set_step_context(

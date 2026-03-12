@@ -77,13 +77,14 @@ The application never executes trades automatically. All actions are explicit an
   - price input supports quick calculation on `Enter` or when leaving the input field
   - `Calculate` remains available next to the price input for explicit/manual recalculation
 - Wizard actions:
+  - Save and continue (primary action, displayed next to Units/Spent/Leftover result line)
   - Quit (application-level exit)
   - Exit Wizard (returns to the portfolio screen without applying the current step)
   - Skip Step (moves to the next step without applying this step)
-  - Save and continue
   - Save-and-continue updates instrument `quantity` for executed wizard trades (buy adds units, sell subtracts units)
   - If a sell step requests more units than the tracked quantity, the wizard shows a clear error and skips that step after acknowledgement
-  - Action-row layout separates concerns: `Quit` is left-aligned, while step actions are right-aligned
+  - Action-row layout separates concerns: `Quit` is left-aligned, while `Exit Wizard` and `Skip Step` are right-aligned
+  - Units/Spent/Leftover result line is rendered as a single emphasized row for quick scan-and-confirm flow
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
