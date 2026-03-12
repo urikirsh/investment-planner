@@ -112,7 +112,6 @@ class WizardScreen(QWidget):
 
         trade_layout.addWidget(self._build_price_row())
         trade_layout.addWidget(self._build_fx_panel())
-        trade_layout.setSpacing(2)
         trade_layout.addWidget(self._build_result_row())
         return trade_cluster
 
