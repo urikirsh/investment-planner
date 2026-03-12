@@ -47,6 +47,19 @@ class _FakeLineEdit:
         return self._placeholder
 
 
+class _FakeButton:
+    """Minimal button double exposing enabled-state mutation."""
+
+    def __init__(self, enabled: bool = True) -> None:
+        self._enabled = enabled
+
+    def setEnabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+
+    def isEnabled(self) -> bool:
+        return self._enabled
+
+
 class _FakeWizardScreen:
     """Minimal wizard-screen double exposing price-mode behavior."""
 
@@ -57,7 +70,8 @@ class _FakeWizardScreen:
         self.fx_info_text = ""
         self.fx_error_text = ""
         self.manual_visible = False
-        self.calculate_btn = SimpleNamespace(setEnabled=lambda *_args, **_kwargs: None)
+        self.calculate_btn = _FakeButton()
+        self.save_continue_btn = _FakeButton(False)
 
     def set_price_mode(self, exchange: Exchange) -> None:
         if exchange.currency == Exchange.NYSE.currency:
@@ -179,6 +193,7 @@ def test_show_current_wizard_step_updates_labels_and_resets_calc(make_plan_step:
     assert host.price_edit.text() == ""
     assert host.wiz_result.value == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
     assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
 
 
 def test_wizard_calculate_sets_last_calc_and_result_text(
@@ -201,6 +216,7 @@ def test_wizard_calculate_sets_last_calc_and_result_text(
     assert calls == [{"instrument_id": "ins-1", "planned_money": Decimal("50"), "price_ag": Decimal("10")}]
     assert host.wizard_state.last_calc is fake_calc
     assert host.wiz_result.value == "Units: 5 | Proceeds (ILS): 50 | Leftover vs plan (ILS): 0"
+    assert host.screen_wizard.save_continue_btn.isEnabled() is True
 
 
 def test_wizard_calculate_usd_converts_to_ils_and_shows_conversion_line(make_plan_step: Callable[..., PlanStep]) -> None:
@@ -256,9 +272,25 @@ def test_wizard_calculate_usd_without_rate_or_override_blocks_calculation(
     host._wizard_calculate()
 
     assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
     assert errors
     assert errors[0][0] == "Calculation failed"
     assert "USD/ILS rate unavailable" in errors[0][1]
+
+
+def test_wizard_implicit_failure_clears_last_calc_and_disables_save(
+    make_plan_step: Callable[..., PlanStep]
+) -> None:
+    host = _FakeHost(steps=[make_plan_step(delta="20")])
+    host.wizard_state.last_calc = SimpleNamespace(units=2, spent=Decimal("20"), leftover=Decimal("0"))
+    host.screen_wizard.save_continue_btn.setEnabled(True)
+    host.price_edit.setText("bad-price")
+
+    host._wizard_calculate_implicit()
+
+    assert host.wizard_state.last_calc is None
+    assert host.screen_wizard.save_continue_btn.isEnabled() is False
+    assert "Calculation not updated:" in host.wiz_result.value
 
 
 def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
@@ -385,12 +417,13 @@ def test_on_fx_fetch_finished_ignores_stale_generation(make_plan_step: Callable[
     assert host.wizard_state.usd_ils_rate == Decimal("3.7")
 
 
-def test_wizard_save_continue_uses_zero_when_no_last_calc(
+def test_wizard_save_continue_requires_successful_calculation(
     monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
 ) -> None:
     host = _FakeHost(steps=[make_plan_step(delta="10")])
     host.wizard_state.last_calc = None
 
+    shown: list[tuple[str, str]] = []
     apply_calls: list[dict[str, Any]] = []
     advance_calls = 0
 
@@ -403,17 +436,16 @@ def test_wizard_save_continue_uses_zero_when_no_last_calc(
         advance_calls += 1
 
     monkeypatch.setattr(wizard_mod, "apply_wizard_step", fake_apply)
+    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
     monkeypatch.setattr(host, "_advance_wizard_step", fake_advance)
 
     host._wizard_save_continue()
 
-    assert len(apply_calls) == 1
-    assert apply_calls[0]["session"] is host.session
-    assert apply_calls[0]["step"] is host.planning_state.plan_steps[0]
-    assert apply_calls[0]["calc_units"] == 0
-    assert apply_calls[0]["spent"] == Decimal("0")
-    assert host._file_context_updates == 1
-    assert advance_calls == 1
+    assert apply_calls == []
+    assert shown and shown[0][0] == "Save failed"
+    assert "Please calculate units before saving this step." in shown[0][1]
+    assert host._file_context_updates == 0
+    assert advance_calls == 0
 
 
 def test_wizard_save_continue_shows_quantity_error_and_advances(

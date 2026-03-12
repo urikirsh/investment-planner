@@ -169,6 +169,7 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.quit_btn.text() == "Quit"
     assert screen.back_to_portfolio_btn.text() == "Exit Wizard"
     assert screen.save_continue_btn.text() == "Save and continue"
+    assert not screen.save_continue_btn.isEnabled()
     assert "font-size: 15px" in screen.save_continue_btn.styleSheet()
     assert screen.continue_without_save_btn.text() == "Skip Step"
     assert screen.save_continue_btn.parentWidget() is screen.wiz_result.parentWidget()

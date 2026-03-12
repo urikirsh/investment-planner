@@ -81,6 +81,7 @@ class MainWindowWizardMixin:
         self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._wizard_back_to_portfolio)
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
+        self._set_save_continue_enabled(False)
         self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
 
     def _show_current_wizard_step(self) -> None:
@@ -112,6 +113,7 @@ class MainWindowWizardMixin:
             self._render_fx_panel_for_current_step()
         self.price_edit.setText("")
         self.wiz_result.setText(f"Units: - | Spent/Proceeds {BASE_CURRENCY_SUFFIX}: - | Leftover vs plan {BASE_CURRENCY_SUFFIX}: -")
+        self._set_save_continue_enabled(False)
         if hasattr(self.screen_wizard, "sync_focus_row_widths"):
             self.screen_wizard.sync_focus_row_widths()
 
@@ -159,6 +161,7 @@ class MainWindowWizardMixin:
                     price_ag=entered_price,
                 )
             self.wizard_state.last_calc = calc
+            self._set_save_continue_enabled(True)
 
             label_money = (
                 f"Spent {BASE_CURRENCY_SUFFIX}"
@@ -171,6 +174,8 @@ class MainWindowWizardMixin:
             if hasattr(self.screen_wizard, "sync_focus_row_widths"):
                 self.screen_wizard.sync_focus_row_widths()
         except Exception as e:
+            self.wizard_state.last_calc = None
+            self._set_save_continue_enabled(False)
             if show_error_dialog:
                 show_error(cast(QWidget, self), "Calculation failed", str(e))
                 return
@@ -238,7 +243,7 @@ class MainWindowWizardMixin:
         """Apply current step trade, persist if applied, then advance.
 
         Behavior:
-        - Uses `last_calc` when available; otherwise attempts a no-op apply.
+        - Requires a successful current-step calculation before applying.
         - On successful apply, refreshes file-context UI (because autosave happened).
         - If sell units exceed tracked quantity, shows a clear error prompt and
           advances to the next step without saving this step.
@@ -248,13 +253,10 @@ class MainWindowWizardMixin:
                 raise ValueError("No portfolio loaded")
 
             s = self.planning_state.plan_steps[self.planning_state.step_index]
-
             if self.wizard_state.last_calc is None:
-                calc_units = 0
-                spent = D("0")
-            else:
-                calc_units = self.wizard_state.last_calc.units
-                spent = self.wizard_state.last_calc.spent
+                raise ValueError("Please calculate units before saving this step.")
+            calc_units = self.wizard_state.last_calc.units
+            spent = self.wizard_state.last_calc.spent
 
             applied = apply_wizard_step(self.session, s, calc_units, spent)
             if applied:
@@ -274,6 +276,10 @@ class MainWindowWizardMixin:
             self._advance_wizard_step()
         except Exception as e:
             show_error(cast(QWidget, self), "Save failed", str(e))
+
+    def _set_save_continue_enabled(self, enabled: bool) -> None:
+        """Enable/disable step commit action based on calculation validity."""
+        self.screen_wizard.save_continue_btn.setEnabled(enabled)
 
     def _wizard_continue_without_saving(self) -> None:
         """Skip current step without mutating portfolio and move forward."""

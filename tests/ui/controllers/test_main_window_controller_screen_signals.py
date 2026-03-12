@@ -130,6 +130,7 @@ def test_wizard_calculate_button_signal_runs_calculation_flow(
     window.screen_wizard.calculate_btn.click()
 
     assert window.wizard_state.last_calc is fake_calc
+    assert window.screen_wizard.save_continue_btn.isEnabled()
     assert "Units: 2" in window.wiz_result.text()
 
 
@@ -157,6 +158,7 @@ def test_wizard_price_editing_finished_signal_runs_implicit_calculation_flow(
     window.price_edit.editingFinished.emit()
 
     assert window.wizard_state.last_calc is fake_calc
+    assert window.screen_wizard.save_continue_btn.isEnabled()
     assert "Units: 2" in window.wiz_result.text()
 
 
@@ -164,10 +166,20 @@ def test_wizard_price_editing_finished_does_not_show_modal_error_on_invalid_inpu
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
+    make_buy_calculation: Callable[..., BuyCalculation],
 ) -> None:
     step = make_plan_step(delta="20")
     window.planning_state.plan_steps = [step]
     window.planning_state.step_index = 0
+    window.wizard_state.last_calc = make_buy_calculation(
+        instrument_id=step.instrument_id,
+        price="10",
+        planned_money="20",
+        units=2,
+        spent="20",
+        leftover="0",
+    )
+    window.screen_wizard.save_continue_btn.setEnabled(True)
     window.price_edit.setText("abc")
     shown: list[tuple[str, str]] = []
     monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
@@ -175,6 +187,8 @@ def test_wizard_price_editing_finished_does_not_show_modal_error_on_invalid_inpu
     window.price_edit.editingFinished.emit()
 
     assert shown == []
+    assert window.wizard_state.last_calc is None
+    assert not window.screen_wizard.save_continue_btn.isEnabled()
     assert "Calculation not updated:" in window.wiz_result.text()
 
 

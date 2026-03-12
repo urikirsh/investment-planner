@@ -166,6 +166,7 @@ class WizardScreen(QWidget):
 
         self.save_continue_btn = QPushButton("Save and continue")
         self.save_continue_btn.setStyleSheet("font-size: 15px; padding: 8px 12px;")
+        self.save_continue_btn.setEnabled(False)
         result_focus_layout.addWidget(self.save_continue_btn)
         result_row_layout.addWidget(self._result_focus_row)
         result_row_layout.addStretch(1)

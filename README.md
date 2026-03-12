@@ -80,6 +80,8 @@ The application never executes trades automatically. All actions are explicit an
   - price row (`Price + input + Calculate`) is centered and width-aligned with the centered result row (`Units/Spent/Leftover + Save and continue`) while preserving at least 11 visible input characters
 - Wizard actions:
   - Save and continue (primary action, displayed next to Units/Spent/Leftover result line)
+  - `Save and continue` is disabled until a successful calculation is available for the active step
+  - if calculation fails (explicitly or implicitly), the previous calculation is invalidated and `Save and continue` is disabled again
   - Quit (application-level exit)
   - Exit Wizard (returns to the portfolio screen without applying the current step)
   - Skip Step (moves to the next step without applying this step)
