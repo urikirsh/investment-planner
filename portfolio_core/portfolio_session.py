@@ -190,6 +190,23 @@ class PortfolioSession:
             now = now.replace(tzinfo=timezone.utc)
         return now
 
+    @classmethod
+    def _build_cached_usd_ils_quote(
+        cls,
+        *,
+        rate: Decimal,
+        effective_date: date,
+        used_last_published: bool,
+        cached_at: datetime | None = None,
+    ) -> "CachedUsdIlsQuote":
+        """Build normalized cached-quote value object."""
+        return CachedUsdIlsQuote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=bool(used_last_published),
+            cached_at=cls._normalize_cached_at(cached_at),
+        )
+
     def set_session_cached_usd_ils_quote(
         self,
         *,
@@ -199,12 +216,11 @@ class PortfolioSession:
         cached_at: datetime | None = None,
     ) -> CachedUsdIlsQuote:
         """Update in-memory USD/ILS quote cache used across wizard runs."""
-        now = self._normalize_cached_at(cached_at)
-        quote = CachedUsdIlsQuote(
+        quote = self._build_cached_usd_ils_quote(
             rate=rate,
             effective_date=effective_date,
             used_last_published=used_last_published,
-            cached_at=now,
+            cached_at=cached_at,
         )
         self._session_cached_usd_ils_quote = quote
         return quote
@@ -255,22 +271,22 @@ class PortfolioSession:
         This intentionally writes only successful official fetches and keeps
         the in-memory session cache in sync with persisted state.
         """
-        now = self._normalize_cached_at(cached_at)
+        quote = self._build_cached_usd_ils_quote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=used_last_published,
+            cached_at=cached_at,
+        )
 
         payload = self._read_config_payload()
         payload["last_usd_ils_quote"] = {
-            "rate": str(rate),
-            "effective_date": effective_date.isoformat(),
-            "used_last_published": bool(used_last_published),
-            "cached_at": now.isoformat(),
+            "rate": str(quote.rate),
+            "effective_date": quote.effective_date.isoformat(),
+            "used_last_published": quote.used_last_published,
+            "cached_at": quote.cached_at.isoformat(),
         }
         self._write_config_payload(payload)
-        self._session_cached_usd_ils_quote = CachedUsdIlsQuote(
-            rate=rate,
-            effective_date=effective_date,
-            used_last_published=bool(used_last_published),
-            cached_at=now,
-        )
+        self._session_cached_usd_ils_quote = quote
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""

@@ -3,7 +3,6 @@ from __future__ import annotations
 """Welcome-screen behavior for the composed main window controller."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Final, cast
 
@@ -274,12 +273,10 @@ class MainWindowWelcomeController:
         error_text = str(error_obj) if isinstance(error_obj, str) else ""
 
         if quote is not None and not error_text:
-            now = datetime.now(timezone.utc)
             self._host.session.cache_usd_ils_quote(
                 rate=quote.rate,
                 effective_date=quote.effective_date,
                 used_last_published=quote.used_last_published,
-                cached_at=now,
             )
             self._startup_transition.fx_fetch_error = None
         else:
