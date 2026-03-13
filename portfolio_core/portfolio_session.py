@@ -137,44 +137,9 @@ class PortfolioSession:
             return self._session_cached_usd_ils_quote
 
         payload = self._read_config_payload().get("last_usd_ils_quote")
-        if not isinstance(payload, dict):
+        quote = self._parse_cached_usd_ils_quote_payload(payload)
+        if quote is None:
             return None
-
-        raw_rate = payload.get("rate")
-        raw_effective_date = payload.get("effective_date")
-        raw_cached_at = payload.get("cached_at")
-        raw_last_published = payload.get("used_last_published")
-
-        if not isinstance(raw_rate, str) or not isinstance(raw_effective_date, str):
-            return None
-        if not isinstance(raw_cached_at, str):
-            return None
-
-        try:
-            rate = Decimal(raw_rate)
-        except (InvalidOperation, ValueError):
-            return None
-        if rate <= 0:
-            return None
-
-        try:
-            effective_date = date.fromisoformat(raw_effective_date)
-        except ValueError:
-            return None
-
-        try:
-            cached_at = datetime.fromisoformat(raw_cached_at)
-        except ValueError:
-            return None
-        if cached_at.tzinfo is None:
-            cached_at = cached_at.replace(tzinfo=timezone.utc)
-
-        quote = CachedUsdIlsQuote(
-            rate=rate,
-            effective_date=effective_date,
-            used_last_published=bool(raw_last_published),
-            cached_at=cached_at,
-        )
         self._session_cached_usd_ils_quote = quote
         return quote
 
@@ -217,6 +182,46 @@ class PortfolioSession:
             "cached_at": quote.cached_at.isoformat(),
         }
         self._write_config_payload(payload)
+
+    @classmethod
+    def _parse_cached_usd_ils_quote_payload(cls, payload: object) -> "CachedUsdIlsQuote | None":
+        """Parse persisted ``last_usd_ils_quote`` payload into a typed quote."""
+        if not isinstance(payload, dict):
+            return None
+
+        raw_rate = payload.get("rate")
+        raw_effective_date = payload.get("effective_date")
+        raw_cached_at = payload.get("cached_at")
+        raw_last_published = payload.get("used_last_published")
+
+        if not isinstance(raw_rate, str) or not isinstance(raw_effective_date, str):
+            return None
+        if not isinstance(raw_cached_at, str):
+            return None
+
+        try:
+            rate = Decimal(raw_rate)
+        except (InvalidOperation, ValueError):
+            return None
+        if rate <= 0:
+            return None
+
+        try:
+            effective_date = date.fromisoformat(raw_effective_date)
+        except ValueError:
+            return None
+
+        try:
+            cached_at = datetime.fromisoformat(raw_cached_at)
+        except ValueError:
+            return None
+
+        return cls._build_cached_usd_ils_quote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=bool(raw_last_published),
+            cached_at=cached_at,
+        )
 
     def _set_session_cached_usd_ils_quote(
         self,
