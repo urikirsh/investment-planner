@@ -212,3 +212,29 @@ def test_welcome_fetch_failure_shows_back_dialog_and_keeps_welcome(
     assert shown == [("Exchange rate fetch failed", "Failed to fetch USD to ILS exchange rate.")]
     assert window.stack.currentWidget() is window.screen_welcome
     assert window._startup_loading_overlay.isHidden()
+
+
+def test_welcome_start_action_aborts_when_previous_startup_fx_cleanup_cannot_finish(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shown: list[tuple[str, str]] = []
+    cancel_calls = 0
+
+    def fake_cancel_startup_fx_fetch(**_kwargs: object) -> bool:
+        nonlocal cancel_calls
+        cancel_calls += 1
+        return cancel_calls != 1
+
+    monkeypatch.setattr(window._welcome_controller, "_cancel_startup_fx_fetch", fake_cancel_startup_fx_fetch)
+    monkeypatch.setattr(
+        welcome_mod,
+        "show_error",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    window._on_welcome_start_new_clicked()
+
+    assert shown == [("Please wait", "Still finishing cleanup tasks. Try closing again in a few seconds.")]
+    assert window.stack.currentWidget() is window.screen_welcome
+    assert window._startup_loading_overlay.isHidden()
+    assert not window._welcome_controller._startup_transition_timer.isActive()

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QWidget
 from portfolio_core.app_metadata import get_app_version
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from ui.controllers.protocols import MainWindowWelcomeHost
-from ui.dialogs import show_error_with_back
+from ui.dialogs import show_error, show_error_with_back
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
@@ -198,7 +198,9 @@ class MainWindowWelcomeController:
             self._try_finalize_startup_transition()
             return
 
-        self._cancel_startup_fx_fetch()
+        if not self._cancel_startup_fx_fetch():
+            self._abort_startup_transition_cleanup_in_progress()
+            return
         self._startup_fx_fetch_thread = QThread(self._host_widget())
         self._startup_fx_fetch_worker = _StartupFxFetchWorker(timeout_seconds=10.0)
         self._startup_fx_fetch_worker.moveToThread(self._startup_fx_fetch_thread)
@@ -274,6 +276,23 @@ class MainWindowWelcomeController:
         self._startup_fx_fetch_worker = None
         self._startup_fx_fetch_thread = None
         return True
+
+    def _abort_startup_transition_cleanup_in_progress(self) -> None:
+        """Abort transition when prior startup FX cleanup could not finish."""
+        if self._startup_transition_timer.isActive():
+            self._startup_transition_timer.stop()
+        self._startup_transition_pending = False
+        self._startup_min_delay_elapsed = False
+        self._startup_fx_fetch_completed = False
+        self._startup_fx_fetch_error = None
+        self._host.stack.setCurrentWidget(self._host.screen_welcome)
+        self._host._hide_startup_loading_overlay()
+        show_error(
+            self._host_widget(),
+            "Please wait",
+            "Still finishing cleanup tasks. Try closing again in a few seconds.",
+        )
+        self.refresh_last_portfolio_ui()
 
     def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = 1000) -> bool:
         """Cancel startup transition and return whether FX worker cleanup completed."""
