@@ -251,14 +251,20 @@ class MainWindowWelcomeController:
             self._try_finalize_startup_transition()
             return
 
-        if not self._cancel_startup_fx_fetch():
-            self._abort_startup_transition_cleanup_in_progress()
+        if not self._ensure_startup_cleanup_ready_for_restart():
             return
         self._startup_fx_fetch.start(
             parent=self._host_widget(),
             on_finished=self._on_startup_fx_fetch_finished,
             timeout_seconds=STARTUP_FX_FETCH_TIMEOUT_SECONDS,
         )
+
+    def _ensure_startup_cleanup_ready_for_restart(self) -> bool:
+        """Ensure startup FX cleanup completed before creating a new fetch worker."""
+        if self._cancel_startup_fx_fetch():
+            return True
+        self._abort_startup_transition_cleanup_in_progress()
+        return False
 
     @Slot(object, object)
     def _on_startup_fx_fetch_finished(self, quote_obj: object, error_obj: object) -> None:

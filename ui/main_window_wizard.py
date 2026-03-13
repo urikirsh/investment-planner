@@ -212,14 +212,14 @@ class MainWindowWizardMixin:
 
     def _try_finish_wizard_fx_cleanup(self) -> bool:
         """Run wizard FX cleanup guard before leaving wizard flow."""
-        if not self._cancel_wizard_fx_fetch():
-            show_error(
-                cast(QWidget, self),
-                "Please wait",
-                "Still finishing cleanup tasks. Try again in a few seconds.",
-            )
-            return False
-        return True
+        if self._cancel_wizard_fx_fetch():
+            return True
+        show_error(
+            cast(QWidget, self),
+            "Please wait",
+            "Still finishing cleanup tasks. Try again in a few seconds.",
+        )
+        return False
 
     def _wizard_save_continue(self) -> None:
         """Apply current step trade, persist if applied, then advance.

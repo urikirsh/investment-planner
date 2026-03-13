@@ -116,15 +116,25 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure startup/wizard FX cleanup is done before window teardown."""
+        if not self._ensure_close_cleanup_ready(event):
+            return
+        super().closeEvent(event)
+
+    def _ensure_close_cleanup_ready(self, event: QCloseEvent) -> bool:
+        """Run close-time cleanup guards and block close when cleanup is still running."""
         startup_stopped = self._welcome_controller.cancel_pending_startup_transition(
             wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS
         )
-        wizard_stopped = startup_stopped and self._cancel_wizard_fx_fetch(wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS)
-        if not startup_stopped or not wizard_stopped:
+        if not startup_stopped:
             show_cleanup_in_progress(self)
             event.ignore()
-            return
-        super().closeEvent(event)
+            return False
+        wizard_stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS)
+        if not wizard_stopped:
+            show_cleanup_in_progress(self)
+            event.ignore()
+            return False
+        return True
 
     def _current_file_display_name(self) -> str:
         """Return short file label for UI chrome (filename or ``Untitled``)."""
