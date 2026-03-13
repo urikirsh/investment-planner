@@ -225,7 +225,8 @@ def test_welcome_start_action_aborts_when_previous_startup_fx_cleanup_cannot_fin
         cancel_calls += 1
         return cancel_calls != 1
 
-    def fake_show_cleanup_in_progress(_parent: object) -> None:
+    def fake_show_cleanup_in_progress(_parent: object, *, action_verb: str = "closing") -> None:
+        _ = action_verb
         nonlocal shown_calls
         shown_calls += 1
 

@@ -200,7 +200,9 @@ def test_show_error_with_back_creates_single_back_button(
     assert seen_labels == ["Back"]
 
 
-def test_show_cleanup_in_progress_uses_standard_text(monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget) -> None:
+def test_show_cleanup_in_progress_uses_default_closing_text(
+    monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget
+) -> None:
     shown: list[tuple[str, str]] = []
 
     monkeypatch.setattr(dialogs, "show_error", lambda _parent, title, message: shown.append((title, message)))
@@ -208,3 +210,15 @@ def test_show_cleanup_in_progress_uses_standard_text(monkeypatch: pytest.MonkeyP
     dialogs.show_cleanup_in_progress(parent_widget)
 
     assert shown == [("Please wait", "Still finishing cleanup tasks. Try closing again in a few seconds.")]
+
+
+def test_show_cleanup_in_progress_uses_custom_action_verb(
+    monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget
+) -> None:
+    shown: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(dialogs, "show_error", lambda _parent, title, message: shown.append((title, message)))
+
+    dialogs.show_cleanup_in_progress(parent_widget, action_verb="starting")
+
+    assert shown == [("Please wait", "Still finishing cleanup tasks. Try starting again in a few seconds.")]

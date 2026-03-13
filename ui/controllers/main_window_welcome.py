@@ -329,7 +329,7 @@ class MainWindowWelcomeController:
         self._reset_startup_transition_state(pending=False)
         self._host.stack.setCurrentWidget(self._host.screen_welcome)
         self._host._hide_startup_loading_overlay()
-        show_cleanup_in_progress(self._host_widget())
+        show_cleanup_in_progress(self._host_widget(), action_verb="starting")
         self.refresh_last_portfolio_ui()
 
     def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:

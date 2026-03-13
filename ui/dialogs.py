@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 from ui.ui_state import UnsavedChangesDecision
 
 _CLEANUP_IN_PROGRESS_TITLE = "Please wait"
-_CLEANUP_IN_PROGRESS_MESSAGE = "Still finishing cleanup tasks. Try closing again in a few seconds."
+_CLEANUP_IN_PROGRESS_MESSAGE_TEMPLATE = "Still finishing cleanup tasks. Try {action_verb} again in a few seconds."
 
 
 def show_info(parent: QWidget, title: str, message: str) -> None:
@@ -33,9 +33,13 @@ def show_error(parent: QWidget, title: str, message: str) -> None:
     QMessageBox.critical(parent, title, message)
 
 
-def show_cleanup_in_progress(parent: QWidget) -> None:
+def show_cleanup_in_progress(parent: QWidget, *, action_verb: str = "closing") -> None:
     """Show standard cleanup-in-progress dialog text used by guarded flows."""
-    show_error(parent, _CLEANUP_IN_PROGRESS_TITLE, _CLEANUP_IN_PROGRESS_MESSAGE)
+    show_error(
+        parent,
+        _CLEANUP_IN_PROGRESS_TITLE,
+        _CLEANUP_IN_PROGRESS_MESSAGE_TEMPLATE.format(action_verb=action_verb),
+    )
 
 
 def show_warning(parent: QWidget, title: str, message: str) -> None:
