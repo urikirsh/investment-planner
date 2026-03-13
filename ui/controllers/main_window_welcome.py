@@ -174,10 +174,7 @@ class MainWindowWelcomeController:
 
     def _begin_startup_transition_to_main(self) -> None:
         """Show loading overlay and enter main only after delay + FX fetch."""
-        self._startup_transition_pending = True
-        self._startup_min_delay_elapsed = False
-        self._startup_fx_fetch_completed = False
-        self._startup_fx_fetch_error = None
+        self._reset_startup_transition_state(pending=True)
         self._host._show_startup_loading_overlay()
         self._schedule_main_screen_transition()
         self._start_startup_fx_fetch()
@@ -281,10 +278,7 @@ class MainWindowWelcomeController:
         """Abort transition when prior startup FX cleanup could not finish."""
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
-        self._startup_transition_pending = False
-        self._startup_min_delay_elapsed = False
-        self._startup_fx_fetch_completed = False
-        self._startup_fx_fetch_error = None
+        self._reset_startup_transition_state(pending=False)
         self._host.stack.setCurrentWidget(self._host.screen_welcome)
         self._host._hide_startup_loading_overlay()
         show_cleanup_in_progress(self._host_widget())
@@ -294,10 +288,14 @@ class MainWindowWelcomeController:
         """Cancel startup transition and return whether FX worker cleanup completed."""
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
-        self._startup_transition_pending = False
-        self._startup_min_delay_elapsed = False
-        self._startup_fx_fetch_completed = False
-        self._startup_fx_fetch_error = None
+        self._reset_startup_transition_state(pending=False)
         stopped = self._cancel_startup_fx_fetch(wait_timeout_ms=wait_timeout_ms)
         self._host._hide_startup_loading_overlay()
         return stopped
+
+    def _reset_startup_transition_state(self, *, pending: bool) -> None:
+        """Reset startup-transition gate flags to a known baseline state."""
+        self._startup_transition_pending = pending
+        self._startup_min_delay_elapsed = False
+        self._startup_fx_fetch_completed = False
+        self._startup_fx_fetch_error = None
