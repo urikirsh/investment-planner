@@ -207,7 +207,18 @@ class PortfolioSession:
             cached_at=cls._normalize_cached_at(cached_at),
         )
 
-    def set_session_cached_usd_ils_quote(
+    def _persist_cached_usd_ils_quote(self, *, quote: "CachedUsdIlsQuote") -> None:
+        """Persist cached USD/ILS quote payload to config."""
+        payload = self._read_config_payload()
+        payload["last_usd_ils_quote"] = {
+            "rate": str(quote.rate),
+            "effective_date": quote.effective_date.isoformat(),
+            "used_last_published": quote.used_last_published,
+            "cached_at": quote.cached_at.isoformat(),
+        }
+        self._write_config_payload(payload)
+
+    def _set_session_cached_usd_ils_quote(
         self,
         *,
         rate: Decimal,
@@ -215,7 +226,7 @@ class PortfolioSession:
         used_last_published: bool,
         cached_at: datetime | None = None,
     ) -> CachedUsdIlsQuote:
-        """Update in-memory USD/ILS quote cache used across wizard runs."""
+        """Set in-memory USD/ILS quote cache only (no persistence)."""
         quote = self._build_cached_usd_ils_quote(
             rate=rate,
             effective_date=effective_date,
@@ -239,7 +250,7 @@ class PortfolioSession:
         When ``persist`` is ``True``, config-write failures are intentionally
         swallowed so callers can treat persistence as non-blocking.
         """
-        quote = self.set_session_cached_usd_ils_quote(
+        quote = self._set_session_cached_usd_ils_quote(
             rate=rate,
             effective_date=effective_date,
             used_last_published=used_last_published,
@@ -248,45 +259,10 @@ class PortfolioSession:
         if not persist:
             return quote
         try:
-            self.write_cached_usd_ils_quote(
-                rate=quote.rate,
-                effective_date=quote.effective_date,
-                used_last_published=quote.used_last_published,
-                cached_at=quote.cached_at,
-            )
+            self._persist_cached_usd_ils_quote(quote=quote)
         except Exception:
             pass
         return quote
-
-    def write_cached_usd_ils_quote(
-        self,
-        *,
-        rate: Decimal,
-        effective_date: date,
-        used_last_published: bool,
-        cached_at: datetime | None = None,
-    ) -> None:
-        """Persist last successful USD/ILS quote cache to session config.
-
-        This intentionally writes only successful official fetches and keeps
-        the in-memory session cache in sync with persisted state.
-        """
-        quote = self._build_cached_usd_ils_quote(
-            rate=rate,
-            effective_date=effective_date,
-            used_last_published=used_last_published,
-            cached_at=cached_at,
-        )
-
-        payload = self._read_config_payload()
-        payload["last_usd_ils_quote"] = {
-            "rate": str(quote.rate),
-            "effective_date": quote.effective_date.isoformat(),
-            "used_last_published": quote.used_last_published,
-            "cached_at": quote.cached_at.isoformat(),
-        }
-        self._write_config_payload(payload)
-        self._session_cached_usd_ils_quote = quote
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""

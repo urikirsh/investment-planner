@@ -54,9 +54,6 @@ class _FakeSession:
     def read_cached_usd_ils_quote(self) -> CachedUsdIlsQuote | None:
         return self.cached_quote
 
-    def write_cached_usd_ils_quote(self, **_kwargs: object) -> None:
-        return None
-
 
 class _FakeHost:
     def __init__(self, steps: list[PlanStep]) -> None:

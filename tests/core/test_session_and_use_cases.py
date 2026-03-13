@@ -107,10 +107,11 @@ def test_portfolio_session_persists_and_reads_cached_usd_ils_quote(tmp_path):
     target_path.write_text("{}", encoding="utf-8")
     session.set_active_file_path(target_path)
 
-    session.write_cached_usd_ils_quote(
+    session.cache_usd_ils_quote(
         rate=D("3.77"),
         effective_date=date.fromisoformat("2026-03-05"),
         used_last_published=False,
+        persist=True,
     )
 
     reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
