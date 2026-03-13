@@ -121,14 +121,7 @@ class WizardFxCoordinator:
 
     def _read_session_cached_quote(self) -> CachedUsdIlsQuote | None:
         """Read session-memory USD/ILS cache, falling back to persisted cache."""
-        read_session = getattr(self._host.session, "get_session_cached_usd_ils_quote", None)
-        if callable(read_session):
-            cached = read_session()
-            if isinstance(cached, CachedUsdIlsQuote):
-                return cached
-        read_disk = getattr(self._host.session, "read_cached_usd_ils_quote", None)
-        if callable(read_disk):
-            cached = read_disk()
-            if isinstance(cached, CachedUsdIlsQuote):
-                return cached
-        return None
+        cached = self._host.session.get_session_cached_usd_ils_quote()
+        if cached is not None:
+            return cached
+        return self._host.session.read_cached_usd_ils_quote()
