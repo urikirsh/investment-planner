@@ -62,8 +62,7 @@ class WizardFxCoordinator:
             state.usd_ils_used_last_published = False
             state.usd_ils_rate_from_cache = False
             state.usd_ils_rate_cached_at = None
-        if hasattr(self._host, "manual_rate_edit"):
-            self._host.manual_rate_edit.setText("")
+        self._host.manual_rate_edit.setText("")
         return True
 
     def cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
@@ -78,9 +77,6 @@ class WizardFxCoordinator:
         For USD steps, this method is the single source of truth for cached
         quote disclosure and rate-unavailable messaging.
         """
-        if not hasattr(self._host, "screen_wizard"):
-            return
-
         state = self._host.wizard_state
         s = self._host.planning_state.plan_steps[self._host.planning_state.step_index]
         if s.exchange.currency != Currency.USD:
