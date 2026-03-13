@@ -198,3 +198,13 @@ def test_show_error_with_back_creates_single_back_button(
     dialogs.show_error_with_back(parent_widget, "Fetch failed", "Failed to fetch USD to ILS exchange rate.")
 
     assert seen_labels == ["Back"]
+
+
+def test_show_cleanup_in_progress_uses_standard_text(monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget) -> None:
+    shown: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(dialogs, "show_error", lambda _parent, title, message: shown.append((title, message)))
+
+    dialogs.show_cleanup_in_progress(parent_widget)
+
+    assert shown == [("Please wait", "Still finishing cleanup tasks. Try closing again in a few seconds.")]

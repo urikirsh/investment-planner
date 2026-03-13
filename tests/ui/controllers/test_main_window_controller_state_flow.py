@@ -180,7 +180,7 @@ def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkey
 
 
 def test_close_event_aborts_when_startup_fx_cleanup_cannot_finish(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    shown: list[tuple[str, str]] = []
+    shown_calls = 0
     wizard_cancel_calls = 0
 
     monkeypatch.setattr(window._welcome_controller, "cancel_pending_startup_transition", lambda **_kwargs: False)
@@ -191,12 +191,16 @@ def test_close_event_aborts_when_startup_fx_cleanup_cannot_finish(window: MainWi
         wizard_cancel_calls += 1
         return True
 
+    def fake_show_cleanup_in_progress(_parent: object) -> None:
+        nonlocal shown_calls
+        shown_calls += 1
+
     monkeypatch.setattr(window, "_cancel_wizard_fx_fetch", fake_cancel_wizard_fx)
-    monkeypatch.setattr(main_window, "show_error", lambda _parent, title, message: shown.append((title, message)))
+    monkeypatch.setattr(main_window, "show_cleanup_in_progress", fake_show_cleanup_in_progress)
 
     window.close()
 
-    assert shown == [("Please wait", "Still finishing cleanup tasks. Try closing again in a few seconds.")]
+    assert shown_calls == 1
     assert wizard_cancel_calls == 0
 
 

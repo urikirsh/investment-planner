@@ -29,7 +29,7 @@ from ui.controllers import (
     MainWindowWelcomeController,
     WelcomeLastPortfolioStatus,
 )
-from ui.dialogs import show_error
+from ui.dialogs import show_cleanup_in_progress
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
@@ -119,11 +119,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
         startup_stopped = self._welcome_controller.cancel_pending_startup_transition(wait_timeout_ms=12000)
         wizard_stopped = startup_stopped and self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
         if not startup_stopped or not wizard_stopped:
-            show_error(
-                self,
-                "Please wait",
-                "Still finishing cleanup tasks. Try closing again in a few seconds.",
-            )
+            show_cleanup_in_progress(self)
             event.ignore()
             return
         super().closeEvent(event)

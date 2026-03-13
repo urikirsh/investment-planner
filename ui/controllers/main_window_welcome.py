@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QWidget
 from portfolio_core.app_metadata import get_app_version
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from ui.controllers.protocols import MainWindowWelcomeHost
-from ui.dialogs import show_error, show_error_with_back
+from ui.dialogs import show_cleanup_in_progress, show_error_with_back
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
@@ -287,11 +287,7 @@ class MainWindowWelcomeController:
         self._startup_fx_fetch_error = None
         self._host.stack.setCurrentWidget(self._host.screen_welcome)
         self._host._hide_startup_loading_overlay()
-        show_error(
-            self._host_widget(),
-            "Please wait",
-            "Still finishing cleanup tasks. Try closing again in a few seconds.",
-        )
+        show_cleanup_in_progress(self._host_widget())
         self.refresh_last_portfolio_ui()
 
     def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = 1000) -> bool:
