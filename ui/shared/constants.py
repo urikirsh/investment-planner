@@ -1,4 +1,10 @@
-"""Shared UI-level constants."""
+"""Shared UI-level constants.
+
+Timing policy notes:
+- `DEFAULT_CLEANUP_WAIT_MS` is the standard short wait for async cleanup guards.
+- `CLOSE_EVENT_CLEANUP_WAIT_MS` is intentionally longer for app-close teardown.
+- `STARTUP_FX_FETCH_TIMEOUT_SECONDS` bounds network wait during welcome->main FX fetch.
+"""
 
 APP_NAME = "Investment Planner"
 

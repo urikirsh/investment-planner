@@ -35,7 +35,10 @@ Main user flow:
 
 FX thread-safety guards in this flow:
 - Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
-- Wizard runs reuse session-cached USD/ILS data populated during welcome transition (no wizard-side refetch).
+- Wizard runs reuse startup-cached USD/ILS data with a strict read order:
+  - in-memory session cache first,
+  - persisted config quote fallback when memory cache is empty.
+- Wizard flow never performs USD/ILS network fetches.
 - Window close cancels any active startup FX fetch before teardown.
 
 ## Controller composition rules
@@ -89,6 +92,7 @@ FX thread-safety guards in this flow:
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
+    - startup/cleanup timing knobs are defined here so transition delay and cleanup wait policy stay centralized
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
