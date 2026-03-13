@@ -48,6 +48,49 @@ class WelcomeLastPortfolioStatus:
     missing_path: bool
 
 
+@dataclass
+class _StartupFxFetchLifecycle:
+    """Mutable holder for startup FX worker/thread ownership."""
+
+    thread: QThread | None = None
+    worker: _StartupFxFetchWorker | None = None
+
+    def start(
+        self,
+        *,
+        parent: QWidget,
+        on_finished: Callable[[object, object], None],
+        timeout_seconds: float = 10.0,
+    ) -> None:
+        """Create, wire, and start the startup FX fetch worker thread."""
+        thread = QThread(parent)
+        worker = _StartupFxFetchWorker(timeout_seconds=timeout_seconds)
+        self.thread = thread
+        self.worker = worker
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(on_finished)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
+
+    def cancel(self, *, wait_timeout_ms: int = 1000) -> bool:
+        """Stop and detach in-flight worker/thread, if any."""
+        if self.thread is not None and self.thread.isRunning():
+            self.thread.quit()
+            if not self.thread.wait(wait_timeout_ms):
+                return False
+        if self.worker is not None:
+            self.worker.deleteLater()
+        self.clear()
+        return True
+
+    def clear(self) -> None:
+        self.thread = None
+        self.worker = None
+
+
 class MainWindowWelcomeController:
     """Controller for welcome-screen setup and startup action flow."""
 
@@ -56,8 +99,7 @@ class MainWindowWelcomeController:
         self._startup_transition_timer = QTimer(self._host_widget())
         self._startup_transition_timer.setSingleShot(True)
         self._startup_transition_timer.timeout.connect(self._complete_startup_transition_to_main)
-        self._startup_fx_fetch_thread: QThread | None = None
-        self._startup_fx_fetch_worker: _StartupFxFetchWorker | None = None
+        self._startup_fx_fetch = _StartupFxFetchLifecycle()
         self._startup_transition_pending = False
         self._startup_min_delay_elapsed = False
         self._startup_fx_fetch_completed = False
@@ -198,21 +240,16 @@ class MainWindowWelcomeController:
         if not self._cancel_startup_fx_fetch():
             self._abort_startup_transition_cleanup_in_progress()
             return
-        self._startup_fx_fetch_thread = QThread(self._host_widget())
-        self._startup_fx_fetch_worker = _StartupFxFetchWorker(timeout_seconds=10.0)
-        self._startup_fx_fetch_worker.moveToThread(self._startup_fx_fetch_thread)
-        self._startup_fx_fetch_thread.started.connect(self._startup_fx_fetch_worker.run)
-        self._startup_fx_fetch_worker.finished.connect(self._on_startup_fx_fetch_finished)
-        self._startup_fx_fetch_worker.finished.connect(self._startup_fx_fetch_thread.quit)
-        self._startup_fx_fetch_worker.finished.connect(self._startup_fx_fetch_worker.deleteLater)
-        self._startup_fx_fetch_thread.finished.connect(self._startup_fx_fetch_thread.deleteLater)
-        self._startup_fx_fetch_thread.start()
+        self._startup_fx_fetch.start(
+            parent=self._host_widget(),
+            on_finished=self._on_startup_fx_fetch_finished,
+            timeout_seconds=10.0,
+        )
 
     @Slot(object, object)
     def _on_startup_fx_fetch_finished(self, quote_obj: object, error_obj: object) -> None:
         """Store startup fetch result and finalize transition when ready."""
-        self._startup_fx_fetch_worker = None
-        self._startup_fx_fetch_thread = None
+        self._startup_fx_fetch.clear()
         quote = quote_obj if isinstance(quote_obj, UsdIlsRateQuote) else None
         error_text = str(error_obj) if isinstance(error_obj, str) else ""
 
@@ -262,17 +299,7 @@ class MainWindowWelcomeController:
 
     def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
         """Stop and detach in-flight startup FX fetch worker, if any."""
-        thread = self._startup_fx_fetch_thread
-        worker = self._startup_fx_fetch_worker
-        if thread is not None and thread.isRunning():
-            thread.quit()
-            if not thread.wait(wait_timeout_ms):
-                return False
-        if worker is not None:
-            worker.deleteLater()
-        self._startup_fx_fetch_worker = None
-        self._startup_fx_fetch_thread = None
-        return True
+        return self._startup_fx_fetch.cancel(wait_timeout_ms=wait_timeout_ms)
 
     def _abort_startup_transition_cleanup_in_progress(self) -> None:
         """Abort transition when prior startup FX cleanup could not finish."""
