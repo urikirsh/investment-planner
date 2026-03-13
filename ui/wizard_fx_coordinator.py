@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from portfolio_core.models import Currency
 from portfolio_core.portfolio_session import CachedUsdIlsQuote, PortfolioSession
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 from ui.ui_state import PlanningState, WizardState
 
 
@@ -27,7 +28,7 @@ class WizardFxHost(Protocol):
     screen_wizard: Any
     manual_rate_edit: Any
 
-    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool: ...
+    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool: ...
 
 
 class WizardFxCoordinator:
@@ -65,7 +66,7 @@ class WizardFxCoordinator:
             self._host.manual_rate_edit.setText("")
         return True
 
-    def cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
+    def cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Return no-op success for backward-compatible cleanup call sites."""
         _ = wait_timeout_ms
         return True

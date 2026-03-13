@@ -20,7 +20,7 @@ from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import PlanBuildResult, PlanStep, build_plan_for_current_document, load_document
-from ui.shared.constants import APP_NAME
+from ui.shared.constants import APP_NAME, CLOSE_EVENT_CLEANUP_WAIT_MS
 from ui.controllers import (
     MainWindowMainEditorController,
     MainWindowMetricsController,
@@ -116,8 +116,10 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensure startup/wizard FX cleanup is done before window teardown."""
-        startup_stopped = self._welcome_controller.cancel_pending_startup_transition(wait_timeout_ms=12000)
-        wizard_stopped = startup_stopped and self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
+        startup_stopped = self._welcome_controller.cancel_pending_startup_transition(
+            wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS
+        )
+        wizard_stopped = startup_stopped and self._cancel_wizard_fx_fetch(wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS)
         if not startup_stopped or not wizard_stopped:
             show_cleanup_in_progress(self)
             event.ignore()

@@ -21,6 +21,7 @@ from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
 from ui.dialogs import show_error
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 from ui.ui_state import PlanningState, WizardState
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
 from ui.wizard_fx_coordinator import WizardFxCoordinator
@@ -195,7 +196,7 @@ class MainWindowWizardMixin:
         """Reset transient USD/ILS state for a new run."""
         return self._wizard_fx_coordinator().reset_wizard_fx_state_for_new_run()
 
-    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
+    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Run wizard FX cleanup seam (currently a no-op compatibility call)."""
         return self._wizard_fx_coordinator().cancel_wizard_fx_fetch(wait_timeout_ms=wait_timeout_ms)
 

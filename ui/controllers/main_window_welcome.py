@@ -14,6 +14,7 @@ from portfolio_core.app_metadata import get_app_version
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from ui.controllers.protocols import MainWindowWelcomeHost
 from ui.dialogs import show_cleanup_in_progress, show_error_with_back
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_FX_FETCH_TIMEOUT_SECONDS
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
@@ -25,7 +26,7 @@ class _StartupFxFetchWorker(QObject):
 
     finished = Signal(object, object)  # (UsdIlsRateQuote | None, error_text | None)
 
-    def __init__(self, *, timeout_seconds: float = 10.0) -> None:
+    def __init__(self, *, timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS) -> None:
         super().__init__()
         self._timeout_seconds = timeout_seconds
 
@@ -60,7 +61,7 @@ class _StartupFxFetchLifecycle:
         *,
         parent: QWidget,
         on_finished: Callable[[object, object], None],
-        timeout_seconds: float = 10.0,
+        timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> None:
         """Create, wire, and start the startup FX fetch worker thread."""
         thread = QThread(parent)
@@ -75,7 +76,7 @@ class _StartupFxFetchLifecycle:
         thread.finished.connect(thread.deleteLater)
         thread.start()
 
-    def cancel(self, *, wait_timeout_ms: int = 1000) -> bool:
+    def cancel(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Stop and detach in-flight worker/thread, if any."""
         if self.thread is not None and self.thread.isRunning():
             self.thread.quit()
@@ -243,7 +244,7 @@ class MainWindowWelcomeController:
         self._startup_fx_fetch.start(
             parent=self._host_widget(),
             on_finished=self._on_startup_fx_fetch_finished,
-            timeout_seconds=10.0,
+            timeout_seconds=STARTUP_FX_FETCH_TIMEOUT_SECONDS,
         )
 
     @Slot(object, object)
@@ -297,7 +298,7 @@ class MainWindowWelcomeController:
             return
         self.enter_main_screen()
 
-    def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
+    def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Stop and detach in-flight startup FX fetch worker, if any."""
         return self._startup_fx_fetch.cancel(wait_timeout_ms=wait_timeout_ms)
 
@@ -311,7 +312,7 @@ class MainWindowWelcomeController:
         show_cleanup_in_progress(self._host_widget())
         self.refresh_last_portfolio_ui()
 
-    def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = 1000) -> bool:
+    def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Cancel startup transition and return whether FX worker cleanup completed."""
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
