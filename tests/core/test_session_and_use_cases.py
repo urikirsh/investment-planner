@@ -9,7 +9,7 @@ use-case orchestration around `PortfolioSession`.
 
 import pytest
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 
 from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
 from portfolio_core.models import Exchange
@@ -119,6 +119,55 @@ def test_portfolio_session_persists_and_reads_cached_usd_ils_quote(tmp_path):
     assert cached is not None
     assert cached.rate == D("3.77")
     assert str(cached.effective_date) == "2026-03-05"
+
+
+def test_portfolio_session_cache_usd_ils_quote_updates_memory_and_persists(tmp_path) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    cached_at = datetime(2026, 3, 13, tzinfo=timezone.utc)
+
+    quote = session.cache_usd_ils_quote(
+        rate=D("3.81"),
+        effective_date=date.fromisoformat("2026-03-12"),
+        used_last_published=True,
+        cached_at=cached_at,
+    )
+
+    assert quote.rate == D("3.81")
+    assert quote.effective_date == date.fromisoformat("2026-03-12")
+    assert quote.used_last_published is True
+    assert quote.cached_at == cached_at
+    in_memory = session.get_session_cached_usd_ils_quote()
+    assert in_memory is not None
+    assert in_memory == quote
+
+    reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    persisted = reloaded.read_cached_usd_ils_quote()
+    assert persisted is not None
+    assert persisted.rate == D("3.81")
+    assert persisted.effective_date == date.fromisoformat("2026-03-12")
+    assert persisted.used_last_published is True
+
+
+def test_portfolio_session_cache_usd_ils_quote_swallows_persist_errors(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+
+    def failing_write_payload(_payload: dict[str, object]) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(session, "_write_config_payload", failing_write_payload)
+
+    quote = session.cache_usd_ils_quote(
+        rate=D("3.79"),
+        effective_date=date.fromisoformat("2026-03-11"),
+        used_last_published=False,
+        persist=True,
+    )
+
+    in_memory = session.get_session_cached_usd_ils_quote()
+    assert in_memory is not None
+    assert in_memory == quote
 
 
 def test_build_default_portfolio_returns_valid_portfolio():

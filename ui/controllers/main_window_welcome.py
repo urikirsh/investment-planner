@@ -275,21 +275,12 @@ class MainWindowWelcomeController:
 
         if quote is not None and not error_text:
             now = datetime.now(timezone.utc)
-            self._host.session.set_session_cached_usd_ils_quote(
+            self._host.session.cache_usd_ils_quote(
                 rate=quote.rate,
                 effective_date=quote.effective_date,
                 used_last_published=quote.used_last_published,
                 cached_at=now,
             )
-            try:
-                self._host.session.write_cached_usd_ils_quote(
-                    rate=quote.rate,
-                    effective_date=quote.effective_date,
-                    used_last_published=quote.used_last_published,
-                    cached_at=now,
-                )
-            except Exception:
-                pass
             self._startup_transition.fx_fetch_error = None
         else:
             self._startup_transition.fx_fetch_error = "Failed to fetch USD to ILS exchange rate."

@@ -182,6 +182,14 @@ class PortfolioSession:
         """Return in-memory USD/ILS quote cached during this app session, if any."""
         return self._session_cached_usd_ils_quote
 
+    @staticmethod
+    def _normalize_cached_at(cached_at: datetime | None) -> datetime:
+        """Return timezone-aware cache timestamp, defaulting to current UTC."""
+        now = cached_at or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        return now
+
     def set_session_cached_usd_ils_quote(
         self,
         *,
@@ -191,9 +199,7 @@ class PortfolioSession:
         cached_at: datetime | None = None,
     ) -> CachedUsdIlsQuote:
         """Update in-memory USD/ILS quote cache used across wizard runs."""
-        now = cached_at or datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
+        now = self._normalize_cached_at(cached_at)
         quote = CachedUsdIlsQuote(
             rate=rate,
             effective_date=effective_date,
@@ -201,6 +207,39 @@ class PortfolioSession:
             cached_at=now,
         )
         self._session_cached_usd_ils_quote = quote
+        return quote
+
+    def cache_usd_ils_quote(
+        self,
+        *,
+        rate: Decimal,
+        effective_date: date,
+        used_last_published: bool,
+        cached_at: datetime | None = None,
+        persist: bool = True,
+    ) -> CachedUsdIlsQuote:
+        """Cache USD/ILS quote in-memory and optionally persist best-effort.
+
+        When ``persist`` is ``True``, config-write failures are intentionally
+        swallowed so callers can treat persistence as non-blocking.
+        """
+        quote = self.set_session_cached_usd_ils_quote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=used_last_published,
+            cached_at=cached_at,
+        )
+        if not persist:
+            return quote
+        try:
+            self.write_cached_usd_ils_quote(
+                rate=quote.rate,
+                effective_date=quote.effective_date,
+                used_last_published=quote.used_last_published,
+                cached_at=quote.cached_at,
+            )
+        except Exception:
+            pass
         return quote
 
     def write_cached_usd_ils_quote(
@@ -216,9 +255,7 @@ class PortfolioSession:
         This intentionally writes only successful official fetches and keeps
         the in-memory session cache in sync with persisted state.
         """
-        now = cached_at or datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
+        now = self._normalize_cached_at(cached_at)
 
         payload = self._read_config_payload()
         payload["last_usd_ils_quote"] = {
