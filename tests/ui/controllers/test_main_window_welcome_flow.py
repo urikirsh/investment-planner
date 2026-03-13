@@ -195,8 +195,8 @@ def test_welcome_fetch_failure_shows_back_dialog_and_keeps_welcome(
     shown: list[tuple[str, str]] = []
 
     def fake_start_fetch() -> None:
-        window._welcome_controller._startup_fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
-        window._welcome_controller._startup_fx_fetch_completed = True
+        window._welcome_controller._startup_transition.fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
+        window._welcome_controller._startup_transition.fx_fetch_completed = True
         window._welcome_controller._try_finalize_startup_transition()
 
     monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)

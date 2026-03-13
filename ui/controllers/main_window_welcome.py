@@ -92,6 +92,22 @@ class _StartupFxFetchLifecycle:
         self.worker = None
 
 
+@dataclass
+class _StartupTransitionState:
+    """Gate state for welcome->main transition completion conditions."""
+
+    pending: bool = False
+    min_delay_elapsed: bool = False
+    fx_fetch_completed: bool = False
+    fx_fetch_error: str | None = None
+
+    def reset(self, *, pending: bool) -> None:
+        self.pending = pending
+        self.min_delay_elapsed = False
+        self.fx_fetch_completed = False
+        self.fx_fetch_error = None
+
+
 class MainWindowWelcomeController:
     """Controller for welcome-screen setup and startup action flow."""
 
@@ -101,10 +117,7 @@ class MainWindowWelcomeController:
         self._startup_transition_timer.setSingleShot(True)
         self._startup_transition_timer.timeout.connect(self._complete_startup_transition_to_main)
         self._startup_fx_fetch = _StartupFxFetchLifecycle()
-        self._startup_transition_pending = False
-        self._startup_min_delay_elapsed = False
-        self._startup_fx_fetch_completed = False
-        self._startup_fx_fetch_error: str | None = None
+        self._startup_transition = _StartupTransitionState()
 
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for screen/dialog parenting."""
@@ -224,7 +237,7 @@ class MainWindowWelcomeController:
 
     def _complete_startup_transition_to_main(self) -> None:
         """Mark the min-delay timer complete and try finalizing transition."""
-        self._startup_min_delay_elapsed = True
+        self._startup_transition.min_delay_elapsed = True
         self._try_finalize_startup_transition()
 
     def _schedule_main_screen_transition(self) -> None:
@@ -234,7 +247,7 @@ class MainWindowWelcomeController:
     def _start_startup_fx_fetch(self) -> None:
         """Start USD/ILS fetch unless already cached for this app session."""
         if self._host.session.get_session_cached_usd_ils_quote() is not None:
-            self._startup_fx_fetch_completed = True
+            self._startup_transition.fx_fetch_completed = True
             self._try_finalize_startup_transition()
             return
 
@@ -271,28 +284,29 @@ class MainWindowWelcomeController:
                 )
             except Exception:
                 pass
-            self._startup_fx_fetch_error = None
+            self._startup_transition.fx_fetch_error = None
         else:
-            self._startup_fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
+            self._startup_transition.fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
 
-        self._startup_fx_fetch_completed = True
+        self._startup_transition.fx_fetch_completed = True
         self._try_finalize_startup_transition()
 
     def _try_finalize_startup_transition(self) -> None:
         """Finalize welcome transition after both min-delay and FX-fetch complete."""
-        if not self._startup_transition_pending:
+        state = self._startup_transition
+        if not state.pending:
             return
-        if not self._startup_min_delay_elapsed or not self._startup_fx_fetch_completed:
+        if not state.min_delay_elapsed or not state.fx_fetch_completed:
             return
 
-        self._startup_transition_pending = False
+        state.pending = False
         self._host._hide_startup_loading_overlay()
-        if self._startup_fx_fetch_error:
+        if state.fx_fetch_error:
             self._host.stack.setCurrentWidget(self._host.screen_welcome)
             show_error_with_back(
                 self._host_widget(),
                 "Exchange rate fetch failed",
-                self._startup_fx_fetch_error,
+                state.fx_fetch_error,
             )
             self.refresh_last_portfolio_ui()
             return
@@ -323,7 +337,4 @@ class MainWindowWelcomeController:
 
     def _reset_startup_transition_state(self, *, pending: bool) -> None:
         """Reset startup-transition gate flags to a known baseline state."""
-        self._startup_transition_pending = pending
-        self._startup_min_delay_elapsed = False
-        self._startup_fx_fetch_completed = False
-        self._startup_fx_fetch_error = None
+        self._startup_transition.reset(pending=pending)
