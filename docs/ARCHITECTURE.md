@@ -201,6 +201,8 @@ UI-focused tests:
   - focused table-editing normalization and validation/revert behavior tests
 - `tests/ui/controllers/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
+- `tests/ui/controllers/test_main_window_welcome_lifecycle.py`
+  - focused lifecycle tests for startup FX fetch worker/thread ownership (`start`, `cancel`, `clear`)
 - `tests/ui/screens/test_screens.py`
   - structural tests for screen modules (defaults, controls, static setup)
 - `tests/ui/delegates/test_ticker_input_delegate.py`
