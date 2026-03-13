@@ -50,18 +50,7 @@ class WizardFxCoordinator:
             return False
         state = self._host.wizard_state
         cached = self._read_session_cached_quote()
-        if cached is not None:
-            state.usd_ils_rate = cached.rate
-            state.usd_ils_rate_date = cached.effective_date
-            state.usd_ils_used_last_published = cached.used_last_published
-            state.usd_ils_rate_from_cache = True
-            state.usd_ils_rate_cached_at = cached.cached_at
-        else:
-            state.usd_ils_rate = None
-            state.usd_ils_rate_date = None
-            state.usd_ils_used_last_published = False
-            state.usd_ils_rate_from_cache = False
-            state.usd_ils_rate_cached_at = None
+        self._apply_cached_quote_to_wizard_state(state, cached)
         self._host.manual_rate_edit.setText("")
         return True
 
@@ -121,3 +110,19 @@ class WizardFxCoordinator:
         if cached is not None:
             return cached
         return self._host.session.read_cached_usd_ils_quote()
+
+    @staticmethod
+    def _apply_cached_quote_to_wizard_state(state: WizardState, cached: CachedUsdIlsQuote | None) -> None:
+        """Apply cached quote (or reset defaults) to wizard FX state fields."""
+        if cached is None:
+            state.usd_ils_rate = None
+            state.usd_ils_rate_date = None
+            state.usd_ils_used_last_published = False
+            state.usd_ils_rate_from_cache = False
+            state.usd_ils_rate_cached_at = None
+            return
+        state.usd_ils_rate = cached.rate
+        state.usd_ils_rate_date = cached.effective_date
+        state.usd_ils_used_last_published = cached.used_last_published
+        state.usd_ils_rate_from_cache = True
+        state.usd_ils_rate_cached_at = cached.cached_at
