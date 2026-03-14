@@ -10,6 +10,7 @@ shared builders (`make_plan_step`, `make_buy_calculation`,
 
 import os
 from collections.abc import Callable
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Iterator
@@ -93,6 +94,21 @@ def make_buy_calculation() -> Callable[..., BuyCalculation]:
         )
 
     return _make_buy_calculation
+
+
+@pytest.fixture
+def seed_session_usd_ils_cache() -> Callable[[MainWindow], None]:
+    """Return helper that seeds session USD/ILS cache for welcome-flow tests."""
+
+    def _seed(window: MainWindow) -> None:
+        window.session.cache_usd_ils_quote(
+            rate=Decimal("3.75"),
+            effective_date=date.fromisoformat("2026-03-10"),
+            used_last_published=False,
+            cached_at=datetime(2026, 3, 12, tzinfo=timezone.utc),
+        )
+
+    return _seed
 
 
 @pytest.fixture
