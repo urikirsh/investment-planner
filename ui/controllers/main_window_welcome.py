@@ -245,7 +245,7 @@ class MainWindowWelcomeController:
 
     def _start_startup_fx_fetch(self) -> None:
         """Start USD/ILS fetch unless already cached for this app session."""
-        if self._host.session.get_session_cached_usd_ils_quote() is not None:
+        if self._host.session.read_cached_usd_ils_quote() is not None:
             self._startup_transition.fx_fetch_completed = True
             self._try_finalize_startup_transition()
             return

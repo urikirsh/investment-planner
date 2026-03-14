@@ -48,9 +48,6 @@ class _FakeSession:
     def __init__(self) -> None:
         self.cached_quote: CachedUsdIlsQuote | None = None
 
-    def get_session_cached_usd_ils_quote(self) -> CachedUsdIlsQuote | None:
-        return self.cached_quote
-
     def read_cached_usd_ils_quote(self) -> CachedUsdIlsQuote | None:
         return self.cached_quote
 

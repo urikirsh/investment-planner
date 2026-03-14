@@ -159,7 +159,6 @@ class _FakeHost(MainWindowWizardMixin):
         self.session = SimpleNamespace(
             document=SimpleNamespace(current_portfolio=current_portfolio),
             read_cached_usd_ils_quote=lambda: None,
-            get_session_cached_usd_ils_quote=lambda: None,
         )
         self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
         self.wizard_state = SimpleNamespace(

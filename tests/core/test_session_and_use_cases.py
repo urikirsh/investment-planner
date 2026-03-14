@@ -135,7 +135,7 @@ def test_portfolio_session_cache_usd_ils_quote_updates_memory_only(tmp_path) -> 
     assert quote.effective_date == date.fromisoformat("2026-03-12")
     assert quote.used_last_published is True
     assert quote.cached_at == cached_at
-    in_memory = session.get_session_cached_usd_ils_quote()
+    in_memory = session.read_cached_usd_ils_quote()
     assert in_memory is not None
     assert in_memory == quote
 
@@ -152,7 +152,7 @@ def test_portfolio_session_cache_usd_ils_quote_does_not_write_config(tmp_path) -
         used_last_published=False,
     )
 
-    in_memory = session.get_session_cached_usd_ils_quote()
+    in_memory = session.read_cached_usd_ils_quote()
     assert in_memory is not None
     assert in_memory == quote
     assert not (tmp_path / "config.json").exists()

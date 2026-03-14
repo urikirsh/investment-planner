@@ -126,10 +126,6 @@ class PortfolioSession:
         """Return session-memory USD/ILS quote cache, if available."""
         return self._session_cached_usd_ils_quote
 
-    def get_session_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
-        """Return in-memory USD/ILS quote cached during this app session, if any."""
-        return self._session_cached_usd_ils_quote
-
     @staticmethod
     def _normalize_cached_at(cached_at: datetime | None) -> datetime:
         """Return timezone-aware cache timestamp, defaulting to current UTC."""
