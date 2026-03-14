@@ -2,8 +2,6 @@ from __future__ import annotations
 
 """Screen-level integration tests for `MainWindow` signal wiring."""
 
-from datetime import date, datetime, timezone
-from decimal import Decimal
 from typing import Callable
 
 import pytest
@@ -13,24 +11,13 @@ from portfolio_core.use_cases import PlanStep
 import ui.main_window_wizard as wizard_mod
 from ui.main_window import MainWindow
 
-D = Decimal
-
-
-def _seed_session_usd_ils_cache(window: MainWindow) -> None:
-    window.session.cache_usd_ils_quote(
-        rate=Decimal("3.75"),
-        effective_date=date.fromisoformat("2026-03-10"),
-        used_last_published=False,
-        cached_at=datetime(2026, 3, 12, tzinfo=timezone.utc),
-        persist=False,
-    )
-
-
 def test_welcome_screen_load_different_button_signal_enters_main_on_success(
-    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    seed_session_usd_ils_cache: Callable[[MainWindow], None],
 ) -> None:
     monkeypatch.setattr(window, "_open_portfolio_from_picker", lambda: True)
-    _seed_session_usd_ils_cache(window)
+    seed_session_usd_ils_cache(window)
     monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", window._welcome_controller._complete_startup_transition_to_main)
     assert window.stack.currentWidget() is window.screen_welcome
 

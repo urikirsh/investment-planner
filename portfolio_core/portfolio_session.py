@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -20,7 +20,7 @@ This module centralizes:
 - startup path resolution from global user config
 - a PortfolioDocument with current portfolio model, active file path,
   saved snapshot, and dirty-state
-- config-backed + in-memory session cache for last successful USD/ILS quote
+- in-memory session cache for last successful USD/ILS quote
 - building the minimal default in-memory portfolio
 
 Important startup behavior:
@@ -103,8 +103,6 @@ class PortfolioSession:
 
         The payload currently stores (when available):
         - `last_portfolio_path`: absolute path string for startup restore
-        - `last_usd_ils_quote`: last successful BOI quote cache loaded into
-          in-memory session state for startup/wizard flows
         """
         if not self._config_path.exists():
             return {}
@@ -124,27 +122,9 @@ class PortfolioSession:
             encoding="utf-8",
         )
 
-    def read_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
-        """Read last successful USD/ILS quote cache from session config.
-
-        Returns cached in-memory value first. When memory cache is empty, falls
-        back to config payload parsing.
-
-        Returns ``None`` for missing/corrupt/incomplete payloads. Parsing is
-        intentionally fail-soft and never raises to callers.
-        """
-        if self._session_cached_usd_ils_quote is not None:
-            return self._session_cached_usd_ils_quote
-
-        payload = self._read_config_payload().get("last_usd_ils_quote")
-        quote = self._parse_cached_usd_ils_quote_payload(payload)
-        if quote is None:
-            return None
-        self._session_cached_usd_ils_quote = quote
-        return quote
-
-    def get_session_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
-        """Return in-memory USD/ILS quote cached during this app session, if any."""
+    @property
+    def cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
+        """Return session-memory USD/ILS quote cache, if available."""
         return self._session_cached_usd_ils_quote
 
     @staticmethod
@@ -172,75 +152,6 @@ class PortfolioSession:
             cached_at=cls._normalize_cached_at(cached_at),
         )
 
-    def _persist_cached_usd_ils_quote(self, *, quote: "CachedUsdIlsQuote") -> None:
-        """Persist cached USD/ILS quote payload to config."""
-        payload = self._read_config_payload()
-        payload["last_usd_ils_quote"] = {
-            "rate": str(quote.rate),
-            "effective_date": quote.effective_date.isoformat(),
-            "used_last_published": quote.used_last_published,
-            "cached_at": quote.cached_at.isoformat(),
-        }
-        self._write_config_payload(payload)
-
-    @classmethod
-    def _parse_cached_usd_ils_quote_payload(cls, payload: object) -> "CachedUsdIlsQuote | None":
-        """Parse persisted ``last_usd_ils_quote`` payload into a typed quote."""
-        if not isinstance(payload, dict):
-            return None
-
-        raw_rate = payload.get("rate")
-        raw_effective_date = payload.get("effective_date")
-        raw_cached_at = payload.get("cached_at")
-        raw_last_published = payload.get("used_last_published")
-
-        if not isinstance(raw_rate, str) or not isinstance(raw_effective_date, str):
-            return None
-        if not isinstance(raw_cached_at, str):
-            return None
-
-        try:
-            rate = Decimal(raw_rate)
-        except (InvalidOperation, ValueError):
-            return None
-        if rate <= 0:
-            return None
-
-        try:
-            effective_date = date.fromisoformat(raw_effective_date)
-        except ValueError:
-            return None
-
-        try:
-            cached_at = datetime.fromisoformat(raw_cached_at)
-        except ValueError:
-            return None
-
-        return cls._build_cached_usd_ils_quote(
-            rate=rate,
-            effective_date=effective_date,
-            used_last_published=bool(raw_last_published),
-            cached_at=cached_at,
-        )
-
-    def _set_session_cached_usd_ils_quote(
-        self,
-        *,
-        rate: Decimal,
-        effective_date: date,
-        used_last_published: bool,
-        cached_at: datetime | None = None,
-    ) -> CachedUsdIlsQuote:
-        """Set in-memory USD/ILS quote cache only (no persistence)."""
-        quote = self._build_cached_usd_ils_quote(
-            rate=rate,
-            effective_date=effective_date,
-            used_last_published=used_last_published,
-            cached_at=cached_at,
-        )
-        self._session_cached_usd_ils_quote = quote
-        return quote
-
     def cache_usd_ils_quote(
         self,
         *,
@@ -248,25 +159,15 @@ class PortfolioSession:
         effective_date: date,
         used_last_published: bool,
         cached_at: datetime | None = None,
-        persist: bool = True,
     ) -> CachedUsdIlsQuote:
-        """Cache USD/ILS quote in-memory and optionally persist best-effort.
-
-        When ``persist`` is ``True``, config-write failures are intentionally
-        swallowed so callers can treat persistence as non-blocking.
-        """
-        quote = self._set_session_cached_usd_ils_quote(
+        """Cache USD/ILS quote in-memory for the current app session."""
+        quote = self._build_cached_usd_ils_quote(
             rate=rate,
             effective_date=effective_date,
             used_last_published=used_last_published,
             cached_at=cached_at,
         )
-        if not persist:
-            return quote
-        try:
-            self._persist_cached_usd_ils_quote(quote=quote)
-        except Exception:
-            pass
+        self._session_cached_usd_ils_quote = quote
         return quote
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
@@ -313,7 +214,7 @@ class PortfolioSession:
 
 @dataclass(frozen=True)
 class CachedUsdIlsQuote:
-    """Typed representation of cached USD/ILS quote stored in config.
+    """Typed representation of USD/ILS quote cached in app session memory.
 
     Fields:
     - `rate`: quote numeric value

@@ -35,9 +35,7 @@ Main user flow:
 
 FX thread-safety guards in this flow:
 - Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
-- Wizard runs reuse startup-cached USD/ILS data with a strict read order:
-  - in-memory session cache first,
-  - persisted config quote fallback when memory cache is empty.
+- Wizard runs reuse startup-cached USD/ILS data from in-memory session cache.
 - Wizard flow never performs USD/ILS network fetches.
 - Window close cancels any active startup FX fetch before teardown.
 
@@ -182,7 +180,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
   - exposes read-only remembered-path access for startup UI (`get_remembered_portfolio_path`)
-  - persists/reads cached last successful USD/ILS quote in the same user config
+  - holds cached last successful USD/ILS quote in session memory only
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder
 - `portfolio_core/use_cases.py`
@@ -216,7 +214,7 @@ UI-focused tests:
 - `tests/ui/shared/test_loading_overlay.py`
   - loading overlay structure/geometry behavior and visibility toggling
 - `tests/ui/conftest.py`
-  - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
+  - shared Qt app/window fixtures and reusable UI test helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
 - `tests/ui/test_main_window_actions.py`
   - focused tests for save-target resolution and unsaved-changes action decisions
 - `tests/ui/test_main_window_wizard.py`
