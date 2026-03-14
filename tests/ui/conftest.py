@@ -4,8 +4,8 @@ from __future__ import annotations
 
 This file centralizes Qt test setup so individual tests can focus on widget
 behavior rather than process-level initialization details. It also provides
-shared builders (`make_plan_step`, `make_buy_calculation`,
-`add_instrument_row`) for common UI test object setup.
+shared helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`,
+`make_buy_calculation`, `add_instrument_row`) for common UI test object setup.
 """
 
 import os
