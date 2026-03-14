@@ -114,7 +114,7 @@ def test_portfolio_session_reads_cached_usd_ils_quote_from_memory(tmp_path):
     )
 
     assert session.resolve_startup_path() == target_path
-    cached = session.read_cached_usd_ils_quote()
+    cached = session.cached_usd_ils_quote
     assert cached is not None
     assert cached.rate == D("3.77")
     assert str(cached.effective_date) == "2026-03-05"
@@ -135,12 +135,12 @@ def test_portfolio_session_cache_usd_ils_quote_updates_memory_only(tmp_path) -> 
     assert quote.effective_date == date.fromisoformat("2026-03-12")
     assert quote.used_last_published is True
     assert quote.cached_at == cached_at
-    in_memory = session.read_cached_usd_ils_quote()
+    in_memory = session.cached_usd_ils_quote
     assert in_memory is not None
     assert in_memory == quote
 
     reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
-    assert reloaded.read_cached_usd_ils_quote() is None
+    assert reloaded.cached_usd_ils_quote is None
 
 
 def test_portfolio_session_cache_usd_ils_quote_does_not_write_config(tmp_path) -> None:
@@ -152,7 +152,7 @@ def test_portfolio_session_cache_usd_ils_quote_does_not_write_config(tmp_path) -
         used_last_published=False,
     )
 
-    in_memory = session.read_cached_usd_ils_quote()
+    in_memory = session.cached_usd_ils_quote
     assert in_memory is not None
     assert in_memory == quote
     assert not (tmp_path / "config.json").exists()

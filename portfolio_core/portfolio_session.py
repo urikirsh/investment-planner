@@ -122,7 +122,8 @@ class PortfolioSession:
             encoding="utf-8",
         )
 
-    def read_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
+    @property
+    def cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
         """Return session-memory USD/ILS quote cache, if available."""
         return self._session_cached_usd_ils_quote
 

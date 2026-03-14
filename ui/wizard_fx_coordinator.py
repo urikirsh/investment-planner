@@ -45,7 +45,7 @@ class WizardFxCoordinator:
         if not self._host._cancel_wizard_fx_fetch():
             return False
         state = self._host.wizard_state
-        cached = self._host.session.read_cached_usd_ils_quote()
+        cached = self._host.session.cached_usd_ils_quote
         self._apply_cached_quote_to_wizard_state(state, cached)
         self._host.manual_rate_edit.setText("")
         return True
