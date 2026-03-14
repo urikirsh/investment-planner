@@ -214,7 +214,7 @@ UI-focused tests:
 - `tests/ui/shared/test_loading_overlay.py`
   - loading overlay structure/geometry behavior and visibility toggling
 - `tests/ui/conftest.py`
-  - shared Qt app/window fixtures and reusable UI test builders (`make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
+  - shared Qt app/window fixtures and reusable UI test helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`, `make_buy_calculation`, `add_instrument_row`)
 - `tests/ui/test_main_window_actions.py`
   - focused tests for save-target resolution and unsaved-changes action decisions
 - `tests/ui/test_main_window_wizard.py`
