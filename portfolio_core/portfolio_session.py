@@ -20,7 +20,7 @@ This module centralizes:
 - startup path resolution from global user config
 - a PortfolioDocument with current portfolio model, active file path,
   saved snapshot, and dirty-state
-- config-backed cache for last successful USD/ILS quote (used by wizard fallback)
+- config-backed + in-memory session cache for last successful USD/ILS quote
 - building the minimal default in-memory portfolio
 
 Important startup behavior:
@@ -73,6 +73,7 @@ class PortfolioSession:
         self.default_json_path = default_json_path
         self.document = PortfolioDocument()
         self._config_path = config_path
+        self._session_cached_usd_ils_quote: CachedUsdIlsQuote | None = None
 
     @property
     def current_file_path(self) -> Optional[Path]:
@@ -102,8 +103,8 @@ class PortfolioSession:
 
         The payload currently stores (when available):
         - `last_portfolio_path`: absolute path string for startup restore
-        - `last_usd_ils_quote`: last successful BOI quote cache used for
-          wizard fallback when network fetch fails
+        - `last_usd_ils_quote`: last successful BOI quote cache loaded into
+          in-memory session state for startup/wizard flows
         """
         if not self._config_path.exists():
             return {}
@@ -126,13 +127,65 @@ class PortfolioSession:
     def read_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
         """Read last successful USD/ILS quote cache from session config.
 
-        Returns ``None`` for any missing/corrupt/incomplete payload so callers
-        can treat cache as optional and fail soft to manual entry.
+        Returns cached in-memory value first. When memory cache is empty, falls
+        back to config payload parsing.
 
-        This method is intentionally fail-soft: unreadable or partially-invalid
-        cache payloads are treated as "no cache" instead of raising.
+        Returns ``None`` for missing/corrupt/incomplete payloads. Parsing is
+        intentionally fail-soft and never raises to callers.
         """
+        if self._session_cached_usd_ils_quote is not None:
+            return self._session_cached_usd_ils_quote
+
         payload = self._read_config_payload().get("last_usd_ils_quote")
+        quote = self._parse_cached_usd_ils_quote_payload(payload)
+        if quote is None:
+            return None
+        self._session_cached_usd_ils_quote = quote
+        return quote
+
+    def get_session_cached_usd_ils_quote(self) -> "CachedUsdIlsQuote | None":
+        """Return in-memory USD/ILS quote cached during this app session, if any."""
+        return self._session_cached_usd_ils_quote
+
+    @staticmethod
+    def _normalize_cached_at(cached_at: datetime | None) -> datetime:
+        """Return timezone-aware cache timestamp, defaulting to current UTC."""
+        now = cached_at or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        return now
+
+    @classmethod
+    def _build_cached_usd_ils_quote(
+        cls,
+        *,
+        rate: Decimal,
+        effective_date: date,
+        used_last_published: bool,
+        cached_at: datetime | None = None,
+    ) -> "CachedUsdIlsQuote":
+        """Build normalized cached-quote value object."""
+        return CachedUsdIlsQuote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=bool(used_last_published),
+            cached_at=cls._normalize_cached_at(cached_at),
+        )
+
+    def _persist_cached_usd_ils_quote(self, *, quote: "CachedUsdIlsQuote") -> None:
+        """Persist cached USD/ILS quote payload to config."""
+        payload = self._read_config_payload()
+        payload["last_usd_ils_quote"] = {
+            "rate": str(quote.rate),
+            "effective_date": quote.effective_date.isoformat(),
+            "used_last_published": quote.used_last_published,
+            "cached_at": quote.cached_at.isoformat(),
+        }
+        self._write_config_payload(payload)
+
+    @classmethod
+    def _parse_cached_usd_ils_quote_payload(cls, payload: object) -> "CachedUsdIlsQuote | None":
+        """Parse persisted ``last_usd_ils_quote`` payload into a typed quote."""
         if not isinstance(payload, dict):
             return None
 
@@ -162,41 +215,59 @@ class PortfolioSession:
             cached_at = datetime.fromisoformat(raw_cached_at)
         except ValueError:
             return None
-        if cached_at.tzinfo is None:
-            cached_at = cached_at.replace(tzinfo=timezone.utc)
 
-        return CachedUsdIlsQuote(
+        return cls._build_cached_usd_ils_quote(
             rate=rate,
             effective_date=effective_date,
             used_last_published=bool(raw_last_published),
             cached_at=cached_at,
         )
 
-    def write_cached_usd_ils_quote(
+    def _set_session_cached_usd_ils_quote(
         self,
         *,
         rate: Decimal,
         effective_date: date,
         used_last_published: bool,
         cached_at: datetime | None = None,
-    ) -> None:
-        """Persist last successful USD/ILS quote cache to session config.
+    ) -> CachedUsdIlsQuote:
+        """Set in-memory USD/ILS quote cache only (no persistence)."""
+        quote = self._build_cached_usd_ils_quote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=used_last_published,
+            cached_at=cached_at,
+        )
+        self._session_cached_usd_ils_quote = quote
+        return quote
 
-        This intentionally writes only successful official fetches. Manual
-        overrides are transient wizard state and are never persisted.
+    def cache_usd_ils_quote(
+        self,
+        *,
+        rate: Decimal,
+        effective_date: date,
+        used_last_published: bool,
+        cached_at: datetime | None = None,
+        persist: bool = True,
+    ) -> CachedUsdIlsQuote:
+        """Cache USD/ILS quote in-memory and optionally persist best-effort.
+
+        When ``persist`` is ``True``, config-write failures are intentionally
+        swallowed so callers can treat persistence as non-blocking.
         """
-        now = cached_at or datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-
-        payload = self._read_config_payload()
-        payload["last_usd_ils_quote"] = {
-            "rate": str(rate),
-            "effective_date": effective_date.isoformat(),
-            "used_last_published": bool(used_last_published),
-            "cached_at": now.isoformat(),
-        }
-        self._write_config_payload(payload)
+        quote = self._set_session_cached_usd_ils_quote(
+            rate=rate,
+            effective_date=effective_date,
+            used_last_published=used_last_published,
+            cached_at=cached_at,
+        )
+        if not persist:
+            return quote
+        try:
+            self._persist_cached_usd_ils_quote(quote=quote)
+        except Exception:
+            pass
+        return quote
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""

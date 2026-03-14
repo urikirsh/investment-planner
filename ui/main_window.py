@@ -20,7 +20,7 @@ from portfolio_core.models import Portfolio
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import PlanBuildResult, PlanStep, build_plan_for_current_document, load_document
-from ui.shared.constants import APP_NAME
+from ui.shared.constants import APP_NAME, CLOSE_EVENT_CLEANUP_WAIT_MS
 from ui.controllers import (
     MainWindowMainEditorController,
     MainWindowMetricsController,
@@ -29,7 +29,7 @@ from ui.controllers import (
     MainWindowWelcomeController,
     WelcomeLastPortfolioStatus,
 )
-from ui.dialogs import show_error
+from ui.dialogs import show_cleanup_in_progress
 from ui.main_window_actions import MainWindowActionsMixin
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
@@ -115,18 +115,26 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     # -------------------------
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Ensure background FX thread is stopped before window teardown."""
-        self._welcome_controller.cancel_pending_startup_transition()
-        stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=12000)
-        if not stopped:
-            show_error(
-                self,
-                "Please wait",
-                "Still finishing background USD/ILS fetch. Try closing again in a few seconds.",
-            )
-            event.ignore()
+        """Ensure startup/wizard FX cleanup is done before window teardown."""
+        if not self._ensure_close_cleanup_ready(event):
             return
         super().closeEvent(event)
+
+    def _ensure_close_cleanup_ready(self, event: QCloseEvent) -> bool:
+        """Run close-time cleanup guards and block close when cleanup is still running."""
+        startup_stopped = self._welcome_controller.cancel_pending_startup_transition(
+            wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS
+        )
+        if not startup_stopped:
+            show_cleanup_in_progress(self)
+            event.ignore()
+            return False
+        wizard_stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS)
+        if not wizard_stopped:
+            show_cleanup_in_progress(self)
+            event.ignore()
+            return False
+        return True
 
     def _current_file_display_name(self) -> str:
         """Return short file label for UI chrome (filename or ``Untitled``)."""
@@ -174,7 +182,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
             self.planning_state.step_index = 0
             self.planning_state.mode = mode
             if not self._reset_wizard_fx_state_for_new_run():
-                self._show_error("Please wait", "Still finishing background USD/ILS fetch. Try again in a few seconds.")
+                self._show_error("Please wait", "Still finishing cleanup tasks. Try again in a few seconds.")
                 return
             self.wizard_state.last_calc = None
 

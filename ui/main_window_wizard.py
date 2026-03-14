@@ -5,9 +5,9 @@ from __future__ import annotations
 This mixin encapsulates wizard screen wiring plus step calculation/save/advance
 behavior so `MainWindow` can remain focused on high-level orchestration.
 
-Wizard-run-scoped FX handling for USD-priced instruments is delegated to
-`ui.wizard_fx_coordinator.WizardFxCoordinator` via thin wrapper methods in
-this mixin.
+Wizard FX handling for USD-priced instruments is delegated to
+`ui.wizard_fx_coordinator.WizardFxCoordinator`, which reads startup-cached
+USD/ILS state and renders wizard FX panel context.
 """
 
 from decimal import Decimal
@@ -21,6 +21,7 @@ from portfolio_core.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
 from ui.dialogs import show_error
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 from ui.ui_state import PlanningState, WizardState
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, d_from_text
 from ui.wizard_fx_coordinator import WizardFxCoordinator
@@ -85,7 +86,7 @@ class MainWindowWizardMixin:
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
         self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
         self._invalidate_current_calc(reset_result=False, sync_widths=False)
-        self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
+        self._wizard_fx = WizardFxCoordinator(self)
 
     def _show_current_wizard_step(self) -> None:
         """Render current wizard step details and reset last calculation state."""
@@ -182,70 +183,39 @@ class MainWindowWizardMixin:
             self._sync_wizard_focus_row_widths()
 
     def _get_effective_usd_ils_rate(self) -> D:
-        """Return USD/ILS rate for current wizard run, with override fallback."""
+        """Return startup-cached USD/ILS rate for current wizard run."""
         if self.wizard_state.usd_ils_rate is not None:
             return self.wizard_state.usd_ils_rate
-        if self.wizard_state.usd_ils_fetch_in_progress:
-            raise ValueError("Still fetching official USD/ILS rate (can take up to 10 seconds). Please wait.")
-        if self.wizard_state.manual_override_usd_ils_rate is not None:
-            return self.wizard_state.manual_override_usd_ils_rate
-
-        raw = self.manual_rate_edit.text().strip()
-        if raw:
-            rate = d_from_text(raw, "manual USD/ILS rate")
-            if rate <= 0:
-                raise ValueError("manual USD/ILS rate must be positive")
-            self.wizard_state.manual_override_usd_ils_rate = rate
-            self._render_fx_panel_for_current_step()
-            return rate
-
-        raise ValueError(
-            "USD/ILS rate unavailable. Could not fetch from Bank of Israel. "
-            "Enter a manual USD/ILS rate to continue."
-        )
-
-    def _wizard_has_usd_steps(self) -> bool:
-        """Return whether current plan includes at least one USD-priced step."""
-        return any(step.exchange.currency == Currency.USD for step in self.planning_state.plan_steps)
-
-    def _prepare_wizard_fx_rate_cache(self) -> None:
-        """Begin BOI USD/ILS fetch asynchronously once per wizard run when needed."""
-        self._wizard_fx_coordinator().prepare_wizard_fx_rate_cache()
-
-    def _on_fx_fetch_finished(self, quote_obj: object, error_obj: object, generation: int) -> None:
-        """Handle completion of asynchronous BOI fetch."""
-        self._wizard_fx_coordinator().on_fx_fetch_finished(quote_obj, error_obj, generation)
+        raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
 
     def _reset_wizard_fx_state_for_new_run(self) -> bool:
-        """Reset transient USD/ILS state and clear manual FX input for a new run."""
+        """Reset transient USD/ILS state for a new run."""
         return self._wizard_fx_coordinator().reset_wizard_fx_state_for_new_run()
 
-    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
-        """Stop and detach the in-flight FX fetch thread, if any."""
+    def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
+        """Run wizard FX cleanup seam (currently a no-op compatibility call)."""
         return self._wizard_fx_coordinator().cancel_wizard_fx_fetch(wait_timeout_ms=wait_timeout_ms)
 
     def _render_fx_panel_for_current_step(self) -> None:
-        """Render FX quote/fallback/override status for the active step."""
+        """Render FX cached-rate status for the active step."""
         self._wizard_fx_coordinator().render_fx_panel_for_current_step()
 
     def _wizard_fx_coordinator(self) -> WizardFxCoordinator:
         """Lazily create coordinator for tests that bypass widget initialization."""
         if not hasattr(self, "_wizard_fx"):
-            self._wizard_fx = WizardFxCoordinator(self, show_error_fn=show_error)
+            self._wizard_fx = WizardFxCoordinator(self)
         return self._wizard_fx
 
     def _try_finish_wizard_fx_cleanup(self) -> bool:
-        """Ensure wizard FX background work is stopped before leaving wizard flow."""
-        if not self._cancel_wizard_fx_fetch():
-            show_error(
-                cast(QWidget, self),
-                "Please wait",
-                "Still finishing background USD/ILS fetch. Try again in a few seconds.",
-            )
-            return False
-        self.wizard_state.usd_ils_fetch_in_progress = False
-        self.wizard_state.usd_ils_active_fetch_generation = None
-        return True
+        """Run wizard FX cleanup guard before leaving wizard flow."""
+        if self._cancel_wizard_fx_fetch():
+            return True
+        show_error(
+            cast(QWidget, self),
+            "Please wait",
+            "Still finishing cleanup tasks. Try again in a few seconds.",
+        )
+        return False
 
     def _wizard_save_continue(self) -> None:
         """Apply current step trade, persist if applied, then advance.
@@ -391,7 +361,7 @@ class MainWindowWizardMixin:
     def _advance_wizard_step(self) -> None:
         """Move to next step, or repopulate main editor and return when complete.
 
-        Final-step transition is guarded by FX-thread cancellation; if cleanup
+        Final-step transition is guarded by FX cleanup; if cleanup
         cannot complete yet, the method keeps the current step active and
         informs the user to retry shortly.
         """

@@ -79,7 +79,6 @@ class MainWindowSummaryController:
             return
         host._show_current_wizard_step()
         host.stack.setCurrentWidget(host.screen_wizard)
-        host._prepare_wizard_fx_rate_cache()
 
     def summary_back(self) -> None:
         """Return from summary screen to main editor screen."""

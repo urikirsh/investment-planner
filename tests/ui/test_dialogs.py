@@ -156,3 +156,69 @@ def test_confirm_unsaved_changes_maps_button_selection(
 
     result = dialogs.confirm_unsaved_changes(parent_widget, action_text="opening another portfolio")
     assert result == expected
+
+
+def test_show_error_with_back_creates_single_back_button(
+    monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget
+) -> None:
+    seen_labels: list[str] = []
+
+    class FakeMessageBox:
+        class Icon:
+            Critical = object()
+
+        class ButtonRole:
+            AcceptRole = object()
+
+        def __init__(self, parent: QWidget) -> None:
+            _ = parent
+
+        def setIcon(self, icon: object) -> None:
+            _ = icon
+
+        def setWindowTitle(self, title: str) -> None:
+            _ = title
+
+        def setText(self, text: str) -> None:
+            _ = text
+
+        def addButton(self, label: str, role: object) -> object:
+            _ = role
+            seen_labels.append(label)
+            return object()
+
+        def setDefaultButton(self, button: object) -> None:
+            _ = button
+
+        def exec(self) -> None:
+            return None
+
+    monkeypatch.setattr(dialogs, "QMessageBox", FakeMessageBox)
+
+    dialogs.show_error_with_back(parent_widget, "Fetch failed", "Failed to fetch USD to ILS exchange rate.")
+
+    assert seen_labels == ["Back"]
+
+
+def test_show_cleanup_in_progress_uses_default_closing_text(
+    monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget
+) -> None:
+    shown: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(dialogs, "show_error", lambda _parent, title, message: shown.append((title, message)))
+
+    dialogs.show_cleanup_in_progress(parent_widget)
+
+    assert shown == [("Please wait", "Still finishing cleanup tasks. Try closing again in a few seconds.")]
+
+
+def test_show_cleanup_in_progress_uses_custom_action_verb(
+    monkeypatch: pytest.MonkeyPatch, parent_widget: QWidget
+) -> None:
+    shown: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(dialogs, "show_error", lambda _parent, title, message: shown.append((title, message)))
+
+    dialogs.show_cleanup_in_progress(parent_widget, action_verb="starting")
+
+    assert shown == [("Please wait", "Still finishing cleanup tasks. Try starting again in a few seconds.")]

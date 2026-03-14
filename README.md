@@ -64,7 +64,7 @@ The application never executes trades automatically. All actions are explicit an
   - per-instrument allocation based on your target portfolio mix
   - wizard step info shows instrument name, ticker, exchange, asset group, and action amount
   - enter instrument price and calculate how many units to buy/sell
-  - for USD-priced instruments, the app fetches USD/ILS automatically and lets you enter a manual rate if needed
+  - USD-priced steps use a USD/ILS rate prepared during startup
   - calculation can be triggered by button click, pressing `Enter`, or leaving the price field
   - unit amounts are rounded down to whole numbers
 - Wizard actions:
@@ -83,7 +83,8 @@ The application never executes trades automatically. All actions are explicit an
   - `Load Portfolio...`
   - `Start New File`
   - `Quit`
-  - after choosing a startup action that opens the main editor, a 1-second blocking transition overlay appears with a large spinner and `fetching data` text
+  - after choosing a startup action that opens the main editor, a brief blocking transition overlay appears while startup tasks complete
+  - if the USD/ILS rate is unavailable, the app keeps you on the welcome screen so you can retry
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
@@ -170,7 +171,7 @@ Notes:
   - quit
 - If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
-- The app also stores the last successful USD/ILS quote in the same user config for fetch-failure fallback.
+- The app reuses the latest successful USD/ILS quote across wizard runs in the current app session.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.

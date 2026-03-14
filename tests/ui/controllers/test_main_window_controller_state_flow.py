@@ -179,6 +179,31 @@ def test_close_event_cancels_inflight_wizard_fx_fetch(window: MainWindow, monkey
     assert seen_timeout and seen_timeout[0] == 12000
 
 
+def test_close_event_aborts_when_startup_fx_cleanup_cannot_finish(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    shown_calls = 0
+    wizard_cancel_calls = 0
+
+    monkeypatch.setattr(window._welcome_controller, "cancel_pending_startup_transition", lambda **_kwargs: False)
+
+    def fake_cancel_wizard_fx(*, wait_timeout_ms: int = 0) -> bool:
+        nonlocal wizard_cancel_calls
+        _ = wait_timeout_ms
+        wizard_cancel_calls += 1
+        return True
+
+    def fake_show_cleanup_in_progress(_parent: object) -> None:
+        nonlocal shown_calls
+        shown_calls += 1
+
+    monkeypatch.setattr(window, "_cancel_wizard_fx_fetch", fake_cancel_wizard_fx)
+    monkeypatch.setattr(main_window, "show_cleanup_in_progress", fake_show_cleanup_in_progress)
+
+    window.close()
+
+    assert shown_calls == 1
+    assert wizard_cancel_calls == 0
+
+
 def test_save_blocks_invalid_ticker_exchange_combination(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

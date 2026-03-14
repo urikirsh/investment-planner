@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 import pytest
 
 import portfolio_core.portfolio_session as session_mod
+import ui.controllers.main_window_welcome as welcome_mod
 from ui.main_window import MainWindow
 
 
@@ -23,6 +26,16 @@ def _mock_remembered_portfolio_path(
 
 def _run_welcome_transition_immediately(monkeypatch: pytest.MonkeyPatch, window: MainWindow) -> None:
     monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", window._welcome_controller._complete_startup_transition_to_main)
+
+
+def _seed_session_usd_ils_cache(window: MainWindow) -> None:
+    window.session.cache_usd_ils_quote(
+        rate=Decimal("3.75"),
+        effective_date=date.fromisoformat("2026-03-10"),
+        used_last_published=False,
+        cached_at=datetime(2026, 3, 12, tzinfo=timezone.utc),
+        persist=False,
+    )
 
 
 @pytest.fixture()
@@ -99,6 +112,7 @@ def test_welcome_open_last_transitions_to_main_on_success(window: MainWindow, mo
 
     _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
     monkeypatch.setattr(window, "_open_portfolio_from_path", fake_open_portfolio)
+    _seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
 
     window._on_welcome_open_last_clicked()
@@ -132,6 +146,7 @@ def test_welcome_load_different_keeps_welcome_screen_on_cancel(window: MainWindo
 
 
 def test_welcome_start_new_loads_default_and_enters_main(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    _seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
     window._on_welcome_start_new_clicked()
 
@@ -143,6 +158,7 @@ def test_welcome_start_new_loads_default_and_enters_main(window: MainWindow, mon
 def test_welcome_success_action_shows_overlay_before_delayed_main_transition(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _seed_session_usd_ils_cache(window)
     scheduled: list[bool] = []
     monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", lambda: scheduled.append(True))
 
@@ -161,6 +177,7 @@ def test_welcome_success_action_shows_overlay_before_delayed_main_transition(
 
 
 def test_close_during_startup_transition_hides_overlay_immediately(window: MainWindow) -> None:
+    _seed_session_usd_ils_cache(window)
     window._on_welcome_start_new_clicked()
 
     assert not window._startup_loading_overlay.isHidden()
@@ -169,5 +186,61 @@ def test_close_during_startup_transition_hides_overlay_immediately(window: MainW
 
     window.close()
 
+    assert window._startup_loading_overlay.isHidden()
+    assert not window._welcome_controller._startup_transition_timer.isActive()
+
+
+def test_welcome_fetch_failure_shows_back_dialog_and_keeps_welcome(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shown: list[tuple[str, str]] = []
+
+    def fake_start_fetch() -> None:
+        window._welcome_controller._startup_transition.fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
+        window._welcome_controller._startup_transition.fx_fetch_completed = True
+        window._welcome_controller._try_finalize_startup_transition()
+
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)
+    monkeypatch.setattr(
+        welcome_mod,
+        "show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+    _run_welcome_transition_immediately(monkeypatch, window)
+
+    window._on_welcome_start_new_clicked()
+
+    assert shown == [("Exchange rate fetch failed", "Failed to fetch USD to ILS exchange rate.")]
+    assert window.stack.currentWidget() is window.screen_welcome
+    assert window._startup_loading_overlay.isHidden()
+
+
+def test_welcome_start_action_aborts_when_previous_startup_fx_cleanup_cannot_finish(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shown_calls = 0
+    cancel_calls = 0
+
+    def fake_cancel_startup_fx_fetch(**_kwargs: object) -> bool:
+        nonlocal cancel_calls
+        cancel_calls += 1
+        return cancel_calls != 1
+
+    def fake_show_cleanup_in_progress(_parent: object, *, action_verb: str = "closing") -> None:
+        _ = action_verb
+        nonlocal shown_calls
+        shown_calls += 1
+
+    monkeypatch.setattr(window._welcome_controller, "_cancel_startup_fx_fetch", fake_cancel_startup_fx_fetch)
+    monkeypatch.setattr(
+        welcome_mod,
+        "show_cleanup_in_progress",
+        fake_show_cleanup_in_progress,
+    )
+
+    window._on_welcome_start_new_clicked()
+
+    assert shown_calls == 1
+    assert window.stack.currentWidget() is window.screen_welcome
     assert window._startup_loading_overlay.isHidden()
     assert not window._welcome_controller._startup_transition_timer.isActive()

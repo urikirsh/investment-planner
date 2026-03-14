@@ -19,6 +19,9 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from ui.ui_state import UnsavedChangesDecision
 
+_CLEANUP_IN_PROGRESS_TITLE = "Please wait"
+_CLEANUP_IN_PROGRESS_MESSAGE_TEMPLATE = "Still finishing cleanup tasks. Try {action_verb} again in a few seconds."
+
 
 def show_info(parent: QWidget, title: str, message: str) -> None:
     """Show informational feedback using ``QMessageBox.information``."""
@@ -30,9 +33,29 @@ def show_error(parent: QWidget, title: str, message: str) -> None:
     QMessageBox.critical(parent, title, message)
 
 
+def show_cleanup_in_progress(parent: QWidget, *, action_verb: str = "closing") -> None:
+    """Show standard cleanup-in-progress dialog text used by guarded flows."""
+    show_error(
+        parent,
+        _CLEANUP_IN_PROGRESS_TITLE,
+        _CLEANUP_IN_PROGRESS_MESSAGE_TEMPLATE.format(action_verb=action_verb),
+    )
+
+
 def show_warning(parent: QWidget, title: str, message: str) -> None:
     """Show warning feedback using ``QMessageBox.warning``."""
     QMessageBox.warning(parent, title, message)
+
+
+def show_error_with_back(parent: QWidget, title: str, message: str) -> None:
+    """Show an error dialog with a single ``Back`` action."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Critical)
+    box.setWindowTitle(title)
+    box.setText(message)
+    back_btn = box.addButton("Back", QMessageBox.ButtonRole.AcceptRole)
+    box.setDefaultButton(back_btn)
+    box.exec()
 
 
 def choose_save_path(parent: QWidget, *, start_path: Path) -> Path | None:
