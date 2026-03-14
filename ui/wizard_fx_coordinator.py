@@ -45,7 +45,7 @@ class WizardFxCoordinator:
         if not self._host._cancel_wizard_fx_fetch():
             return False
         state = self._host.wizard_state
-        cached = self._read_session_cached_quote()
+        cached = self._host.session.read_cached_usd_ils_quote()
         self._apply_cached_quote_to_wizard_state(state, cached)
         self._host.manual_rate_edit.setText("")
         return True
@@ -99,10 +99,6 @@ class WizardFxCoordinator:
             manual_visible=False,
             manual_value="",
         )
-
-    def _read_session_cached_quote(self) -> CachedUsdIlsQuote | None:
-        """Read session-memory USD/ILS cache."""
-        return self._host.session.read_cached_usd_ils_quote()
 
     @staticmethod
     def _apply_cached_quote_to_wizard_state(state: WizardState, cached: CachedUsdIlsQuote | None) -> None:

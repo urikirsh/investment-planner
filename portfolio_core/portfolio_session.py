@@ -151,24 +151,6 @@ class PortfolioSession:
             cached_at=cls._normalize_cached_at(cached_at),
         )
 
-    def _set_session_cached_usd_ils_quote(
-        self,
-        *,
-        rate: Decimal,
-        effective_date: date,
-        used_last_published: bool,
-        cached_at: datetime | None = None,
-    ) -> CachedUsdIlsQuote:
-        """Set in-memory USD/ILS quote cache only (no persistence)."""
-        quote = self._build_cached_usd_ils_quote(
-            rate=rate,
-            effective_date=effective_date,
-            used_last_published=used_last_published,
-            cached_at=cached_at,
-        )
-        self._session_cached_usd_ils_quote = quote
-        return quote
-
     def cache_usd_ils_quote(
         self,
         *,
@@ -178,12 +160,14 @@ class PortfolioSession:
         cached_at: datetime | None = None,
     ) -> CachedUsdIlsQuote:
         """Cache USD/ILS quote in-memory for the current app session."""
-        return self._set_session_cached_usd_ils_quote(
+        quote = self._build_cached_usd_ils_quote(
             rate=rate,
             effective_date=effective_date,
             used_last_published=used_last_published,
             cached_at=cached_at,
         )
+        self._session_cached_usd_ils_quote = quote
+        return quote
 
     def set_active_file_path(self, path: Optional[Path]) -> None:
         """Update active file path in-memory and best-effort persist it to config."""
