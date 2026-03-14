@@ -37,10 +37,6 @@ class WizardFxCoordinator:
     def __init__(self, host: WizardFxHost) -> None:
         self._host = host
 
-    def prepare_wizard_fx_rate_cache(self) -> None:
-        """No-op: FX is fetched during welcome wait and reused from session cache."""
-        self.render_fx_panel_for_current_step()
-
     def reset_wizard_fx_state_for_new_run(self) -> bool:
         """Reset transient USD/ILS state and hydrate from session cache.
 

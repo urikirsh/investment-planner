@@ -188,10 +188,6 @@ class MainWindowWizardMixin:
             return self.wizard_state.usd_ils_rate
         raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
 
-    def _prepare_wizard_fx_rate_cache(self) -> None:
-        """No-op wrapper; FX is fetched during welcome wait and reused from cache."""
-        self._wizard_fx_coordinator().prepare_wizard_fx_rate_cache()
-
     def _reset_wizard_fx_state_for_new_run(self) -> bool:
         """Reset transient USD/ILS state for a new run."""
         return self._wizard_fx_coordinator().reset_wizard_fx_state_for_new_run()

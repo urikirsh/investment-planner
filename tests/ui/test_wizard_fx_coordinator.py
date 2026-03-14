@@ -69,18 +69,6 @@ class _FakeHost:
         return self.cancel_returns
 
 
-def test_prepare_wizard_fx_rate_cache_shows_wait_when_cancel_fails(
-    make_plan_step: Callable[..., PlanStep],
-) -> None:
-    host = _FakeHost([make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host.cancel_returns = False
-    coordinator = WizardFxCoordinator(cast(WizardFxHost, host))
-
-    coordinator.prepare_wizard_fx_rate_cache()
-
-    assert host.screen_wizard.panel_calls
-
-
 def test_render_fx_panel_hides_for_non_usd_steps(make_plan_step: Callable[..., PlanStep]) -> None:
     host = _FakeHost([make_plan_step(delta="50", exchange=Exchange.TASE)])
     coordinator = WizardFxCoordinator(cast(WizardFxHost, host))

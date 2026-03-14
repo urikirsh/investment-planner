@@ -160,7 +160,6 @@ class _FakeHost(MainWindowWizardMixin):
             document=SimpleNamespace(current_portfolio=current_portfolio),
             read_cached_usd_ils_quote=lambda: None,
             get_session_cached_usd_ils_quote=lambda: None,
-            write_cached_usd_ils_quote=lambda **_kwargs: None,
         )
         self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
         self.wizard_state = SimpleNamespace(
@@ -329,37 +328,6 @@ def test_wizard_implicit_empty_input_clears_last_calc_and_disables_save(
 
     assert host.wizard_state.last_calc is None
     assert host.screen_wizard.save_continue_btn.isEnabled() is False
-
-
-def test_prepare_wizard_fx_rate_cache_fetches_at_most_once_per_run(
-    make_plan_step: Callable[..., PlanStep]
-) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    host._prepare_wizard_fx_rate_cache()
-    assert host.screen_wizard.fx_visible is True
-
-
-def test_prepare_wizard_fx_rate_cache_skips_when_no_usd_steps(
-    make_plan_step: Callable[..., PlanStep]
-) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.TASE)])
-
-    host._prepare_wizard_fx_rate_cache()
-
-    assert host.screen_wizard.fx_visible is False
-
-
-def test_prepare_wizard_fx_rate_cache_aborts_when_previous_fetch_still_running(
-    monkeypatch: pytest.MonkeyPatch, make_plan_step: Callable[..., PlanStep]
-) -> None:
-    host = _FakeHost(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
-    shown: list[tuple[str, str]] = []
-    monkeypatch.setattr(host, "_cancel_wizard_fx_fetch", lambda **_kwargs: False)
-    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
-
-    host._prepare_wizard_fx_rate_cache()
-
-    assert shown == []
 
 
 def test_reset_wizard_fx_state_clears_manual_override_and_input(make_plan_step: Callable[..., PlanStep]) -> None:
