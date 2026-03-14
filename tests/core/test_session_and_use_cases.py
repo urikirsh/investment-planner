@@ -101,19 +101,22 @@ def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
         doc.save_to_path(tmp_path / "x.json")
 
 
-def test_portfolio_session_reads_cached_usd_ils_quote_from_memory(tmp_path):
+def test_portfolio_session_resolve_startup_path_returns_active_file_path(tmp_path):
     session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
     target_path = tmp_path / "portfolio.json"
     target_path.write_text("{}", encoding="utf-8")
     session.set_active_file_path(target_path)
+    assert session.resolve_startup_path() == target_path
 
+
+def test_portfolio_session_reads_cached_usd_ils_quote_from_memory(tmp_path):
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
     session.cache_usd_ils_quote(
         rate=D("3.77"),
         effective_date=date.fromisoformat("2026-03-05"),
         used_last_published=False,
     )
 
-    assert session.resolve_startup_path() == target_path
     cached = session.cached_usd_ils_quote
     assert cached is not None
     assert cached.rate == D("3.77")
