@@ -43,8 +43,10 @@ Do not report completion if either command fails.
 - If any file is added or deleted, update `docs/ARCHITECTURE.md` in the same task to reflect the structural change.
 - If user-facing behavior changes, update `README.md` in the same task.
 - Keep `README.md` user-facing; put implementation details in `docs/ARCHITECTURE.md`.
+- In `README.md`, describe user outcomes and avoid implementation-specific details unless explicitly requested (for example: internal state flags, cache tiers, thread/worker lifecycle, or exact dialog button labels).
 - Prefer documenting behavior contracts over implementation details so docs remain stable across refactors.
 - Keep documentation concise and behavior-accurate; avoid broad background text when a precise statement is enough.
+- Be strict with absolutes in user-facing docs: verify `always` / `never` / `only` claims against current runtime paths before finishing.
 - Keep architecture/docs granularity symmetric: avoid over-documenting one field/module unless peers are documented at the same level or the exception is intentional.
 - When changing user-facing text (UI labels/messages/docs), verify wording matches runtime behavior and units.
 
@@ -61,6 +63,9 @@ Do not report completion if either command fails.
 - Use shared defaults/constants for fallbacks (for example, `DEFAULT_EXCHANGE`) instead of inline string literals.
 - For schema or field renames, update all affected layers in the same task: model, JSON IO, validation, UI labels/tooltips, tests, and docs.
 - After intentional breaking changes, remove stale "legacy" compatibility wording unless backward compatibility is still implemented.
+- When introducing a canonical public API, migrate callers in the same task and remove or privatize legacy setters unless an explicit migration window is required.
+- Remove stale no-op seams once behavior has stabilized; do not keep indefinite compatibility wrappers with no runtime effect.
+- When removing a seam/wrapper, also remove stale protocol members and seam-specific tests in the same task.
 - In PowerShell commands, avoid Bash-only chaining like `&&`; use separate commands or `;`.
 
 ## PR Writing
