@@ -101,11 +101,8 @@ class WizardFxCoordinator:
         )
 
     def _read_session_cached_quote(self) -> CachedUsdIlsQuote | None:
-        """Read session-memory USD/ILS cache, falling back to persisted cache."""
-        cached = self._host.session.get_session_cached_usd_ils_quote()
-        if cached is not None:
-            return cached
-        return self._host.session.read_cached_usd_ils_quote()
+        """Read session-memory USD/ILS cache."""
+        return self._host.session.get_session_cached_usd_ils_quote()
 
     @staticmethod
     def _apply_cached_quote_to_wizard_state(state: WizardState, cached: CachedUsdIlsQuote | None) -> None:

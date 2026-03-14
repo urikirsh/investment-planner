@@ -22,7 +22,6 @@ def _seed_session_usd_ils_cache(window: MainWindow) -> None:
         effective_date=date.fromisoformat("2026-03-10"),
         used_last_published=False,
         cached_at=datetime(2026, 3, 12, tzinfo=timezone.utc),
-        persist=False,
     )
 
 

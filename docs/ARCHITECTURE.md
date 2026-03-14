@@ -35,9 +35,7 @@ Main user flow:
 
 FX thread-safety guards in this flow:
 - Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
-- Wizard runs reuse startup-cached USD/ILS data with a strict read order:
-  - in-memory session cache first,
-  - persisted config quote fallback when memory cache is empty.
+- Wizard runs reuse startup-cached USD/ILS data from in-memory session cache.
 - Wizard flow never performs USD/ILS network fetches.
 - Window close cancels any active startup FX fetch before teardown.
 
@@ -182,7 +180,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
   - exposes read-only remembered-path access for startup UI (`get_remembered_portfolio_path`)
-  - persists/reads cached last successful USD/ILS quote in the same user config
+  - holds cached last successful USD/ILS quote in session memory only
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder
 - `portfolio_core/use_cases.py`
