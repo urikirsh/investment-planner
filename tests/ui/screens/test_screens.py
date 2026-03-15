@@ -9,16 +9,19 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 import tomllib
 
 from PySide6.QtGui import QFontMetrics
+from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.delegates.exchange_delegate import ExchangeDelegate
 from ui.delegates.decimal_input_delegate import DecimalInputDelegate
 from ui.delegates.ticker_input_delegate import TickerInputDelegate
+from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
@@ -230,3 +233,261 @@ def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_withou
 
 def test_exchange_delegate_choices_follow_exchange_enum_values() -> None:
     assert ExchangeDelegate._choices == tuple(exchange.value for exchange in Exchange)
+
+
+def test_add_instrument_wizard_builds_expected_controls(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+
+    assert dialog.windowTitle() == "Add Instrument"
+    assert dialog.pages.count() == 3
+    assert dialog.pages.currentIndex() == 0
+    assert dialog.back_step_1_btn.text() == "Return to portfolio"
+    assert dialog.next_step_1_btn.text() == "Next"
+    assert "Instrument group: Equity" in dialog.context_step_1.text()
+    assert "Exchange:" not in dialog.context_step_1.text()
+
+
+def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.next_step_1_btn.click()
+
+    dialog.exchange_combo.setCurrentText("TASE")
+    dialog.ticker_edit.setText("1234")
+    assert not dialog.next_step_2_btn.isEnabled()
+    assert "exactly 7 digits" in dialog.ticker_error_label.text()
+
+    dialog.ticker_edit.setText("1234567")
+    assert dialog.next_step_2_btn.isEnabled()
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.ticker_edit.setText("ab12")
+    assert dialog.ticker_edit.text() == "AB12"
+    assert dialog.next_step_2_btn.isEnabled()
+
+
+def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.next_step_1_btn.click()
+    dialog.exchange_combo.setCurrentText("NYSE")
+
+    spy = QSignalSpy(dialog.ticker_edit.textChanged)
+    dialog.ticker_edit.setText("ab12")
+
+    assert dialog.ticker_edit.text() == "AB12"
+    assert spy.count() == 1
+
+
+def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("1234567")
+    dialog.next_step_2_btn.click()
+
+    assert not dialog.add_step_3_btn.isEnabled()
+    dialog.name_edit.setText("TA-35 ETF")
+    dialog.target_pct_edit.setText("101")
+    assert not dialog.add_step_3_btn.isEnabled()
+    assert "cannot exceed 100" in dialog.target_pct_error_label.text()
+
+    dialog.target_pct_edit.setText("25")
+    assert dialog.add_step_3_btn.isEnabled()
+
+
+def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("World ETF")
+    dialog.target_pct_edit.setText("25")
+
+    assert "Instrument group: Equity" in dialog.context_step_3.text()
+    assert "Exchange: NYSE" in dialog.context_step_3.text()
+    assert "Ticker: AB12" in dialog.context_step_3.text()
+    assert "Name:" not in dialog.context_step_3.text()
+    assert "Strategy percentage:" not in dialog.context_step_3.text()
+
+
+def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("World ETF")
+    dialog.target_pct_edit.setText("25")
+
+    dialog.back_step_3_btn.click()
+    dialog.back_step_2_btn.click()
+    dialog.exchange_combo.setCurrentText("TASE")
+
+    assert dialog.ticker_edit.text() == ""
+    assert dialog.name_edit.text() == ""
+    assert dialog.target_pct_edit.text() == ""
+    assert not dialog.next_step_2_btn.isEnabled()
+    assert not dialog.add_step_3_btn.isEnabled()
+
+
+def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("World ETF")
+    dialog.target_pct_edit.setText("25")
+
+    dialog.back_step_3_btn.click()
+    dialog.ticker_edit.setText("CD34")
+
+    assert dialog.name_edit.text() == ""
+    assert dialog.target_pct_edit.text() == ""
+    assert not dialog.add_step_3_btn.isEnabled()
+
+
+def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
+    qapp, monkeypatch
+) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+        existing_name_locations={"world etf": "US Equity"},
+    )
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("  World ETF  ")
+    dialog.target_pct_edit.setText("25")
+    dialog.add_step_3_btn.click()
+
+    assert shown
+    assert shown[0][0] == "Duplicate instrument name"
+    assert 'named "World ETF"' in shown[0][1]
+    assert "under US Equity" in shown[0][1]
+    assert dialog.result_data is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="   ",
+        target_text="25",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is False
+    assert result.name_error == "Name is required."
+    assert result.target_error == ""
+    assert result.target_in_group_pct is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_validates_target_range() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="ETF A",
+        target_text="101",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is False
+    assert result.name_error == ""
+    assert result.target_error == "Strategy percentage cannot exceed 100."
+    assert result.target_in_group_pct is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_returns_typed_result_for_valid_data() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="  ETF A  ",
+        target_text="25",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is True
+    assert result.name == "ETF A"
+    assert result.name_error == ""
+    assert result.target_error == ""
+    assert result.target_in_group_pct == Decimal("25")
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_target() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="Legacy Holding",
+        target_text="",
+        is_non_investable_group=True,
+    )
+
+    assert result.is_valid is True
+    assert result.name == "Legacy Holding"
+    assert result.name_error == ""
+    assert result.target_error == ""
+    assert result.target_in_group_pct is None
+
+
+def test_add_instrument_wizard_build_display_context_normalizes_empty_exchange_and_ticker() -> None:
+    context = AddInstrumentWizardDialog._build_display_context(
+        instrument_group_name="Equity",
+        exchange_text="   ",
+        ticker_text="",
+    )
+
+    assert context.instrument_group_name == "Equity"
+    assert context.exchange_text == "-"
+    assert context.ticker_text == "-"
+
+
+def test_add_instrument_wizard_step_context_formatters_render_expected_lines() -> None:
+    context = AddInstrumentWizardDialog._build_display_context(
+        instrument_group_name="US Equity",
+        exchange_text="NYSE",
+        ticker_text="AB12",
+    )
+
+    assert AddInstrumentWizardDialog._format_step_1_context(context) == "Instrument group: US Equity"
+    assert AddInstrumentWizardDialog._format_step_2_context(context) == "Instrument group: US Equity\nExchange: NYSE"
+    assert (
+        AddInstrumentWizardDialog._format_step_3_context(context)
+        == "Instrument group: US Equity\nExchange: NYSE\nTicker: AB12"
+    )
+
+
+def test_add_instrument_wizard_format_context_lines_joins_ordered_pairs() -> None:
+    text = AddInstrumentWizardDialog._format_context_lines(
+        [("Instrument group", "US Equity"), ("Exchange", "NYSE"), ("Ticker", "AB12")]
+    )
+
+    assert text == "Instrument group: US Equity\nExchange: NYSE\nTicker: AB12"

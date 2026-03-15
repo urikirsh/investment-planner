@@ -222,3 +222,73 @@ def test_show_cleanup_in_progress_uses_custom_action_verb(
     dialogs.show_cleanup_in_progress(parent_widget, action_verb="starting")
 
     assert shown == [("Please wait", "Still finishing cleanup tasks. Try starting again in a few seconds.")]
+
+
+@pytest.mark.parametrize(
+    ("clicked_key", "expected"),
+    [
+        ("discard", True),
+        ("keep", False),
+        ("none", False),
+    ],
+)
+def test_confirm_discard_changes_maps_button_selection(
+    monkeypatch: pytest.MonkeyPatch,
+    parent_widget: QWidget,
+    clicked_key: str,
+    expected: bool,
+) -> None:
+    class FakeMessageBox:
+        class Icon:
+            Warning = object()
+
+        class ButtonRole:
+            DestructiveRole = object()
+            RejectRole = object()
+
+        next_clicked_key = clicked_key
+
+        def __init__(self, parent: QWidget) -> None:
+            _ = parent
+            self._discard_btn: object | None = None
+            self._keep_btn: object | None = None
+            self._clicked: object | None = None
+
+        def setIcon(self, icon: object) -> None:
+            _ = icon
+
+        def setWindowTitle(self, title: str) -> None:
+            _ = title
+
+        def setText(self, text: str) -> None:
+            _ = text
+
+        def setInformativeText(self, text: str) -> None:
+            _ = text
+
+        def addButton(self, label: str, role: object) -> object:
+            _ = role
+            btn = object()
+            if label == "Discard":
+                self._discard_btn = btn
+            elif label == "Keep editing":
+                self._keep_btn = btn
+            return btn
+
+        def setDefaultButton(self, button: object) -> None:
+            _ = button
+
+        def exec(self) -> None:
+            if self.next_clicked_key == "discard":
+                self._clicked = self._discard_btn
+            elif self.next_clicked_key == "keep":
+                self._clicked = self._keep_btn
+            else:
+                self._clicked = None
+
+        def clickedButton(self) -> object | None:
+            return self._clicked
+
+    monkeypatch.setattr(dialogs, "QMessageBox", FakeMessageBox)
+
+    assert dialogs.confirm_discard_changes(parent_widget) is expected

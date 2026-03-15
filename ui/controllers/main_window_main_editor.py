@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from typing import cast
 
-from PySide6.QtWidgets import QApplication, QTreeWidgetItem, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QTreeWidgetItem, QWidget
 
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
+from ui.shared.loading_overlay import LoadingOverlay
+from ui.shared.ui_types import Col
 from ui.screens.main_editor_screen import MainEditorScreen
+from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, AddInstrumentWizardResult
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
 
@@ -31,6 +34,72 @@ class MainWindowMainEditorController:
         if get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
             return ""
         return "100" if parent.childCount() == 0 else "0"
+
+    def _resolve_add_instrument_parent(self) -> QTreeWidgetItem | None:
+        """Return selected target parent group (or ``None`` after user warning)."""
+        sel = self._host.tree.currentItem()
+        if sel is None:
+            show_warning(
+                self._host_widget(),
+                "Add instrument",
+                "Select a group (or an instrument under a group) first.",
+            )
+            return None
+        return sel.parent() or sel
+
+    def _build_existing_instrument_name_locations(self) -> dict[str, str]:
+        """Return normalized-name -> first-found human-readable location mapping."""
+        tree = self._host.tree
+        name_locations: dict[str, str] = {}
+        for top_index in range(tree.topLevelItemCount()):
+            parent = tree.topLevelItem(top_index)
+            if parent is None:
+                continue
+            parent_kind = get_item_kind(parent)
+            if parent_kind == RowKind.NON_INVESTABLE_BUCKET:
+                location = "non-investable bucket"
+            else:
+                location = parent.text(Col.NAME.value).strip() or "unnamed group"
+
+            for child_index in range(parent.childCount()):
+                child = parent.child(child_index)
+                if child is None or get_item_kind(child) != RowKind.INSTRUMENT:
+                    continue
+                child_name = child.text(Col.NAME.value).strip()
+                if not child_name:
+                    continue
+                normalized_name = child_name.casefold()
+                if normalized_name not in name_locations:
+                    name_locations[normalized_name] = location
+        return name_locations
+
+    def _run_add_instrument_wizard(
+        self,
+        *,
+        instrument_group_name: str,
+        is_non_investable_group: bool,
+    ) -> AddInstrumentWizardResult | None:
+        """Run add-instrument wizard under overlay and return payload on success.
+
+        Returns ``None`` when the dialog is canceled or closed without accepted
+        result data.
+        """
+        host = self._host
+        overlay = LoadingOverlay(host.screen_main)
+        overlay.show_overlay()
+        try:
+            wizard = AddInstrumentWizardDialog(
+                instrument_group_name=instrument_group_name,
+                is_non_investable_group=is_non_investable_group,
+                existing_name_locations=self._build_existing_instrument_name_locations(),
+                parent=self._host_widget(),
+            )
+            if wizard.exec() != QDialog.DialogCode.Accepted:
+                return None
+            return wizard.result_data
+        finally:
+            overlay.hide_overlay()
+            overlay.deleteLater()
 
     def init_screen(self) -> None:
         """Build main-editor widget and wire all signal handlers."""
@@ -69,20 +138,33 @@ class MainWindowMainEditorController:
         host._refresh_data()
 
     def add_instrument(self) -> None:
-        """Add a new instrument under selected group (or selected instrument's parent)."""
+        """Open add-instrument wizard and add row under selected group on success."""
         host = self._host
-        sel = host.tree.currentItem()
-        if sel is None:
-            show_warning(
-                self._host_widget(),
-                "Add instrument",
-                "Select a group (or an instrument under a group) first.",
-            )
+        parent = self._resolve_add_instrument_parent()
+        if parent is None:
             return
 
-        parent = sel.parent() or sel
+        parent_kind = get_item_kind(parent)
+        is_non_investable_group = parent_kind == RowKind.NON_INVESTABLE_BUCKET
         default_in_group_pct = self._determine_default_in_group_pct(parent)
-        add_instrument_item_to_group(parent, "0000000", "New Instrument", 0, "1", default_in_group_pct)
+        parent_group_name = parent.text(Col.NAME.value).strip() or "Unnamed Group"
+        result = self._run_add_instrument_wizard(
+            instrument_group_name=parent_group_name,
+            is_non_investable_group=is_non_investable_group,
+        )
+        if result is None:
+            return
+
+        in_group_pct = default_in_group_pct if result.target_in_group_pct is None else str(result.target_in_group_pct)
+        add_instrument_item_to_group(
+            parent,
+            result.ticker,
+            result.name,
+            0,
+            "1",
+            in_group_pct,
+            exchange=result.exchange,
+        )
         host.tree.expandAll()
         host._refresh_data()
 
