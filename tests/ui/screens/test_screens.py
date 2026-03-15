@@ -9,6 +9,7 @@ MainWindow integration behavior).
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 import tomllib
 
@@ -339,3 +340,57 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     assert 'named "World ETF"' in shown[0][1]
     assert "under US Equity" in shown[0][1]
     assert dialog.result_data is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="   ",
+        target_text="25",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is False
+    assert result.name_error == "Name is required."
+    assert result.target_error == ""
+    assert result.target_in_group_pct is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_validates_target_range() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="ETF A",
+        target_text="101",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is False
+    assert result.name_error == ""
+    assert result.target_error == "Strategy percentage cannot exceed 100."
+    assert result.target_in_group_pct is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_returns_typed_result_for_valid_data() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="  ETF A  ",
+        target_text="25",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is True
+    assert result.name == "ETF A"
+    assert result.name_error == ""
+    assert result.target_error == ""
+    assert result.target_in_group_pct == Decimal("25")
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_target() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="Legacy Holding",
+        target_text="",
+        is_non_investable_group=True,
+    )
+
+    assert result.is_valid is True
+    assert result.name == "Legacy Holding"
+    assert result.name_error == ""
+    assert result.target_error == ""
+    assert result.target_in_group_pct is None
