@@ -16,6 +16,7 @@ The delegate enforces input format only; range and strategy validation
 are handled elsewhere.
 """
 
+
 class DecimalInputDelegate(QStyledItemDelegate):
     def __init__(self, allow_empty: bool, parent: QObject | None = None) -> None:
         """
@@ -50,6 +51,8 @@ class DecimalInputDelegate(QStyledItemDelegate):
         This delegate validates input *format* only; business/range validation is
         intentionally handled in higher-level validation layers.
         """
+        _ = option
+        _ = index
         editor = QLineEdit(parent)
         editor.setValidator(self._validator)
         return editor

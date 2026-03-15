@@ -18,12 +18,12 @@ from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
-from ui.delegates.decimal_input_delegate import DecimalInputDelegate
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.decimal_input_delegate import DecimalInputDelegate
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
 

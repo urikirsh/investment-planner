@@ -66,11 +66,6 @@ FX thread-safety guards in this flow:
 - `ui/controllers/protocols.py`
   - protocol contracts for controller-host dependencies
   - keeps controller object composition statically typed without MRO coupling
-- `ui/delegates/*`
-  - delegate package for editable tree-cell widgets in the main editor screen
-  - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
-  - `__init__.py`: re-export surface for delegate classes
-  - required/exact exchange-specific ticker format is validated at save/planning time
 - `ui/screens/main_editor_screen.py`
   - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
@@ -101,6 +96,7 @@ FX thread-safety guards in this flow:
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
     - startup/cleanup timing knobs are defined here so transition delay and cleanup wait policy stay centralized
+  - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
