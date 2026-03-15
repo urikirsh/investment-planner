@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem
 
 import ui.controllers.main_window_table_editing as table_editing
@@ -58,3 +59,23 @@ def test_item_double_clicked_does_not_enable_edit_for_locked_identity_columns(
     window._on_item_double_clicked(child, column)
 
     assert child.data(column, ROLE_PREV_TEXT) == previous_role_value
+
+
+def test_item_double_clicked_restores_editable_flag_when_editing_raises(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
+    child = add_instrument_row(tree=window.tree, ticker="1234567", exchange="TASE")
+    original_flags = child.flags()
+
+    def _raise_edit_item(_item: QTreeWidgetItem, _column: int) -> None:
+        raise RuntimeError("edit boom")
+
+    monkeypatch.setattr(window.tree, "editItem", _raise_edit_item)
+
+    with pytest.raises(RuntimeError, match="edit boom"):
+        window._on_item_double_clicked(child, Col.NAME.value)
+
+    assert not bool(child.flags() & Qt.ItemFlag.ItemIsEditable)
+    assert not bool(original_flags & Qt.ItemFlag.ItemIsEditable)

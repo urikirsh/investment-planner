@@ -50,8 +50,10 @@ class MainWindowTableEditingController:
         if is_item_cell_editable(item, column):
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-            host.tree.editItem(item, column)
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            try:
+                host.tree.editItem(item, column)
+            finally:
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
     @staticmethod
     def _read_edit_cell(item: QTreeWidgetItem, col: int) -> tuple[str, str | None]:
