@@ -55,6 +55,7 @@ FX thread-safety guards in this flow:
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
+  - controller keeps add flow orchestration-focused by running wizard execution (overlay + accept/result checks) in a dedicated helper
   - add flow builds a case-insensitive portfolio-wide name map so duplicate instrument names are blocked before row creation
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior

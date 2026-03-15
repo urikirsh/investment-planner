@@ -476,7 +476,7 @@ class AddInstrumentWizardDialog(QDialog):
         return Exchange(self.exchange_combo.currentText())
 
     def _current_ticker_rule(self) -> _TickerRule:
-        """Return ticker rule for current exchange selection."""
+        """Return the active ticker behavior bundle for current exchange."""
         return _TICKER_RULES[self._current_exchange()]
 
     def _request_cancel(self) -> None:

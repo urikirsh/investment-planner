@@ -79,7 +79,11 @@ class MainWindowMainEditorController:
         instrument_group_name: str,
         is_non_investable_group: bool,
     ) -> AddInstrumentWizardResult | None:
-        """Run add-instrument wizard under loading overlay and return accepted result."""
+        """Run add-instrument wizard under overlay and return payload on success.
+
+        Returns ``None`` when the dialog is canceled or closed without accepted
+        result data.
+        """
         host = self._host
         overlay = LoadingOverlay(host.screen_main)
         overlay.show_overlay()
