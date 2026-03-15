@@ -18,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 from PySide6.QtCore import Qt, QRegularExpression
 from PySide6.QtGui import QRegularExpressionValidator
 from collections.abc import Callable
+from enum import IntEnum
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -61,6 +62,14 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         error_text="Ticker for NYSE must be exactly 4 uppercase letters or digits.",
     ),
 }
+
+
+class _WizardPage(IntEnum):
+    """Stacked-page indices for the 3-step add-instrument wizard."""
+
+    EXCHANGE = 0
+    TICKER = 1
+    DETAILS = 2
 
 
 @dataclass(frozen=True)
@@ -140,7 +149,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.back_step_1_btn = QPushButton("Return to portfolio")
         self.next_step_1_btn = QPushButton("Next")
         self._wire_button(self.back_step_1_btn, self._request_cancel)
-        self._wire_button(self.next_step_1_btn, lambda: self.pages.setCurrentIndex(1))
+        self._wire_button(self.next_step_1_btn, lambda: self._set_page(_WizardPage.TICKER))
         layout.addLayout(
             self._build_actions_row(
                 left_buttons=(self.back_step_1_btn,),
@@ -174,7 +183,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.back_step_2_btn = QPushButton("Back")
         self.next_step_2_btn = QPushButton("Next")
         self.return_step_2_btn = QPushButton("Return to portfolio")
-        self._wire_button(self.back_step_2_btn, lambda: self.pages.setCurrentIndex(0))
+        self._wire_button(self.back_step_2_btn, lambda: self._set_page(_WizardPage.EXCHANGE))
         self._wire_button(self.next_step_2_btn, self._go_to_step_3)
         self._wire_button(self.return_step_2_btn, self._request_cancel)
         layout.addLayout(
@@ -224,7 +233,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.back_step_3_btn = QPushButton("Back")
         self.add_step_3_btn = QPushButton("Add")
         self.return_step_3_btn = QPushButton("Return to portfolio")
-        self._wire_button(self.back_step_3_btn, lambda: self.pages.setCurrentIndex(1))
+        self._wire_button(self.back_step_3_btn, lambda: self._set_page(_WizardPage.TICKER))
         self._wire_button(self.add_step_3_btn, self._accept_result)
         self._wire_button(self.return_step_3_btn, self._request_cancel)
         layout.addLayout(
@@ -257,9 +266,13 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _go_to_step_3(self) -> None:
         """Advance from step 2 to step 3 and refresh derived UI state."""
-        self.pages.setCurrentIndex(2)
+        self._set_page(_WizardPage.DETAILS)
         self._refresh_context_labels()
         self._update_step_3_validity()
+
+    def _set_page(self, page: _WizardPage) -> None:
+        """Switch stacked wizard content to a typed page identifier."""
+        self.pages.setCurrentIndex(int(page))
 
     def _on_exchange_changed(self, _value: str) -> None:
         """React to exchange selection changes and recompute ticker rules."""
