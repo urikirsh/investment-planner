@@ -152,6 +152,8 @@ class AddInstrumentWizardDialog(QDialog):
         self.setModal(True)
         self.resize(560, 320)
         self._build()
+        self._last_exchange = self._current_exchange()
+        self._last_ticker = self.ticker_edit.text().strip()
         self._sync_exchange_ticker_validator()
         self._refresh_context_labels()
         self._update_step_2_validity()
@@ -325,6 +327,10 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _on_exchange_changed(self, _value: str) -> None:
         """React to exchange selection changes and recompute ticker rules."""
+        current_exchange = self._current_exchange()
+        if current_exchange != self._last_exchange:
+            self._reset_inputs_after_step_1_change()
+            self._last_exchange = current_exchange
         self._sync_exchange_ticker_validator()
         self._refresh_context_labels()
         self._update_step_2_validity()
@@ -340,6 +346,10 @@ class AddInstrumentWizardDialog(QDialog):
             with QSignalBlocker(self.ticker_edit):
                 self.ticker_edit.setText(normalized)
                 self.ticker_edit.setCursorPosition(min(cursor, len(normalized)))
+        current_ticker = self.ticker_edit.text().strip()
+        if current_ticker != self._last_ticker:
+            self._reset_inputs_after_step_2_change()
+            self._last_ticker = current_ticker
         self._refresh_context_labels()
         self._update_step_2_validity()
 
@@ -484,6 +494,24 @@ class AddInstrumentWizardDialog(QDialog):
         if self._is_dirty() and not confirm_discard_changes(self, noun="instrument wizard edits"):
             return
         self.reject()
+
+    def _reset_inputs_after_step_1_change(self) -> None:
+        """Reset all fields from steps 2 and 3 after exchange changes."""
+        with QSignalBlocker(self.ticker_edit):
+            self.ticker_edit.setText("")
+        self._last_ticker = ""
+        self._reset_inputs_after_step_2_change()
+
+    def _reset_inputs_after_step_2_change(self) -> None:
+        """Reset step-3 inputs and errors after ticker changes."""
+        with QSignalBlocker(self.name_edit):
+            self.name_edit.setText("")
+        if not self._is_non_investable_group:
+            with QSignalBlocker(self.target_pct_edit):
+                self.target_pct_edit.setText("")
+        self.name_error_label.setText("")
+        self.target_pct_error_label.setText("")
+        self.add_step_3_btn.setEnabled(False)
 
     def _is_dirty(self) -> bool:
         """Return whether any wizard field diverged from initial defaults."""

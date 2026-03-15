@@ -329,6 +329,51 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> N
     assert "Strategy percentage:" not in dialog.context_step_3.text()
 
 
+def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("World ETF")
+    dialog.target_pct_edit.setText("25")
+
+    dialog.back_step_3_btn.click()
+    dialog.back_step_2_btn.click()
+    dialog.exchange_combo.setCurrentText("TASE")
+
+    assert dialog.ticker_edit.text() == ""
+    assert dialog.name_edit.text() == ""
+    assert dialog.target_pct_edit.text() == ""
+    assert not dialog.next_step_2_btn.isEnabled()
+    assert not dialog.add_step_3_btn.isEnabled()
+
+
+def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("World ETF")
+    dialog.target_pct_edit.setText("25")
+
+    dialog.back_step_3_btn.click()
+    dialog.ticker_edit.setText("CD34")
+
+    assert dialog.name_edit.text() == ""
+    assert dialog.target_pct_edit.text() == ""
+    assert not dialog.add_step_3_btn.isEnabled()
+
+
 def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     qapp, monkeypatch
 ) -> None:
