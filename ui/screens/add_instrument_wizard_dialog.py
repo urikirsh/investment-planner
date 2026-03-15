@@ -36,6 +36,32 @@ from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices
 
 
 @dataclass(frozen=True)
+class _TickerRule:
+    """Exchange-specific ticker input/validation behavior."""
+
+    max_length: int
+    validator_pattern: str
+    placeholder: str
+    error_text: str
+
+
+_TICKER_RULES: dict[Exchange, _TickerRule] = {
+    Exchange.TASE: _TickerRule(
+        max_length=7,
+        validator_pattern=r"^\d{0,7}$",
+        placeholder="7 digits (e.g. 1234567)",
+        error_text="Ticker for TASE must be exactly 7 digits.",
+    ),
+    Exchange.NYSE: _TickerRule(
+        max_length=4,
+        validator_pattern=r"^[A-Za-z0-9]{0,4}$",
+        placeholder="4 uppercase letters or digits (e.g. AB12)",
+        error_text="Ticker for NYSE must be exactly 4 uppercase letters or digits.",
+    ),
+}
+
+
+@dataclass(frozen=True)
 class AddInstrumentWizardResult:
     """Collected instrument values returned when the wizard is accepted."""
 
@@ -220,12 +246,9 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _on_ticker_changed(self, _value: str) -> None:
         """Normalize ticker text as user types and revalidate step 2."""
-        exchange_value = self.exchange_combo.currentText()
+        exchange = Exchange(self.exchange_combo.currentText())
         raw = self.ticker_edit.text()
-        if exchange_value == Exchange.TASE.value:
-            normalized = "".join(ch for ch in raw if ch.isdigit())
-        else:
-            normalized = "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
+        normalized = self._normalize_ticker(raw, exchange)
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
             # Prevent recursive textChanged while preserving cursor position.
@@ -238,35 +261,39 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _sync_exchange_ticker_validator(self) -> None:
         """Swap ticker regex/placeholder/max-length based on selected exchange."""
-        exchange_value = self.exchange_combo.currentText()
-        if exchange_value == Exchange.TASE.value:
-            pattern = QRegularExpression(r"^\d{0,7}$")
-            self.ticker_edit.setMaxLength(7)
-            self.ticker_edit.setPlaceholderText("7 digits (e.g. 1234567)")
-        else:
-            pattern = QRegularExpression(r"^[A-Za-z0-9]{0,4}$")
-            self.ticker_edit.setMaxLength(4)
-            self.ticker_edit.setPlaceholderText("4 uppercase letters or digits (e.g. AB12)")
+        exchange = Exchange(self.exchange_combo.currentText())
+        rule = _TICKER_RULES[exchange]
+        pattern = QRegularExpression(rule.validator_pattern)
+        self.ticker_edit.setMaxLength(rule.max_length)
+        self.ticker_edit.setPlaceholderText(rule.placeholder)
         self.ticker_edit.setValidator(QRegularExpressionValidator(pattern, self.ticker_edit))
 
     def _update_step_2_validity(self) -> None:
         """Validate ticker using exchange rules and gate step-advance action."""
         ticker = self.ticker_edit.text().strip()
-        exchange_value = self.exchange_combo.currentText()
+        exchange = Exchange(self.exchange_combo.currentText())
+        rule = _TICKER_RULES[exchange]
 
-        is_valid = False
-        if exchange_value == Exchange.TASE.value:
-            is_valid = len(ticker) == 7 and ticker.isdigit()
-            self.ticker_error_label.setText("" if is_valid or not ticker else "Ticker for TASE must be exactly 7 digits.")
-        else:
-            is_valid = len(ticker) == 4 and all(ch.isdigit() or ("A" <= ch <= "Z") for ch in ticker)
-            self.ticker_error_label.setText(
-                "" if is_valid or not ticker else "Ticker for NYSE must be exactly 4 uppercase letters or digits."
-            )
+        is_valid = self._is_ticker_complete_for_exchange(ticker, exchange)
+        self.ticker_error_label.setText("" if is_valid or not ticker else rule.error_text)
 
         if not ticker:
             self.ticker_error_label.setText("Ticker is required.")
         self.next_step_2_btn.setEnabled(is_valid)
+
+    @staticmethod
+    def _normalize_ticker(raw: str, exchange: Exchange) -> str:
+        """Normalize raw ticker text to exchange-specific allowed character set."""
+        if exchange == Exchange.TASE:
+            return "".join(ch for ch in raw if ch.isdigit())
+        return "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
+
+    @staticmethod
+    def _is_ticker_complete_for_exchange(ticker: str, exchange: Exchange) -> bool:
+        """Return whether ticker satisfies complete exchange-specific format rules."""
+        if exchange == Exchange.TASE:
+            return len(ticker) == 7 and ticker.isdigit()
+        return len(ticker) == 4 and all(ch.isdigit() or ("A" <= ch <= "Z") for ch in ticker)
 
     def _update_step_3_validity(self) -> None:
         """Validate name/strategy fields and gate final `Add` action."""
