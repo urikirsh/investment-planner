@@ -302,16 +302,9 @@ class AddInstrumentWizardDialog(QDialog):
     def _refresh_context_labels(self) -> None:
         exchange_text = self.exchange_combo.currentText() or "-"
         ticker_text = self.ticker_edit.text().strip() or "-"
-        name_text = self.name_edit.text().strip() or "-"
-        target_text = (
-            "N/A"
-            if self._is_non_investable_group
-            else (self.target_pct_edit.text().strip() or "-")
-        )
 
         self.context_step_1.setText(
-            f"Instrument group: {self._instrument_group_name}\n"
-            f"Exchange: {exchange_text}"
+            f"Instrument group: {self._instrument_group_name}"
         )
         self.context_step_2.setText(
             f"Instrument group: {self._instrument_group_name}\n"
@@ -320,7 +313,5 @@ class AddInstrumentWizardDialog(QDialog):
         self.context_step_3.setText(
             f"Instrument group: {self._instrument_group_name}\n"
             f"Exchange: {exchange_text}\n"
-            f"Ticker: {ticker_text}\n"
-            f"Name: {name_text}\n"
-            f"Strategy percentage: {target_text}"
+            f"Ticker: {ticker_text}"
         )

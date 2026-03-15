@@ -246,7 +246,7 @@ def test_add_instrument_wizard_builds_expected_controls(qapp) -> None:
     assert dialog.back_step_1_btn.text() == "Return to portfolio"
     assert dialog.next_step_1_btn.text() == "Next"
     assert "Instrument group: Equity" in dialog.context_step_1.text()
-    assert "Exchange: TASE" in dialog.context_step_1.text()
+    assert "Exchange:" not in dialog.context_step_1.text()
 
 
 def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(qapp) -> None:
@@ -289,3 +289,23 @@ def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) ->
 
     dialog.target_pct_edit.setText("25")
     assert dialog.add_step_3_btn.isEnabled()
+
+
+def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("World ETF")
+    dialog.target_pct_edit.setText("25")
+
+    assert "Instrument group: Equity" in dialog.context_step_3.text()
+    assert "Exchange: NYSE" in dialog.context_step_3.text()
+    assert "Ticker: AB12" in dialog.context_step_3.text()
+    assert "Name:" not in dialog.context_step_3.text()
+    assert "Strategy percentage:" not in dialog.context_step_3.text()
