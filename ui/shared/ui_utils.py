@@ -312,11 +312,9 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
 
     if kind == RowKind.INSTRUMENT:
         return col in (
-            Col.TICKER.value,
             Col.NAME.value,
             Col.QUANTITY.value,
             Col.TOT_VALUE.value,
-            Col.EXCHANGE.value,
             Col.TARGET_PCT.value,
         )
 

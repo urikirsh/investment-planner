@@ -79,3 +79,17 @@ def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
 
     assert not warnings
     assert child.text(Col.TICKER.value) == "ABC1"
+
+
+@pytest.mark.parametrize("column", [Col.TICKER.value, Col.EXCHANGE.value])
+def test_item_double_clicked_does_not_enable_edit_for_locked_identity_columns(
+    window: MainWindow,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+    column: int,
+) -> None:
+    child = add_instrument_row(tree=window.tree, ticker="1234567", exchange="TASE")
+    previous_role_value = child.data(column, ROLE_PREV_TEXT)
+
+    window._on_item_double_clicked(child, column)
+
+    assert child.data(column, ROLE_PREV_TEXT) == previous_role_value
