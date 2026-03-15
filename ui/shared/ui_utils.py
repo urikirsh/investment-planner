@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.models import Currency, Exchange
-from ui.shared.ui_types import ROLE_EXCHANGE, ROLE_KIND, ROLE_ID, RowKind, Col
+from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
 ui_utils.py
@@ -89,23 +89,11 @@ def get_item_id(item: QTreeWidgetItem) -> str:
 
 def get_item_exchange(item: QTreeWidgetItem) -> str:
     """
-    Return a valid instrument exchange code with deterministic fallbacks.
-
-    Resolution order:
-    1. Parse the visible exchange cell text.
-    2. If that cannot be parsed (empty/invalid mid-edit), parse ``ROLE_EXCHANGE`` metadata.
-    3. If both are unreadable, return ``TASE`` as a safe default.
-
-    We intentionally fail soft here because this helper is used while users edit
-    rows interactively, and temporary invalid text should not crash UI refresh or
-    data extraction paths.
+    Return a valid instrument exchange code from visible text, defaulting to TASE.
     """
     parsed_text = parse_exchange_code(item.text(Col.EXCHANGE.value))
     if parsed_text is not None:
         return parsed_text
-    parsed_meta = parse_exchange_code(item.data(0, ROLE_EXCHANGE))
-    if parsed_meta is not None:
-        return parsed_meta
     return DEFAULT_EXCHANGE.value
 
 def new_id(prefix: str) -> str:
@@ -234,7 +222,6 @@ def add_instrument_item_to_group(
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
-    item.setData(0, ROLE_EXCHANGE, exchange_value)
 
     apply_row_alignment(item)
 

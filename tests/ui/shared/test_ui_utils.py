@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QTreeWidgetItem
 
-from ui.shared.ui_types import Col, ROLE_EXCHANGE
+from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
     NON_INVESTABLE_BUCKET_ID,
     add_instrument_item_to_group,
@@ -12,26 +12,16 @@ from ui.shared.ui_utils import (
 )
 
 
-def test_get_item_exchange_prefers_valid_visible_text_over_role_data() -> None:
+def test_get_item_exchange_prefers_valid_visible_text() -> None:
     item = QTreeWidgetItem()
     item.setText(Col.EXCHANGE.value, "nyse")
-    item.setData(0, ROLE_EXCHANGE, "TASE")
 
     assert get_item_exchange(item) == "NYSE"
 
 
-def test_get_item_exchange_falls_back_to_role_data_when_text_is_invalid() -> None:
+def test_get_item_exchange_defaults_to_tase_when_text_is_invalid() -> None:
     item = QTreeWidgetItem()
     item.setText(Col.EXCHANGE.value, "not-an-exchange")
-    item.setData(0, ROLE_EXCHANGE, "nyse")
-
-    assert get_item_exchange(item) == "NYSE"
-
-
-def test_get_item_exchange_defaults_to_tase_when_both_sources_are_invalid() -> None:
-    item = QTreeWidgetItem()
-    item.setText(Col.EXCHANGE.value, "")
-    item.setData(0, ROLE_EXCHANGE, object())
 
     assert get_item_exchange(item) == "TASE"
 
