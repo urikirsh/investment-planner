@@ -331,8 +331,7 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _on_ticker_changed(self, _value: str) -> None:
         """Normalize ticker text as user types and revalidate step 2."""
-        exchange = self._current_exchange()
-        rule = _TICKER_RULES[exchange]
+        rule = self._current_ticker_rule()
         raw = self.ticker_edit.text()
         normalized = rule.normalize(raw)
         if normalized != raw:
@@ -346,8 +345,7 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _sync_exchange_ticker_validator(self) -> None:
         """Swap ticker regex/placeholder/max-length based on selected exchange."""
-        exchange = self._current_exchange()
-        rule = _TICKER_RULES[exchange]
+        rule = self._current_ticker_rule()
         pattern = QRegularExpression(rule.validator_pattern)
         self.ticker_edit.setMaxLength(rule.max_length)
         self.ticker_edit.setPlaceholderText(rule.placeholder)
@@ -356,8 +354,7 @@ class AddInstrumentWizardDialog(QDialog):
     def _update_step_2_validity(self) -> None:
         """Validate ticker using exchange rules and gate step-advance action."""
         ticker = self.ticker_edit.text().strip()
-        exchange = self._current_exchange()
-        rule = _TICKER_RULES[exchange]
+        rule = self._current_ticker_rule()
 
         is_valid = rule.is_complete(ticker)
         self.ticker_error_label.setText("" if is_valid or not ticker else rule.error_text)
@@ -477,6 +474,10 @@ class AddInstrumentWizardDialog(QDialog):
     def _current_exchange(self) -> Exchange:
         """Return currently selected exchange value from the combo box."""
         return Exchange(self.exchange_combo.currentText())
+
+    def _current_ticker_rule(self) -> _TickerRule:
+        """Return ticker rule for current exchange selection."""
+        return _TICKER_RULES[self._current_exchange()]
 
     def _request_cancel(self) -> None:
         """Reject wizard, guarding against accidental loss of in-progress input."""
