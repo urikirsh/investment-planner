@@ -46,6 +46,28 @@ class _TickerRule:
     validator_pattern: str
     placeholder: str
     error_text: str
+    normalize: Callable[[str], str]
+    is_complete: Callable[[str], bool]
+
+
+def _normalize_tase_ticker(raw: str) -> str:
+    """Normalize TASE ticker text to digits only."""
+    return "".join(ch for ch in raw if ch.isdigit())
+
+
+def _normalize_nyse_ticker(raw: str) -> str:
+    """Normalize NYSE ticker text to uppercase ASCII alphanumerics."""
+    return "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
+
+
+def _is_tase_ticker_complete(ticker: str) -> bool:
+    """Return whether normalized TASE ticker is complete."""
+    return len(ticker) == 7 and ticker.isdigit()
+
+
+def _is_nyse_ticker_complete(ticker: str) -> bool:
+    """Return whether normalized NYSE ticker is complete."""
+    return len(ticker) == 4 and all(ch.isdigit() or ("A" <= ch <= "Z") for ch in ticker)
 
 
 _TICKER_RULES: dict[Exchange, _TickerRule] = {
@@ -54,12 +76,16 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         validator_pattern=r"^\d{0,7}$",
         placeholder="7 digits (e.g. 1234567)",
         error_text="Ticker for TASE must be exactly 7 digits.",
+        normalize=_normalize_tase_ticker,
+        is_complete=_is_tase_ticker_complete,
     ),
     Exchange.NYSE: _TickerRule(
         max_length=4,
         validator_pattern=r"^[A-Za-z0-9]{0,4}$",
         placeholder="4 uppercase letters or digits (e.g. AB12)",
         error_text="Ticker for NYSE must be exactly 4 uppercase letters or digits.",
+        normalize=_normalize_nyse_ticker,
+        is_complete=_is_nyse_ticker_complete,
     ),
 }
 
@@ -306,8 +332,9 @@ class AddInstrumentWizardDialog(QDialog):
     def _on_ticker_changed(self, _value: str) -> None:
         """Normalize ticker text as user types and revalidate step 2."""
         exchange = self._current_exchange()
+        rule = _TICKER_RULES[exchange]
         raw = self.ticker_edit.text()
-        normalized = self._normalize_ticker(raw, exchange)
+        normalized = rule.normalize(raw)
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
             # Prevent recursive textChanged while preserving cursor position.
@@ -333,26 +360,12 @@ class AddInstrumentWizardDialog(QDialog):
         exchange = self._current_exchange()
         rule = _TICKER_RULES[exchange]
 
-        is_valid = self._is_ticker_complete_for_exchange(ticker, exchange)
+        is_valid = rule.is_complete(ticker)
         self.ticker_error_label.setText("" if is_valid or not ticker else rule.error_text)
 
         if not ticker:
             self.ticker_error_label.setText("Ticker is required.")
         self.next_step_2_btn.setEnabled(is_valid)
-
-    @staticmethod
-    def _normalize_ticker(raw: str, exchange: Exchange) -> str:
-        """Normalize raw ticker text to exchange-specific allowed character set."""
-        if exchange == Exchange.TASE:
-            return "".join(ch for ch in raw if ch.isdigit())
-        return "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
-
-    @staticmethod
-    def _is_ticker_complete_for_exchange(ticker: str, exchange: Exchange) -> bool:
-        """Return whether ticker satisfies complete exchange-specific format rules."""
-        if exchange == Exchange.TASE:
-            return len(ticker) == 7 and ticker.isdigit()
-        return len(ticker) == 4 and all(ch.isdigit() or ("A" <= ch <= "Z") for ch in ticker)
 
     def _update_step_3_validity(self) -> None:
         """Validate name/strategy fields and gate final `Add` action."""
