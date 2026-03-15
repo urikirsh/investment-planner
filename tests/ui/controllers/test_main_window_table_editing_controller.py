@@ -48,17 +48,23 @@ def test_item_changed_quantity_normalizes_empty_to_zero(
 
 
 @pytest.mark.parametrize("column", [Col.TICKER.value, Col.EXCHANGE.value])
-def test_item_double_clicked_does_not_enable_edit_for_locked_identity_columns(
+def test_item_double_clicked_does_not_call_edit_item_for_locked_identity_columns(
     window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
     add_instrument_row: Callable[..., QTreeWidgetItem],
     column: int,
 ) -> None:
+    edit_calls: list[tuple[QTreeWidgetItem, int]] = []
+
+    def _record_edit_item(item: QTreeWidgetItem, edit_column: int) -> None:
+        edit_calls.append((item, edit_column))
+
+    monkeypatch.setattr(window.tree, "editItem", _record_edit_item)
     child = add_instrument_row(tree=window.tree, ticker="1234567", exchange="TASE")
-    previous_role_value = child.data(column, ROLE_PREV_TEXT)
 
     window._on_item_double_clicked(child, column)
 
-    assert child.data(column, ROLE_PREV_TEXT) == previous_role_value
+    assert not edit_calls
 
 
 def test_item_double_clicked_restores_editable_flag_when_editing_raises(
