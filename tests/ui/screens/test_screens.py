@@ -14,6 +14,7 @@ from pathlib import Path
 import tomllib
 
 from PySide6.QtGui import QFontMetrics
+from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
@@ -270,6 +271,22 @@ def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(qapp) -> None
     dialog.ticker_edit.setText("ab12")
     assert dialog.ticker_edit.text() == "AB12"
     assert dialog.next_step_2_btn.isEnabled()
+
+
+def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.next_step_1_btn.click()
+    dialog.exchange_combo.setCurrentText("NYSE")
+
+    spy = QSignalSpy(dialog.ticker_edit.textChanged)
+    dialog.ticker_edit.setText("ab12")
+
+    assert dialog.ticker_edit.text() == "AB12"
+    assert spy.count() == 1
 
 
 def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) -> None:
