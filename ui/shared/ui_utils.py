@@ -30,6 +30,7 @@ NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
 DEFAULT_EXCHANGE = Exchange.TASE
 BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
+FIXED_CELL_BG_COLOR = "#fff7e6"
 
 
 def exchange_choices() -> tuple[str, ...]:
@@ -125,9 +126,12 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         set_cell_readonly_look(item, c)
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
-    """Apply read-only visual styling for derived instrument columns."""
+    """Apply computed/fixed visual styling for instrument rows."""
     for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
         set_cell_readonly_look(item, c)
+    for c in (Col.TICKER.value, Col.EXCHANGE.value):
+        if not is_item_cell_editable(item, c):
+            set_cell_fixed_look(item, c)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
     """Apply per-column alignment conventions for group/instrument rows."""
@@ -291,6 +295,11 @@ def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) 
 def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
+
+
+def set_cell_fixed_look(item: QTreeWidgetItem, col: int) -> None:
+    """Apply subtle background tint for user-visible fixed cells."""
+    item.setBackground(col, QBrush(QColor(FIXED_CELL_BG_COLOR)))
 
 def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
     """Return whether a cell is user-editable for a given row kind/column."""
