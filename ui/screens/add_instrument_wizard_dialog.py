@@ -509,6 +509,10 @@ class AddInstrumentWizardDialog(QDialog):
         if not self._is_non_investable_group:
             with QSignalBlocker(self.target_pct_edit):
                 self.target_pct_edit.setText("")
+        self._clear_step_3_state()
+
+    def _clear_step_3_state(self) -> None:
+        """Clear step-3 validation UI state after upstream input changes."""
         self.name_error_label.setText("")
         self.target_pct_error_label.setText("")
         self.add_step_3_btn.setEnabled(False)
