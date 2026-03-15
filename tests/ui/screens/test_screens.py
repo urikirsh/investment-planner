@@ -394,3 +394,38 @@ def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_tar
     assert result.name_error == ""
     assert result.target_error == ""
     assert result.target_in_group_pct is None
+
+
+def test_add_instrument_wizard_build_display_context_normalizes_empty_exchange_and_ticker() -> None:
+    context = AddInstrumentWizardDialog._build_display_context(
+        instrument_group_name="Equity",
+        exchange_text="   ",
+        ticker_text="",
+    )
+
+    assert context.instrument_group_name == "Equity"
+    assert context.exchange_text == "-"
+    assert context.ticker_text == "-"
+
+
+def test_add_instrument_wizard_step_context_formatters_render_expected_lines() -> None:
+    context = AddInstrumentWizardDialog._build_display_context(
+        instrument_group_name="US Equity",
+        exchange_text="NYSE",
+        ticker_text="AB12",
+    )
+
+    assert AddInstrumentWizardDialog._format_step_1_context(context) == "Instrument group: US Equity"
+    assert AddInstrumentWizardDialog._format_step_2_context(context) == "Instrument group: US Equity\nExchange: NYSE"
+    assert (
+        AddInstrumentWizardDialog._format_step_3_context(context)
+        == "Instrument group: US Equity\nExchange: NYSE\nTicker: AB12"
+    )
+
+
+def test_add_instrument_wizard_format_context_lines_joins_ordered_pairs() -> None:
+    text = AddInstrumentWizardDialog._format_context_lines(
+        [("Instrument group", "US Equity"), ("Exchange", "NYSE"), ("Ticker", "AB12")]
+    )
+
+    assert text == "Instrument group: US Equity\nExchange: NYSE\nTicker: AB12"

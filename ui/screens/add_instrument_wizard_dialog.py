@@ -96,6 +96,15 @@ class _Step3ValidationResult:
         return self.name_error == "" and self.target_error == ""
 
 
+@dataclass(frozen=True)
+class _WizardDisplayContext:
+    """Normalized values used for step-context label rendering."""
+
+    instrument_group_name: str
+    exchange_text: str
+    ticker_text: str
+
+
 class AddInstrumentWizardDialog(QDialog):
     """Modal 3-step dialog used to add a new instrument row."""
 
@@ -473,18 +482,58 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _refresh_context_labels(self) -> None:
         """Render previous-step context text shown above current input fields."""
-        exchange_text = self.exchange_combo.currentText() or "-"
-        ticker_text = self.ticker_edit.text().strip() or "-"
+        context = self._build_display_context(
+            instrument_group_name=self._instrument_group_name,
+            exchange_text=self.exchange_combo.currentText(),
+            ticker_text=self.ticker_edit.text(),
+        )
+        self.context_step_1.setText(self._format_step_1_context(context))
+        self.context_step_2.setText(self._format_step_2_context(context))
+        self.context_step_3.setText(self._format_step_3_context(context))
 
-        self.context_step_1.setText(
-            f"Instrument group: {self._instrument_group_name}"
+    @staticmethod
+    def _build_display_context(
+        *,
+        instrument_group_name: str,
+        exchange_text: str,
+        ticker_text: str,
+    ) -> _WizardDisplayContext:
+        """Build normalized display context from raw input values."""
+        return _WizardDisplayContext(
+            instrument_group_name=instrument_group_name,
+            exchange_text=exchange_text.strip() or "-",
+            ticker_text=ticker_text.strip() or "-",
         )
-        self.context_step_2.setText(
-            f"Instrument group: {self._instrument_group_name}\n"
-            f"Exchange: {exchange_text}"
+
+    @staticmethod
+    def _format_step_1_context(context: _WizardDisplayContext) -> str:
+        """Format context string for step 1."""
+        return AddInstrumentWizardDialog._format_context_lines(
+            [("Instrument group", context.instrument_group_name)]
         )
-        self.context_step_3.setText(
-            f"Instrument group: {self._instrument_group_name}\n"
-            f"Exchange: {exchange_text}\n"
-            f"Ticker: {ticker_text}"
+
+    @staticmethod
+    def _format_step_2_context(context: _WizardDisplayContext) -> str:
+        """Format context string for step 2."""
+        return AddInstrumentWizardDialog._format_context_lines(
+            [
+                ("Instrument group", context.instrument_group_name),
+                ("Exchange", context.exchange_text),
+            ]
         )
+
+    @staticmethod
+    def _format_step_3_context(context: _WizardDisplayContext) -> str:
+        """Format context string for step 3."""
+        return AddInstrumentWizardDialog._format_context_lines(
+            [
+                ("Instrument group", context.instrument_group_name),
+                ("Exchange", context.exchange_text),
+                ("Ticker", context.ticker_text),
+            ]
+        )
+
+    @staticmethod
+    def _format_context_lines(lines: list[tuple[str, str]]) -> str:
+        """Join ordered `(label, value)` pairs into multiline `label: value` text."""
+        return "\n".join(f"{label}: {value}" for label, value in lines)
