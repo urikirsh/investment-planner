@@ -13,7 +13,7 @@ from ui.dialogs import show_warning
 from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_types import Col
 from ui.screens.main_editor_screen import MainEditorScreen
-from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
+from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, AddInstrumentWizardResult
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
 
@@ -73,6 +73,30 @@ class MainWindowMainEditorController:
                     name_locations[normalized_name] = location
         return name_locations
 
+    def _run_add_instrument_wizard(
+        self,
+        *,
+        instrument_group_name: str,
+        is_non_investable_group: bool,
+    ) -> AddInstrumentWizardResult | None:
+        """Run add-instrument wizard under loading overlay and return accepted result."""
+        host = self._host
+        overlay = LoadingOverlay(host.screen_main)
+        overlay.show_overlay()
+        try:
+            wizard = AddInstrumentWizardDialog(
+                instrument_group_name=instrument_group_name,
+                is_non_investable_group=is_non_investable_group,
+                existing_name_locations=self._build_existing_instrument_name_locations(),
+                parent=self._host_widget(),
+            )
+            if wizard.exec() != QDialog.DialogCode.Accepted:
+                return None
+            return wizard.result_data
+        finally:
+            overlay.hide_overlay()
+            overlay.deleteLater()
+
     def init_screen(self) -> None:
         """Build main-editor widget and wire all signal handlers."""
         host = self._host
@@ -120,25 +144,13 @@ class MainWindowMainEditorController:
         is_non_investable_group = parent_kind == RowKind.NON_INVESTABLE_BUCKET
         default_in_group_pct = self._determine_default_in_group_pct(parent)
         parent_group_name = parent.text(Col.NAME.value).strip() or "Unnamed Group"
-
-        overlay = LoadingOverlay(host.screen_main)
-        overlay.show_overlay()
-        try:
-            wizard = AddInstrumentWizardDialog(
-                instrument_group_name=parent_group_name,
-                is_non_investable_group=is_non_investable_group,
-                existing_name_locations=self._build_existing_instrument_name_locations(),
-                parent=self._host_widget(),
-            )
-            accepted = wizard.exec() == QDialog.DialogCode.Accepted and wizard.result_data is not None
-        finally:
-            overlay.hide_overlay()
-            overlay.deleteLater()
-
-        if not accepted or wizard.result_data is None:
+        result = self._run_add_instrument_wizard(
+            instrument_group_name=parent_group_name,
+            is_non_investable_group=is_non_investable_group,
+        )
+        if result is None:
             return
 
-        result = wizard.result_data
         in_group_pct = default_in_group_pct if result.target_in_group_pct is None else str(result.target_in_group_pct)
         add_instrument_item_to_group(
             parent,
