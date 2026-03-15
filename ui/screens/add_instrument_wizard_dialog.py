@@ -223,7 +223,7 @@ class AddInstrumentWizardDialog(QDialog):
             self.ticker_edit.setMaxLength(7)
             self.ticker_edit.setPlaceholderText("7 digits (e.g. 1234567)")
         else:
-            pattern = QRegularExpression(r"^[A-Z0-9]{0,4}$")
+            pattern = QRegularExpression(r"^[A-Za-z0-9]{0,4}$")
             self.ticker_edit.setMaxLength(4)
             self.ticker_edit.setPlaceholderText("4 uppercase letters or digits (e.g. AB12)")
         self.ticker_edit.setValidator(QRegularExpressionValidator(pattern, self.ticker_edit))
