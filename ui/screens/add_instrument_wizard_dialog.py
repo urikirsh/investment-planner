@@ -338,10 +338,9 @@ class AddInstrumentWizardDialog(QDialog):
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
             # Prevent recursive textChanged while preserving cursor position.
-            blocker = QSignalBlocker(self.ticker_edit)
-            self.ticker_edit.setText(normalized)
-            self.ticker_edit.setCursorPosition(min(cursor, len(normalized)))
-            del blocker
+            with QSignalBlocker(self.ticker_edit):
+                self.ticker_edit.setText(normalized)
+                self.ticker_edit.setCursorPosition(min(cursor, len(normalized)))
         self._refresh_context_labels()
         self._update_step_2_validity()
 
