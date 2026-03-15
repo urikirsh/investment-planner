@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
-from ui.shared.ui_utils import _is_cell_editable, get_item_kind
+from ui.shared.ui_utils import get_item_kind, is_item_cell_editable
 
 
 class MainWindowTableEditingController:
@@ -23,16 +23,6 @@ class MainWindowTableEditingController:
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for warning-dialog parenting."""
         return cast(QWidget, self._host)
-
-    @staticmethod
-    def _is_non_investable_instrument_cell(item: QTreeWidgetItem, *, kind: RowKind | None, column: int) -> bool:
-        """Return whether edit targets a non-investable instrument restricted column."""
-        if kind != RowKind.INSTRUMENT:
-            return False
-        if column != Col.TARGET_PCT.value:
-            return False
-        parent = item.parent()
-        return parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET
 
     def _validate_edited_cell(self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int) -> bool:
         """Dispatch edited-cell validation by row kind and edited column."""
@@ -57,12 +47,7 @@ class MainWindowTableEditingController:
     def on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         """Start guarded cell editing on double-click for editable cells only."""
         host = self._host
-        kind = get_item_kind(item)
-
-        if self._is_non_investable_instrument_cell(item, kind=kind, column=column):
-            return
-
-        if _is_cell_editable(kind, column):
+        if is_item_cell_editable(item, column):
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
             host.tree.editItem(item, column)

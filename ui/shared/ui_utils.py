@@ -320,3 +320,13 @@ def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
 
     # bucket
     return False
+
+
+def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
+    """Return whether an item's cell is editable, including parent-context rules."""
+    kind = get_item_kind(item)
+    if kind == RowKind.INSTRUMENT and col == Col.TARGET_PCT.value:
+        parent = item.parent()
+        if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
+            return False
+    return _is_cell_editable(kind, col)
