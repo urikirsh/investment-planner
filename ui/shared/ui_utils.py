@@ -283,8 +283,8 @@ def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) 
     - Zero: default color
     """
     if drift_pp < 0:
-        # Underweight -> red
-        item.setForeground(col_index, QBrush(QColor("#b00020")))
+        # Underweight -> lighter red for contrast against dark bold text
+        item.setForeground(col_index, QBrush(QColor("#d16a7a")))
     elif drift_pp > 0:
         # Overweight -> green
         item.setForeground(col_index, QBrush(QColor("#1b5e20")))
