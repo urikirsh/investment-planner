@@ -32,8 +32,6 @@ from PySide6.QtWidgets import (
 )
 
 from ui.delegates.decimal_input_delegate import DecimalInputDelegate
-from ui.delegates.exchange_delegate import ExchangeDelegate
-from ui.delegates.ticker_input_delegate import TickerInputDelegate
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
@@ -141,12 +139,10 @@ class MainEditorScreen(QWidget):
             Col.TOT_VALUE.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
         )
-        tree.setItemDelegateForColumn(Col.TICKER.value, TickerInputDelegate(parent=tree))
         tree.setItemDelegateForColumn(
             Col.TARGET_PCT.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
         )
-        tree.setItemDelegateForColumn(Col.EXCHANGE.value, ExchangeDelegate(parent=tree))
         self._set_tree_header_tooltips(tree)
         return tree
 

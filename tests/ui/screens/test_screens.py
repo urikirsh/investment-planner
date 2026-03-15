@@ -18,9 +18,7 @@ from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QLabel
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
-from ui.delegates.exchange_delegate import ExchangeDelegate
 from ui.delegates.decimal_input_delegate import DecimalInputDelegate
-from ui.delegates.ticker_input_delegate import TickerInputDelegate
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
@@ -48,8 +46,6 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
 
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TOT_VALUE.value), DecimalInputDelegate)
-    assert isinstance(screen.tree.itemDelegateForColumn(Col.TICKER.value), TickerInputDelegate)
-    assert isinstance(screen.tree.itemDelegateForColumn(Col.EXCHANGE.value), ExchangeDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
 
     assert screen.add_group_btn.text() == "Add Asset Group"
@@ -229,10 +225,6 @@ def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_withou
     )
 
     assert screen.manual_rate_edit.text() == ""
-
-
-def test_exchange_delegate_choices_follow_exchange_enum_values() -> None:
-    assert ExchangeDelegate._choices == tuple(exchange.value for exchange in Exchange)
 
 
 def test_add_instrument_wizard_builds_expected_controls(qapp) -> None:

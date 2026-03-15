@@ -69,8 +69,6 @@ FX thread-safety guards in this flow:
 - `ui/delegates/*`
   - delegate package for editable tree-cell widgets in the main editor screen
   - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
-  - `exchange_delegate.py`: combo-box delegate for instrument exchange editing (`TASE`/`NYSE`)
-  - `ticker_input_delegate.py`: line-edit delegate for ticker editing with live ASCII alphanumeric filtering
   - `__init__.py`: re-export surface for delegate classes
   - required/exact exchange-specific ticker format is validated at save/planning time
 - `ui/screens/main_editor_screen.py`
@@ -212,7 +210,7 @@ UI-focused tests:
 - `tests/ui/controllers/test_main_window_controller_screen_signals.py`
   - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
 - `tests/ui/controllers/test_main_window_table_editing_controller.py`
-  - focused table-editing normalization and validation/revert behavior tests
+  - focused table-editing enablement and validation/revert behavior tests
 - `tests/ui/controllers/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/controllers/test_main_window_welcome_lifecycle.py`
@@ -222,8 +220,6 @@ UI-focused tests:
 - `tests/ui/screens/test_screens.py`
   - structural tests for screen modules (defaults, controls, static setup)
   - includes add-instrument wizard validation/normalization/duplicate-name guards
-- `tests/ui/delegates/test_ticker_input_delegate.py`
-  - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/shared/test_loading_overlay.py`
