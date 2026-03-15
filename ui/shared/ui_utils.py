@@ -301,28 +301,24 @@ def set_cell_fixed_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply subtle background tint for user-visible fixed cells."""
     item.setBackground(col, QBrush(QColor(FIXED_CELL_BG_COLOR)))
 
-def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
-    """Return whether a cell is user-editable for a given row kind/column."""
-    if kind == RowKind.GROUP:
-        return col in (Col.NAME.value, Col.TARGET_PCT.value)
-
-    if kind == RowKind.INSTRUMENT:
-        return col in (
-            Col.NAME.value,
-            Col.QUANTITY.value,
-            Col.TOT_VALUE.value,
-            Col.TARGET_PCT.value,
-        )
-
-    # bucket
-    return False
-
-
 def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
     """Return whether an item's cell is editable, including parent-context rules."""
     kind = get_item_kind(item)
+
+    if kind == RowKind.GROUP:
+        return col in (Col.NAME.value, Col.TARGET_PCT.value)
+
+    if kind != RowKind.INSTRUMENT:
+        return False
+
     if kind == RowKind.INSTRUMENT and col == Col.TARGET_PCT.value:
         parent = item.parent()
         if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
             return False
-    return _is_cell_editable(kind, col)
+
+    return col in (
+        Col.NAME.value,
+        Col.QUANTITY.value,
+        Col.TOT_VALUE.value,
+        Col.TARGET_PCT.value,
+    )
