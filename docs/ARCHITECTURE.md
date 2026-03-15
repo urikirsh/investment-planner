@@ -66,13 +66,6 @@ FX thread-safety guards in this flow:
 - `ui/controllers/protocols.py`
   - protocol contracts for controller-host dependencies
   - keeps controller object composition statically typed without MRO coupling
-- `ui/delegates/*`
-  - delegate package for editable tree-cell widgets in the main editor screen
-  - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
-  - `exchange_delegate.py`: combo-box delegate for instrument exchange editing (`TASE`/`NYSE`)
-  - `ticker_input_delegate.py`: line-edit delegate for ticker editing with live ASCII alphanumeric filtering
-  - `__init__.py`: re-export surface for delegate classes
-  - required/exact exchange-specific ticker format is validated at save/planning time
 - `ui/screens/main_editor_screen.py`
   - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
@@ -103,6 +96,7 @@ FX thread-safety guards in this flow:
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
     - startup/cleanup timing knobs are defined here so transition delay and cleanup wait policy stay centralized
+  - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
@@ -212,7 +206,7 @@ UI-focused tests:
 - `tests/ui/controllers/test_main_window_controller_screen_signals.py`
   - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
 - `tests/ui/controllers/test_main_window_table_editing_controller.py`
-  - focused table-editing normalization and validation/revert behavior tests
+  - focused table-editing enablement and validation/revert behavior tests
 - `tests/ui/controllers/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/controllers/test_main_window_welcome_lifecycle.py`
@@ -222,8 +216,6 @@ UI-focused tests:
 - `tests/ui/screens/test_screens.py`
   - structural tests for screen modules (defaults, controls, static setup)
   - includes add-instrument wizard validation/normalization/duplicate-name guards
-- `tests/ui/delegates/test_ticker_input_delegate.py`
-  - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/shared/test_loading_overlay.py`

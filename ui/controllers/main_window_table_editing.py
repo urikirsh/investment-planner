@@ -10,8 +10,8 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
 from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
-from ui.shared.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT, RowKind
-from ui.shared.ui_utils import DEFAULT_EXCHANGE, _is_cell_editable, get_item_kind, parse_exchange_code
+from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
+from ui.shared.ui_utils import get_item_kind, is_item_cell_editable
 
 
 class MainWindowTableEditingController:
@@ -23,49 +23,6 @@ class MainWindowTableEditingController:
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for warning-dialog parenting."""
         return cast(QWidget, self._host)
-
-    @staticmethod
-    def _normalize_ticker(raw_ticker: str) -> str:
-        """Return uppercase ASCII alphanumeric ticker text."""
-        sanitized_ticker = "".join(ch for ch in raw_ticker if ch.isascii() and ch.isalnum())
-        return sanitized_ticker.upper()
-
-    @staticmethod
-    def _is_non_investable_instrument_cell(item: QTreeWidgetItem, *, kind: RowKind | None, column: int) -> bool:
-        """Return whether edit targets a non-investable instrument restricted column."""
-        if kind != RowKind.INSTRUMENT:
-            return False
-        if column not in (Col.TARGET_PCT.value, Col.EXCHANGE.value):
-            return False
-        parent = item.parent()
-        return parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET
-
-    def _normalize_instrument_ticker_if_needed(
-        self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int
-    ) -> None:
-        """Normalize edited ticker in place while guarding recursive itemChanged."""
-        host = self._host
-        if kind != RowKind.INSTRUMENT or column != Col.TICKER.value:
-            return
-
-        raw_ticker = item.text(column)
-        normalized_ticker = self._normalize_ticker(raw_ticker)
-        if normalized_ticker != raw_ticker:
-            host._suppress_item_changed = True
-            try:
-                item.setText(column, normalized_ticker)
-            finally:
-                host._suppress_item_changed = False
-
-    def _normalize_instrument_exchange_if_needed(
-        self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int
-    ) -> None:
-        """Normalize exchange code text/data to supported canonical value."""
-        if kind != RowKind.INSTRUMENT or column != Col.EXCHANGE.value:
-            return
-        raw = parse_exchange_code(item.text(column)) or DEFAULT_EXCHANGE.value
-        item.setText(column, raw)
-        item.setData(0, ROLE_EXCHANGE, raw)
 
     def _validate_edited_cell(self, item: QTreeWidgetItem, *, kind: RowKind | None, column: int) -> bool:
         """Dispatch edited-cell validation by row kind and edited column."""
@@ -84,24 +41,19 @@ class MainWindowTableEditingController:
             return
 
         kind = get_item_kind(item)
-        self._normalize_instrument_ticker_if_needed(item, kind=kind, column=column)
-        self._normalize_instrument_exchange_if_needed(item, kind=kind, column=column)
         _ = self._validate_edited_cell(item, kind=kind, column=column)
         host._refresh_data()
 
     def on_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         """Start guarded cell editing on double-click for editable cells only."""
         host = self._host
-        kind = get_item_kind(item)
-
-        if self._is_non_investable_instrument_cell(item, kind=kind, column=column):
-            return
-
-        if _is_cell_editable(kind, column):
+        if is_item_cell_editable(item, column):
             item.setData(column, ROLE_PREV_TEXT, item.text(column))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-            host.tree.editItem(item, column)
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            try:
+                host.tree.editItem(item, column)
+            finally:
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
     @staticmethod
     def _read_edit_cell(item: QTreeWidgetItem, col: int) -> tuple[str, str | None]:

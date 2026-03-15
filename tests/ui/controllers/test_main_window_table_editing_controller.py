@@ -5,28 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem
 
 import ui.controllers.main_window_table_editing as table_editing
 from ui.main_window import MainWindow
-from ui.shared.ui_types import Col, ROLE_EXCHANGE, ROLE_PREV_TEXT
-
-
-def test_item_changed_exchange_normalizes_invalid_input_to_default_exchange(
-    window: MainWindow,
-    monkeypatch: pytest.MonkeyPatch,
-    add_instrument_row: Callable[..., QTreeWidgetItem],
-) -> None:
-    monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
-    child = add_instrument_row(tree=window.tree, ticker="1234567")
-    child.setText(Col.TICKER.value, "1234567")
-    child.setText(Col.EXCHANGE.value, "invalid")
-
-    window._on_item_changed_guard_and_recalc(child, Col.EXCHANGE.value)
-
-    assert child.text(Col.EXCHANGE.value) == "TASE"
-    assert child.data(0, ROLE_EXCHANGE) == "TASE"
+from ui.shared.ui_types import Col, ROLE_PREV_TEXT
 
 
 def test_item_changed_quantity_reverts_invalid_value(
@@ -63,19 +47,41 @@ def test_item_changed_quantity_normalizes_empty_to_zero(
     assert child.text(Col.QUANTITY.value) == "0"
 
 
-def test_item_changed_ticker_does_not_revert_invalid_value_before_save(
+@pytest.mark.parametrize("column", [Col.TICKER.value, Col.EXCHANGE.value])
+def test_item_double_clicked_does_not_call_edit_item_for_locked_identity_columns(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+    column: int,
+) -> None:
+    edit_calls: list[tuple[QTreeWidgetItem, int]] = []
+
+    def _record_edit_item(item: QTreeWidgetItem, edit_column: int) -> None:
+        edit_calls.append((item, edit_column))
+
+    monkeypatch.setattr(window.tree, "editItem", _record_edit_item)
+    child = add_instrument_row(tree=window.tree, ticker="1234567", exchange="TASE")
+
+    window._on_item_double_clicked(child, column)
+
+    assert not edit_calls
+
+
+def test_item_double_clicked_restores_editable_flag_when_editing_raises(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     add_instrument_row: Callable[..., QTreeWidgetItem],
 ) -> None:
-    warnings: list[tuple[str, str]] = []
-    monkeypatch.setattr(window, "_refresh_data", lambda: None)
-    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: warnings.append(("warn", "warn")))
-    child = add_instrument_row(tree=window.tree, exchange="TASE")
-    child.setText(Col.EXCHANGE.value, "TASE")
-    child.setText(Col.TICKER.value, "ab-c_1 ")
+    child = add_instrument_row(tree=window.tree, ticker="1234567", exchange="TASE")
+    original_flags = child.flags()
 
-    window._on_item_changed_guard_and_recalc(child, Col.TICKER.value)
+    def _raise_edit_item(_item: QTreeWidgetItem, _column: int) -> None:
+        raise RuntimeError("edit boom")
 
-    assert not warnings
-    assert child.text(Col.TICKER.value) == "ABC1"
+    monkeypatch.setattr(window.tree, "editItem", _raise_edit_item)
+
+    with pytest.raises(RuntimeError, match="edit boom"):
+        window._on_item_double_clicked(child, Col.NAME.value)
+
+    assert not bool(child.flags() & Qt.ItemFlag.ItemIsEditable)
+    assert not bool(original_flags & Qt.ItemFlag.ItemIsEditable)

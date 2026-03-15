@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.models import Currency, Exchange
-from ui.shared.ui_types import ROLE_EXCHANGE, ROLE_KIND, ROLE_ID, RowKind, Col
+from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
 ui_utils.py
@@ -30,6 +30,7 @@ NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
 DEFAULT_EXCHANGE = Exchange.TASE
 BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
+FIXED_CELL_BG_COLOR = "#fff7e6"
 
 
 def exchange_choices() -> tuple[str, ...]:
@@ -89,23 +90,11 @@ def get_item_id(item: QTreeWidgetItem) -> str:
 
 def get_item_exchange(item: QTreeWidgetItem) -> str:
     """
-    Return a valid instrument exchange code with deterministic fallbacks.
-
-    Resolution order:
-    1. Parse the visible exchange cell text.
-    2. If that cannot be parsed (empty/invalid mid-edit), parse ``ROLE_EXCHANGE`` metadata.
-    3. If both are unreadable, return ``TASE`` as a safe default.
-
-    We intentionally fail soft here because this helper is used while users edit
-    rows interactively, and temporary invalid text should not crash UI refresh or
-    data extraction paths.
+    Return a valid instrument exchange code from visible text, defaulting to TASE.
     """
     parsed_text = parse_exchange_code(item.text(Col.EXCHANGE.value))
     if parsed_text is not None:
         return parsed_text
-    parsed_meta = parse_exchange_code(item.data(0, ROLE_EXCHANGE))
-    if parsed_meta is not None:
-        return parsed_meta
     return DEFAULT_EXCHANGE.value
 
 def new_id(prefix: str) -> str:
@@ -137,9 +126,12 @@ def style_group_row(item: QTreeWidgetItem) -> None:
         set_cell_readonly_look(item, c)
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
-    """Apply read-only visual styling for derived instrument columns."""
+    """Apply computed/fixed visual styling for instrument rows."""
     for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
         set_cell_readonly_look(item, c)
+    for c in (Col.TICKER.value, Col.EXCHANGE.value):
+        if not is_item_cell_editable(item, c):
+            set_cell_fixed_look(item, c)
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
     """Apply per-column alignment conventions for group/instrument rows."""
@@ -234,7 +226,6 @@ def add_instrument_item_to_group(
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
-    item.setData(0, ROLE_EXCHANGE, exchange_value)
 
     apply_row_alignment(item)
 
@@ -292,8 +283,8 @@ def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) 
     - Zero: default color
     """
     if drift_pp < 0:
-        # Underweight -> red
-        item.setForeground(col_index, QBrush(QColor("#b00020")))
+        # Underweight -> lighter red for contrast against dark bold text
+        item.setForeground(col_index, QBrush(QColor("#d16a7a")))
     elif drift_pp > 0:
         # Overweight -> green
         item.setForeground(col_index, QBrush(QColor("#1b5e20")))
@@ -305,20 +296,29 @@ def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
 
-def _is_cell_editable(kind: RowKind | None, col: int) -> bool:
-    """Return whether a cell is user-editable for a given row kind/column."""
+
+def set_cell_fixed_look(item: QTreeWidgetItem, col: int) -> None:
+    """Apply subtle background tint for user-visible fixed cells."""
+    item.setBackground(col, QBrush(QColor(FIXED_CELL_BG_COLOR)))
+
+def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
+    """Return whether an item's cell is editable, including parent-context rules."""
+    kind = get_item_kind(item)
+
     if kind == RowKind.GROUP:
         return col in (Col.NAME.value, Col.TARGET_PCT.value)
 
-    if kind == RowKind.INSTRUMENT:
-        return col in (
-            Col.TICKER.value,
-            Col.NAME.value,
-            Col.QUANTITY.value,
-            Col.TOT_VALUE.value,
-            Col.EXCHANGE.value,
-            Col.TARGET_PCT.value,
-        )
+    if kind != RowKind.INSTRUMENT:
+        return False
 
-    # bucket
-    return False
+    if kind == RowKind.INSTRUMENT and col == Col.TARGET_PCT.value:
+        parent = item.parent()
+        if parent is not None and get_item_kind(parent) == RowKind.NON_INVESTABLE_BUCKET:
+            return False
+
+    return col in (
+        Col.NAME.value,
+        Col.QUANTITY.value,
+        Col.TOT_VALUE.value,
+        Col.TARGET_PCT.value,
+    )
