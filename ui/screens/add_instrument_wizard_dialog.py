@@ -67,10 +67,10 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
 class AddInstrumentWizardResult:
     """Collected instrument values returned when the wizard is accepted."""
 
-    exchange: str
+    exchange: Exchange
     ticker: str
     name: str
-    target_in_group_pct: str
+    target_in_group_pct: Decimal | None
 
 
 class AddInstrumentWizardDialog(QDialog):
@@ -364,11 +364,12 @@ class AddInstrumentWizardDialog(QDialog):
                 ),
             )
             return
+        target_in_group_pct = self._current_target_in_group_pct()
         self._result_data = AddInstrumentWizardResult(
-            exchange=self.exchange_combo.currentText(),
+            exchange=Exchange(self.exchange_combo.currentText()),
             ticker=self.ticker_edit.text().strip(),
             name=candidate_name,
-            target_in_group_pct="" if self._is_non_investable_group else self.target_pct_edit.text().strip(),
+            target_in_group_pct=target_in_group_pct,
         )
         self.accept()
 
@@ -407,3 +408,9 @@ class AddInstrumentWizardDialog(QDialog):
             f"Exchange: {exchange_text}\n"
             f"Ticker: {ticker_text}"
         )
+
+    def _current_target_in_group_pct(self) -> Decimal | None:
+        """Return typed target percentage for the current step-3 input state."""
+        if self._is_non_investable_group:
+            return None
+        return Decimal(self.target_pct_edit.text().strip())

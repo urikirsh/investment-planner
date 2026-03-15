@@ -133,7 +133,7 @@ class MainWindowMainEditorController:
             return
 
         result = wizard.result_data
-        in_group_pct = default_in_group_pct if result.target_in_group_pct == "" else result.target_in_group_pct
+        in_group_pct = default_in_group_pct if result.target_in_group_pct is None else str(result.target_in_group_pct)
         add_instrument_item_to_group(
             parent,
             result.ticker,
