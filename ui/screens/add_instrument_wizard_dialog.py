@@ -15,7 +15,7 @@ editing without closing the wizard.
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from PySide6.QtCore import Qt, QRegularExpression
+from PySide6.QtCore import Qt, QRegularExpression, QSignalBlocker
 from PySide6.QtGui import QRegularExpressionValidator
 from collections.abc import Callable
 from enum import IntEnum
@@ -302,10 +302,10 @@ class AddInstrumentWizardDialog(QDialog):
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
             # Prevent recursive textChanged while preserving cursor position.
-            self.ticker_edit.blockSignals(True)
+            blocker = QSignalBlocker(self.ticker_edit)
             self.ticker_edit.setText(normalized)
             self.ticker_edit.setCursorPosition(min(cursor, len(normalized)))
-            self.ticker_edit.blockSignals(False)
+            del blocker
         self._refresh_context_labels()
         self._update_step_2_validity()
 
