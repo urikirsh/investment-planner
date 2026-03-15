@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from portfolio_core.models import Exchange
-from ui.dialogs import confirm_discard_changes
+from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices
 
 
@@ -41,11 +41,13 @@ class AddInstrumentWizardDialog(QDialog):
         *,
         instrument_group_name: str,
         is_non_investable_group: bool,
+        existing_name_locations: dict[str, str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._instrument_group_name = instrument_group_name
         self._is_non_investable_group = is_non_investable_group
+        self._existing_name_locations = existing_name_locations or {}
         self._result_data: AddInstrumentWizardResult | None = None
         self.setWindowTitle("Add Instrument")
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -275,10 +277,23 @@ class AddInstrumentWizardDialog(QDialog):
     def _accept_result(self) -> None:
         if not self.add_step_3_btn.isEnabled():
             return
+        candidate_name = self.name_edit.text().strip()
+        normalized_name = candidate_name.casefold()
+        existing_location = self._existing_name_locations.get(normalized_name)
+        if existing_location is not None:
+            show_error_with_back(
+                self,
+                "Duplicate instrument name",
+                (
+                    f'An instrument named "{candidate_name}" already exists in this portfolio '
+                    f"(under {existing_location}). Please choose a different name."
+                ),
+            )
+            return
         self._result_data = AddInstrumentWizardResult(
             exchange=self.exchange_combo.currentText(),
             ticker=self.ticker_edit.text().strip(),
-            name=self.name_edit.text().strip(),
+            name=candidate_name,
             target_in_group_pct="" if self._is_non_investable_group else self.target_pct_edit.text().strip(),
         )
         self.accept()

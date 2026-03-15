@@ -309,3 +309,33 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> N
     assert "Ticker: AB12" in dialog.context_step_3.text()
     assert "Name:" not in dialog.context_step_3.text()
     assert "Strategy percentage:" not in dialog.context_step_3.text()
+
+
+def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
+    qapp, monkeypatch
+) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+        existing_name_locations={"world etf": "US Equity"},
+    )
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+    dialog.name_edit.setText("  World ETF  ")
+    dialog.target_pct_edit.setText("25")
+    dialog.add_step_3_btn.click()
+
+    assert shown
+    assert shown[0][0] == "Duplicate instrument name"
+    assert 'named "World ETF"' in shown[0][1]
+    assert "under US Equity" in shown[0][1]
+    assert dialog.result_data is None

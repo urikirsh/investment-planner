@@ -35,6 +35,32 @@ class MainWindowMainEditorController:
             return ""
         return "100" if parent.childCount() == 0 else "0"
 
+    def _build_existing_instrument_name_locations(self) -> dict[str, str]:
+        """Return normalized-name -> first-found human-readable location mapping."""
+        tree = self._host.tree
+        name_locations: dict[str, str] = {}
+        for top_index in range(tree.topLevelItemCount()):
+            parent = tree.topLevelItem(top_index)
+            if parent is None:
+                continue
+            parent_kind = get_item_kind(parent)
+            if parent_kind == RowKind.NON_INVESTABLE_BUCKET:
+                location = "non-investable bucket"
+            else:
+                location = parent.text(Col.NAME.value).strip() or "unnamed group"
+
+            for child_index in range(parent.childCount()):
+                child = parent.child(child_index)
+                if child is None or get_item_kind(child) != RowKind.INSTRUMENT:
+                    continue
+                child_name = child.text(Col.NAME.value).strip()
+                if not child_name:
+                    continue
+                normalized_name = child_name.casefold()
+                if normalized_name not in name_locations:
+                    name_locations[normalized_name] = location
+        return name_locations
+
     def init_screen(self) -> None:
         """Build main-editor widget and wire all signal handlers."""
         host = self._host
@@ -95,6 +121,7 @@ class MainWindowMainEditorController:
             wizard = AddInstrumentWizardDialog(
                 instrument_group_name=parent_group_name,
                 is_non_investable_group=is_non_investable_group,
+                existing_name_locations=self._build_existing_instrument_name_locations(),
                 parent=self._host_widget(),
             )
             accepted = wizard.exec() == QDialog.DialogCode.Accepted and wizard.result_data is not None
