@@ -305,7 +305,7 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _on_ticker_changed(self, _value: str) -> None:
         """Normalize ticker text as user types and revalidate step 2."""
-        exchange = Exchange(self.exchange_combo.currentText())
+        exchange = self._current_exchange()
         raw = self.ticker_edit.text()
         normalized = self._normalize_ticker(raw, exchange)
         if normalized != raw:
@@ -320,7 +320,7 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _sync_exchange_ticker_validator(self) -> None:
         """Swap ticker regex/placeholder/max-length based on selected exchange."""
-        exchange = Exchange(self.exchange_combo.currentText())
+        exchange = self._current_exchange()
         rule = _TICKER_RULES[exchange]
         pattern = QRegularExpression(rule.validator_pattern)
         self.ticker_edit.setMaxLength(rule.max_length)
@@ -330,7 +330,7 @@ class AddInstrumentWizardDialog(QDialog):
     def _update_step_2_validity(self) -> None:
         """Validate ticker using exchange rules and gate step-advance action."""
         ticker = self.ticker_edit.text().strip()
-        exchange = Exchange(self.exchange_combo.currentText())
+        exchange = self._current_exchange()
         rule = _TICKER_RULES[exchange]
 
         is_valid = self._is_ticker_complete_for_exchange(ticker, exchange)
@@ -455,12 +455,16 @@ class AddInstrumentWizardDialog(QDialog):
             )
             return
         self._result_data = AddInstrumentWizardResult(
-            exchange=Exchange(self.exchange_combo.currentText()),
+            exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
             name=candidate_name,
             target_in_group_pct=validation_result.target_in_group_pct,
         )
         self.accept()
+
+    def _current_exchange(self) -> Exchange:
+        """Return currently selected exchange value from the combo box."""
+        return Exchange(self.exchange_combo.currentText())
 
     def _request_cancel(self) -> None:
         """Reject wizard, guarding against accidental loss of in-progress input."""
