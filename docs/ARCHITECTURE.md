@@ -54,6 +54,7 @@ FX thread-safety guards in this flow:
   - fetch failures show a Back-only error dialog and keep the user on the welcome screen
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
+  - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
 - `ui/controllers/main_window_metrics.py`
@@ -73,6 +74,13 @@ FX thread-safety guards in this flow:
 - `ui/screens/main_editor_screen.py`
   - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
+- `ui/screens/add_instrument_wizard_dialog.py`
+  - modal 3-step add-instrument flow used from screen 2
+  - step 1: exchange choice
+  - step 2: ticker input with exchange-specific live validation
+  - step 3: name + strategy percentage validation and final add action
+  - each step renders the selected group plus prior step decisions for review
+  - return/cancel prompts for discard only when user has edited wizard input
 - `ui/screens/summary_screen.py`
   - screen 3 presentation/layout (plan summary)
   - exposes summary text and navigation controls

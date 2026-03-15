@@ -58,6 +58,20 @@ def show_error_with_back(parent: QWidget, title: str, message: str) -> None:
     box.exec()
 
 
+def confirm_discard_changes(parent: QWidget, *, noun: str = "changes") -> bool:
+    """Return ``True`` when user confirms discarding unsaved transient edits."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Warning)
+    box.setWindowTitle("Discard changes?")
+    box.setText(f"You have unsaved {noun}.")
+    box.setInformativeText("Discard and return to portfolio?")
+    discard_btn = box.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
+    keep_btn = box.addButton("Keep editing", QMessageBox.ButtonRole.RejectRole)
+    box.setDefaultButton(keep_btn)
+    box.exec()
+    return box.clickedButton() == discard_btn
+
+
 def choose_save_path(parent: QWidget, *, start_path: Path) -> Path | None:
     """Prompt for save destination and normalize suffix to ``.json``.
 

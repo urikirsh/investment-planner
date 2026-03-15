@@ -1,0 +1,326 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+
+from PySide6.QtCore import Qt, QRegularExpression
+from PySide6.QtGui import QRegularExpressionValidator
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+from portfolio_core.models import Exchange
+from ui.dialogs import confirm_discard_changes
+from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices
+
+
+@dataclass(frozen=True)
+class AddInstrumentWizardResult:
+    """Collected instrument values returned when the wizard is accepted."""
+
+    exchange: str
+    ticker: str
+    name: str
+    target_in_group_pct: str
+
+
+class AddInstrumentWizardDialog(QDialog):
+    """Modal 3-step dialog used to add a new instrument row."""
+
+    def __init__(
+        self,
+        *,
+        instrument_group_name: str,
+        is_non_investable_group: bool,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._instrument_group_name = instrument_group_name
+        self._is_non_investable_group = is_non_investable_group
+        self._result_data: AddInstrumentWizardResult | None = None
+        self.setWindowTitle("Add Instrument")
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setModal(True)
+        self.resize(560, 320)
+        self._build()
+        self._sync_exchange_ticker_validator()
+        self._refresh_context_labels()
+        self._update_step_2_validity()
+        self._update_step_3_validity()
+
+    @property
+    def result_data(self) -> AddInstrumentWizardResult | None:
+        """Return accepted wizard data, or ``None`` when canceled."""
+        return self._result_data
+
+    def _build(self) -> None:
+        root = QVBoxLayout(self)
+        title = QLabel("Add Instrument Wizard")
+        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        root.addWidget(title)
+
+        self.pages = QStackedWidget(self)
+        self.pages.addWidget(self._build_step_1())
+        self.pages.addWidget(self._build_step_2())
+        self.pages.addWidget(self._build_step_3())
+        root.addWidget(self.pages)
+
+    def _build_step_1(self) -> QWidget:
+        page = QWidget(self)
+        layout = QVBoxLayout(page)
+        layout.addWidget(QLabel("Step 1/3 - Choose exchange"))
+
+        self.context_step_1 = QLabel("")
+        self.context_step_1.setWordWrap(True)
+        self.context_step_1.setStyleSheet("color: #4a4a4a;")
+        layout.addWidget(self.context_step_1)
+
+        form = QFormLayout()
+        self.exchange_combo = QComboBox(page)
+        self.exchange_combo.addItems(exchange_choices())
+        self.exchange_combo.setCurrentText(DEFAULT_EXCHANGE.value)
+        self.exchange_combo.currentTextChanged.connect(self._on_exchange_changed)
+        form.addRow("Exchange:", self.exchange_combo)
+        layout.addLayout(form)
+        layout.addStretch(1)
+
+        actions = QHBoxLayout()
+        self.back_step_1_btn = QPushButton("Return to portfolio")
+        self.back_step_1_btn.clicked.connect(self._request_cancel)
+        self.next_step_1_btn = QPushButton("Next")
+        self.next_step_1_btn.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        actions.addWidget(self.back_step_1_btn)
+        actions.addStretch(1)
+        actions.addWidget(self.next_step_1_btn)
+        layout.addLayout(actions)
+        return page
+
+    def _build_step_2(self) -> QWidget:
+        page = QWidget(self)
+        layout = QVBoxLayout(page)
+        layout.addWidget(QLabel("Step 2/3 - Enter ticker"))
+
+        self.context_step_2 = QLabel("")
+        self.context_step_2.setWordWrap(True)
+        self.context_step_2.setStyleSheet("color: #4a4a4a;")
+        layout.addWidget(self.context_step_2)
+
+        form = QFormLayout()
+        self.ticker_edit = QLineEdit(page)
+        self.ticker_edit.textChanged.connect(self._on_ticker_changed)
+        form.addRow("Ticker:", self.ticker_edit)
+        layout.addLayout(form)
+
+        self.ticker_error_label = QLabel("")
+        self.ticker_error_label.setStyleSheet("color: #b00020;")
+        layout.addWidget(self.ticker_error_label)
+        layout.addStretch(1)
+
+        actions = QHBoxLayout()
+        self.back_step_2_btn = QPushButton("Back")
+        self.back_step_2_btn.clicked.connect(lambda: self.pages.setCurrentIndex(0))
+        self.next_step_2_btn = QPushButton("Next")
+        self.next_step_2_btn.clicked.connect(self._go_to_step_3)
+        self.return_step_2_btn = QPushButton("Return to portfolio")
+        self.return_step_2_btn.clicked.connect(self._request_cancel)
+        actions.addWidget(self.back_step_2_btn)
+        actions.addWidget(self.return_step_2_btn)
+        actions.addStretch(1)
+        actions.addWidget(self.next_step_2_btn)
+        layout.addLayout(actions)
+        return page
+
+    def _build_step_3(self) -> QWidget:
+        page = QWidget(self)
+        layout = QVBoxLayout(page)
+        layout.addWidget(QLabel("Step 3/3 - Instrument details"))
+
+        self.context_step_3 = QLabel("")
+        self.context_step_3.setWordWrap(True)
+        self.context_step_3.setStyleSheet("color: #4a4a4a;")
+        layout.addWidget(self.context_step_3)
+
+        form = QFormLayout()
+        self.name_edit = QLineEdit(page)
+        self.name_edit.textChanged.connect(self._update_step_3_validity)
+        form.addRow("Name:", self.name_edit)
+
+        self.target_pct_edit = QLineEdit(page)
+        self.target_pct_edit.setPlaceholderText("0 to 100")
+        self.target_pct_edit.textChanged.connect(self._update_step_3_validity)
+        form.addRow("Strategy percentage:", self.target_pct_edit)
+        layout.addLayout(form)
+
+        self.name_error_label = QLabel("")
+        self.name_error_label.setStyleSheet("color: #b00020;")
+        layout.addWidget(self.name_error_label)
+        self.target_pct_error_label = QLabel("")
+        self.target_pct_error_label.setStyleSheet("color: #b00020;")
+        layout.addWidget(self.target_pct_error_label)
+
+        if self._is_non_investable_group:
+            self.target_pct_edit.setEnabled(False)
+            self.target_pct_edit.setPlaceholderText("Not applicable in non-investable bucket")
+            self.target_pct_edit.setText("")
+
+        layout.addStretch(1)
+
+        actions = QHBoxLayout()
+        self.back_step_3_btn = QPushButton("Back")
+        self.back_step_3_btn.clicked.connect(lambda: self.pages.setCurrentIndex(1))
+        self.add_step_3_btn = QPushButton("Add")
+        self.add_step_3_btn.clicked.connect(self._accept_result)
+        self.return_step_3_btn = QPushButton("Return to portfolio")
+        self.return_step_3_btn.clicked.connect(self._request_cancel)
+        actions.addWidget(self.back_step_3_btn)
+        actions.addWidget(self.return_step_3_btn)
+        actions.addStretch(1)
+        actions.addWidget(self.add_step_3_btn)
+        layout.addLayout(actions)
+        return page
+
+    def _go_to_step_3(self) -> None:
+        self.pages.setCurrentIndex(2)
+        self._refresh_context_labels()
+        self._update_step_3_validity()
+
+    def _on_exchange_changed(self, _value: str) -> None:
+        self._sync_exchange_ticker_validator()
+        self._refresh_context_labels()
+        self._update_step_2_validity()
+
+    def _on_ticker_changed(self, _value: str) -> None:
+        exchange_value = self.exchange_combo.currentText()
+        raw = self.ticker_edit.text()
+        if exchange_value == Exchange.TASE.value:
+            normalized = "".join(ch for ch in raw if ch.isdigit())
+        else:
+            normalized = "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
+        if normalized != raw:
+            cursor = self.ticker_edit.cursorPosition()
+            self.ticker_edit.blockSignals(True)
+            self.ticker_edit.setText(normalized)
+            self.ticker_edit.setCursorPosition(min(cursor, len(normalized)))
+            self.ticker_edit.blockSignals(False)
+        self._refresh_context_labels()
+        self._update_step_2_validity()
+
+    def _sync_exchange_ticker_validator(self) -> None:
+        exchange_value = self.exchange_combo.currentText()
+        if exchange_value == Exchange.TASE.value:
+            pattern = QRegularExpression(r"^\d{0,7}$")
+            self.ticker_edit.setMaxLength(7)
+            self.ticker_edit.setPlaceholderText("7 digits (e.g. 1234567)")
+        else:
+            pattern = QRegularExpression(r"^[A-Z0-9]{0,4}$")
+            self.ticker_edit.setMaxLength(4)
+            self.ticker_edit.setPlaceholderText("4 uppercase letters or digits (e.g. AB12)")
+        self.ticker_edit.setValidator(QRegularExpressionValidator(pattern, self.ticker_edit))
+
+    def _update_step_2_validity(self) -> None:
+        ticker = self.ticker_edit.text().strip()
+        exchange_value = self.exchange_combo.currentText()
+
+        is_valid = False
+        if exchange_value == Exchange.TASE.value:
+            is_valid = len(ticker) == 7 and ticker.isdigit()
+            self.ticker_error_label.setText("" if is_valid or not ticker else "Ticker for TASE must be exactly 7 digits.")
+        else:
+            is_valid = len(ticker) == 4 and all(ch.isdigit() or ("A" <= ch <= "Z") for ch in ticker)
+            self.ticker_error_label.setText(
+                "" if is_valid or not ticker else "Ticker for NYSE must be exactly 4 uppercase letters or digits."
+            )
+
+        if not ticker:
+            self.ticker_error_label.setText("Ticker is required.")
+        self.next_step_2_btn.setEnabled(is_valid)
+
+    def _update_step_3_validity(self) -> None:
+        name = self.name_edit.text().strip()
+        self.name_error_label.setText("" if name else "Name is required.")
+        name_ok = bool(name)
+
+        if self._is_non_investable_group:
+            self.target_pct_error_label.setText("")
+            target_ok = True
+        else:
+            target_ok = False
+            target_text = self.target_pct_edit.text().strip()
+            if not target_text:
+                self.target_pct_error_label.setText("Strategy percentage is required.")
+            else:
+                try:
+                    pct_value = Decimal(target_text)
+                    if pct_value < Decimal("0"):
+                        self.target_pct_error_label.setText("Strategy percentage cannot be negative.")
+                    elif pct_value > Decimal("100"):
+                        self.target_pct_error_label.setText("Strategy percentage cannot exceed 100.")
+                    else:
+                        self.target_pct_error_label.setText("")
+                        target_ok = True
+                except (InvalidOperation, ValueError):
+                    self.target_pct_error_label.setText("Strategy percentage must be a number.")
+        self.add_step_3_btn.setEnabled(name_ok and target_ok)
+        self._refresh_context_labels()
+
+    def _accept_result(self) -> None:
+        if not self.add_step_3_btn.isEnabled():
+            return
+        self._result_data = AddInstrumentWizardResult(
+            exchange=self.exchange_combo.currentText(),
+            ticker=self.ticker_edit.text().strip(),
+            name=self.name_edit.text().strip(),
+            target_in_group_pct="" if self._is_non_investable_group else self.target_pct_edit.text().strip(),
+        )
+        self.accept()
+
+    def _request_cancel(self) -> None:
+        if self._is_dirty() and not confirm_discard_changes(self, noun="instrument wizard edits"):
+            return
+        self.reject()
+
+    def _is_dirty(self) -> bool:
+        if self.exchange_combo.currentText() != DEFAULT_EXCHANGE.value:
+            return True
+        if self.ticker_edit.text().strip():
+            return True
+        if self.name_edit.text().strip():
+            return True
+        if not self._is_non_investable_group and self.target_pct_edit.text().strip():
+            return True
+        return False
+
+    def _refresh_context_labels(self) -> None:
+        exchange_text = self.exchange_combo.currentText() or "-"
+        ticker_text = self.ticker_edit.text().strip() or "-"
+        name_text = self.name_edit.text().strip() or "-"
+        target_text = (
+            "N/A"
+            if self._is_non_investable_group
+            else (self.target_pct_edit.text().strip() or "-")
+        )
+
+        self.context_step_1.setText(
+            f"Instrument group: {self._instrument_group_name}\n"
+            f"Exchange: {exchange_text}"
+        )
+        self.context_step_2.setText(
+            f"Instrument group: {self._instrument_group_name}\n"
+            f"Exchange: {exchange_text}"
+        )
+        self.context_step_3.setText(
+            f"Instrument group: {self._instrument_group_name}\n"
+            f"Exchange: {exchange_text}\n"
+            f"Ticker: {ticker_text}\n"
+            f"Name: {name_text}\n"
+            f"Strategy percentage: {target_text}"
+        )

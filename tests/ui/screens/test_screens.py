@@ -19,6 +19,7 @@ from portfolio_core.app_metadata import get_app_version
 from ui.delegates.exchange_delegate import ExchangeDelegate
 from ui.delegates.decimal_input_delegate import DecimalInputDelegate
 from ui.delegates.ticker_input_delegate import TickerInputDelegate
+from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
@@ -230,3 +231,61 @@ def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_withou
 
 def test_exchange_delegate_choices_follow_exchange_enum_values() -> None:
     assert ExchangeDelegate._choices == tuple(exchange.value for exchange in Exchange)
+
+
+def test_add_instrument_wizard_builds_expected_controls(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+
+    assert dialog.windowTitle() == "Add Instrument"
+    assert dialog.pages.count() == 3
+    assert dialog.pages.currentIndex() == 0
+    assert dialog.back_step_1_btn.text() == "Return to portfolio"
+    assert dialog.next_step_1_btn.text() == "Next"
+    assert "Instrument group: Equity" in dialog.context_step_1.text()
+    assert "Exchange: TASE" in dialog.context_step_1.text()
+
+
+def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.next_step_1_btn.click()
+
+    dialog.exchange_combo.setCurrentText("TASE")
+    dialog.ticker_edit.setText("1234")
+    assert not dialog.next_step_2_btn.isEnabled()
+    assert "exactly 7 digits" in dialog.ticker_error_label.text()
+
+    dialog.ticker_edit.setText("1234567")
+    assert dialog.next_step_2_btn.isEnabled()
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.ticker_edit.setText("ab12")
+    assert dialog.ticker_edit.text() == "AB12"
+    assert dialog.next_step_2_btn.isEnabled()
+
+
+def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) -> None:
+    _ = qapp
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name="Equity",
+        is_non_investable_group=False,
+    )
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("1234567")
+    dialog.next_step_2_btn.click()
+
+    assert not dialog.add_step_3_btn.isEnabled()
+    dialog.name_edit.setText("TA-35 ETF")
+    dialog.target_pct_edit.setText("101")
+    assert not dialog.add_step_3_btn.isEnabled()
+    assert "cannot exceed 100" in dialog.target_pct_error_label.text()
+
+    dialog.target_pct_edit.setText("25")
+    assert dialog.add_step_3_btn.isEnabled()

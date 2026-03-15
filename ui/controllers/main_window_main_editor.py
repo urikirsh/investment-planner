@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from typing import cast
 
-from PySide6.QtWidgets import QApplication, QTreeWidgetItem, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QTreeWidgetItem, QWidget
 
 from portfolio_core.planning_types import PlanningMode
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
+from ui.shared.loading_overlay import LoadingOverlay
+from ui.shared.ui_types import Col
 from ui.screens.main_editor_screen import MainEditorScreen
+from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
 
@@ -69,7 +72,7 @@ class MainWindowMainEditorController:
         host._refresh_data()
 
     def add_instrument(self) -> None:
-        """Add a new instrument under selected group (or selected instrument's parent)."""
+        """Open add-instrument wizard and add row under selected group on success."""
         host = self._host
         sel = host.tree.currentItem()
         if sel is None:
@@ -81,8 +84,38 @@ class MainWindowMainEditorController:
             return
 
         parent = sel.parent() or sel
+        parent_kind = get_item_kind(parent)
+        is_non_investable_group = parent_kind == RowKind.NON_INVESTABLE_BUCKET
         default_in_group_pct = self._determine_default_in_group_pct(parent)
-        add_instrument_item_to_group(parent, "0000000", "New Instrument", 0, "1", default_in_group_pct)
+        parent_group_name = parent.text(Col.NAME.value).strip() or "Unnamed Group"
+
+        overlay = LoadingOverlay(host.screen_main)
+        overlay.show_overlay()
+        try:
+            wizard = AddInstrumentWizardDialog(
+                instrument_group_name=parent_group_name,
+                is_non_investable_group=is_non_investable_group,
+                parent=self._host_widget(),
+            )
+            accepted = wizard.exec() == QDialog.DialogCode.Accepted and wizard.result_data is not None
+        finally:
+            overlay.hide_overlay()
+            overlay.deleteLater()
+
+        if not accepted or wizard.result_data is None:
+            return
+
+        result = wizard.result_data
+        in_group_pct = default_in_group_pct if result.target_in_group_pct == "" else result.target_in_group_pct
+        add_instrument_item_to_group(
+            parent,
+            result.ticker,
+            result.name,
+            0,
+            "1",
+            in_group_pct,
+            exchange=result.exchange,
+        )
         host.tree.expandAll()
         host._refresh_data()
 
