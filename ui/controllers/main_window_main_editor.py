@@ -35,6 +35,18 @@ class MainWindowMainEditorController:
             return ""
         return "100" if parent.childCount() == 0 else "0"
 
+    def _resolve_add_instrument_parent(self) -> QTreeWidgetItem | None:
+        """Return selected target parent group (or ``None`` after user warning)."""
+        sel = self._host.tree.currentItem()
+        if sel is None:
+            show_warning(
+                self._host_widget(),
+                "Add instrument",
+                "Select a group (or an instrument under a group) first.",
+            )
+            return None
+        return sel.parent() or sel
+
     def _build_existing_instrument_name_locations(self) -> dict[str, str]:
         """Return normalized-name -> first-found human-readable location mapping."""
         tree = self._host.tree
@@ -100,16 +112,10 @@ class MainWindowMainEditorController:
     def add_instrument(self) -> None:
         """Open add-instrument wizard and add row under selected group on success."""
         host = self._host
-        sel = host.tree.currentItem()
-        if sel is None:
-            show_warning(
-                self._host_widget(),
-                "Add instrument",
-                "Select a group (or an instrument under a group) first.",
-            )
+        parent = self._resolve_add_instrument_parent()
+        if parent is None:
             return
 
-        parent = sel.parent() or sel
         parent_kind = get_item_kind(parent)
         is_non_investable_group = parent_kind == RowKind.NON_INVESTABLE_BUCKET
         default_in_group_pct = self._determine_default_in_group_pct(parent)
