@@ -17,6 +17,8 @@ from decimal import Decimal, InvalidOperation
 
 from PySide6.QtCore import Qt, QRegularExpression
 from PySide6.QtGui import QRegularExpressionValidator
+from collections.abc import Callable
+
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -135,15 +137,16 @@ class AddInstrumentWizardDialog(QDialog):
         layout.addLayout(form)
         layout.addStretch(1)
 
-        actions = QHBoxLayout()
         self.back_step_1_btn = QPushButton("Return to portfolio")
-        self.back_step_1_btn.clicked.connect(self._request_cancel)
         self.next_step_1_btn = QPushButton("Next")
-        self.next_step_1_btn.clicked.connect(lambda: self.pages.setCurrentIndex(1))
-        actions.addWidget(self.back_step_1_btn)
-        actions.addStretch(1)
-        actions.addWidget(self.next_step_1_btn)
-        layout.addLayout(actions)
+        self._wire_button(self.back_step_1_btn, self._request_cancel)
+        self._wire_button(self.next_step_1_btn, lambda: self.pages.setCurrentIndex(1))
+        layout.addLayout(
+            self._build_actions_row(
+                left_buttons=(self.back_step_1_btn,),
+                right_buttons=(self.next_step_1_btn,),
+            )
+        )
         return page
 
     def _build_step_2(self) -> QWidget:
@@ -168,18 +171,18 @@ class AddInstrumentWizardDialog(QDialog):
         layout.addWidget(self.ticker_error_label)
         layout.addStretch(1)
 
-        actions = QHBoxLayout()
         self.back_step_2_btn = QPushButton("Back")
-        self.back_step_2_btn.clicked.connect(lambda: self.pages.setCurrentIndex(0))
         self.next_step_2_btn = QPushButton("Next")
-        self.next_step_2_btn.clicked.connect(self._go_to_step_3)
         self.return_step_2_btn = QPushButton("Return to portfolio")
-        self.return_step_2_btn.clicked.connect(self._request_cancel)
-        actions.addWidget(self.back_step_2_btn)
-        actions.addWidget(self.return_step_2_btn)
-        actions.addStretch(1)
-        actions.addWidget(self.next_step_2_btn)
-        layout.addLayout(actions)
+        self._wire_button(self.back_step_2_btn, lambda: self.pages.setCurrentIndex(0))
+        self._wire_button(self.next_step_2_btn, self._go_to_step_3)
+        self._wire_button(self.return_step_2_btn, self._request_cancel)
+        layout.addLayout(
+            self._build_actions_row(
+                left_buttons=(self.back_step_2_btn, self.return_step_2_btn),
+                right_buttons=(self.next_step_2_btn,),
+            )
+        )
         return page
 
     def _build_step_3(self) -> QWidget:
@@ -218,19 +221,39 @@ class AddInstrumentWizardDialog(QDialog):
 
         layout.addStretch(1)
 
-        actions = QHBoxLayout()
         self.back_step_3_btn = QPushButton("Back")
-        self.back_step_3_btn.clicked.connect(lambda: self.pages.setCurrentIndex(1))
         self.add_step_3_btn = QPushButton("Add")
-        self.add_step_3_btn.clicked.connect(self._accept_result)
         self.return_step_3_btn = QPushButton("Return to portfolio")
-        self.return_step_3_btn.clicked.connect(self._request_cancel)
-        actions.addWidget(self.back_step_3_btn)
-        actions.addWidget(self.return_step_3_btn)
-        actions.addStretch(1)
-        actions.addWidget(self.add_step_3_btn)
-        layout.addLayout(actions)
+        self._wire_button(self.back_step_3_btn, lambda: self.pages.setCurrentIndex(1))
+        self._wire_button(self.add_step_3_btn, self._accept_result)
+        self._wire_button(self.return_step_3_btn, self._request_cancel)
+        layout.addLayout(
+            self._build_actions_row(
+                left_buttons=(self.back_step_3_btn, self.return_step_3_btn),
+                right_buttons=(self.add_step_3_btn,),
+            )
+        )
         return page
+
+    @staticmethod
+    def _wire_button(button: QPushButton, callback: Callable[[], None]) -> None:
+        """Connect one action button click to its callback."""
+        button.clicked.connect(callback)
+
+    @staticmethod
+    def _build_actions_row(
+        *,
+        left_buttons: tuple[QPushButton, ...],
+        right_buttons: tuple[QPushButton, ...],
+    ) -> QHBoxLayout:
+        """Build a standard wizard actions row with split left/right button groups."""
+        actions = QHBoxLayout()
+        for button in left_buttons:
+            actions.addWidget(button)
+        actions.addStretch(1)
+        for button in right_buttons:
+            actions.addWidget(button)
+        return actions
 
     def _go_to_step_3(self) -> None:
         """Advance from step 2 to step 3 and refresh derived UI state."""
