@@ -99,7 +99,6 @@ The application never executes trades automatically. All actions are explicit an
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows), set when adding an instrument
   - instrument `exchange` is not editable in the table
-  - fixed (non-editable) instrument cells are shown with a subtle tinted background
 - Wizard displays all planned/spent/proceeds/leftover amounts explicitly in ILS
 - Drag and drop to:
   - reorder groups and instruments
