@@ -94,11 +94,10 @@ The application never executes trades automatically. All actions are explicit an
   - `Add Instrument` opens a guided flow with exchange-aware ticker validation
   - while this flow is open, the portfolio screen is temporarily unavailable
   - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions
-  - instrument `ticker` is set when adding an instrument and is not editable in the table
+  - instrument `ticker` is set when adding an instrument
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows), set when adding an instrument
-  - instrument `exchange` is not editable in the table
 - Wizard displays all planned/spent/proceeds/leftover amounts explicitly in ILS
 - Drag and drop to:
   - reorder groups and instruments
