@@ -55,6 +55,7 @@ FX thread-safety guards in this flow:
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
+  - add flow builds a case-insensitive portfolio-wide name map so duplicate instrument names are blocked before row creation
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
 - `ui/controllers/main_window_metrics.py`
@@ -80,6 +81,8 @@ FX thread-safety guards in this flow:
   - step 2: ticker input with exchange-specific live validation
   - step 3: name + strategy percentage validation and final add action
   - each step renders the selected group plus prior step decisions for review
+  - NYSE ticker input normalizes lowercase letters to uppercase while typing
+  - duplicate names are blocked on final add with a Back-only modal that names the existing location
   - return/cancel prompts for discard only when user has edited wizard input
 - `ui/screens/summary_screen.py`
   - screen 3 presentation/layout (plan summary)
@@ -213,8 +216,11 @@ UI-focused tests:
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/controllers/test_main_window_welcome_lifecycle.py`
   - focused lifecycle tests for startup FX fetch worker/thread ownership (`start`, `cancel`, `clear`)
+- `tests/ui/controllers/test_main_window_main_editor_controller.py`
+  - focused add-instrument wizard integration tests for accept/cancel tree-mutation behavior
 - `tests/ui/screens/test_screens.py`
   - structural tests for screen modules (defaults, controls, static setup)
+  - includes add-instrument wizard validation/normalization/duplicate-name guards
 - `tests/ui/delegates/test_ticker_input_delegate.py`
   - ticker delegate behavior (live alphanumeric filtering and editor wiring)
 - `tests/ui/shared/test_ui_utils.py`

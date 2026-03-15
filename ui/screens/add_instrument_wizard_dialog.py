@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+"""Add-instrument modal wizard used from the main editor.
+
+The dialog is intentionally self-contained and keeps a 3-step flow:
+1. choose exchange
+2. enter ticker with exchange-specific live validation/normalization
+3. enter name + strategy percentage and confirm add
+
+The final step also protects against duplicate instrument names in the current
+portfolio (case-insensitive), showing a Back-only modal so the user can keep
+editing without closing the wizard.
+"""
+
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -65,6 +77,7 @@ class AddInstrumentWizardDialog(QDialog):
         return self._result_data
 
     def _build(self) -> None:
+        """Build top-level layout and register all step pages."""
         root = QVBoxLayout(self)
         title = QLabel("Add Instrument Wizard")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
@@ -77,6 +90,7 @@ class AddInstrumentWizardDialog(QDialog):
         root.addWidget(self.pages)
 
     def _build_step_1(self) -> QWidget:
+        """Build step 1 page (`exchange` selection)."""
         page = QWidget(self)
         layout = QVBoxLayout(page)
         layout.addWidget(QLabel("Step 1/3 - Choose exchange"))
@@ -107,6 +121,7 @@ class AddInstrumentWizardDialog(QDialog):
         return page
 
     def _build_step_2(self) -> QWidget:
+        """Build step 2 page (`ticker` input + validation feedback)."""
         page = QWidget(self)
         layout = QVBoxLayout(page)
         layout.addWidget(QLabel("Step 2/3 - Enter ticker"))
@@ -142,6 +157,7 @@ class AddInstrumentWizardDialog(QDialog):
         return page
 
     def _build_step_3(self) -> QWidget:
+        """Build step 3 page (`name`/`strategy %` + final add action)."""
         page = QWidget(self)
         layout = QVBoxLayout(page)
         layout.addWidget(QLabel("Step 3/3 - Instrument details"))
@@ -191,16 +207,19 @@ class AddInstrumentWizardDialog(QDialog):
         return page
 
     def _go_to_step_3(self) -> None:
+        """Advance from step 2 to step 3 and refresh derived UI state."""
         self.pages.setCurrentIndex(2)
         self._refresh_context_labels()
         self._update_step_3_validity()
 
     def _on_exchange_changed(self, _value: str) -> None:
+        """React to exchange selection changes and recompute ticker rules."""
         self._sync_exchange_ticker_validator()
         self._refresh_context_labels()
         self._update_step_2_validity()
 
     def _on_ticker_changed(self, _value: str) -> None:
+        """Normalize ticker text as user types and revalidate step 2."""
         exchange_value = self.exchange_combo.currentText()
         raw = self.ticker_edit.text()
         if exchange_value == Exchange.TASE.value:
@@ -209,6 +228,7 @@ class AddInstrumentWizardDialog(QDialog):
             normalized = "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
+            # Prevent recursive textChanged while preserving cursor position.
             self.ticker_edit.blockSignals(True)
             self.ticker_edit.setText(normalized)
             self.ticker_edit.setCursorPosition(min(cursor, len(normalized)))
@@ -217,6 +237,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._update_step_2_validity()
 
     def _sync_exchange_ticker_validator(self) -> None:
+        """Swap ticker regex/placeholder/max-length based on selected exchange."""
         exchange_value = self.exchange_combo.currentText()
         if exchange_value == Exchange.TASE.value:
             pattern = QRegularExpression(r"^\d{0,7}$")
@@ -229,6 +250,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.ticker_edit.setValidator(QRegularExpressionValidator(pattern, self.ticker_edit))
 
     def _update_step_2_validity(self) -> None:
+        """Validate ticker using exchange rules and gate step-advance action."""
         ticker = self.ticker_edit.text().strip()
         exchange_value = self.exchange_combo.currentText()
 
@@ -247,6 +269,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.next_step_2_btn.setEnabled(is_valid)
 
     def _update_step_3_validity(self) -> None:
+        """Validate name/strategy fields and gate final `Add` action."""
         name = self.name_edit.text().strip()
         self.name_error_label.setText("" if name else "Name is required.")
         name_ok = bool(name)
@@ -275,6 +298,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._refresh_context_labels()
 
     def _accept_result(self) -> None:
+        """Accept wizard only when step 3 is valid and name is not duplicate."""
         if not self.add_step_3_btn.isEnabled():
             return
         candidate_name = self.name_edit.text().strip()
@@ -299,11 +323,13 @@ class AddInstrumentWizardDialog(QDialog):
         self.accept()
 
     def _request_cancel(self) -> None:
+        """Reject wizard, guarding against accidental loss of in-progress input."""
         if self._is_dirty() and not confirm_discard_changes(self, noun="instrument wizard edits"):
             return
         self.reject()
 
     def _is_dirty(self) -> bool:
+        """Return whether any wizard field diverged from initial defaults."""
         if self.exchange_combo.currentText() != DEFAULT_EXCHANGE.value:
             return True
         if self.ticker_edit.text().strip():
@@ -315,6 +341,7 @@ class AddInstrumentWizardDialog(QDialog):
         return False
 
     def _refresh_context_labels(self) -> None:
+        """Render previous-step context text shown above current input fields."""
         exchange_text = self.exchange_combo.currentText() or "-"
         ticker_text = self.ticker_edit.text().strip() or "-"
 
