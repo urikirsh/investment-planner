@@ -28,6 +28,25 @@ from ui.shared.ui_types import Col
 from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
 
 
+def _open_add_instrument_wizard_step_3(
+    *,
+    instrument_group_name: str = "Equity",
+    is_non_investable_group: bool = False,
+    exchange: str = "NYSE",
+    ticker: str = "AB12",
+) -> AddInstrumentWizardDialog:
+    """Create wizard dialog and navigate to step 3 with selected exchange/ticker."""
+    dialog = AddInstrumentWizardDialog(
+        instrument_group_name=instrument_group_name,
+        is_non_investable_group=is_non_investable_group,
+    )
+    dialog.exchange_combo.setCurrentText(exchange)
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText(ticker)
+    dialog.next_step_2_btn.click()
+    return dialog
+
+
 def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     _ = qapp
     screen = MainEditorScreen()
@@ -283,13 +302,7 @@ def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_on
 
 def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) -> None:
     _ = qapp
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("1234567")
-    dialog.next_step_2_btn.click()
+    dialog = _open_add_instrument_wizard_step_3(exchange="TASE", ticker="1234567")
 
     assert not dialog.add_step_3_btn.isEnabled()
     dialog.name_edit.setText("TA-35 ETF")
@@ -304,14 +317,7 @@ def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) ->
 
 def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> None:
     _ = qapp
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    dialog = _open_add_instrument_wizard_step_3()
     dialog.name_edit.setText("World ETF")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
@@ -325,14 +331,7 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> N
 
 def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(qapp) -> None:
     _ = qapp
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    dialog = _open_add_instrument_wizard_step_3()
     dialog.name_edit.setText("World ETF")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
@@ -351,14 +350,7 @@ def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(q
 
 def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
     _ = qapp
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    dialog = _open_add_instrument_wizard_step_3()
     dialog.name_edit.setText("World ETF")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
