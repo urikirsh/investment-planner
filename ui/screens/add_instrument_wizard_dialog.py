@@ -482,6 +482,9 @@ class AddInstrumentWizardDialog(QDialog):
         if not validation_result.is_valid:
             self._update_step_3_validity()
             return
+        if validation_result.units is None:
+            self._update_step_3_validity()
+            return
         candidate_name = validation_result.name
         normalized_name = candidate_name.casefold()
         existing_location = self._existing_name_locations.get(normalized_name)
@@ -500,7 +503,7 @@ class AddInstrumentWizardDialog(QDialog):
             ticker=self.ticker_edit.text().strip(),
             name=candidate_name,
             target_in_group_pct=validation_result.target_in_group_pct,
-            units=validation_result.units or 0,
+            units=validation_result.units,
         )
         self.accept()
 
