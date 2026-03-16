@@ -91,7 +91,7 @@ The application never executes trades automatically. All actions are explicit an
   - green when you have enough to invest
   - gray when you do not
 - Main editor includes:
-  - `Add Instrument` opens a guided flow with exchange-aware ticker validation
+  - `Add Instrument` opens a guided flow with exchange-aware ticker validation and required non-negative integer units input
   - while this flow is open, the portfolio screen is temporarily unavailable
   - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions
   - instrument `ticker` is set when adding an instrument

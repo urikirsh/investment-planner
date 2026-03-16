@@ -294,6 +294,7 @@ def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) ->
     assert not dialog.add_step_3_btn.isEnabled()
     dialog.name_edit.setText("TA-35 ETF")
     dialog.target_pct_edit.setText("101")
+    dialog.units_edit.setText("5")
     assert not dialog.add_step_3_btn.isEnabled()
     assert "cannot exceed 100" in dialog.target_pct_error_label.text()
 
@@ -313,6 +314,7 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> N
     dialog.next_step_2_btn.click()
     dialog.name_edit.setText("World ETF")
     dialog.target_pct_edit.setText("25")
+    dialog.units_edit.setText("10")
 
     assert "Instrument group: Equity" in dialog.context_step_3.text()
     assert "Exchange: NYSE" in dialog.context_step_3.text()
@@ -333,6 +335,7 @@ def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(q
     dialog.next_step_2_btn.click()
     dialog.name_edit.setText("World ETF")
     dialog.target_pct_edit.setText("25")
+    dialog.units_edit.setText("10")
 
     dialog.back_step_3_btn.click()
     dialog.back_step_2_btn.click()
@@ -341,6 +344,7 @@ def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(q
     assert dialog.ticker_edit.text() == ""
     assert dialog.name_edit.text() == ""
     assert dialog.target_pct_edit.text() == ""
+    assert dialog.units_edit.text() == ""
     assert not dialog.next_step_2_btn.isEnabled()
     assert not dialog.add_step_3_btn.isEnabled()
 
@@ -357,12 +361,14 @@ def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
     dialog.next_step_2_btn.click()
     dialog.name_edit.setText("World ETF")
     dialog.target_pct_edit.setText("25")
+    dialog.units_edit.setText("10")
 
     dialog.back_step_3_btn.click()
     dialog.ticker_edit.setText("CD34")
 
     assert dialog.name_edit.text() == ""
     assert dialog.target_pct_edit.text() == ""
+    assert dialog.units_edit.text() == ""
     assert not dialog.add_step_3_btn.isEnabled()
 
 
@@ -387,6 +393,7 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     dialog.next_step_2_btn.click()
     dialog.name_edit.setText("  World ETF  ")
     dialog.target_pct_edit.setText("25")
+    dialog.units_edit.setText("10")
     dialog.add_step_3_btn.click()
 
     assert shown
@@ -400,32 +407,39 @@ def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:
     result = AddInstrumentWizardDialog._validate_step_3_inputs(
         name_text="   ",
         target_text="25",
+        units_text="10",
         is_non_investable_group=False,
     )
 
     assert result.is_valid is False
     assert result.name_error == "Name is required."
     assert result.target_error == ""
-    assert result.target_in_group_pct is None
+    assert result.units_error == ""
+    assert result.target_in_group_pct == Decimal("25")
+    assert result.units == 10
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_validates_target_range() -> None:
     result = AddInstrumentWizardDialog._validate_step_3_inputs(
         name_text="ETF A",
         target_text="101",
+        units_text="10",
         is_non_investable_group=False,
     )
 
     assert result.is_valid is False
     assert result.name_error == ""
     assert result.target_error == "Strategy percentage cannot exceed 100."
+    assert result.units_error == ""
     assert result.target_in_group_pct is None
+    assert result.units == 10
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_returns_typed_result_for_valid_data() -> None:
     result = AddInstrumentWizardDialog._validate_step_3_inputs(
         name_text="  ETF A  ",
         target_text="25",
+        units_text="10",
         is_non_investable_group=False,
     )
 
@@ -433,13 +447,16 @@ def test_add_instrument_wizard_validate_step_3_inputs_returns_typed_result_for_v
     assert result.name == "ETF A"
     assert result.name_error == ""
     assert result.target_error == ""
+    assert result.units_error == ""
     assert result.target_in_group_pct == Decimal("25")
+    assert result.units == 10
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_target() -> None:
     result = AddInstrumentWizardDialog._validate_step_3_inputs(
         name_text="Legacy Holding",
         target_text="",
+        units_text="7",
         is_non_investable_group=True,
     )
 
@@ -447,7 +464,35 @@ def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_tar
     assert result.name == "Legacy Holding"
     assert result.name_error == ""
     assert result.target_error == ""
+    assert result.units_error == ""
     assert result.target_in_group_pct is None
+    assert result.units == 7
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_requires_units() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="ETF A",
+        target_text="25",
+        units_text="",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is False
+    assert result.units_error == "Units is required."
+    assert result.units is None
+
+
+def test_add_instrument_wizard_validate_step_3_inputs_rejects_non_integer_units() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+        name_text="ETF A",
+        target_text="25",
+        units_text="2.5",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is False
+    assert result.units_error == "Units must be a non-negative integer."
+    assert result.units is None
 
 
 def test_add_instrument_wizard_build_display_context_normalizes_empty_exchange_and_ticker() -> None:

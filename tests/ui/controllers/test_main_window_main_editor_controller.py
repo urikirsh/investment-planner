@@ -41,6 +41,7 @@ def test_add_instrument_creates_row_from_wizard_result(
                 ticker="AB12",
                 name="World ETF",
                 target_in_group_pct="25",
+                units=12,
             )
 
         def exec(self) -> QDialog.DialogCode:
@@ -56,6 +57,7 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child is not None
     assert child.text(Col.TICKER.value) == "AB12"
     assert child.text(Col.NAME.value) == "World ETF"
+    assert child.text(Col.QUANTITY.value) == "12"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
     assert child.text(Col.TARGET_PCT.value) == "25"
 
