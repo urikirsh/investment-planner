@@ -126,6 +126,22 @@ class _Step3ValidationResult:
 
 
 @dataclass(frozen=True)
+class _TargetValidationResult:
+    """Validation output for strategy-percentage input."""
+
+    error: str
+    target_in_group_pct: Decimal | None
+
+
+@dataclass(frozen=True)
+class _UnitsValidationResult:
+    """Validation output for units input."""
+
+    error: str
+    units: int | None
+
+
+@dataclass(frozen=True)
 class _WizardDisplayContext:
     """Normalized values used for step-context label rendering."""
 
@@ -409,43 +425,49 @@ class AddInstrumentWizardDialog(QDialog):
         """Return pure step-3 validation outcome from raw text input."""
         name = name_text.strip()
         name_error = "" if name else "Name is required."
-        target_error = ""
-        target_in_group_pct: Decimal | None = None
-        normalized_target = target_text.strip()
-        if not is_non_investable_group:
-            if not normalized_target:
-                target_error = "Strategy percentage is required."
-            else:
-                try:
-                    parsed_target = Decimal(normalized_target)
-                except (InvalidOperation, ValueError):
-                    target_error = "Strategy percentage must be a number."
-                else:
-                    if parsed_target < Decimal("0"):
-                        target_error = "Strategy percentage cannot be negative."
-                    elif parsed_target > Decimal("100"):
-                        target_error = "Strategy percentage cannot exceed 100."
-                    else:
-                        target_in_group_pct = parsed_target
-
-        normalized_units = units_text.strip()
-        units_error = ""
-        units: int | None = None
-        if not normalized_units:
-            units_error = "Units is required."
-        elif not normalized_units.isdigit():
-            units_error = "Units must be a non-negative integer."
-        else:
-            units = int(normalized_units)
+        target_validation = AddInstrumentWizardDialog._validate_target_input(
+            target_text=target_text,
+            is_non_investable_group=is_non_investable_group,
+        )
+        units_validation = AddInstrumentWizardDialog._validate_units_input(units_text)
 
         return _Step3ValidationResult(
             name=name,
             name_error=name_error,
-            target_error=target_error,
-            units_error=units_error,
-            target_in_group_pct=target_in_group_pct,
-            units=units,
+            target_error=target_validation.error,
+            units_error=units_validation.error,
+            target_in_group_pct=target_validation.target_in_group_pct,
+            units=units_validation.units,
         )
+
+    @staticmethod
+    def _validate_target_input(*, target_text: str, is_non_investable_group: bool) -> _TargetValidationResult:
+        """Validate strategy percentage for the selected group type."""
+        if is_non_investable_group:
+            return _TargetValidationResult(error="", target_in_group_pct=None)
+
+        normalized_target = target_text.strip()
+        if not normalized_target:
+            return _TargetValidationResult(error="Strategy percentage is required.", target_in_group_pct=None)
+        try:
+            parsed_target = Decimal(normalized_target)
+        except (InvalidOperation, ValueError):
+            return _TargetValidationResult(error="Strategy percentage must be a number.", target_in_group_pct=None)
+        if parsed_target < Decimal("0"):
+            return _TargetValidationResult(error="Strategy percentage cannot be negative.", target_in_group_pct=None)
+        if parsed_target > Decimal("100"):
+            return _TargetValidationResult(error="Strategy percentage cannot exceed 100.", target_in_group_pct=None)
+        return _TargetValidationResult(error="", target_in_group_pct=parsed_target)
+
+    @staticmethod
+    def _validate_units_input(units_text: str) -> _UnitsValidationResult:
+        """Validate units as a required non-negative integer."""
+        normalized_units = units_text.strip()
+        if not normalized_units:
+            return _UnitsValidationResult(error="Units is required.", units=None)
+        if not normalized_units.isdigit():
+            return _UnitsValidationResult(error="Units must be a non-negative integer.", units=None)
+        return _UnitsValidationResult(error="", units=int(normalized_units))
 
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
