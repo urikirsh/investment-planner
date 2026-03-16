@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 
 from portfolio_core.models import Exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
-from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices
+from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices, validate_non_negative_integer_text
 
 
 @dataclass(frozen=True)
@@ -462,12 +462,12 @@ class AddInstrumentWizardDialog(QDialog):
     @staticmethod
     def _validate_units_input(units_text: str) -> _UnitsValidationResult:
         """Validate units as a required non-negative integer."""
-        normalized_units = units_text.strip()
-        if not normalized_units:
-            return _UnitsValidationResult(error="Units is required.", units=None)
-        if not normalized_units.isdigit():
-            return _UnitsValidationResult(error="Units must be a non-negative integer.", units=None)
-        return _UnitsValidationResult(error="", units=int(normalized_units))
+        units, error = validate_non_negative_integer_text(
+            units_text,
+            field_label="Units",
+            required=True,
+        )
+        return _UnitsValidationResult(error=error, units=units)
 
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
-from ui.shared.ui_utils import get_item_kind, is_item_cell_editable
+from ui.shared.ui_utils import get_item_kind, is_item_cell_editable, validate_non_negative_integer_text
 
 
 class MainWindowTableEditingController:
@@ -118,8 +118,13 @@ class MainWindowTableEditingController:
             finally:
                 host._suppress_item_changed = False
             return True
-        if not raw.isdigit():
-            self.warn_and_revert(item, col, raw, prev, "Quantity must be a non-negative integer.")
+        _parsed_quantity, error = validate_non_negative_integer_text(
+            raw,
+            field_label="Quantity",
+            required=False,
+        )
+        if error:
+            self.warn_and_revert(item, col, raw, prev, error)
             return False
         return True
 
