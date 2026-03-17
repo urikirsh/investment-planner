@@ -37,6 +37,17 @@ class _ValidatorInputDelegate(QStyledItemDelegate):
         return editor
 
 
+# Validator builders
+def build_decimal_validator(
+    *,
+    allow_empty: bool,
+    parent: QObject | None = None,
+) -> QRegularExpressionValidator:
+    """Build validator for unsigned decimal input."""
+    pattern = r"^\d+(\.\d+)?$" if not allow_empty else r"^(\d+(\.\d+)?)?$"
+    return QRegularExpressionValidator(QRegularExpression(pattern), parent)
+
+
 class DecimalInputDelegate(_ValidatorInputDelegate):
     def __init__(self, allow_empty: bool, parent: QObject | None = None) -> None:
         """
@@ -50,9 +61,7 @@ class DecimalInputDelegate(_ValidatorInputDelegate):
         parent:
             Optional Qt parent object.
         """
-        validator = QRegularExpressionValidator(
-            QRegularExpression(r"^\d+(\.\d+)?$" if not allow_empty else r"^(\d+(\.\d+)?)?$")
-        )
+        validator = build_decimal_validator(allow_empty=allow_empty, parent=parent)
         # Simple numeric syntax: digits with optional single dot and digits after it.
         # Allows "12", "12.3", "0.0". (No sign)
         super().__init__(validator=validator, parent=parent)
