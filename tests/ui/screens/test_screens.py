@@ -440,7 +440,7 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:
-    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+    result = AddInstrumentWizardDialog._validate_step_3(
         name_text="   ",
         target_text="25",
         units_text="10",
@@ -451,12 +451,11 @@ def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:
     assert result.name_error == "Name is required."
     assert result.target_error == ""
     assert result.units_error == ""
-    assert result.target_in_group_pct == Decimal("25")
-    assert result.units == 10
+    assert result.payload is None
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_validates_target_range() -> None:
-    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+    result = AddInstrumentWizardDialog._validate_step_3(
         name_text="ETF A",
         target_text="101",
         units_text="10",
@@ -467,12 +466,11 @@ def test_add_instrument_wizard_validate_step_3_inputs_validates_target_range() -
     assert result.name_error == ""
     assert result.target_error == "Strategy percentage cannot exceed 100."
     assert result.units_error == ""
-    assert result.target_in_group_pct is None
-    assert result.units == 10
+    assert result.payload is None
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_returns_typed_result_for_valid_data() -> None:
-    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+    result = AddInstrumentWizardDialog._validate_step_3(
         name_text="  ETF A  ",
         target_text="25",
         units_text="10",
@@ -480,16 +478,17 @@ def test_add_instrument_wizard_validate_step_3_inputs_returns_typed_result_for_v
     )
 
     assert result.is_valid is True
-    assert result.name == "ETF A"
     assert result.name_error == ""
     assert result.target_error == ""
     assert result.units_error == ""
-    assert result.target_in_group_pct == Decimal("25")
-    assert result.units == 10
+    assert result.payload is not None
+    assert result.payload.name == "ETF A"
+    assert result.payload.target_in_group_pct == Decimal("25")
+    assert result.payload.units == 10
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_target() -> None:
-    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+    result = AddInstrumentWizardDialog._validate_step_3(
         name_text="Legacy Holding",
         target_text="",
         units_text="7",
@@ -497,16 +496,17 @@ def test_add_instrument_wizard_validate_step_3_inputs_non_investable_ignores_tar
     )
 
     assert result.is_valid is True
-    assert result.name == "Legacy Holding"
     assert result.name_error == ""
     assert result.target_error == ""
     assert result.units_error == ""
-    assert result.target_in_group_pct is None
-    assert result.units == 7
+    assert result.payload is not None
+    assert result.payload.name == "Legacy Holding"
+    assert result.payload.target_in_group_pct is None
+    assert result.payload.units == 7
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_requires_units() -> None:
-    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+    result = AddInstrumentWizardDialog._validate_step_3(
         name_text="ETF A",
         target_text="25",
         units_text="",
@@ -515,11 +515,11 @@ def test_add_instrument_wizard_validate_step_3_inputs_requires_units() -> None:
 
     assert result.is_valid is False
     assert result.units_error == "Units is required."
-    assert result.units is None
+    assert result.payload is None
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_rejects_non_integer_units() -> None:
-    result = AddInstrumentWizardDialog._validate_step_3_inputs(
+    result = AddInstrumentWizardDialog._validate_step_3(
         name_text="ETF A",
         target_text="25",
         units_text="2.5",
@@ -528,7 +528,7 @@ def test_add_instrument_wizard_validate_step_3_inputs_rejects_non_integer_units(
 
     assert result.is_valid is False
     assert result.units_error == "Units must be a non-negative integer."
-    assert result.units is None
+    assert result.payload is None
 
 
 def test_add_instrument_wizard_build_display_context_normalizes_empty_exchange_and_ticker() -> None:

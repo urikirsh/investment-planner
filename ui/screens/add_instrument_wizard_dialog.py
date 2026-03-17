@@ -111,19 +111,26 @@ class AddInstrumentWizardResult:
 
 
 @dataclass(frozen=True)
-class _Step3ValidationResult:
-    """Pure step-3 validation result independent from widget state."""
+class _ValidatedStep3Payload:
+    """Validated step-3 values with non-optional units for accept flow."""
 
     name: str
+    target_in_group_pct: Decimal | None
+    units: int
+
+
+@dataclass(frozen=True)
+class _Step3ValidationOutcome:
+    """Step-3 validation output containing both UI errors and payload."""
+
     name_error: str
     target_error: str
     units_error: str
-    target_in_group_pct: Decimal | None
-    units: int | None
+    payload: _ValidatedStep3Payload | None
 
     @property
     def is_valid(self) -> bool:
-        return self.name_error == "" and self.target_error == "" and self.units_error == ""
+        return self.payload is not None
 
 
 @dataclass(frozen=True)
@@ -149,15 +156,6 @@ class _WizardDisplayContext:
     instrument_group_name: str
     exchange_text: str
     ticker_text: str
-
-
-@dataclass(frozen=True)
-class _ValidatedStep3Payload:
-    """Validated step-3 values with non-optional units for accept flow."""
-
-    name: str
-    target_in_group_pct: Decimal | None
-    units: int
 
 
 class AddInstrumentWizardDialog(QDialog):
@@ -419,26 +417,26 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _update_step_3_validity(self) -> None:
         """Validate name/strategy fields and gate final `Add` action."""
-        result = self._validate_step_3_inputs(
+        outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
             units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        self.name_error_label.setText(result.name_error)
-        self.target_pct_error_label.setText(result.target_error)
-        self.units_error_label.setText(result.units_error)
-        self.add_step_3_btn.setEnabled(result.is_valid)
+        self.name_error_label.setText(outcome.name_error)
+        self.target_pct_error_label.setText(outcome.target_error)
+        self.units_error_label.setText(outcome.units_error)
+        self.add_step_3_btn.setEnabled(outcome.is_valid)
         self._refresh_context_labels()
 
     @staticmethod
-    def _validate_step_3_inputs(
+    def _validate_step_3(
         *,
         name_text: str,
         target_text: str,
         units_text: str,
         is_non_investable_group: bool,
-    ) -> _Step3ValidationResult:
+    ) -> _Step3ValidationOutcome:
         """Return pure step-3 validation outcome from raw text input."""
         name = name_text.strip()
         name_error = "" if name else "Name is required."
@@ -448,13 +446,21 @@ class AddInstrumentWizardDialog(QDialog):
         )
         units_validation = AddInstrumentWizardDialog._validate_units_input(units_text)
 
-        return _Step3ValidationResult(
-            name=name,
+        payload = (
+            _ValidatedStep3Payload(
+                name=name,
+                target_in_group_pct=target_validation.target_in_group_pct,
+                units=units_validation.units,
+            )
+            if name_error == "" and target_validation.error == "" and units_validation.error == "" and units_validation.units is not None
+            else None
+        )
+
+        return _Step3ValidationOutcome(
             name_error=name_error,
             target_error=target_validation.error,
             units_error=units_validation.error,
-            target_in_group_pct=target_validation.target_in_group_pct,
-            units=units_validation.units,
+            payload=payload,
         )
 
     @staticmethod
@@ -486,30 +492,20 @@ class AddInstrumentWizardDialog(QDialog):
         )
         return _UnitsValidationResult(error=error, units=units)
 
-    def _build_validated_step_3_payload(self) -> _ValidatedStep3Payload | None:
-        """Return typed validated step-3 payload, or ``None`` when invalid."""
-        validation_result = self._validate_step_3_inputs(
+    def _accept_result(self) -> None:
+        """Accept wizard only when step 3 is valid and name is not duplicate."""
+        if not self.add_step_3_btn.isEnabled():
+            return
+        outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
             units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        if not validation_result.is_valid or validation_result.units is None:
+        if not outcome.is_valid or outcome.payload is None:
             self._update_step_3_validity()
-            return None
-        return _ValidatedStep3Payload(
-            name=validation_result.name,
-            target_in_group_pct=validation_result.target_in_group_pct,
-            units=validation_result.units,
-        )
-
-    def _accept_result(self) -> None:
-        """Accept wizard only when step 3 is valid and name is not duplicate."""
-        if not self.add_step_3_btn.isEnabled():
             return
-        validated = self._build_validated_step_3_payload()
-        if validated is None:
-            return
+        validated = outcome.payload
         candidate_name = validated.name
         normalized_name = candidate_name.casefold()
         existing_location = self._existing_name_locations.get(normalized_name)
