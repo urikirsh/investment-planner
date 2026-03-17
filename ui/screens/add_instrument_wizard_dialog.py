@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 
 from portfolio_core.models import Exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
+from ui.shared.decimal_input_delegate import build_non_negative_integer_validator
 from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices, validate_non_negative_integer_text
 
 
@@ -174,6 +175,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._last_exchange = self._current_exchange()
         self._last_ticker = self.ticker_edit.text().strip()
         self._sync_exchange_ticker_validator()
+        self._sync_units_validator()
         self._refresh_context_labels()
         self._update_step_2_validity()
         self._update_step_3_validity()
@@ -387,6 +389,12 @@ class AddInstrumentWizardDialog(QDialog):
         self.ticker_edit.setMaxLength(rule.max_length)
         self.ticker_edit.setPlaceholderText(rule.placeholder)
         self.ticker_edit.setValidator(QRegularExpressionValidator(pattern, self.ticker_edit))
+
+    def _sync_units_validator(self) -> None:
+        """Restrict units input to digits only while allowing temporary empty text."""
+        self.units_edit.setValidator(
+            build_non_negative_integer_validator(allow_empty=True, parent=self.units_edit)
+        )
 
     def _update_step_2_validity(self) -> None:
         """Validate ticker using exchange rules and gate step-advance action."""

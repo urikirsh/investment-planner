@@ -15,7 +15,8 @@ import tomllib
 
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QLabel
+from PySide6.QtCore import QModelIndex
+from PySide6.QtWidgets import QLabel, QLineEdit, QStyleOptionViewItem
 from portfolio_core.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
@@ -23,7 +24,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.shared.decimal_input_delegate import DecimalInputDelegate
+from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
 
@@ -66,6 +67,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
 
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TOT_VALUE.value), DecimalInputDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
+    assert isinstance(screen.tree.itemDelegateForColumn(Col.QUANTITY.value), NonNegativeIntegerInputDelegate)
 
     assert screen.add_group_btn.text() == "Add Asset Group"
     assert screen.add_instrument_btn.text() == "Add Instrument"
@@ -298,6 +300,39 @@ def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_on
 
     assert dialog.ticker_edit.text() == "AB12"
     assert spy.count() == 1
+
+
+def test_add_instrument_wizard_units_field_rejects_non_digit_input(qapp) -> None:
+    _ = qapp
+    dialog = _open_add_instrument_wizard_step_3()
+
+    dialog.units_edit.setText("-")
+    assert not dialog.units_edit.hasAcceptableInput()
+
+    dialog.units_edit.setText("ab")
+    assert not dialog.units_edit.hasAcceptableInput()
+
+    dialog.units_edit.setText("12")
+    assert dialog.units_edit.hasAcceptableInput()
+
+
+def test_main_editor_quantity_delegate_rejects_non_digit_input(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+    delegate = screen.tree.itemDelegateForColumn(Col.QUANTITY.value)
+    assert isinstance(delegate, NonNegativeIntegerInputDelegate)
+
+    editor = delegate.createEditor(screen.tree, QStyleOptionViewItem(), QModelIndex())
+    assert isinstance(editor, QLineEdit)
+
+    editor.setText("-")
+    assert not editor.hasAcceptableInput()
+
+    editor.setText("ab")
+    assert not editor.hasAcceptableInput()
+
+    editor.setText("10")
+    assert editor.hasAcceptableInput()
 
 
 def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) -> None:

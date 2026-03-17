@@ -56,3 +56,33 @@ class DecimalInputDelegate(QStyledItemDelegate):
         editor = QLineEdit(parent)
         editor.setValidator(self._validator)
         return editor
+
+
+def build_non_negative_integer_validator(
+    *,
+    allow_empty: bool,
+    parent: QObject | None = None,
+) -> QRegularExpressionValidator:
+    """Build validator for non-negative integer input."""
+    pattern = r"^\d*$" if allow_empty else r"^\d+$"
+    return QRegularExpressionValidator(QRegularExpression(pattern), parent)
+
+
+class NonNegativeIntegerInputDelegate(QStyledItemDelegate):
+    """Delegate that restricts editor input to non-negative integers."""
+
+    def __init__(self, allow_empty: bool, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._validator = build_non_negative_integer_validator(allow_empty=allow_empty, parent=parent)
+
+    def createEditor(
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QWidget:
+        _ = option
+        _ = index
+        editor = QLineEdit(parent)
+        editor.setValidator(self._validator)
+        return editor
