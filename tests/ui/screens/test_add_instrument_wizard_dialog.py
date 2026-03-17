@@ -3,16 +3,46 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Protocol
 
 import pytest
 from PySide6.QtTest import QSignalSpy
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
 
+class WizardDialogFactory(Protocol):
+    def __call__(
+        self,
+        *,
+        instrument_group_name: str = "Equity",
+        is_non_investable_group: bool = False,
+        existing_name_locations: dict[str, str] | None = None,
+    ) -> AddInstrumentWizardDialog: ...
+
+
 @pytest.fixture(autouse=True)
 def _ensure_qapp(qapp: object) -> None:
     """Ensure a QApplication exists for all tests in this module."""
     _ = qapp
+
+
+@pytest.fixture
+def wizard_dialog_factory() -> WizardDialogFactory:
+    """Build add-instrument wizard dialogs at step 1 for tests."""
+
+    def _build(
+        *,
+        instrument_group_name: str = "Equity",
+        is_non_investable_group: bool = False,
+        existing_name_locations: dict[str, str] | None = None,
+    ) -> AddInstrumentWizardDialog:
+        return AddInstrumentWizardDialog(
+            instrument_group_name=instrument_group_name,
+            is_non_investable_group=is_non_investable_group,
+            existing_name_locations=existing_name_locations,
+        )
+
+    return _build
 
 
 def _open_add_instrument_wizard_step_3(
@@ -55,11 +85,8 @@ def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
     assert not dialog.add_step_3_btn.isEnabled()
 
 
-def test_add_instrument_wizard_builds_expected_controls() -> None:
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
+def test_add_instrument_wizard_builds_expected_controls(wizard_dialog_factory: WizardDialogFactory) -> None:
+    dialog = wizard_dialog_factory()
 
     assert dialog.windowTitle() == "Add Instrument"
     assert dialog.pages.count() == 3
@@ -70,11 +97,10 @@ def test_add_instrument_wizard_builds_expected_controls() -> None:
     assert "Exchange:" not in dialog.context_step_1.text()
 
 
-def test_add_instrument_wizard_step_2_validates_ticker_by_exchange() -> None:
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
+def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = wizard_dialog_factory()
     dialog.next_step_1_btn.click()
 
     dialog.exchange_combo.setCurrentText("TASE")
@@ -91,11 +117,10 @@ def test_add_instrument_wizard_step_2_validates_ticker_by_exchange() -> None:
     assert dialog.next_step_2_btn.isEnabled()
 
 
-def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once() -> None:
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
-    )
+def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = wizard_dialog_factory()
     dialog.next_step_1_btn.click()
     dialog.exchange_combo.setCurrentText("NYSE")
 
@@ -168,11 +193,10 @@ def test_add_instrument_wizard_ticker_change_resets_step_3_inputs() -> None:
 
 
 def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
+    wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dialog = AddInstrumentWizardDialog(
-        instrument_group_name="Equity",
-        is_non_investable_group=False,
+    dialog = wizard_dialog_factory(
         existing_name_locations={"world etf": "US Equity"},
     )
     shown: list[tuple[str, str]] = []
