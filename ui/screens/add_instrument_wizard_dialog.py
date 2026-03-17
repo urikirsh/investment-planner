@@ -421,6 +421,11 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _update_step_3_validity(self) -> None:
         """Validate name/strategy fields and gate final `Add` action."""
+        _ = self._compute_and_apply_step_3_outcome()
+        self._refresh_context_labels()
+
+    def _compute_and_apply_step_3_outcome(self) -> _ValidatedStep3Payload | None:
+        """Compute step-3 validation and apply UI error/button state."""
         outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
@@ -431,7 +436,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.target_pct_error_label.setText(outcome.target_error)
         self.units_error_label.setText(outcome.units_error)
         self.add_step_3_btn.setEnabled(outcome.is_valid)
-        self._refresh_context_labels()
+        return outcome.payload
 
     @staticmethod
     def _validate_step_3(
@@ -500,16 +505,9 @@ class AddInstrumentWizardDialog(QDialog):
         """Accept wizard only when step 3 is valid and name is not duplicate."""
         if not self.add_step_3_btn.isEnabled():
             return
-        outcome = self._validate_step_3(
-            name_text=self.name_edit.text(),
-            target_text=self.target_pct_edit.text(),
-            units_text=self.units_edit.text(),
-            is_non_investable_group=self._is_non_investable_group,
-        )
-        if not outcome.is_valid or outcome.payload is None:
-            self._update_step_3_validity()
+        validated = self._compute_and_apply_step_3_outcome()
+        if validated is None:
             return
-        validated = outcome.payload
         candidate_name = validated.name
         normalized_name = candidate_name.casefold()
         existing_location = self._existing_name_locations.get(normalized_name)
