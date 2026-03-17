@@ -502,8 +502,6 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
-        if not self.add_step_3_btn.isEnabled():
-            return
         validated = self._compute_and_apply_step_3_outcome()
         if validated is None:
             return
