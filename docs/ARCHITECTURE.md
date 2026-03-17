@@ -214,8 +214,9 @@ UI-focused tests:
 - `tests/ui/controllers/test_main_window_main_editor_controller.py`
   - focused add-instrument wizard integration tests for accept/cancel tree-mutation behavior
 - `tests/ui/screens/test_screens.py`
-  - structural tests for screen modules (defaults, controls, static setup)
-  - includes add-instrument wizard validation/normalization/duplicate-name guards
+  - structural tests for main screen modules (defaults, controls, static setup)
+- `tests/ui/screens/test_add_instrument_wizard_dialog.py`
+  - focused add-instrument wizard dialog tests (step flow, validation, context text, and duplicate-name guards)
 - `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/shared/test_loading_overlay.py`
