@@ -143,6 +143,17 @@ def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(
     assert dialog.ticker_edit.text() == "AB12"
     assert dialog.next_step_2_btn.isEnabled()
 
+    dialog.ticker_edit.setText("t")
+    assert dialog.ticker_edit.text() == "T"
+    assert dialog.next_step_2_btn.isEnabled()
+
+    dialog.ticker_edit.setText("brk.b")
+    assert dialog.ticker_edit.text() == "BRK.B"
+    assert dialog.next_step_2_btn.isEnabled()
+
+    dialog.ticker_edit.setText("BRK..B")
+    assert not dialog.next_step_2_btn.isEnabled()
+
 
 def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once(
     wizard_dialog_factory: WizardDialogFactory,
@@ -156,6 +167,21 @@ def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_on
 
     assert dialog.ticker_edit.text() == "AB12"
     assert spy.count() == 1
+
+
+def test_add_instrument_wizard_step_2_nyse_ticker_limits_length_and_symbol_charset(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = wizard_dialog_factory()
+    dialog.next_step_1_btn.click()
+    dialog.exchange_combo.setCurrentText("NYSE")
+
+    dialog.ticker_edit.setText("ABCDEFGHIJKLMNO")
+    assert dialog.ticker_edit.text() == "ABCDEFGHIJKLMN"
+    assert len(dialog.ticker_edit.text()) == 14
+
+    dialog.ticker_edit.setText("AB-12")
+    assert dialog.ticker_edit.text() == "AB12"
 
 
 def test_add_instrument_wizard_units_field_rejects_non_digit_input(

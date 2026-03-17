@@ -14,6 +14,7 @@ editing without closing the wizard.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+import re
 from typing import cast
 
 from PySide6.QtCore import QObject, QRegularExpression, QSignalBlocker, QThread, Qt, Signal, Slot
@@ -64,8 +65,8 @@ def _normalize_tase_ticker(raw: str) -> str:
 
 
 def _normalize_nyse_ticker(raw: str) -> str:
-    """Normalize NYSE ticker text to uppercase ASCII alphanumerics."""
-    return "".join(ch for ch in raw if ch.isascii() and ch.isalnum()).upper()
+    """Normalize NYSE ticker text to uppercase ASCII alphanumerics plus dot."""
+    return "".join(ch for ch in raw if ch.isascii() and (ch.isalnum() or ch == ".")).upper()
 
 
 def _is_tase_ticker_complete(ticker: str) -> bool:
@@ -75,7 +76,7 @@ def _is_tase_ticker_complete(ticker: str) -> bool:
 
 def _is_nyse_ticker_complete(ticker: str) -> bool:
     """Return whether normalized NYSE ticker is complete."""
-    return len(ticker) == 4 and all(ch.isdigit() or ("A" <= ch <= "Z") for ch in ticker)
+    return bool(re.fullmatch(r"^(?=.{1,14}$)(?!.*\..*\.)(?!.*\.$)[A-Z0-9][A-Z0-9.]*$", ticker))
 
 
 _TICKER_RULES: dict[Exchange, _TickerRule] = {
@@ -88,10 +89,10 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         is_complete=_is_tase_ticker_complete,
     ),
     Exchange.NYSE: _TickerRule(
-        max_length=4,
-        validator_pattern=r"^[A-Za-z0-9]{0,4}$",
-        placeholder="4 uppercase letters or digits (e.g. AB12)",
-        error_text="Ticker for NYSE must be exactly 4 uppercase letters or digits.",
+        max_length=14,
+        validator_pattern=r"^(?=.{0,14}$)(?!.*\..*\.)(?:[A-Za-z0-9][A-Za-z0-9.]*|)$",
+        placeholder="1-14 uppercase letters/digits, optional one dot (e.g. BRK.B)",
+        error_text="Ticker for NYSE must be 1-14 uppercase letters/digits, optionally one dot.",
         normalize=_normalize_nyse_ticker,
         is_complete=_is_nyse_ticker_complete,
     ),

@@ -178,7 +178,7 @@ FX thread-safety guards in this flow:
   - normalizes BOI payload into a typed quote object used by wizard flow
 - `portfolio_core/ticker_lookup_service.py`
   - Nasdaq Trader symbol-directory lookup boundary for ticker existence
-  - NYSE is verified via `otherlisted.txt` rows with exchange codes `N` and `Z`
+  - NYSE is verified via `otherlisted.txt` rows with exchange codes `N`, `A`, `P`, and `Z`
   - TASE network lookup is intentionally not implemented yet
   - raises typed communication errors on network/payload failures
 - `portfolio_core/portfolio_document.py`

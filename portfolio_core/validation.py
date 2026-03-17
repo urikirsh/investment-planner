@@ -21,7 +21,7 @@ No UI, persistence, or calculation logic belongs in this module.
 
 D = Decimal
 TASE_TICKER_RE = re.compile(r"^\d{7}$")
-NYSE_TICKER_RE = re.compile(r"^[A-Z0-9]{4}$")
+NYSE_TICKER_RE = re.compile(r"^(?=.{1,14}$)(?!.*\..*\.)(?!.*\.$)[A-Z0-9][A-Z0-9.]*$")
 
 
 def _allowed_exchange_values_text() -> str:
@@ -230,7 +230,7 @@ def _validate_instrument_ticker(name: str, ticker: str, exchange: Exchange) -> N
         raise ValueError(f"Instrument '{name}' ticker for TASE must be exactly 7 digits")
     if exchange is Exchange.NYSE and not NYSE_TICKER_RE.fullmatch(normalized_ticker):
         raise ValueError(
-            f"Instrument '{name}' ticker for NYSE must be exactly 4 uppercase letters or digits"
+            f"Instrument '{name}' ticker for NYSE must be 1 to 14 uppercase letters/digits, optionally one dot"
         )
 
 

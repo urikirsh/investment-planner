@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from portfolio_core.models import Exchange
 
 _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
-_NYSE_ACCEPTED_EXCHANGE_CODES = {"N", "Z"}
+_NYSE_ACCEPTED_EXCHANGE_CODES = {"N", "A", "P", "Z"}
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
