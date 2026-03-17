@@ -5,7 +5,7 @@ from __future__ import annotations
 The dialog is intentionally self-contained and keeps a 3-step flow:
 1. choose exchange
 2. enter ticker with exchange-specific live validation/normalization
-3. enter name + strategy percentage and confirm add
+3. enter name + strategy percentage + units and confirm add
 
 The final step also protects against duplicate instrument names in the current
 portfolio (case-insensitive), showing a Back-only modal so the user can keep
@@ -35,7 +35,12 @@ from PySide6.QtWidgets import (
 
 from portfolio_core.models import Exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
-from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices
+from ui.shared.decimal_input_delegate import build_non_negative_integer_validator
+from ui.shared.ui_utils import (
+    DEFAULT_EXCHANGE,
+    exchange_choices,
+    normalize_and_validate_non_negative_integer_text,
+)
 
 
 @dataclass(frozen=True)
@@ -106,20 +111,46 @@ class AddInstrumentWizardResult:
     ticker: str
     name: str
     target_in_group_pct: Decimal | None
+    units: int
 
 
 @dataclass(frozen=True)
-class _Step3ValidationResult:
-    """Pure step-3 validation result independent from widget state."""
+class _ValidatedStep3Payload:
+    """Validated step-3 values with non-optional units for accept flow."""
 
     name: str
+    target_in_group_pct: Decimal | None
+    units: int
+
+
+@dataclass(frozen=True)
+class _Step3ValidationOutcome:
+    """Step-3 validation output containing both UI errors and payload."""
+
     name_error: str
     target_error: str
-    target_in_group_pct: Decimal | None
+    units_error: str
+    payload: _ValidatedStep3Payload | None
 
     @property
     def is_valid(self) -> bool:
-        return self.name_error == "" and self.target_error == ""
+        return self.payload is not None
+
+
+@dataclass(frozen=True)
+class _TargetValidationResult:
+    """Validation output for strategy-percentage input."""
+
+    error: str
+    target_in_group_pct: Decimal | None
+
+
+@dataclass(frozen=True)
+class _UnitsValidationResult:
+    """Validation output for units input."""
+
+    error: str
+    units: int | None
 
 
 @dataclass(frozen=True)
@@ -155,6 +186,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._last_exchange = self._current_exchange()
         self._last_ticker = self.ticker_edit.text().strip()
         self._sync_exchange_ticker_validator()
+        self._sync_units_validator()
         self._refresh_context_labels()
         self._update_step_2_validity()
         self._update_step_3_validity()
@@ -246,7 +278,7 @@ class AddInstrumentWizardDialog(QDialog):
         return page
 
     def _build_step_3(self) -> QWidget:
-        """Build step 3 page (`name`/`strategy %` + final add action)."""
+        """Build step 3 page (`name`/`strategy %`/`units` + final add action)."""
         page = QWidget(self)
         layout = QVBoxLayout(page)
         layout.addWidget(QLabel("Step 3/3 - Instrument details"))
@@ -265,6 +297,11 @@ class AddInstrumentWizardDialog(QDialog):
         self.target_pct_edit.setPlaceholderText("0 to 100")
         self.target_pct_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Strategy percentage:", self.target_pct_edit)
+
+        self.units_edit = QLineEdit(page)
+        self.units_edit.setPlaceholderText("Non-negative integer")
+        self.units_edit.textChanged.connect(self._update_step_3_validity)
+        form.addRow("Units:", self.units_edit)
         layout.addLayout(form)
 
         self.name_error_label = QLabel("")
@@ -273,6 +310,9 @@ class AddInstrumentWizardDialog(QDialog):
         self.target_pct_error_label = QLabel("")
         self.target_pct_error_label.setStyleSheet("color: #b00020;")
         layout.addWidget(self.target_pct_error_label)
+        self.units_error_label = QLabel("")
+        self.units_error_label.setStyleSheet("color: #b00020;")
+        layout.addWidget(self.units_error_label)
 
         if self._is_non_investable_group:
             self.target_pct_edit.setEnabled(False)
@@ -361,106 +401,114 @@ class AddInstrumentWizardDialog(QDialog):
         self.ticker_edit.setPlaceholderText(rule.placeholder)
         self.ticker_edit.setValidator(QRegularExpressionValidator(pattern, self.ticker_edit))
 
+    def _sync_units_validator(self) -> None:
+        """Restrict units input to digits only while allowing temporary empty text."""
+        self.units_edit.setValidator(
+            build_non_negative_integer_validator(allow_empty=True, parent=self.units_edit)
+        )
+
     def _update_step_2_validity(self) -> None:
         """Validate ticker using exchange rules and gate step-advance action."""
         ticker = self.ticker_edit.text().strip()
         rule = self._current_ticker_rule()
 
         is_valid = rule.is_complete(ticker)
-        self.ticker_error_label.setText("" if is_valid or not ticker else rule.error_text)
-
         if not ticker:
-            self.ticker_error_label.setText("Ticker is required.")
+            error_text = "Ticker is required."
+        elif not is_valid:
+            error_text = rule.error_text
+        else:
+            error_text = ""
+        self.ticker_error_label.setText(error_text)
         self.next_step_2_btn.setEnabled(is_valid)
 
     def _update_step_3_validity(self) -> None:
         """Validate name/strategy fields and gate final `Add` action."""
-        result = self._validate_step_3_inputs(
+        _ = self._compute_and_apply_step_3_outcome()
+
+    def _compute_and_apply_step_3_outcome(self) -> _ValidatedStep3Payload | None:
+        """Compute step-3 validation and apply UI error/button state."""
+        outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
+            units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        self.name_error_label.setText(result.name_error)
-        self.target_pct_error_label.setText(result.target_error)
-        self.add_step_3_btn.setEnabled(result.is_valid)
-        self._refresh_context_labels()
+        self.name_error_label.setText(outcome.name_error)
+        self.target_pct_error_label.setText(outcome.target_error)
+        self.units_error_label.setText(outcome.units_error)
+        self.add_step_3_btn.setEnabled(outcome.is_valid)
+        return outcome.payload
 
     @staticmethod
-    def _validate_step_3_inputs(
+    def _validate_step_3(
         *,
         name_text: str,
         target_text: str,
+        units_text: str,
         is_non_investable_group: bool,
-    ) -> _Step3ValidationResult:
+    ) -> _Step3ValidationOutcome:
         """Return pure step-3 validation outcome from raw text input."""
         name = name_text.strip()
-        if not name:
-            return _Step3ValidationResult(
-                name="",
-                name_error="Name is required.",
-                target_error="" if is_non_investable_group else "Strategy percentage is required." if not target_text.strip() else "",
-                target_in_group_pct=None,
-            )
+        name_error = "" if name else "Name is required."
+        target_validation = AddInstrumentWizardDialog._validate_target_input(
+            target_text=target_text,
+            is_non_investable_group=is_non_investable_group,
+        )
+        units_validation = AddInstrumentWizardDialog._validate_units_input(units_text)
 
-        if is_non_investable_group:
-            return _Step3ValidationResult(
+        payload = (
+            _ValidatedStep3Payload(
                 name=name,
-                name_error="",
-                target_error="",
-                target_in_group_pct=None,
+                target_in_group_pct=target_validation.target_in_group_pct,
+                units=units_validation.units,
             )
+            if name_error == "" and target_validation.error == "" and units_validation.error == "" and units_validation.units is not None
+            else None
+        )
+
+        return _Step3ValidationOutcome(
+            name_error=name_error,
+            target_error=target_validation.error,
+            units_error=units_validation.error,
+            payload=payload,
+        )
+
+    @staticmethod
+    def _validate_target_input(*, target_text: str, is_non_investable_group: bool) -> _TargetValidationResult:
+        """Validate strategy percentage for the selected group type."""
+        if is_non_investable_group:
+            return _TargetValidationResult(error="", target_in_group_pct=None)
 
         normalized_target = target_text.strip()
         if not normalized_target:
-            return _Step3ValidationResult(
-                name=name,
-                name_error="",
-                target_error="Strategy percentage is required.",
-                target_in_group_pct=None,
-            )
+            return _TargetValidationResult(error="Strategy percentage is required.", target_in_group_pct=None)
         try:
-            target_in_group_pct = Decimal(normalized_target)
+            parsed_target = Decimal(normalized_target)
         except (InvalidOperation, ValueError):
-            return _Step3ValidationResult(
-                name=name,
-                name_error="",
-                target_error="Strategy percentage must be a number.",
-                target_in_group_pct=None,
-            )
-        if target_in_group_pct < Decimal("0"):
-            return _Step3ValidationResult(
-                name=name,
-                name_error="",
-                target_error="Strategy percentage cannot be negative.",
-                target_in_group_pct=None,
-            )
-        if target_in_group_pct > Decimal("100"):
-            return _Step3ValidationResult(
-                name=name,
-                name_error="",
-                target_error="Strategy percentage cannot exceed 100.",
-                target_in_group_pct=None,
-            )
-        return _Step3ValidationResult(
-            name=name,
-            name_error="",
-            target_error="",
-            target_in_group_pct=target_in_group_pct,
+            return _TargetValidationResult(error="Strategy percentage must be a number.", target_in_group_pct=None)
+        if parsed_target < Decimal("0"):
+            return _TargetValidationResult(error="Strategy percentage cannot be negative.", target_in_group_pct=None)
+        if parsed_target > Decimal("100"):
+            return _TargetValidationResult(error="Strategy percentage cannot exceed 100.", target_in_group_pct=None)
+        return _TargetValidationResult(error="", target_in_group_pct=parsed_target)
+
+    @staticmethod
+    def _validate_units_input(units_text: str) -> _UnitsValidationResult:
+        """Validate units as a required non-negative integer."""
+        _normalized_text, units, error = normalize_and_validate_non_negative_integer_text(
+            units_text,
+            field_label="Units",
+            required=True,
         )
+        return _UnitsValidationResult(error=error, units=units)
 
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
-        if not self.add_step_3_btn.isEnabled():
+        validated = self._compute_and_apply_step_3_outcome()
+        if validated is None:
             return
-        validation_result = self._validate_step_3_inputs(
-            name_text=self.name_edit.text(),
-            target_text=self.target_pct_edit.text(),
-            is_non_investable_group=self._is_non_investable_group,
-        )
-        if not validation_result.is_valid:
-            self._update_step_3_validity()
-            return
-        candidate_name = validation_result.name
+        candidate_name = validated.name
         normalized_name = candidate_name.casefold()
         existing_location = self._existing_name_locations.get(normalized_name)
         if existing_location is not None:
@@ -477,7 +525,8 @@ class AddInstrumentWizardDialog(QDialog):
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
             name=candidate_name,
-            target_in_group_pct=validation_result.target_in_group_pct,
+            target_in_group_pct=validated.target_in_group_pct,
+            units=validated.units,
         )
         self.accept()
 
@@ -509,12 +558,15 @@ class AddInstrumentWizardDialog(QDialog):
         if not self._is_non_investable_group:
             with QSignalBlocker(self.target_pct_edit):
                 self.target_pct_edit.setText("")
+        with QSignalBlocker(self.units_edit):
+            self.units_edit.setText("")
         self._clear_step_3_state()
 
     def _clear_step_3_state(self) -> None:
         """Clear step-3 validation UI state after upstream input changes."""
         self.name_error_label.setText("")
         self.target_pct_error_label.setText("")
+        self.units_error_label.setText("")
         self.add_step_3_btn.setEnabled(False)
 
     def _is_dirty(self) -> bool:
@@ -526,6 +578,8 @@ class AddInstrumentWizardDialog(QDialog):
         if self.name_edit.text().strip():
             return True
         if not self._is_non_investable_group and self.target_pct_edit.text().strip():
+            return True
+        if self.units_edit.text().strip():
             return True
         return False
 

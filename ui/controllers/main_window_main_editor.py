@@ -160,7 +160,7 @@ class MainWindowMainEditorController:
             parent,
             result.ticker,
             result.name,
-            0,
+            result.units,
             "1",
             in_group_pct,
             exchange=result.exchange,

@@ -11,7 +11,11 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
-from ui.shared.ui_utils import get_item_kind, is_item_cell_editable
+from ui.shared.ui_utils import (
+    get_item_kind,
+    is_item_cell_editable,
+    normalize_and_validate_non_negative_integer_text,
+)
 
 
 class MainWindowTableEditingController:
@@ -110,17 +114,21 @@ class MainWindowTableEditingController:
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
-
-        if raw == "":
+        normalized_text, _parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
+            raw,
+            field_label="Quantity",
+            required=False,
+            blank_normalized_text="0",
+        )
+        if error:
+            self.warn_and_revert(item, col, raw, prev, error)
+            return False
+        if normalized_text != raw:
             host._suppress_item_changed = True
             try:
-                item.setText(col, "0")
+                item.setText(col, normalized_text)
             finally:
                 host._suppress_item_changed = False
-            return True
-        if not raw.isdigit():
-            self.warn_and_revert(item, col, raw, prev, "Quantity must be a non-negative integer.")
-            return False
         return True
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
