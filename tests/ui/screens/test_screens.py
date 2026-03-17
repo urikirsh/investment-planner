@@ -48,6 +48,27 @@ def _open_add_instrument_wizard_step_3(
     return dialog
 
 
+def _fill_step_3_details(
+    dialog: AddInstrumentWizardDialog,
+    *,
+    name: str = "World ETF",
+    target_pct: str = "25",
+    units: str = "10",
+) -> None:
+    """Populate wizard step-3 editable fields."""
+    dialog.name_edit.setText(name)
+    dialog.target_pct_edit.setText(target_pct)
+    dialog.units_edit.setText(units)
+
+
+def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
+    """Assert step-3 editable fields and add state are reset."""
+    assert dialog.name_edit.text() == ""
+    assert dialog.target_pct_edit.text() == ""
+    assert dialog.units_edit.text() == ""
+    assert not dialog.add_step_3_btn.isEnabled()
+
+
 def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     _ = qapp
     screen = MainEditorScreen()
@@ -353,9 +374,7 @@ def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) ->
 def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> None:
     _ = qapp
     dialog = _open_add_instrument_wizard_step_3()
-    dialog.name_edit.setText("World ETF")
-    dialog.target_pct_edit.setText("25")
-    dialog.units_edit.setText("10")
+    _fill_step_3_details(dialog)
 
     assert "Instrument group: Equity" in dialog.context_step_3.text()
     assert "Exchange: NYSE" in dialog.context_step_3.text()
@@ -367,36 +386,26 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> N
 def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(qapp) -> None:
     _ = qapp
     dialog = _open_add_instrument_wizard_step_3()
-    dialog.name_edit.setText("World ETF")
-    dialog.target_pct_edit.setText("25")
-    dialog.units_edit.setText("10")
+    _fill_step_3_details(dialog)
 
     dialog.back_step_3_btn.click()
     dialog.back_step_2_btn.click()
     dialog.exchange_combo.setCurrentText("TASE")
 
     assert dialog.ticker_edit.text() == ""
-    assert dialog.name_edit.text() == ""
-    assert dialog.target_pct_edit.text() == ""
-    assert dialog.units_edit.text() == ""
+    _assert_step_3_inputs_reset(dialog)
     assert not dialog.next_step_2_btn.isEnabled()
-    assert not dialog.add_step_3_btn.isEnabled()
 
 
 def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
     _ = qapp
     dialog = _open_add_instrument_wizard_step_3()
-    dialog.name_edit.setText("World ETF")
-    dialog.target_pct_edit.setText("25")
-    dialog.units_edit.setText("10")
+    _fill_step_3_details(dialog)
 
     dialog.back_step_3_btn.click()
     dialog.ticker_edit.setText("CD34")
 
-    assert dialog.name_edit.text() == ""
-    assert dialog.target_pct_edit.text() == ""
-    assert dialog.units_edit.text() == ""
-    assert not dialog.add_step_3_btn.isEnabled()
+    _assert_step_3_inputs_reset(dialog)
 
 
 def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
