@@ -14,9 +14,10 @@ editing without closing the wizard.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import cast
 
-from PySide6.QtCore import Qt, QRegularExpression, QSignalBlocker
-from PySide6.QtGui import QRegularExpressionValidator
+from PySide6.QtCore import QObject, QRegularExpression, QSignalBlocker, QThread, Qt, Signal, Slot
+from PySide6.QtGui import QCloseEvent, QRegularExpressionValidator
 from collections.abc import Callable
 from enum import IntEnum
 
@@ -34,8 +35,10 @@ from PySide6.QtWidgets import (
 )
 
 from portfolio_core.models import Exchange
+from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
+from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_utils import (
     DEFAULT_EXCHANGE,
     exchange_choices,
@@ -162,6 +165,80 @@ class _WizardDisplayContext:
     ticker_text: str
 
 
+@dataclass(frozen=True)
+class _TickerLookupOutcome:
+    """Final outcome of step-2 ticker network verification."""
+
+    ticker_exists: bool
+    message_title: str
+    message_text: str
+
+
+class _TickerLookupWorker(QObject):
+    """Background worker that verifies ticker existence on selected exchange."""
+
+    finished = Signal(object)
+
+    def __init__(
+        self,
+        *,
+        exchange: Exchange,
+        ticker: str,
+        checker: Callable[..., bool],
+    ) -> None:
+        super().__init__()
+        self._exchange = exchange
+        self._ticker = ticker
+        self._checker = checker
+
+    @Slot()
+    def run(self) -> None:
+        """Run blocking ticker lookup and emit typed outcome for UI thread handling."""
+        try:
+            exists = self._checker(exchange=self._exchange, ticker=self._ticker)
+        except TickerLookupCommunicationError:
+            self.finished.emit(
+                _TickerLookupOutcome(
+                    ticker_exists=False,
+                    message_title="Ticker lookup failed",
+                    message_text=(
+                        "Could not verify this ticker due to a communication issue. "
+                        "Please check your network connection and try again."
+                    ),
+                )
+            )
+            return
+        except Exception:
+            self.finished.emit(
+                _TickerLookupOutcome(
+                    ticker_exists=False,
+                    message_title="Ticker lookup failed",
+                    message_text=(
+                        "Could not verify this ticker due to an unexpected network error. "
+                        "Please try again."
+                    ),
+                )
+            )
+            return
+
+        if exists:
+            self.finished.emit(
+                _TickerLookupOutcome(
+                    ticker_exists=True,
+                    message_title="",
+                    message_text="",
+                )
+            )
+            return
+        self.finished.emit(
+            _TickerLookupOutcome(
+                ticker_exists=False,
+                message_title="Ticker not found",
+                message_text="Ticker was not found on the selected exchange. Please review and try again.",
+            )
+        )
+
+
 class AddInstrumentWizardDialog(QDialog):
     """Modal 3-step dialog used to add a new instrument row."""
 
@@ -178,11 +255,15 @@ class AddInstrumentWizardDialog(QDialog):
         self._is_non_investable_group = is_non_investable_group
         self._existing_name_locations = existing_name_locations or {}
         self._result_data: AddInstrumentWizardResult | None = None
+        self._ticker_lookup_thread: QThread | None = None
+        self._ticker_lookup_worker: _TickerLookupWorker | None = None
         self.setWindowTitle("Add Instrument")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setModal(True)
         self.resize(560, 320)
         self._build()
+        self._ticker_lookup_overlay = LoadingOverlay(self)
+        self._ticker_lookup_overlay.set_status_text("reading data")
         self._last_exchange = self._current_exchange()
         self._last_ticker = self.ticker_edit.text().strip()
         self._sync_exchange_ticker_validator()
@@ -196,6 +277,13 @@ class AddInstrumentWizardDialog(QDialog):
     def result_data(self) -> AddInstrumentWizardResult | None:
         """Return accepted wizard data, or ``None`` when canceled."""
         return self._result_data
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Prevent dialog teardown while background ticker verification is running."""
+        if self._ticker_lookup_thread is not None:
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def _build(self) -> None:
         """Build top-level layout and register all step pages."""
@@ -357,14 +445,57 @@ class AddInstrumentWizardDialog(QDialog):
         return actions
 
     def _go_to_step_3(self) -> None:
-        """Advance from step 2 to step 3 and refresh derived UI state."""
-        self._set_page(_WizardPage.DETAILS)
-        self._refresh_context_labels()
-        self._update_step_3_validity()
+        """Run ticker network verification before advancing from step 2 to step 3."""
+        if self._current_exchange() is not Exchange.NYSE:
+            self._set_page(_WizardPage.DETAILS)
+            self._refresh_context_labels()
+            self._update_step_3_validity()
+            return
+        if self._ticker_lookup_thread is not None:
+            return
+        self._set_step_2_actions_enabled(False)
+        self._ticker_lookup_overlay.show_overlay()
+        worker = _TickerLookupWorker(
+            exchange=self._current_exchange(),
+            ticker=self.ticker_edit.text().strip(),
+            checker=check_ticker_exists_in_exchange,
+        )
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_ticker_lookup_finished)
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._ticker_lookup_worker = worker
+        self._ticker_lookup_thread = thread
+        thread.start()
 
     def _set_page(self, page: _WizardPage) -> None:
         """Switch stacked wizard content to a typed page identifier."""
         self.pages.setCurrentIndex(int(page))
+
+    @Slot(object)
+    def _on_ticker_lookup_finished(self, payload: object) -> None:
+        """Handle async ticker check result and continue/block wizard flow."""
+        outcome = cast(_TickerLookupOutcome, payload)
+        self._ticker_lookup_overlay.hide_overlay()
+        self._set_step_2_actions_enabled(True)
+        self._ticker_lookup_worker = None
+        self._ticker_lookup_thread = None
+        if outcome.ticker_exists:
+            self._set_page(_WizardPage.DETAILS)
+            self._refresh_context_labels()
+            self._update_step_3_validity()
+            return
+        self._set_page(_WizardPage.TICKER)
+        show_error_with_back(self, outcome.message_title, outcome.message_text)
+
+    def _set_step_2_actions_enabled(self, enabled: bool) -> None:
+        """Enable or disable all step-2 actions during ticker verification."""
+        self.back_step_2_btn.setEnabled(enabled)
+        self.next_step_2_btn.setEnabled(enabled)
+        self.return_step_2_btn.setEnabled(enabled)
 
     def _on_exchange_changed(self, _value: str) -> None:
         """React to exchange selection changes and recompute ticker rules."""
@@ -416,6 +547,8 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _update_step_2_validity(self) -> None:
         """Validate ticker using exchange rules and gate step-advance action."""
+        if self._ticker_lookup_thread is not None:
+            return
         ticker = self.ticker_edit.text().strip()
         rule = self._current_ticker_rule()
 

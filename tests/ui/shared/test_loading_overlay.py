@@ -29,6 +29,8 @@ def test_loading_overlay_show_hide_and_spinner_size(qapp: object) -> None:
     assert overlay._spinner.width() >= 120
     assert overlay._status_label.text() == "fetching data"
     assert "font-size: 34px" in overlay._status_label.styleSheet()
+    overlay.set_status_text("reading data")
+    assert overlay._status_label.text() == "reading data"
 
     overlay.hide_overlay()
     assert overlay.isHidden()

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
+import time
 from typing import Protocol
 
 import pytest
 from PySide6.QtTest import QSignalSpy
+from PySide6.QtWidgets import QApplication
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
 
@@ -24,6 +27,15 @@ class WizardDialogFactory(Protocol):
 def _ensure_qapp(qapp: object) -> None:
     """Ensure a QApplication exists for all tests in this module."""
     _ = qapp
+
+
+@pytest.fixture(autouse=True)
+def _mock_ticker_lookup_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default ticker lookup mock for deterministic wizard tests."""
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        lambda *, exchange, ticker: bool(exchange) and bool(ticker),
+    )
 
 
 @pytest.fixture
@@ -62,6 +74,7 @@ def _open_add_instrument_wizard_step_3(
     dialog.next_step_1_btn.click()
     dialog.ticker_edit.setText(ticker)
     dialog.next_step_2_btn.click()
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
     return dialog
 
 
@@ -76,6 +89,19 @@ def _fill_step_3_details(
     dialog.name_edit.setText(name)
     dialog.target_pct_edit.setText(target_pct)
     dialog.units_edit.setText(units)
+
+
+def _wait_until(predicate: Callable[[], bool], *, timeout_ms: int = 1500) -> None:
+    """Pump Qt events until predicate returns true or timeout expires."""
+    app = QApplication.instance()
+    assert app is not None
+    deadline = time.monotonic() + (timeout_ms / 1000.0)
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        app.processEvents()
+        time.sleep(0.01)
+    raise AssertionError("Timed out waiting for async wizard state")
 
 
 def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
@@ -242,6 +268,7 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     dialog.next_step_1_btn.click()
     dialog.ticker_edit.setText("AB12")
     dialog.next_step_2_btn.click()
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
     dialog.name_edit.setText("  World ETF  ")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
@@ -252,6 +279,88 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     assert 'named "World ETF"' in shown[0][1]
     assert "under US Equity" in shown[0][1]
     assert dialog.result_data is None
+
+
+def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        lambda *, exchange, ticker: False,
+    )
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker not found"
+    assert "selected exchange" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_blocks_network_error_with_back_modal(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown: list[tuple[str, str]] = []
+
+    def _raise_network(*, exchange: object, ticker: object) -> bool:
+        _ = (exchange, ticker)
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _raise_network,
+    )
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker lookup failed"
+    assert "network" in shown[0][1].lower() or "communication" in shown[0][1].lower()
+
+
+def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    calls: list[tuple[object, object]] = []
+
+    def _checker(*, exchange: object, ticker: object) -> bool:
+        calls.append((exchange, ticker))
+        return True
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _checker,
+    )
+
+    dialog.exchange_combo.setCurrentText("TASE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("1234567")
+    dialog.next_step_2_btn.click()
+
+    assert dialog.pages.currentIndex() == 2
+    assert calls == []
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:

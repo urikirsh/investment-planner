@@ -112,6 +112,10 @@ class LoadingOverlay(QWidget):
         self.hide()
         self.clearFocus()
 
+    def set_status_text(self, text: str) -> None:
+        """Set the overlay status label text."""
+        self._status_label.setText(text)
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Keep overlay geometry in sync when the parent moves or resizes."""
         if watched is self.parent() and event.type() in {QEvent.Type.Resize, QEvent.Type.Move}:

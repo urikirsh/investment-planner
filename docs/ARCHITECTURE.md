@@ -76,6 +76,9 @@ FX thread-safety guards in this flow:
   - step 3: name + strategy percentage validation and final add action
   - each step renders the selected group plus prior step decisions for review
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
+  - for NYSE only, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
+  - TASE currently skips network ticker verification and advances directly to step 3
+  - ticker-not-found and ticker-lookup communication failures are shown as Back-only modals and keep the flow on step 2
   - duplicate names are blocked on final add with a Back-only modal that names the existing location
   - return/cancel prompts for discard only when user has edited wizard input
 - `ui/screens/summary_screen.py`
@@ -173,6 +176,11 @@ FX thread-safety guards in this flow:
 - `portfolio_core/fx_service.py`
   - Bank of Israel USD/ILS fetch boundary and response parsing
   - normalizes BOI payload into a typed quote object used by wizard flow
+- `portfolio_core/ticker_lookup_service.py`
+  - Nasdaq Trader symbol-directory lookup boundary for ticker existence
+  - NYSE is verified via `otherlisted.txt` rows with exchange codes `N` and `Z`
+  - TASE network lookup is intentionally not implemented yet
+  - raises typed communication errors on network/payload failures
 - `portfolio_core/portfolio_document.py`
   - in-memory editable document state:
     - current model
@@ -251,6 +259,8 @@ Core/domain tests:
   - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
 - `tests/core/test_fx_service.py`
   - BOI USD/ILS payload parsing and "last published day" detection behavior
+- `tests/core/test_ticker_lookup_service.py`
+  - Nasdaq Trader NYSE lookup parsing/matching and communication-failure behavior
 
 ## Updating this document
 Update this file when:
