@@ -413,10 +413,13 @@ class AddInstrumentWizardDialog(QDialog):
         rule = self._current_ticker_rule()
 
         is_valid = rule.is_complete(ticker)
-        self.ticker_error_label.setText("" if is_valid or not ticker else rule.error_text)
-
         if not ticker:
-            self.ticker_error_label.setText("Ticker is required.")
+            error_text = "Ticker is required."
+        elif not is_valid:
+            error_text = rule.error_text
+        else:
+            error_text = ""
+        self.ticker_error_label.setText(error_text)
         self.next_step_2_btn.setEnabled(is_valid)
 
     def _update_step_3_validity(self) -> None:
