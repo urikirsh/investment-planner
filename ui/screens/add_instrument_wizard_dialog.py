@@ -422,7 +422,6 @@ class AddInstrumentWizardDialog(QDialog):
     def _update_step_3_validity(self) -> None:
         """Validate name/strategy fields and gate final `Add` action."""
         _ = self._compute_and_apply_step_3_outcome()
-        self._refresh_context_labels()
 
     def _compute_and_apply_step_3_outcome(self) -> _ValidatedStep3Payload | None:
         """Compute step-3 validation and apply UI error/button state."""
