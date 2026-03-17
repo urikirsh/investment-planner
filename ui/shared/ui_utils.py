@@ -91,29 +91,14 @@ def normalize_and_validate_non_negative_integer_text(
 ) -> tuple[str, int | None, str]:
     """Normalize integer text and return `(normalized_text, value, error_message)`."""
     normalized = text.strip()
-    if not normalized:
-        if blank_normalized_text is not None:
-            parsed_value, parse_error = validate_non_negative_integer_text(
-                blank_normalized_text,
-                field_label=field_label,
-                required=False,
-            )
-            if parse_error:
-                return blank_normalized_text, None, parse_error
-            return blank_normalized_text, parsed_value, ""
-        parsed_value, parse_error = validate_non_negative_integer_text(
-            "",
-            field_label=field_label,
-            required=required,
-        )
-        return "", parsed_value, parse_error
-
+    effective_text = blank_normalized_text if not normalized and blank_normalized_text is not None else normalized
+    effective_required = required and effective_text == ""
     parsed_value, parse_error = validate_non_negative_integer_text(
-        normalized,
+        effective_text,
         field_label=field_label,
-        required=required,
+        required=effective_required,
     )
-    return normalized, parsed_value, parse_error
+    return effective_text, parsed_value, parse_error
 
 def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     """
