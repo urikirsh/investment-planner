@@ -151,6 +151,15 @@ class _WizardDisplayContext:
     ticker_text: str
 
 
+@dataclass(frozen=True)
+class _ValidatedStep3Payload:
+    """Validated step-3 values with non-optional units for accept flow."""
+
+    name: str
+    target_in_group_pct: Decimal | None
+    units: int
+
+
 class AddInstrumentWizardDialog(QDialog):
     """Modal 3-step dialog used to add a new instrument row."""
 
@@ -477,23 +486,31 @@ class AddInstrumentWizardDialog(QDialog):
         )
         return _UnitsValidationResult(error=error, units=units)
 
-    def _accept_result(self) -> None:
-        """Accept wizard only when step 3 is valid and name is not duplicate."""
-        if not self.add_step_3_btn.isEnabled():
-            return
+    def _build_validated_step_3_payload(self) -> _ValidatedStep3Payload | None:
+        """Return typed validated step-3 payload, or ``None`` when invalid."""
         validation_result = self._validate_step_3_inputs(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
             units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        if not validation_result.is_valid:
+        if not validation_result.is_valid or validation_result.units is None:
             self._update_step_3_validity()
+            return None
+        return _ValidatedStep3Payload(
+            name=validation_result.name,
+            target_in_group_pct=validation_result.target_in_group_pct,
+            units=validation_result.units,
+        )
+
+    def _accept_result(self) -> None:
+        """Accept wizard only when step 3 is valid and name is not duplicate."""
+        if not self.add_step_3_btn.isEnabled():
             return
-        if validation_result.units is None:
-            self._update_step_3_validity()
+        validated = self._build_validated_step_3_payload()
+        if validated is None:
             return
-        candidate_name = validation_result.name
+        candidate_name = validated.name
         normalized_name = candidate_name.casefold()
         existing_location = self._existing_name_locations.get(normalized_name)
         if existing_location is not None:
@@ -510,8 +527,8 @@ class AddInstrumentWizardDialog(QDialog):
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
             name=candidate_name,
-            target_in_group_pct=validation_result.target_in_group_pct,
-            units=validation_result.units,
+            target_in_group_pct=validated.target_in_group_pct,
+            units=validated.units,
         )
         self.accept()
 
