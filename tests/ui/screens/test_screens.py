@@ -13,6 +13,7 @@ from decimal import Decimal
 from pathlib import Path
 import tomllib
 
+import pytest
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtCore import QModelIndex
@@ -27,6 +28,12 @@ from ui.screens.wizard_screen import WizardScreen
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
+
+
+@pytest.fixture(autouse=True)
+def _ensure_qapp(qapp: object) -> None:
+    """Ensure a QApplication exists for all tests in this module."""
+    _ = qapp
 
 
 def _open_add_instrument_wizard_step_3(
@@ -69,8 +76,7 @@ def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
     assert not dialog.add_step_3_btn.isEnabled()
 
 
-def test_main_editor_screen_builds_expected_controls(qapp) -> None:
-    _ = qapp
+def test_main_editor_screen_builds_expected_controls() -> None:
     screen = MainEditorScreen()
 
     assert screen.cash_value_edit.placeholderText() == "e.g. 1000"
@@ -97,8 +103,7 @@ def test_main_editor_screen_builds_expected_controls(qapp) -> None:
     assert screen.rebalance_btn.text() == "Invest & Rebalance"
 
 
-def test_welcome_screen_builds_expected_controls(qapp) -> None:
-    _ = qapp
+def test_welcome_screen_builds_expected_controls() -> None:
     app_version = get_app_version()
     screen = WelcomeScreen(app_version=app_version)
 
@@ -127,16 +132,14 @@ def test_welcome_screen_builds_expected_controls(qapp) -> None:
     assert screen.last_path_label.toolTip() == "C:/missing.json"
 
 
-def test_welcome_screen_hides_version_label_when_app_version_is_unavailable(qapp) -> None:
-    _ = qapp
+def test_welcome_screen_hides_version_label_when_app_version_is_unavailable() -> None:
     screen = WelcomeScreen(app_version=None)
 
     assert screen.version_label.isHidden()
     assert screen.version_label.text() == ""
 
 
-def test_welcome_screen_set_app_version_updates_visibility_and_text(qapp) -> None:
-    _ = qapp
+def test_welcome_screen_set_app_version_updates_visibility_and_text() -> None:
     screen = WelcomeScreen(app_version=None)
 
     screen.set_app_version("9.9.9")
@@ -158,8 +161,7 @@ def test_app_version_is_loaded_from_pyproject() -> None:
     assert get_app_version() == version
 
 
-def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
-    _ = qapp
+def test_main_editor_screen_sets_header_tooltips() -> None:
     screen = MainEditorScreen()
 
     assert "ticker symbol" in screen.tree.headerItem().toolTip(Col.TICKER.value).lower()
@@ -176,8 +178,7 @@ def test_main_editor_screen_sets_header_tooltips(qapp) -> None:
     assert "how far you are from your goal" in screen.tree.headerItem().toolTip(Col.DRIFT_PP.value).lower()
 
 
-def test_summary_screen_builds_expected_controls(qapp) -> None:
-    _ = qapp
+def test_summary_screen_builds_expected_controls() -> None:
     screen = SummaryScreen()
 
     assert screen.summary_text.isReadOnly()
@@ -186,8 +187,7 @@ def test_summary_screen_builds_expected_controls(qapp) -> None:
     assert screen.next_btn.text() == "Next"
 
 
-def test_wizard_screen_builds_expected_controls(qapp) -> None:
-    _ = qapp
+def test_wizard_screen_builds_expected_controls() -> None:
     screen = WizardScreen()
 
     labels = [label.text() for label in screen.findChildren(QLabel)]
@@ -230,8 +230,7 @@ def test_wizard_screen_builds_expected_controls(qapp) -> None:
     assert screen.price_edit.minimumWidth() >= min_input_width
 
 
-def test_wizard_screen_set_step_context_includes_ticker_and_exchange(qapp) -> None:
-    _ = qapp
+def test_wizard_screen_set_step_context_includes_ticker_and_exchange() -> None:
     screen = WizardScreen()
 
     screen.set_step_context(
@@ -253,8 +252,7 @@ def test_wizard_screen_set_step_context_includes_ticker_and_exchange(qapp) -> No
     assert "Action: BUY 500 (ILS)" in screen.wiz_info.text()
 
 
-def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value(qapp) -> None:
-    _ = qapp
+def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value() -> None:
     screen = WizardScreen()
     screen.manual_rate_edit.setText("3.77")
 
@@ -269,8 +267,7 @@ def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_withou
     assert screen.manual_rate_edit.text() == ""
 
 
-def test_add_instrument_wizard_builds_expected_controls(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_builds_expected_controls() -> None:
     dialog = AddInstrumentWizardDialog(
         instrument_group_name="Equity",
         is_non_investable_group=False,
@@ -285,8 +282,7 @@ def test_add_instrument_wizard_builds_expected_controls(qapp) -> None:
     assert "Exchange:" not in dialog.context_step_1.text()
 
 
-def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_step_2_validates_ticker_by_exchange() -> None:
     dialog = AddInstrumentWizardDialog(
         instrument_group_name="Equity",
         is_non_investable_group=False,
@@ -307,8 +303,7 @@ def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(qapp) -> None
     assert dialog.next_step_2_btn.isEnabled()
 
 
-def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once() -> None:
     dialog = AddInstrumentWizardDialog(
         instrument_group_name="Equity",
         is_non_investable_group=False,
@@ -323,8 +318,7 @@ def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_on
     assert spy.count() == 1
 
 
-def test_add_instrument_wizard_units_field_rejects_non_digit_input(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_units_field_rejects_non_digit_input() -> None:
     dialog = _open_add_instrument_wizard_step_3()
 
     dialog.units_edit.setText("-")
@@ -337,8 +331,7 @@ def test_add_instrument_wizard_units_field_rejects_non_digit_input(qapp) -> None
     assert dialog.units_edit.hasAcceptableInput()
 
 
-def test_main_editor_quantity_delegate_rejects_non_digit_input(qapp) -> None:
-    _ = qapp
+def test_main_editor_quantity_delegate_rejects_non_digit_input() -> None:
     screen = MainEditorScreen()
     delegate = screen.tree.itemDelegateForColumn(Col.QUANTITY.value)
     assert isinstance(delegate, NonNegativeIntegerInputDelegate)
@@ -356,8 +349,7 @@ def test_main_editor_quantity_delegate_rejects_non_digit_input(qapp) -> None:
     assert editor.hasAcceptableInput()
 
 
-def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid() -> None:
     dialog = _open_add_instrument_wizard_step_3(exchange="TASE", ticker="1234567")
 
     assert not dialog.add_step_3_btn.isEnabled()
@@ -371,8 +363,7 @@ def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(qapp) ->
     assert dialog.add_step_3_btn.isEnabled()
 
 
-def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs() -> None:
     dialog = _open_add_instrument_wizard_step_3()
     _fill_step_3_details(dialog)
 
@@ -383,8 +374,7 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(qapp) -> N
     assert "Strategy percentage:" not in dialog.context_step_3.text()
 
 
-def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs() -> None:
     dialog = _open_add_instrument_wizard_step_3()
     _fill_step_3_details(dialog)
 
@@ -397,8 +387,7 @@ def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(q
     assert not dialog.next_step_2_btn.isEnabled()
 
 
-def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
-    _ = qapp
+def test_add_instrument_wizard_ticker_change_resets_step_3_inputs() -> None:
     dialog = _open_add_instrument_wizard_step_3()
     _fill_step_3_details(dialog)
 
@@ -409,9 +398,8 @@ def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(qapp) -> None:
 
 
 def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
-    qapp, monkeypatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _ = qapp
     dialog = AddInstrumentWizardDialog(
         instrument_group_name="Equity",
         is_non_investable_group=False,
