@@ -147,6 +147,24 @@ def test_add_instrument_wizard_units_field_rejects_non_digit_input(
     assert dialog.units_edit.hasAcceptableInput()
 
 
+def test_add_instrument_wizard_target_pct_field_rejects_non_decimal_input(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
+
+    dialog.target_pct_edit.setText("")
+    assert dialog.target_pct_edit.hasAcceptableInput()
+
+    dialog.target_pct_edit.setText("-")
+    assert not dialog.target_pct_edit.hasAcceptableInput()
+
+    dialog.target_pct_edit.setText("ab")
+    assert not dialog.target_pct_edit.hasAcceptableInput()
+
+    dialog.target_pct_edit.setText("12.5")
+    assert dialog.target_pct_edit.hasAcceptableInput()
+
+
 def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(
     wizard_dialog_factory: WizardDialogFactory,
 ) -> None:
