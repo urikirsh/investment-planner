@@ -186,6 +186,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._last_exchange = self._current_exchange()
         self._last_ticker = self.ticker_edit.text().strip()
         self._sync_exchange_ticker_validator()
+        self._sync_target_pct_validator()
         self._sync_units_validator()
         self._refresh_context_labels()
         self._update_step_2_validity()
@@ -295,7 +296,6 @@ class AddInstrumentWizardDialog(QDialog):
 
         self.target_pct_edit = QLineEdit(page)
         self.target_pct_edit.setPlaceholderText("0 to 100")
-        self.target_pct_edit.setValidator(build_decimal_validator(allow_empty=True, parent=self.target_pct_edit))
         self.target_pct_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Strategy percentage:", self.target_pct_edit)
 
@@ -406,6 +406,12 @@ class AddInstrumentWizardDialog(QDialog):
         """Restrict units input to digits only while allowing temporary empty text."""
         self.units_edit.setValidator(
             build_non_negative_integer_validator(allow_empty=True, parent=self.units_edit)
+        )
+
+    def _sync_target_pct_validator(self) -> None:
+        """Restrict target-percentage input to unsigned decimal syntax."""
+        self.target_pct_edit.setValidator(
+            build_decimal_validator(allow_empty=True, parent=self.target_pct_edit)
         )
 
     def _update_step_2_validity(self) -> None:
