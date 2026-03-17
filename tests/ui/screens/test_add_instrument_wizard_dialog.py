@@ -152,6 +152,9 @@ def test_add_instrument_wizard_target_pct_field_rejects_non_decimal_input(
 ) -> None:
     dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
 
+    dialog.target_pct_edit.setText("")
+    assert dialog.target_pct_edit.hasAcceptableInput()
+
     dialog.target_pct_edit.setText("-")
     assert not dialog.target_pct_edit.hasAcceptableInput()
 
