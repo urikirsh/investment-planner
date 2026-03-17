@@ -10,6 +10,7 @@ from ui.shared.ui_utils import (
     add_instrument_item_to_group,
     get_item_exchange,
     is_item_cell_editable,
+    normalize_and_validate_non_negative_integer_text,
     set_group_tree_item,
     validate_non_negative_integer_text,
 )
@@ -110,4 +111,29 @@ def test_validate_non_negative_integer_text_parses_valid_integer() -> None:
     )
 
     assert value == 12
+    assert error == ""
+
+
+def test_normalize_and_validate_non_negative_integer_text_requires_when_blank() -> None:
+    normalized, value, error = normalize_and_validate_non_negative_integer_text(
+        "",
+        field_label="Units",
+        required=True,
+    )
+
+    assert normalized == ""
+    assert value is None
+    assert error == "Units is required."
+
+
+def test_normalize_and_validate_non_negative_integer_text_normalizes_blank_to_zero() -> None:
+    normalized, value, error = normalize_and_validate_non_negative_integer_text(
+        "   ",
+        field_label="Quantity",
+        required=False,
+        blank_normalized_text="0",
+    )
+
+    assert normalized == "0"
+    assert value == 0
     assert error == ""

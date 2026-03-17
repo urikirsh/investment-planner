@@ -11,7 +11,11 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 from ui.controllers.protocols import MainWindowTableEditingHost
 from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
-from ui.shared.ui_utils import get_item_kind, is_item_cell_editable, validate_non_negative_integer_text
+from ui.shared.ui_utils import (
+    get_item_kind,
+    is_item_cell_editable,
+    normalize_and_validate_non_negative_integer_text,
+)
 
 
 class MainWindowTableEditingController:
@@ -110,7 +114,12 @@ class MainWindowTableEditingController:
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
-        normalized_text, error = self._normalize_and_validate_quantity_text(raw)
+        normalized_text, _parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
+            raw,
+            field_label="Quantity",
+            required=False,
+            blank_normalized_text="0",
+        )
         if error:
             self.warn_and_revert(item, col, raw, prev, error)
             return False
@@ -121,20 +130,6 @@ class MainWindowTableEditingController:
             finally:
                 host._suppress_item_changed = False
         return True
-
-    @staticmethod
-    def _normalize_and_validate_quantity_text(raw: str) -> tuple[str, str | None]:
-        """Return `(normalized_text, error)` for instrument quantity edits."""
-        if raw == "":
-            return "0", None
-        _parsed_quantity, error = validate_non_negative_integer_text(
-            raw,
-            field_label="Quantity",
-            required=False,
-        )
-        if error:
-            return raw, error
-        return raw, None
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
         """Show warning and revert edited cell to previous value under change guard."""

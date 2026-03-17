@@ -36,7 +36,11 @@ from PySide6.QtWidgets import (
 from portfolio_core.models import Exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_non_negative_integer_validator
-from ui.shared.ui_utils import DEFAULT_EXCHANGE, exchange_choices, validate_non_negative_integer_text
+from ui.shared.ui_utils import (
+    DEFAULT_EXCHANGE,
+    exchange_choices,
+    normalize_and_validate_non_negative_integer_text,
+)
 
 
 @dataclass(frozen=True)
@@ -485,7 +489,7 @@ class AddInstrumentWizardDialog(QDialog):
     @staticmethod
     def _validate_units_input(units_text: str) -> _UnitsValidationResult:
         """Validate units as a required non-negative integer."""
-        units, error = validate_non_negative_integer_text(
+        _normalized_text, units, error = normalize_and_validate_non_negative_integer_text(
             units_text,
             field_label="Units",
             required=True,

@@ -81,6 +81,40 @@ def validate_non_negative_integer_text(
         return None, f"{field_label} must be a non-negative integer."
     return int(normalized), ""
 
+
+def normalize_and_validate_non_negative_integer_text(
+    text: str,
+    *,
+    field_label: str,
+    required: bool,
+    blank_normalized_text: str | None = None,
+) -> tuple[str, int | None, str]:
+    """Normalize integer text and return `(normalized_text, value, error_message)`."""
+    normalized = text.strip()
+    if not normalized:
+        if blank_normalized_text is not None:
+            parsed_value, parse_error = validate_non_negative_integer_text(
+                blank_normalized_text,
+                field_label=field_label,
+                required=False,
+            )
+            if parse_error:
+                return blank_normalized_text, None, parse_error
+            return blank_normalized_text, parsed_value, ""
+        parsed_value, parse_error = validate_non_negative_integer_text(
+            "",
+            field_label=field_label,
+            required=required,
+        )
+        return "", parsed_value, parse_error
+
+    parsed_value, parse_error = validate_non_negative_integer_text(
+        normalized,
+        field_label=field_label,
+        required=required,
+    )
+    return normalized, parsed_value, parse_error
+
 def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     """
     Attach semantic row metadata (kind/id) to a tree item.
