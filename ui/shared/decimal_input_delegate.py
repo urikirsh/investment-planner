@@ -17,7 +17,27 @@ are handled elsewhere.
 """
 
 
-class DecimalInputDelegate(QStyledItemDelegate):
+class _ValidatorInputDelegate(QStyledItemDelegate):
+    """Base delegate that applies a preconfigured validator to line editors."""
+
+    def __init__(self, validator: QRegularExpressionValidator, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._validator = validator
+
+    def createEditor(
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QWidget:
+        _ = option
+        _ = index
+        editor = QLineEdit(parent)
+        editor.setValidator(self._validator)
+        return editor
+
+
+class DecimalInputDelegate(_ValidatorInputDelegate):
     def __init__(self, allow_empty: bool, parent: QObject | None = None) -> None:
         """
         Create a delegate that constrains editor input to unsigned decimal syntax.
@@ -30,32 +50,12 @@ class DecimalInputDelegate(QStyledItemDelegate):
         parent:
             Optional Qt parent object.
         """
-        super().__init__(parent)
-        # Simple numeric syntax: digits with optional single dot and digits after it.
-        # Allows "12", "12.3", "0.0". (No sign)
-        self._validator = QRegularExpressionValidator(
+        validator = QRegularExpressionValidator(
             QRegularExpression(r"^\d+(\.\d+)?$" if not allow_empty else r"^(\d+(\.\d+)?)?$")
         )
-
-    def createEditor(
-        self,
-        parent: QWidget,
-        option: QStyleOptionViewItem,
-        index: QModelIndex | QPersistentModelIndex,
-    ) -> QWidget:
-        """
-        Create a ``QLineEdit`` editor with the configured decimal validator.
-
-        Notes
-        -----
-        This delegate validates input *format* only; business/range validation is
-        intentionally handled in higher-level validation layers.
-        """
-        _ = option
-        _ = index
-        editor = QLineEdit(parent)
-        editor.setValidator(self._validator)
-        return editor
+        # Simple numeric syntax: digits with optional single dot and digits after it.
+        # Allows "12", "12.3", "0.0". (No sign)
+        super().__init__(validator=validator, parent=parent)
 
 
 def build_non_negative_integer_validator(
@@ -68,21 +68,11 @@ def build_non_negative_integer_validator(
     return QRegularExpressionValidator(QRegularExpression(pattern), parent)
 
 
-class NonNegativeIntegerInputDelegate(QStyledItemDelegate):
+class NonNegativeIntegerInputDelegate(_ValidatorInputDelegate):
     """Delegate that restricts editor input to non-negative integers."""
 
     def __init__(self, allow_empty: bool, parent: QObject | None = None) -> None:
-        super().__init__(parent)
-        self._validator = build_non_negative_integer_validator(allow_empty=allow_empty, parent=parent)
-
-    def createEditor(
-        self,
-        parent: QWidget,
-        option: QStyleOptionViewItem,
-        index: QModelIndex | QPersistentModelIndex,
-    ) -> QWidget:
-        _ = option
-        _ = index
-        editor = QLineEdit(parent)
-        editor.setValidator(self._validator)
-        return editor
+        super().__init__(
+            validator=build_non_negative_integer_validator(allow_empty=allow_empty, parent=parent),
+            parent=parent,
+        )
