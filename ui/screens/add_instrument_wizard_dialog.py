@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 
 from portfolio_core.models import Exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
-from ui.shared.decimal_input_delegate import build_non_negative_integer_validator
+from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
 from ui.shared.ui_utils import (
     DEFAULT_EXCHANGE,
     exchange_choices,
@@ -295,6 +295,7 @@ class AddInstrumentWizardDialog(QDialog):
 
         self.target_pct_edit = QLineEdit(page)
         self.target_pct_edit.setPlaceholderText("0 to 100")
+        self.target_pct_edit.setValidator(build_decimal_validator(allow_empty=True, parent=self.target_pct_edit))
         self.target_pct_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Strategy percentage:", self.target_pct_edit)
 
