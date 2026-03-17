@@ -92,11 +92,10 @@ def normalize_and_validate_non_negative_integer_text(
     """Normalize integer text and return `(normalized_text, value, error_message)`."""
     normalized = text.strip()
     effective_text = blank_normalized_text if not normalized and blank_normalized_text is not None else normalized
-    effective_required = required and effective_text == ""
     parsed_value, parse_error = validate_non_negative_integer_text(
         effective_text,
         field_label=field_label,
-        required=effective_required,
+        required=required,
     )
     return effective_text, parsed_value, parse_error
 
