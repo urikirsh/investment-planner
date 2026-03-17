@@ -110,23 +110,31 @@ class MainWindowTableEditingController:
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
-
-        if raw == "":
+        normalized_text, error = self._normalize_and_validate_quantity_text(raw)
+        if error:
+            self.warn_and_revert(item, col, raw, prev, error)
+            return False
+        if normalized_text != raw:
             host._suppress_item_changed = True
             try:
-                item.setText(col, "0")
+                item.setText(col, normalized_text)
             finally:
                 host._suppress_item_changed = False
-            return True
+        return True
+
+    @staticmethod
+    def _normalize_and_validate_quantity_text(raw: str) -> tuple[str, str | None]:
+        """Return `(normalized_text, error)` for instrument quantity edits."""
+        if raw == "":
+            return "0", None
         _parsed_quantity, error = validate_non_negative_integer_text(
             raw,
             field_label="Quantity",
             required=False,
         )
         if error:
-            self.warn_and_revert(item, col, raw, prev, error)
-            return False
-        return True
+            return raw, error
+        return raw, None
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
         """Show warning and revert edited cell to previous value under change guard."""
