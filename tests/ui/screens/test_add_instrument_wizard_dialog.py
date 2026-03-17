@@ -46,6 +46,7 @@ def wizard_dialog_factory() -> WizardDialogFactory:
 
 
 def _open_add_instrument_wizard_step_3(
+    wizard_dialog_factory: WizardDialogFactory,
     *,
     instrument_group_name: str = "Equity",
     is_non_investable_group: bool = False,
@@ -53,7 +54,7 @@ def _open_add_instrument_wizard_step_3(
     ticker: str = "AB12",
 ) -> AddInstrumentWizardDialog:
     """Create wizard dialog and navigate to step 3 with selected exchange/ticker."""
-    dialog = AddInstrumentWizardDialog(
+    dialog = wizard_dialog_factory(
         instrument_group_name=instrument_group_name,
         is_non_investable_group=is_non_investable_group,
     )
@@ -131,8 +132,10 @@ def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_on
     assert spy.count() == 1
 
 
-def test_add_instrument_wizard_units_field_rejects_non_digit_input() -> None:
-    dialog = _open_add_instrument_wizard_step_3()
+def test_add_instrument_wizard_units_field_rejects_non_digit_input(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
 
     dialog.units_edit.setText("-")
     assert not dialog.units_edit.hasAcceptableInput()
@@ -144,8 +147,14 @@ def test_add_instrument_wizard_units_field_rejects_non_digit_input() -> None:
     assert dialog.units_edit.hasAcceptableInput()
 
 
-def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid() -> None:
-    dialog = _open_add_instrument_wizard_step_3(exchange="TASE", ticker="1234567")
+def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="1234567",
+    )
 
     assert not dialog.add_step_3_btn.isEnabled()
     dialog.name_edit.setText("TA-35 ETF")
@@ -158,8 +167,10 @@ def test_add_instrument_wizard_step_3_enables_add_when_inputs_are_valid() -> Non
     assert dialog.add_step_3_btn.isEnabled()
 
 
-def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs() -> None:
-    dialog = _open_add_instrument_wizard_step_3()
+def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
     _fill_step_3_details(dialog)
 
     assert "Instrument group: Equity" in dialog.context_step_3.text()
@@ -169,8 +180,10 @@ def test_add_instrument_wizard_step_3_context_shows_only_prior_inputs() -> None:
     assert "Strategy percentage:" not in dialog.context_step_3.text()
 
 
-def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs() -> None:
-    dialog = _open_add_instrument_wizard_step_3()
+def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
     _fill_step_3_details(dialog)
 
     dialog.back_step_3_btn.click()
@@ -182,8 +195,10 @@ def test_add_instrument_wizard_exchange_change_resets_step_2_and_step_3_inputs()
     assert not dialog.next_step_2_btn.isEnabled()
 
 
-def test_add_instrument_wizard_ticker_change_resets_step_3_inputs() -> None:
-    dialog = _open_add_instrument_wizard_step_3()
+def test_add_instrument_wizard_ticker_change_resets_step_3_inputs(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
     _fill_step_3_details(dialog)
 
     dialog.back_step_3_btn.click()
