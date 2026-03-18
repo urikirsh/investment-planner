@@ -126,17 +126,22 @@ def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
 
     parsed_rows: list[_NyseRelevantRow] = []
     for row in reader:
-        normalized_row = {
-            key.strip().upper(): value.strip().upper()
-            for key, value in row.items()
-            if key is not None and value is not None
-        }
+        normalized_row = _normalize_otherlisted_row(row)
         if normalized_row.get(_FIELD_ACT_SYMBOL, "").startswith("FILE CREATION TIME"):
             continue
         maybe_row = _to_nyse_relevant_row(normalized_row)
         if maybe_row is not None:
             parsed_rows.append(maybe_row)
     return parsed_rows
+
+
+def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, str]:
+    """Normalize parsed CSV row keys/values by stripping and uppercasing."""
+    return {
+        key.strip().upper(): value.strip().upper()
+        for key, value in row.items()
+        if key is not None and value is not None
+    }
 
 
 def _looks_like_otherlisted_header(header: Sequence[str]) -> bool:
