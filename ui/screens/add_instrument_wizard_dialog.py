@@ -460,21 +460,32 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _go_to_step_3(self) -> None:
         """Block duplicate exchange+ticker first, then run optional network verification."""
-        duplicate_location = self._existing_ticker_locations.get(
-            (self._current_exchange(), self.ticker_edit.text().strip())
-        )
+        duplicate_location = self._find_duplicate_ticker_location()
         if duplicate_location is not None:
-            exchange_text = self._current_exchange().value
-            ticker_text = self.ticker_edit.text().strip()
-            show_error_with_back(
-                self,
-                "Duplicate ticker",
-                (
-                    f'Ticker "{ticker_text}" on {exchange_text} already exists in this portfolio '
-                    f"(under {duplicate_location}). Please choose a different ticker."
-                ),
-            )
+            self._show_duplicate_ticker_error(duplicate_location)
             return
+        self._start_step_2_verification_flow()
+
+    def _find_duplicate_ticker_location(self) -> str | None:
+        """Return location for duplicate `(exchange, ticker)` in portfolio, if present."""
+        key = (self._current_exchange(), self.ticker_edit.text().strip())
+        return self._existing_ticker_locations.get(key)
+
+    def _show_duplicate_ticker_error(self, duplicate_location: str) -> None:
+        """Show step-2 Back-only error modal for duplicate `(exchange, ticker)` input."""
+        exchange_text = self._current_exchange().value
+        ticker_text = self.ticker_edit.text().strip()
+        show_error_with_back(
+            self,
+            "Duplicate ticker",
+            (
+                f'Ticker "{ticker_text}" on {exchange_text} already exists in this portfolio '
+                f"(under {duplicate_location}). Please choose a different ticker."
+            ),
+        )
+
+    def _start_step_2_verification_flow(self) -> None:
+        """Run NYSE lookup when required; otherwise advance directly to details step."""
         if self._current_exchange() is Exchange.NYSE:
             if self._ticker_lookup_thread is not None:
                 return
