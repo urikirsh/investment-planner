@@ -201,10 +201,10 @@ class _TickerLookupWorker(QObject):
             self.finished.emit(
                 _TickerLookupOutcome(
                     ticker_exists=False,
-                    message_title="Ticker lookup failed",
+                    message_title="Ticker lookup network error",
                     message_text=(
-                        "Could not verify this ticker due to a communication issue. "
-                        "Please check your network connection and try again."
+                        "Could not verify this ticker due to a network/communication issue. "
+                        "Please check your connection and try again."
                     ),
                 )
             )
@@ -213,10 +213,10 @@ class _TickerLookupWorker(QObject):
             self.finished.emit(
                 _TickerLookupOutcome(
                     ticker_exists=False,
-                    message_title="Ticker lookup failed",
+                    message_title="Ticker lookup internal error",
                     message_text=(
-                        "Could not verify this ticker due to an unexpected network error. "
-                        "Please try again."
+                        "Could not verify this ticker due to an internal error. "
+                        "Please try again or restart the app."
                     ),
                 )
             )

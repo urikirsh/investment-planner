@@ -10,6 +10,7 @@ from typing import Protocol
 import pytest
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
+from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
 
@@ -333,7 +334,7 @@ def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
     assert "selected exchange" in shown[0][1]
 
 
-def test_add_instrument_wizard_step_2_blocks_network_error_with_back_modal(
+def test_add_instrument_wizard_step_2_shows_network_error_message_for_communication_failure(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -342,7 +343,7 @@ def test_add_instrument_wizard_step_2_blocks_network_error_with_back_modal(
 
     def _raise_network(*, exchange: object, ticker: object) -> bool:
         _ = (exchange, ticker)
-        raise RuntimeError("offline")
+        raise TickerLookupCommunicationError("offline")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
@@ -360,8 +361,39 @@ def test_add_instrument_wizard_step_2_blocks_network_error_with_back_modal(
 
     _wait_until(lambda: len(shown) == 1)
     assert dialog.pages.currentIndex() == 1
-    assert shown[0][0] == "Ticker lookup failed"
-    assert "network" in shown[0][1].lower() or "communication" in shown[0][1].lower()
+    assert shown[0][0] == "Ticker lookup network error"
+    assert "network/communication issue" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpected_lookup_exception(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown: list[tuple[str, str]] = []
+
+    def _raise_internal(*, exchange: object, ticker: object) -> bool:
+        _ = (exchange, ticker)
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _raise_internal,
+    )
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("AB12")
+    dialog.next_step_2_btn.click()
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker lookup internal error"
+    assert "internal error" in shown[0][1].lower()
 
 
 def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
