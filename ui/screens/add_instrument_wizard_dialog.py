@@ -354,6 +354,7 @@ class AddInstrumentWizardDialog(QDialog):
         form = QFormLayout()
         self.ticker_edit = QLineEdit(page)
         self.ticker_edit.textChanged.connect(self._on_ticker_changed)
+        self.ticker_edit.returnPressed.connect(self._on_step_2_ticker_return_pressed)
         form.addRow("Ticker:", self.ticker_edit)
         layout.addLayout(form)
 
@@ -596,6 +597,12 @@ class AddInstrumentWizardDialog(QDialog):
             self._last_ticker = current_ticker
         self._refresh_context_labels()
         self._update_step_2_validity()
+
+    def _on_step_2_ticker_return_pressed(self) -> None:
+        """Advance from step 2 on Enter when ticker is valid and Next is enabled."""
+        if not self.next_step_2_btn.isEnabled():
+            return
+        self._go_to_step_3()
 
     def _sync_exchange_ticker_validator(self) -> None:
         """Swap ticker regex/placeholder/max-length based on selected exchange."""

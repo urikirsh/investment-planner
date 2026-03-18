@@ -8,7 +8,8 @@ import time
 from typing import Protocol
 
 import pytest
-from PySide6.QtTest import QSignalSpy
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError
@@ -224,6 +225,38 @@ def test_add_instrument_wizard_step_2_nyse_ticker_limits_length_and_symbol_chars
 
     dialog.ticker_edit.setText("AB-12")
     assert dialog.ticker_edit.text() == "AB12"
+
+
+def test_add_instrument_wizard_step_2_enter_advances_when_next_enabled(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="AB12",
+    )
+    dialog.ticker_edit.setFocus()
+
+    assert dialog.next_step_2_btn.isEnabled() is True
+    QTest.keyClick(dialog.ticker_edit, Qt.Key.Key_Return)
+
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
+
+
+def test_add_instrument_wizard_step_2_enter_does_not_advance_when_next_disabled(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="1234",
+    )
+    dialog.ticker_edit.setFocus()
+
+    assert dialog.next_step_2_btn.isEnabled() is False
+    QTest.keyClick(dialog.ticker_edit, Qt.Key.Key_Return)
+
+    assert dialog.pages.currentIndex() == 1
 
 
 def test_add_instrument_wizard_units_field_rejects_non_digit_input(
