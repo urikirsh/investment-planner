@@ -468,8 +468,7 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _find_duplicate_ticker_location(self) -> str | None:
         """Return location for duplicate `(exchange, ticker)` in portfolio, if present."""
-        key = (self._current_exchange(), self.ticker_edit.text().strip())
-        return self._existing_ticker_locations.get(key)
+        return self._existing_ticker_locations.get(self._current_step_2_key())
 
     def _show_duplicate_ticker_error(self, duplicate_location: str) -> None:
         """Show step-2 Back-only error modal for duplicate `(exchange, ticker)` input."""
@@ -478,8 +477,8 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _format_duplicate_ticker_error(self, duplicate_location: str) -> tuple[str, str]:
         """Build `(title, message)` shown when `(exchange, ticker)` already exists."""
-        exchange_text = self._current_exchange().value
-        ticker_text = self.ticker_edit.text().strip()
+        exchange, ticker_text = self._current_step_2_key()
+        exchange_text = exchange.value
         return (
             "Duplicate ticker",
             (
@@ -487,6 +486,10 @@ class AddInstrumentWizardDialog(QDialog):
                 f"(under {duplicate_location}). Please choose a different ticker."
             ),
         )
+
+    def _current_step_2_key(self) -> _ExchangeTickerKey:
+        """Return current step-2 `(exchange, ticker)` key used for duplicate checks."""
+        return (self._current_exchange(), self.ticker_edit.text().strip())
 
     def _start_step_2_verification_flow(self) -> None:
         """Run NYSE lookup when required; otherwise advance directly to details step."""
