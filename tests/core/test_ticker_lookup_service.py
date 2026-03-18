@@ -4,6 +4,7 @@ from urllib.error import URLError
 
 import pytest
 
+import portfolio_core.ticker_lookup_service as ticker_lookup_service
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
 
@@ -21,6 +22,11 @@ class _FakeResponse:
     def __exit__(self, exc_type, exc, tb) -> None:
         _ = (exc_type, exc, tb)
         return None
+
+
+@pytest.fixture(autouse=True)
+def _reset_lookup_cache() -> None:
+    ticker_lookup_service._nyse_lookup_cache = None
 
 
 def test_check_ticker_exists_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,3 +125,67 @@ def test_check_ticker_exists_in_exchange_raises_communication_error_for_invalid_
 
     with pytest.raises(TickerLookupCommunicationError):
         check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+
+def test_check_ticker_exists_in_exchange_uses_cached_rows_without_refetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = (
+        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
+        "File Creation Time: 0317202611:00\n"
+    ).encode("utf-8")
+    calls = {"count": 0}
+
+    def _urlopen_counted(*_args, **_kwargs) -> _FakeResponse:
+        calls["count"] += 1
+        return _FakeResponse(raw)
+
+    monkeypatch.setattr("portfolio_core.ticker_lookup_service.urlopen", _urlopen_counted)
+
+    assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
+    assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
+    assert calls["count"] == 1
+
+
+def test_check_ticker_exists_in_exchange_uses_session_cache_without_expiry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = (
+        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
+        "File Creation Time: 0317202611:00\n"
+    ).encode("utf-8")
+    calls = {"count": 0}
+
+    def _urlopen_counted(*_args, **_kwargs) -> _FakeResponse:
+        calls["count"] += 1
+        return _FakeResponse(raw)
+
+    monkeypatch.setattr("portfolio_core.ticker_lookup_service.urlopen", _urlopen_counted)
+
+    assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
+    assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
+    assert calls["count"] == 1
+
+
+def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = (
+        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
+        "QQQX|Sample Nasdaq Symbol|Q|QQQX|Y|100|N|QQQX\n"
+        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY\n"
+        "File Creation Time: 0317202611:00\n"
+    ).encode("utf-8")
+    monkeypatch.setattr(
+        "portfolio_core.ticker_lookup_service.urlopen",
+        lambda *_args, **_kwargs: _FakeResponse(raw),
+    )
+
+    assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
+    cache = ticker_lookup_service._nyse_lookup_cache
+    assert cache is not None
+    cached_symbols = {row.act_symbol for row in cache.rows}
+    assert cached_symbols == {"AAPL", "AAPY"}

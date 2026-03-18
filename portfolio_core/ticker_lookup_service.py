@@ -6,6 +6,7 @@ Current behavior is intentionally scoped to NYSE validation only. TASE lookup
 is not implemented in this service yet.
 """
 
+from dataclasses import dataclass
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -26,6 +27,23 @@ class TickerLookupCommunicationError(Exception):
     """Raised when ticker lookup cannot be completed due to communication/parsing errors."""
 
 
+@dataclass(frozen=True)
+class _NyseRelevantRow:
+    """Minimal cached row used for NYSE ticker existence checks."""
+
+    act_symbol: str
+
+
+@dataclass
+class _NyseLookupCache:
+    """In-memory cache of NYSE-relevant rows for app-session reuse."""
+
+    rows: list[_NyseRelevantRow]
+
+
+_nyse_lookup_cache: _NyseLookupCache | None = None
+
+
 def check_ticker_exists_in_exchange(
     *,
     exchange: Exchange,
@@ -43,11 +61,21 @@ def check_ticker_exists_in_exchange(
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
         return False
+    rows = _get_cached_or_fetch_nyse_rows(timeout_seconds=timeout_seconds)
+    return any(row.act_symbol == normalized_ticker for row in rows)
+
+
+def _get_cached_or_fetch_nyse_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
+    """Return NYSE-relevant rows from session cache or fetch from Nasdaq Trader."""
+    global _nyse_lookup_cache
+    if _nyse_lookup_cache is not None:
+        return _nyse_lookup_cache.rows
     rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
-    return any(_row_matches_nyse_ticker(row=row, ticker=normalized_ticker) for row in rows)
+    _nyse_lookup_cache = _NyseLookupCache(rows=rows)
+    return rows
 
 
-def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[dict[str, str]]:
+def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
     """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
     request = Request(_NASDAQ_OTHERLISTED_URL, headers=_REQUEST_HEADERS)
     try:
@@ -58,8 +86,8 @@ def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[dict[str, str]]:
     return _parse_otherlisted_text(body)
 
 
-def _parse_otherlisted_text(raw_text: str) -> list[dict[str, str]]:
-    """Parse `otherlisted.txt` content into uppercase keyed row dictionaries."""
+def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
+    """Parse `otherlisted.txt` into NYSE-relevant rows only (`N/A/P/Z`)."""
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
     if not lines:
         raise TickerLookupCommunicationError("Nasdaq Trader symbol directory response is empty")
@@ -67,7 +95,7 @@ def _parse_otherlisted_text(raw_text: str) -> list[dict[str, str]]:
     if not _looks_like_otherlisted_header(header):
         raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
 
-    parsed_rows: list[dict[str, str]] = []
+    parsed_rows: list[_NyseRelevantRow] = []
     for line in lines[1:]:
         if line.startswith("File Creation Time"):
             continue
@@ -75,7 +103,9 @@ def _parse_otherlisted_text(raw_text: str) -> list[dict[str, str]]:
         if len(values) != len(header):
             continue
         row = {header[idx].strip().upper(): values[idx].strip().upper() for idx in range(len(header))}
-        parsed_rows.append(row)
+        maybe_row = _to_nyse_relevant_row(row)
+        if maybe_row is not None:
+            parsed_rows.append(maybe_row)
     return parsed_rows
 
 
@@ -86,6 +116,11 @@ def _looks_like_otherlisted_header(header: list[str]) -> bool:
     return required.issubset(normalized)
 
 
-def _row_matches_nyse_ticker(*, row: dict[str, str], ticker: str) -> bool:
-    """Return whether one parsed row represents the requested NYSE ticker."""
-    return row.get("ACT SYMBOL", "") == ticker and row.get("EXCHANGE", "") in _NYSE_ACCEPTED_EXCHANGE_CODES
+def _to_nyse_relevant_row(row: dict[str, str]) -> _NyseRelevantRow | None:
+    """Return minimal cached row when exchange code is NYSE-relevant, otherwise ``None``."""
+    if row.get("EXCHANGE", "") not in _NYSE_ACCEPTED_EXCHANGE_CODES:
+        return None
+    act_symbol = row.get("ACT SYMBOL", "")
+    if not act_symbol:
+        return None
+    return _NyseRelevantRow(act_symbol=act_symbol)
