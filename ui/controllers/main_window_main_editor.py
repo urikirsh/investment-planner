@@ -2,14 +2,14 @@ from __future__ import annotations
 
 """Main-editor screen setup and row-level editing actions."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from typing import cast
 
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
 
 from portfolio_core.models import Exchange
 from portfolio_core.planning_types import PlanningMode
-from portfolio_core.ticker_rules import normalize_nyse_ticker, normalize_tase_ticker
+from portfolio_core.ticker_rules import normalize_ticker_for_exchange
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
@@ -19,11 +19,6 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, AddInstrumentWizardResult
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
-
-_EXCHANGE_TICKER_NORMALIZERS: dict[Exchange, Callable[[str], str]] = {
-    Exchange.TASE: normalize_tase_ticker,
-    Exchange.NYSE: normalize_nyse_ticker,
-}
 
 
 class MainWindowMainEditorController:
@@ -77,7 +72,7 @@ class MainWindowMainEditorController:
             except ValueError:
                 continue
             ticker_text = child.text(Col.TICKER.value).strip()
-            normalized_ticker = _EXCHANGE_TICKER_NORMALIZERS[exchange](ticker_text).strip()
+            normalized_ticker = normalize_ticker_for_exchange(exchange=exchange, raw=ticker_text).strip()
             if not normalized_ticker:
                 continue
             key = (exchange, normalized_ticker)

@@ -47,8 +47,7 @@ from portfolio_core.ticker_rules import (
     TASE_TICKER_PLACEHOLDER,
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
-    normalize_nyse_ticker,
-    normalize_tase_ticker,
+    normalize_ticker_for_exchange,
 )
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
@@ -71,7 +70,6 @@ class _TickerRule:
     validator_pattern: str
     placeholder: str
     error_text: str
-    normalize: Callable[[str], str]
     is_complete: Callable[[str], bool]
 
 
@@ -81,7 +79,6 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         validator_pattern=TASE_TICKER_INPUT_PATTERN,
         placeholder=TASE_TICKER_PLACEHOLDER,
         error_text=TASE_TICKER_ERROR,
-        normalize=normalize_tase_ticker,
         is_complete=is_complete_tase_ticker,
     ),
     Exchange.NYSE: _TickerRule(
@@ -89,7 +86,6 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         validator_pattern=NYSE_TICKER_INPUT_PATTERN,
         placeholder=NYSE_TICKER_PLACEHOLDER,
         error_text=NYSE_TICKER_ERROR,
-        normalize=normalize_nyse_ticker,
         is_complete=is_complete_nyse_ticker,
     ),
 }
@@ -566,9 +562,8 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _on_ticker_changed(self, _value: str) -> None:
         """Normalize ticker text as user types and revalidate step 2."""
-        rule = self._current_ticker_rule()
         raw = self.ticker_edit.text()
-        normalized = rule.normalize(raw)
+        normalized = normalize_ticker_for_exchange(exchange=self._current_exchange(), raw=raw)
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
             # Prevent recursive textChanged while preserving cursor position.
