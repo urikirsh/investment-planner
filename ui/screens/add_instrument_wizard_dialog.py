@@ -450,12 +450,20 @@ class AddInstrumentWizardDialog(QDialog):
     def _go_to_step_3(self) -> None:
         """Run ticker network verification before advancing from step 2 to step 3."""
         if self._current_exchange() is not Exchange.NYSE:
-            self._set_page(_WizardPage.DETAILS)
-            self._refresh_context_labels()
-            self._update_step_3_validity()
+            self._advance_to_step_3()
             return
         if self._ticker_lookup_thread is not None:
             return
+        self._begin_ticker_lookup()
+
+    def _advance_to_step_3(self) -> None:
+        """Advance wizard to step 3 and refresh dependent context/validation state."""
+        self._set_page(_WizardPage.DETAILS)
+        self._refresh_context_labels()
+        self._update_step_3_validity()
+
+    def _begin_ticker_lookup(self) -> None:
+        """Create and start async ticker-lookup worker/thread wiring for step 2."""
         self._set_step_2_actions_enabled(False)
         self._ticker_lookup_overlay.show_overlay()
         worker = _TickerLookupWorker(
@@ -474,6 +482,13 @@ class AddInstrumentWizardDialog(QDialog):
         self._ticker_lookup_thread = thread
         thread.start()
 
+    def _teardown_ticker_lookup(self) -> None:
+        """Restore UI/action state and clear worker/thread references after lookup completion."""
+        self._ticker_lookup_overlay.hide_overlay()
+        self._set_step_2_actions_enabled(True)
+        self._ticker_lookup_worker = None
+        self._ticker_lookup_thread = None
+
     def _set_page(self, page: _WizardPage) -> None:
         """Switch stacked wizard content to a typed page identifier."""
         self.pages.setCurrentIndex(int(page))
@@ -482,14 +497,9 @@ class AddInstrumentWizardDialog(QDialog):
     def _on_ticker_lookup_finished(self, payload: object) -> None:
         """Handle async ticker check result and continue/block wizard flow."""
         outcome = cast(_TickerLookupOutcome, payload)
-        self._ticker_lookup_overlay.hide_overlay()
-        self._set_step_2_actions_enabled(True)
-        self._ticker_lookup_worker = None
-        self._ticker_lookup_thread = None
+        self._teardown_ticker_lookup()
         if outcome.ticker_exists:
-            self._set_page(_WizardPage.DETAILS)
-            self._refresh_context_labels()
-            self._update_step_3_validity()
+            self._advance_to_step_3()
             return
         self._set_page(_WizardPage.TICKER)
         show_error_with_back(self, outcome.message_title, outcome.message_text)
