@@ -188,8 +188,6 @@ def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
     assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
     cache = ticker_lookup_service._nyse_lookup_store.get_cached_for_tests()
     assert cache is not None
-    cached_symbols = {row.act_symbol for row in cache.rows}
-    assert cached_symbols == {"AAPL", "AAPY"}
     assert set(cache.rows_by_symbol.keys()) == {"AAPL", "AAPY"}
     assert cache.rows_by_symbol["AAPL"].act_symbol == "AAPL"
 

@@ -183,7 +183,7 @@ FX thread-safety guards in this flow:
   - Nasdaq Trader symbol-directory lookup boundary for ticker existence
   - NYSE is verified via `otherlisted.txt` rows with exchange codes `N`, `A`, `P`, and `Z`
   - parses `otherlisted.txt` using Python `csv` with pipe delimiter (`|`) and skips the provider footer row
-  - keeps an immutable in-memory app-session cache of NYSE-relevant rows plus a symbol index map (filtered by exchange code, not by ticker)
+  - keeps an immutable in-memory app-session cache of NYSE symbol index entries (filtered by exchange code, not by ticker)
   - TASE network lookup is intentionally not implemented yet
   - raises typed communication errors on network/payload failures
 - `portfolio_core/portfolio_document.py`

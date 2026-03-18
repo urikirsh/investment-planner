@@ -43,9 +43,8 @@ class _NyseRelevantRow:
 
 @dataclass(frozen=True)
 class _NyseLookupCache:
-    """In-memory cache of NYSE-relevant rows and symbol index for app-session reuse."""
+    """In-memory cache of NYSE symbol index for app-session reuse."""
 
-    rows: tuple[_NyseRelevantRow, ...]
     rows_by_symbol: Mapping[str, _NyseRelevantRow]
 
 
@@ -58,7 +57,7 @@ class _NyseLookupCacheStore:
         self._lock = Lock()
 
     def get_or_load(self, *, timeout_seconds: float) -> _NyseLookupCache:
-        """Return cached NYSE rows/index, loading once on first access."""
+        """Return cached NYSE symbol index, loading once on first access."""
         if self._cache is not None:
             return self._cache
 
@@ -68,7 +67,7 @@ class _NyseLookupCacheStore:
                 return self._cache
             rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
             rows_by_symbol = MappingProxyType({row.act_symbol: row for row in rows})
-            self._cache = _NyseLookupCache(rows=tuple(rows), rows_by_symbol=rows_by_symbol)
+            self._cache = _NyseLookupCache(rows_by_symbol=rows_by_symbol)
             return self._cache
 
     def clear_for_tests(self) -> None:
