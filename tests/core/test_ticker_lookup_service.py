@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from threading import Barrier, Thread
+import time
 from urllib.error import URLError
 
 import pytest
@@ -189,3 +191,40 @@ def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
     assert cache is not None
     cached_symbols = {row.act_symbol for row in cache.rows}
     assert cached_symbols == {"AAPL", "AAPY"}
+
+
+def test_check_ticker_exists_in_exchange_populates_cache_once_under_concurrency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = (
+        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
+        "File Creation Time: 0317202611:00\n"
+    ).encode("utf-8")
+    calls = {"count": 0}
+    barrier = Barrier(3)
+
+    def _urlopen_counted(*_args, **_kwargs) -> _FakeResponse:
+        calls["count"] += 1
+        # Hold the first fetch briefly so both worker threads compete for cold cache.
+        time.sleep(0.05)
+        return _FakeResponse(raw)
+
+    monkeypatch.setattr("portfolio_core.ticker_lookup_service.urlopen", _urlopen_counted)
+
+    results: list[bool] = []
+
+    def _worker() -> None:
+        barrier.wait()
+        results.append(check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"))
+
+    t1 = Thread(target=_worker)
+    t2 = Thread(target=_worker)
+    t1.start()
+    t2.start()
+    barrier.wait()
+    t1.join()
+    t2.join()
+
+    assert results == [True, True]
+    assert calls["count"] == 1

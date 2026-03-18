@@ -7,6 +7,7 @@ is not implemented in this service yet.
 """
 
 from dataclasses import dataclass
+from threading import Lock
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -42,6 +43,7 @@ class _NyseLookupCache:
 
 
 _nyse_lookup_cache: _NyseLookupCache | None = None
+_nyse_lookup_lock = Lock()
 
 
 def check_ticker_exists_in_exchange(
@@ -70,9 +72,14 @@ def _get_cached_or_fetch_nyse_rows(*, timeout_seconds: float) -> list[_NyseRelev
     global _nyse_lookup_cache
     if _nyse_lookup_cache is not None:
         return _nyse_lookup_cache.rows
-    rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
-    _nyse_lookup_cache = _NyseLookupCache(rows=rows)
-    return rows
+
+    # Double-checked locking so only one thread populates cache at cold start.
+    with _nyse_lookup_lock:
+        if _nyse_lookup_cache is not None:
+            return _nyse_lookup_cache.rows
+        rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
+        _nyse_lookup_cache = _NyseLookupCache(rows=rows)
+        return rows
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
