@@ -185,34 +185,49 @@ class _TickerLookupWorker(QObject):
         self._ticker = ticker
         self._checker = checker
 
+    @staticmethod
+    def _network_error_outcome() -> _TickerLookupOutcome:
+        """Build outcome payload for network/communication lookup failures."""
+        return _TickerLookupOutcome(
+            ticker_exists=False,
+            message_title="Ticker lookup network error",
+            message_text=(
+                "Could not verify this ticker due to a network/communication issue. "
+                "Please check your connection and try again."
+            ),
+        )
+
+    @staticmethod
+    def _internal_error_outcome() -> _TickerLookupOutcome:
+        """Build outcome payload for unexpected internal lookup failures."""
+        return _TickerLookupOutcome(
+            ticker_exists=False,
+            message_title="Ticker lookup internal error",
+            message_text=(
+                "Could not verify this ticker due to an internal error. "
+                "Please try again or restart the app."
+            ),
+        )
+
+    @staticmethod
+    def _not_found_outcome() -> _TickerLookupOutcome:
+        """Build outcome payload for missing symbol on selected exchange."""
+        return _TickerLookupOutcome(
+            ticker_exists=False,
+            message_title="Ticker not found",
+            message_text="Ticker was not found on the selected exchange. Please review and try again.",
+        )
+
     @Slot()
     def run(self) -> None:
         """Run blocking ticker lookup and emit typed outcome for UI thread handling."""
         try:
             exists = self._checker(exchange=self._exchange, ticker=self._ticker)
         except TickerLookupCommunicationError:
-            self.finished.emit(
-                _TickerLookupOutcome(
-                    ticker_exists=False,
-                    message_title="Ticker lookup network error",
-                    message_text=(
-                        "Could not verify this ticker due to a network/communication issue. "
-                        "Please check your connection and try again."
-                    ),
-                )
-            )
+            self.finished.emit(self._network_error_outcome())
             return
         except Exception:
-            self.finished.emit(
-                _TickerLookupOutcome(
-                    ticker_exists=False,
-                    message_title="Ticker lookup internal error",
-                    message_text=(
-                        "Could not verify this ticker due to an internal error. "
-                        "Please try again or restart the app."
-                    ),
-                )
-            )
+            self.finished.emit(self._internal_error_outcome())
             return
 
         if exists:
@@ -224,13 +239,7 @@ class _TickerLookupWorker(QObject):
                 )
             )
             return
-        self.finished.emit(
-            _TickerLookupOutcome(
-                ticker_exists=False,
-                message_title="Ticker not found",
-                message_text="Ticker was not found on the selected exchange. Please review and try again.",
-            )
-        )
+        self.finished.emit(self._not_found_outcome())
 
 
 class AddInstrumentWizardDialog(QDialog):
