@@ -18,6 +18,8 @@ from portfolio_core.models import Exchange
 
 _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
 _NYSE_ACCEPTED_EXCHANGE_CODES = {"N", "A", "P", "Z"}
+_FIELD_ACT_SYMBOL = "ACT SYMBOL"
+_FIELD_EXCHANGE = "EXCHANGE"
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -129,7 +131,7 @@ def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
             for key, value in row.items()
             if key is not None and value is not None
         }
-        if normalized_row.get("ACT SYMBOL", "").startswith("FILE CREATION TIME"):
+        if normalized_row.get(_FIELD_ACT_SYMBOL, "").startswith("FILE CREATION TIME"):
             continue
         maybe_row = _to_nyse_relevant_row(normalized_row)
         if maybe_row is not None:
@@ -140,15 +142,15 @@ def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
 def _looks_like_otherlisted_header(header: Sequence[str]) -> bool:
     """Return whether header columns match expected `otherlisted.txt` identifiers."""
     normalized = {item.strip().upper() for item in header}
-    required = {"ACT SYMBOL", "EXCHANGE"}
+    required = {_FIELD_ACT_SYMBOL, _FIELD_EXCHANGE}
     return required.issubset(normalized)
 
 
 def _to_nyse_relevant_row(row: dict[str, str]) -> _NyseRelevantRow | None:
     """Return minimal cached row when exchange code is NYSE-relevant, otherwise ``None``."""
-    if row.get("EXCHANGE", "") not in _NYSE_ACCEPTED_EXCHANGE_CODES:
+    if row.get(_FIELD_EXCHANGE, "") not in _NYSE_ACCEPTED_EXCHANGE_CODES:
         return None
-    act_symbol = row.get("ACT SYMBOL", "")
+    act_symbol = row.get(_FIELD_ACT_SYMBOL, "")
     if not act_symbol:
         return None
     return _NyseRelevantRow(act_symbol=act_symbol)
