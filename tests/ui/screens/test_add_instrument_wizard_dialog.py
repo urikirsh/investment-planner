@@ -108,6 +108,21 @@ def _submit_nyse_step_2(
     dialog.next_step_2_btn.click()
 
 
+def _open_add_instrument_wizard_step_2(
+    wizard_dialog_factory: WizardDialogFactory,
+    *,
+    exchange: str = "NYSE",
+    ticker: str = "AB12",
+    existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
+) -> AddInstrumentWizardDialog:
+    """Create wizard dialog and navigate to step 2 with selected exchange/ticker."""
+    dialog = wizard_dialog_factory(existing_ticker_locations=existing_ticker_locations)
+    dialog.exchange_combo.setCurrentText(exchange)
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText(ticker)
+    return dialog
+
+
 def _capture_back_modal_messages(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     """Patch Back-only error modal helper and return captured `(title, message)` list."""
     shown: list[tuple[str, str]] = []
@@ -351,7 +366,10 @@ def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_ny
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[object, object]] = []
-    dialog = wizard_dialog_factory(
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="AB12",
         existing_ticker_locations={(Exchange.NYSE, "AB12"): "US Equity"},
     )
     shown = _capture_back_modal_messages(monkeypatch)
@@ -379,14 +397,14 @@ def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_fo
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dialog = wizard_dialog_factory(
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="1234567",
         existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
-    dialog.exchange_combo.setCurrentText("TASE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("1234567")
     dialog.next_step_2_btn.click()
 
     assert dialog.pages.currentIndex() == 1
@@ -400,7 +418,10 @@ def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dialog = wizard_dialog_factory(
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="1234567",
         existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
     )
     shown = _capture_back_modal_messages(monkeypatch)
@@ -409,7 +430,7 @@ def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
         lambda *, exchange, ticker: bool(exchange) and bool(ticker),
     )
 
-    _submit_nyse_step_2(dialog, ticker="1234567")
+    dialog.next_step_2_btn.click()
 
     _wait_until(lambda: dialog.pages.currentIndex() == 2)
     assert shown == []
