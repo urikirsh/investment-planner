@@ -333,7 +333,9 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     dialog.name_edit.setText("  World ETF  ")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
-    dialog.add_step_3_btn.click()
+    assert dialog.add_step_3_btn.isEnabled() is False
+    assert "already exists in this portfolio" in dialog.name_error_label.text()
+    dialog._accept_result()
 
     assert shown
     assert shown[0][0] == "Duplicate instrument name"
@@ -383,8 +385,9 @@ def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_ny
         _checker,
     )
 
-    _submit_nyse_step_2(dialog)
-
+    assert dialog.next_step_2_btn.isEnabled() is False
+    assert "already exists for this exchange" in dialog.ticker_error_label.text()
+    dialog._go_to_step_3()
     assert dialog.pages.currentIndex() == 1
     assert shown
     assert shown[0][0] == "Duplicate ticker"
@@ -405,8 +408,9 @@ def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_fo
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
-    dialog.next_step_2_btn.click()
-
+    assert dialog.next_step_2_btn.isEnabled() is False
+    assert "already exists for this exchange" in dialog.ticker_error_label.text()
+    dialog._go_to_step_3()
     assert dialog.pages.currentIndex() == 1
     assert shown
     assert shown[0][0] == "Duplicate ticker"
