@@ -218,6 +218,15 @@ class _TickerLookupWorker(QObject):
             message_text="Ticker was not found on the selected exchange. Please review and try again.",
         )
 
+    @staticmethod
+    def _success_outcome() -> _TickerLookupOutcome:
+        """Build outcome payload for successful ticker verification."""
+        return _TickerLookupOutcome(
+            ticker_exists=True,
+            message_title="",
+            message_text="",
+        )
+
     @Slot()
     def run(self) -> None:
         """Run blocking ticker lookup and emit typed outcome for UI thread handling."""
@@ -231,13 +240,7 @@ class _TickerLookupWorker(QObject):
             return
 
         if exists:
-            self.finished.emit(
-                _TickerLookupOutcome(
-                    ticker_exists=True,
-                    message_title="",
-                    message_text="",
-                )
-            )
+            self.finished.emit(self._success_outcome())
             return
         self.finished.emit(self._not_found_outcome())
 
