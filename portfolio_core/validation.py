@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
-import re
 from typing import Dict
 
 from portfolio_core.models import Exchange, Portfolio
+from portfolio_core.ticker_rules import (
+    is_complete_nyse_ticker,
+    is_complete_tase_ticker,
+)
 
 """
 validation.py
@@ -20,8 +23,6 @@ No UI, persistence, or calculation logic belongs in this module.
 """
 
 D = Decimal
-TASE_TICKER_RE = re.compile(r"^\d{7}$")
-NYSE_TICKER_RE = re.compile(r"^(?=.{1,14}$)(?!.*\..*\.)(?!.*\.$)[A-Z0-9][A-Z0-9.]*$")
 
 
 def _allowed_exchange_values_text() -> str:
@@ -226,9 +227,9 @@ def _validate_instrument_ticker(name: str, ticker: str, exchange: Exchange) -> N
     if not normalized_ticker:
         raise ValueError(f"Instrument '{name}' ticker must be non-empty")
 
-    if exchange is Exchange.TASE and not TASE_TICKER_RE.fullmatch(normalized_ticker):
+    if exchange is Exchange.TASE and not is_complete_tase_ticker(normalized_ticker):
         raise ValueError(f"Instrument '{name}' ticker for TASE must be exactly 7 digits")
-    if exchange is Exchange.NYSE and not NYSE_TICKER_RE.fullmatch(normalized_ticker):
+    if exchange is Exchange.NYSE and not is_complete_nyse_ticker(normalized_ticker):
         raise ValueError(
             f"Instrument '{name}' ticker for NYSE must be 1 to 14 uppercase letters/digits, optionally one dot"
         )

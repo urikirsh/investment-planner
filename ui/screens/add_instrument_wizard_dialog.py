@@ -14,7 +14,6 @@ editing without closing the wizard.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-import re
 from typing import cast
 
 from PySide6.QtCore import QObject, QRegularExpression, QSignalBlocker, QThread, Qt, Signal, Slot
@@ -36,6 +35,20 @@ from PySide6.QtWidgets import (
 )
 
 from portfolio_core.models import Exchange
+from portfolio_core.ticker_rules import (
+    NYSE_TICKER_ERROR,
+    NYSE_TICKER_INPUT_PATTERN,
+    NYSE_TICKER_MAX_LENGTH,
+    NYSE_TICKER_PLACEHOLDER,
+    TASE_TICKER_ERROR,
+    TASE_TICKER_INPUT_PATTERN,
+    TASE_TICKER_MAX_LENGTH,
+    TASE_TICKER_PLACEHOLDER,
+    is_complete_nyse_ticker,
+    is_complete_tase_ticker,
+    normalize_nyse_ticker,
+    normalize_tase_ticker,
+)
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
@@ -59,42 +72,22 @@ class _TickerRule:
     is_complete: Callable[[str], bool]
 
 
-def _normalize_tase_ticker(raw: str) -> str:
-    """Normalize TASE ticker text to digits only."""
-    return "".join(ch for ch in raw if ch.isdigit())
-
-
-def _normalize_nyse_ticker(raw: str) -> str:
-    """Normalize NYSE ticker text to uppercase ASCII alphanumerics plus dot."""
-    return "".join(ch for ch in raw if ch.isascii() and (ch.isalnum() or ch == ".")).upper()
-
-
-def _is_tase_ticker_complete(ticker: str) -> bool:
-    """Return whether normalized TASE ticker is complete."""
-    return len(ticker) == 7 and ticker.isdigit()
-
-
-def _is_nyse_ticker_complete(ticker: str) -> bool:
-    """Return whether normalized NYSE ticker is complete."""
-    return bool(re.fullmatch(r"^(?=.{1,14}$)(?!.*\..*\.)(?!.*\.$)[A-Z0-9][A-Z0-9.]*$", ticker))
-
-
 _TICKER_RULES: dict[Exchange, _TickerRule] = {
     Exchange.TASE: _TickerRule(
-        max_length=7,
-        validator_pattern=r"^\d{0,7}$",
-        placeholder="7 digits (e.g. 1234567)",
-        error_text="Ticker for TASE must be exactly 7 digits.",
-        normalize=_normalize_tase_ticker,
-        is_complete=_is_tase_ticker_complete,
+        max_length=TASE_TICKER_MAX_LENGTH,
+        validator_pattern=TASE_TICKER_INPUT_PATTERN,
+        placeholder=TASE_TICKER_PLACEHOLDER,
+        error_text=TASE_TICKER_ERROR,
+        normalize=normalize_tase_ticker,
+        is_complete=is_complete_tase_ticker,
     ),
     Exchange.NYSE: _TickerRule(
-        max_length=14,
-        validator_pattern=r"^(?=.{0,14}$)(?!.*\..*\.)(?:[A-Za-z0-9][A-Za-z0-9.]*|)$",
-        placeholder="1-14 uppercase letters/digits, optional one dot (e.g. BRK.B)",
-        error_text="Ticker for NYSE must be 1-14 uppercase letters/digits, optionally one dot.",
-        normalize=_normalize_nyse_ticker,
-        is_complete=_is_nyse_ticker_complete,
+        max_length=NYSE_TICKER_MAX_LENGTH,
+        validator_pattern=NYSE_TICKER_INPUT_PATTERN,
+        placeholder=NYSE_TICKER_PLACEHOLDER,
+        error_text=NYSE_TICKER_ERROR,
+        normalize=normalize_nyse_ticker,
+        is_complete=is_complete_nyse_ticker,
     ),
 }
 
