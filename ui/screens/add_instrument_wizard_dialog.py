@@ -8,9 +8,10 @@ The dialog is intentionally self-contained and keeps a 3-step flow:
 3. enter name + strategy percentage + units and confirm add
 
 Step 2 blocks duplicate `(exchange, ticker)` combinations already present in
-the portfolio, and the final step protects against duplicate instrument names
-(case-insensitive). Both use a Back-only modal so the user can keep editing
-without closing the wizard.
+the portfolio with inline validation before `Next` can run verification. The
+final step similarly blocks duplicate instrument names (case-insensitive)
+inline before `Add` can be used. Both keep a Back-only modal as a defensive
+guard when submit handlers are invoked directly.
 """
 
 from dataclasses import dataclass
