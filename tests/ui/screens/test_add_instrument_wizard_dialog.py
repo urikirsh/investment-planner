@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
+import time
 from typing import Protocol
 
 import pytest
 from PySide6.QtTest import QSignalSpy
+from PySide6.QtWidgets import QApplication
+from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
 
@@ -24,6 +28,15 @@ class WizardDialogFactory(Protocol):
 def _ensure_qapp(qapp: object) -> None:
     """Ensure a QApplication exists for all tests in this module."""
     _ = qapp
+
+
+@pytest.fixture(autouse=True)
+def _mock_ticker_lookup_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default ticker lookup mock for deterministic wizard tests."""
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        lambda *, exchange, ticker: bool(exchange) and bool(ticker),
+    )
 
 
 @pytest.fixture
@@ -62,6 +75,7 @@ def _open_add_instrument_wizard_step_3(
     dialog.next_step_1_btn.click()
     dialog.ticker_edit.setText(ticker)
     dialog.next_step_2_btn.click()
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
     return dialog
 
 
@@ -76,6 +90,41 @@ def _fill_step_3_details(
     dialog.name_edit.setText(name)
     dialog.target_pct_edit.setText(target_pct)
     dialog.units_edit.setText(units)
+
+
+def _submit_nyse_step_2(
+    dialog: AddInstrumentWizardDialog,
+    *,
+    ticker: str = "AB12",
+) -> None:
+    """Navigate to step 2 with NYSE selected and submit ticker lookup."""
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText(ticker)
+    dialog.next_step_2_btn.click()
+
+
+def _capture_back_modal_messages(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    """Patch Back-only error modal helper and return captured `(title, message)` list."""
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+    return shown
+
+
+def _wait_until(predicate: Callable[[], bool], *, timeout_ms: int = 1500) -> None:
+    """Pump Qt events until predicate returns true or timeout expires."""
+    app = QApplication.instance()
+    assert app is not None
+    deadline = time.monotonic() + (timeout_ms / 1000.0)
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        app.processEvents()
+        time.sleep(0.01)
+    raise AssertionError("Timed out waiting for async wizard state")
 
 
 def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
@@ -117,6 +166,17 @@ def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(
     assert dialog.ticker_edit.text() == "AB12"
     assert dialog.next_step_2_btn.isEnabled()
 
+    dialog.ticker_edit.setText("t")
+    assert dialog.ticker_edit.text() == "T"
+    assert dialog.next_step_2_btn.isEnabled()
+
+    dialog.ticker_edit.setText("brk.b")
+    assert dialog.ticker_edit.text() == "BRK.B"
+    assert dialog.next_step_2_btn.isEnabled()
+
+    dialog.ticker_edit.setText("BRK..B")
+    assert not dialog.next_step_2_btn.isEnabled()
+
 
 def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_once(
     wizard_dialog_factory: WizardDialogFactory,
@@ -130,6 +190,21 @@ def test_add_instrument_wizard_step_2_ticker_normalization_emits_text_changed_on
 
     assert dialog.ticker_edit.text() == "AB12"
     assert spy.count() == 1
+
+
+def test_add_instrument_wizard_step_2_nyse_ticker_limits_length_and_symbol_charset(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = wizard_dialog_factory()
+    dialog.next_step_1_btn.click()
+    dialog.exchange_combo.setCurrentText("NYSE")
+
+    dialog.ticker_edit.setText("ABCDEFGHIJKLMNO")
+    assert dialog.ticker_edit.text() == "ABCDEFGHIJKLMN"
+    assert len(dialog.ticker_edit.text()) == 14
+
+    dialog.ticker_edit.setText("AB-12")
+    assert dialog.ticker_edit.text() == "AB12"
 
 
 def test_add_instrument_wizard_units_field_rejects_non_digit_input(
@@ -232,16 +307,10 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     dialog = wizard_dialog_factory(
         existing_name_locations={"world etf": "US Equity"},
     )
-    shown: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
-        lambda _parent, title, message: shown.append((title, message)),
-    )
+    shown = _capture_back_modal_messages(monkeypatch)
 
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    _submit_nyse_step_2(dialog)
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
     dialog.name_edit.setText("  World ETF  ")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
@@ -252,6 +321,98 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     assert 'named "World ETF"' in shown[0][1]
     assert "under US Equity" in shown[0][1]
     assert dialog.result_data is None
+
+
+def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown = _capture_back_modal_messages(monkeypatch)
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        lambda *, exchange, ticker: False,
+    )
+
+    _submit_nyse_step_2(dialog)
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker not found"
+    assert "selected exchange" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_shows_network_error_message_for_communication_failure(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    def _raise_network(*, exchange: object, ticker: object) -> bool:
+        _ = (exchange, ticker)
+        raise TickerLookupCommunicationError("offline")
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _raise_network,
+    )
+
+    _submit_nyse_step_2(dialog)
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker lookup network error"
+    assert "network/communication issue" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpected_lookup_exception(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    def _raise_internal(*, exchange: object, ticker: object) -> bool:
+        _ = (exchange, ticker)
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _raise_internal,
+    )
+
+    _submit_nyse_step_2(dialog)
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker lookup internal error"
+    assert "internal error" in shown[0][1].lower()
+
+
+def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    calls: list[tuple[object, object]] = []
+
+    def _checker(*, exchange: object, ticker: object) -> bool:
+        calls.append((exchange, ticker))
+        return True
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _checker,
+    )
+
+    dialog.exchange_combo.setCurrentText("TASE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("1234567")
+    dialog.next_step_2_btn.click()
+
+    assert dialog.pages.currentIndex() == 2
+    assert calls == []
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:

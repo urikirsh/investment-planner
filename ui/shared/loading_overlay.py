@@ -27,6 +27,7 @@ class SpinningTicker(QWidget):
         interval_ms: int = 70,
         parent: QWidget | None = None,
     ) -> None:
+        """Configure spinner geometry/style and timer-driven rotation cadence."""
         super().__init__(parent)
         self._tick_count = tick_count
         self._tick_length = tick_length
@@ -39,18 +40,22 @@ class SpinningTicker(QWidget):
         self.setFixedSize(diameter, diameter)
 
     def showEvent(self, event: QShowEvent) -> None:
+        """Start animation timer when spinner becomes visible."""
         super().showEvent(event)
         self._timer.start()
 
     def hideEvent(self, event: QHideEvent) -> None:
+        """Stop animation timer when spinner is hidden."""
         super().hideEvent(event)
         self._timer.stop()
 
     def _on_tick(self) -> None:
+        """Advance active tick index and schedule repaint."""
         self._active_tick = (self._active_tick + 1) % self._tick_count
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:
+        """Paint rotating fading tick marks centered in the widget."""
         _ = event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -77,6 +82,7 @@ class LoadingOverlay(QWidget):
     """
 
     def __init__(self, parent: QWidget) -> None:
+        """Create blocking overlay bound to `parent` with spinner + status label."""
         super().__init__(parent)
         self.setObjectName("loading_overlay")
         self.setStyleSheet("background-color: rgba(100, 100, 100, 165);")
@@ -112,6 +118,10 @@ class LoadingOverlay(QWidget):
         self.hide()
         self.clearFocus()
 
+    def set_status_text(self, text: str) -> None:
+        """Set the overlay status label text."""
+        self._status_label.setText(text)
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Keep overlay geometry in sync when the parent moves or resizes."""
         if watched is self.parent() and event.type() in {QEvent.Type.Resize, QEvent.Type.Move}:
@@ -119,15 +129,19 @@ class LoadingOverlay(QWidget):
         return super().eventFilter(watched, event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        """Consume mouse press events so underlying widgets stay blocked."""
         event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        """Consume mouse release events so underlying widgets stay blocked."""
         event.accept()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Consume key press events while overlay has focus."""
         event.accept()
 
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
+        """Consume key release events while overlay has focus."""
         event.accept()
 
     def _sync_to_parent_geometry(self) -> None:

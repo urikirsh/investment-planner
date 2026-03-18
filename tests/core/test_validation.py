@@ -317,6 +317,25 @@ def test_validation_allows_nyse_uppercase_alphanumeric_ticker() -> None:
     validate_portfolio(p)
 
 
+@pytest.mark.parametrize("ticker", ["T", "BRK.B", "ABCDEFGHIJKLMN"])
+def test_validation_allows_extended_nyse_ticker_shapes(ticker: str) -> None:
+    data = make_valid_data()
+    data["instruments"][0]["exchange"] = "NYSE"
+    data["instruments"][0]["ticker"] = ticker
+    p = load_portfolio(data)
+    validate_portfolio(p)
+
+
+@pytest.mark.parametrize("ticker", ["BRK..B", ".BRKB", "ABCDEFGHIJKLMNO"])
+def test_validation_rejects_invalid_nyse_ticker_shapes(ticker: str) -> None:
+    data = make_valid_data()
+    data["instruments"][0]["exchange"] = "NYSE"
+    data["instruments"][0]["ticker"] = ticker
+    p = load_portfolio(data)
+    with pytest.raises(ValueError, match="ticker for NYSE must be 1 to 14 uppercase letters/digits, optionally one dot"):
+        validate_portfolio(p)
+
+
 def test_validation_value_cannot_be_negative():
     instruments = [
         {"id": "i1", "name": "Inst 1", "value": "0", "investable": True, "groupId": "g1"},

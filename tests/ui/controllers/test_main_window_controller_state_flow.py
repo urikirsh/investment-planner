@@ -219,7 +219,7 @@ def test_save_blocks_invalid_ticker_exchange_combination(
 
     add_instrument_row(
         tree=window.tree,
-        ticker="1234567",  # Invalid for NYSE (valid only for TASE)
+        ticker="BRK..B",  # Invalid NYSE symbol shape (double dot)
         exchange="NYSE",
     )
 
@@ -231,5 +231,5 @@ def test_save_blocks_invalid_ticker_exchange_combination(
     assert saved is False
     assert errors
     assert errors[0][0] == "Validation / Save failed"
-    assert "ticker for NYSE must be exactly 4 uppercase letters or digits" in errors[0][1]
+    assert "ticker for NYSE must be 1 to 14 uppercase letters/digits, optionally one dot" in errors[0][1]
     assert not target.exists()
