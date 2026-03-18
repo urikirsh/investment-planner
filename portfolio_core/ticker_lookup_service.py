@@ -6,7 +6,10 @@ Current behavior is intentionally scoped to NYSE validation only. TASE lookup
 is not implemented in this service yet.
 """
 
+import csv
+from collections.abc import Sequence
 from dataclasses import dataclass
+from io import StringIO
 from threading import Lock
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -111,28 +114,30 @@ def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]
 
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
     """Parse `otherlisted.txt` into NYSE-relevant rows only (`N/A/P/Z`)."""
-    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
-    if not lines:
+    if not raw_text.strip():
         raise TickerLookupCommunicationError("Nasdaq Trader symbol directory response is empty")
-    header = lines[0].split("|")
-    if not _looks_like_otherlisted_header(header):
+    reader = csv.DictReader(StringIO(raw_text), delimiter="|")
+    if reader.fieldnames is None:
+        raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
+    if not _looks_like_otherlisted_header(reader.fieldnames):
         raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
 
     parsed_rows: list[_NyseRelevantRow] = []
-    for line in lines[1:]:
-        if line.startswith("File Creation Time"):
+    for row in reader:
+        normalized_row = {
+            key.strip().upper(): value.strip().upper()
+            for key, value in row.items()
+            if key is not None and value is not None
+        }
+        if normalized_row.get("ACT SYMBOL", "").startswith("FILE CREATION TIME"):
             continue
-        values = line.split("|")
-        if len(values) != len(header):
-            continue
-        row = {header[idx].strip().upper(): values[idx].strip().upper() for idx in range(len(header))}
-        maybe_row = _to_nyse_relevant_row(row)
+        maybe_row = _to_nyse_relevant_row(normalized_row)
         if maybe_row is not None:
             parsed_rows.append(maybe_row)
     return parsed_rows
 
 
-def _looks_like_otherlisted_header(header: list[str]) -> bool:
+def _looks_like_otherlisted_header(header: Sequence[str]) -> bool:
     """Return whether header columns match expected `otherlisted.txt` identifiers."""
     normalized = {item.strip().upper() for item in header}
     required = {"ACT SYMBOL", "EXCHANGE"}
