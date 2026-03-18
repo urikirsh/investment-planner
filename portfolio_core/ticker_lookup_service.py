@@ -7,10 +7,11 @@ is not implemented in this service yet.
 """
 
 import csv
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from io import StringIO
 from threading import Lock
+from types import MappingProxyType
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -40,12 +41,12 @@ class _NyseRelevantRow:
     act_symbol: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class _NyseLookupCache:
     """In-memory cache of NYSE-relevant rows and symbol index for app-session reuse."""
 
-    rows: list[_NyseRelevantRow]
-    rows_by_symbol: dict[str, _NyseRelevantRow]
+    rows: tuple[_NyseRelevantRow, ...]
+    rows_by_symbol: Mapping[str, _NyseRelevantRow]
 
 
 class _NyseLookupCacheStore:
@@ -65,8 +66,8 @@ class _NyseLookupCacheStore:
             if self._cache is not None:
                 return self._cache
             rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
-            rows_by_symbol = {row.act_symbol: row for row in rows}
-            self._cache = _NyseLookupCache(rows=rows, rows_by_symbol=rows_by_symbol)
+            rows_by_symbol = MappingProxyType({row.act_symbol: row for row in rows})
+            self._cache = _NyseLookupCache(rows=tuple(rows), rows_by_symbol=rows_by_symbol)
             return self._cache
 
     def clear_for_tests(self) -> None:
