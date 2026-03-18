@@ -43,8 +43,38 @@ class _NyseLookupCache:
     rows_by_symbol: dict[str, _NyseRelevantRow]
 
 
-_nyse_lookup_cache: _NyseLookupCache | None = None
-_nyse_lookup_lock = Lock()
+class _NyseLookupCacheStore:
+    """Thread-safe holder for app-session NYSE lookup cache."""
+
+    def __init__(self) -> None:
+        self._cache: _NyseLookupCache | None = None
+        self._lock = Lock()
+
+    def get_or_load(self, *, timeout_seconds: float) -> _NyseLookupCache:
+        """Return cached NYSE rows/index, loading once on first access."""
+        if self._cache is not None:
+            return self._cache
+
+        # Double-checked locking so only one thread populates cache at cold start.
+        with self._lock:
+            if self._cache is not None:
+                return self._cache
+            rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
+            rows_by_symbol = {row.act_symbol: row for row in rows}
+            self._cache = _NyseLookupCache(rows=rows, rows_by_symbol=rows_by_symbol)
+            return self._cache
+
+    def clear_for_tests(self) -> None:
+        """Reset cache state for deterministic tests."""
+        with self._lock:
+            self._cache = None
+
+    def get_cached_for_tests(self) -> _NyseLookupCache | None:
+        """Return current cached payload without triggering network load."""
+        return self._cache
+
+
+_nyse_lookup_store = _NyseLookupCacheStore()
 
 
 def check_ticker_exists_in_exchange(
@@ -64,24 +94,8 @@ def check_ticker_exists_in_exchange(
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
         return False
-    cache = _get_cached_or_fetch_nyse_rows(timeout_seconds=timeout_seconds)
+    cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
     return normalized_ticker in cache.rows_by_symbol
-
-
-def _get_cached_or_fetch_nyse_rows(*, timeout_seconds: float) -> _NyseLookupCache:
-    """Return NYSE-relevant rows from session cache or fetch from Nasdaq Trader."""
-    global _nyse_lookup_cache
-    if _nyse_lookup_cache is not None:
-        return _nyse_lookup_cache
-
-    # Double-checked locking so only one thread populates cache at cold start.
-    with _nyse_lookup_lock:
-        if _nyse_lookup_cache is not None:
-            return _nyse_lookup_cache
-        rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
-        rows_by_symbol = {row.act_symbol: row for row in rows}
-        _nyse_lookup_cache = _NyseLookupCache(rows=rows, rows_by_symbol=rows_by_symbol)
-        return _nyse_lookup_cache
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:

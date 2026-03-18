@@ -28,7 +28,7 @@ class _FakeResponse:
 
 @pytest.fixture(autouse=True)
 def _reset_lookup_cache() -> None:
-    ticker_lookup_service._nyse_lookup_cache = None
+    ticker_lookup_service._nyse_lookup_store.clear_for_tests()
 
 
 def test_check_ticker_exists_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -187,7 +187,7 @@ def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
     )
 
     assert check_ticker_exists_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is True
-    cache = ticker_lookup_service._nyse_lookup_cache
+    cache = ticker_lookup_service._nyse_lookup_store.get_cached_for_tests()
     assert cache is not None
     cached_symbols = {row.act_symbol for row in cache.rows}
     assert cached_symbols == {"AAPL", "AAPY"}
