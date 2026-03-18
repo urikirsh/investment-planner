@@ -191,6 +191,8 @@ def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
     assert cache is not None
     cached_symbols = {row.act_symbol for row in cache.rows}
     assert cached_symbols == {"AAPL", "AAPY"}
+    assert set(cache.rows_by_symbol.keys()) == {"AAPL", "AAPY"}
+    assert cache.rows_by_symbol["AAPL"].act_symbol == "AAPL"
 
 
 def test_check_ticker_exists_in_exchange_populates_cache_once_under_concurrency(

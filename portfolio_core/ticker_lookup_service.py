@@ -37,9 +37,10 @@ class _NyseRelevantRow:
 
 @dataclass
 class _NyseLookupCache:
-    """In-memory cache of NYSE-relevant rows for app-session reuse."""
+    """In-memory cache of NYSE-relevant rows and symbol index for app-session reuse."""
 
     rows: list[_NyseRelevantRow]
+    rows_by_symbol: dict[str, _NyseRelevantRow]
 
 
 _nyse_lookup_cache: _NyseLookupCache | None = None
@@ -63,23 +64,24 @@ def check_ticker_exists_in_exchange(
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
         return False
-    rows = _get_cached_or_fetch_nyse_rows(timeout_seconds=timeout_seconds)
-    return any(row.act_symbol == normalized_ticker for row in rows)
+    cache = _get_cached_or_fetch_nyse_rows(timeout_seconds=timeout_seconds)
+    return normalized_ticker in cache.rows_by_symbol
 
 
-def _get_cached_or_fetch_nyse_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
+def _get_cached_or_fetch_nyse_rows(*, timeout_seconds: float) -> _NyseLookupCache:
     """Return NYSE-relevant rows from session cache or fetch from Nasdaq Trader."""
     global _nyse_lookup_cache
     if _nyse_lookup_cache is not None:
-        return _nyse_lookup_cache.rows
+        return _nyse_lookup_cache
 
     # Double-checked locking so only one thread populates cache at cold start.
     with _nyse_lookup_lock:
         if _nyse_lookup_cache is not None:
-            return _nyse_lookup_cache.rows
+            return _nyse_lookup_cache
         rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
-        _nyse_lookup_cache = _NyseLookupCache(rows=rows)
-        return rows
+        rows_by_symbol = {row.act_symbol: row for row in rows}
+        _nyse_lookup_cache = _NyseLookupCache(rows=rows, rows_by_symbol=rows_by_symbol)
+        return _nyse_lookup_cache
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
