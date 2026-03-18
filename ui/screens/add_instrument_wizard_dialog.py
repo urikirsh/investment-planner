@@ -756,6 +756,22 @@ class AddInstrumentWizardDialog(QDialog):
         """Build inline step-3 error for duplicate instrument name."""
         return f"Instrument name already exists in this portfolio (under {duplicate_location})."
 
+    @staticmethod
+    def _format_duplicate_name_error(candidate_name: str, existing_location: str) -> tuple[str, str]:
+        """Build `(title, message)` shown when instrument name already exists."""
+        return (
+            "Duplicate instrument name",
+            (
+                f'An instrument named "{candidate_name}" already exists in this portfolio '
+                f"(under {existing_location}). Please choose a different name."
+            ),
+        )
+
+    def _show_duplicate_name_error(self, *, candidate_name: str, existing_location: str) -> None:
+        """Show Back-only duplicate-name error modal."""
+        title, message = self._format_duplicate_name_error(candidate_name, existing_location)
+        show_error_with_back(self, title, message)
+
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
         validated = self._compute_and_apply_step_3_outcome()
@@ -767,25 +783,17 @@ class AddInstrumentWizardDialog(QDialog):
                 else None
             )
             if existing_location is not None:
-                show_error_with_back(
-                    self,
-                    "Duplicate instrument name",
-                    (
-                        f'An instrument named "{candidate_name}" already exists in this portfolio '
-                        f"(under {existing_location}). Please choose a different name."
-                    ),
+                self._show_duplicate_name_error(
+                    candidate_name=candidate_name,
+                    existing_location=existing_location,
                 )
             return
         candidate_name = validated.name
         existing_location = self._find_duplicate_name_location(candidate_name)
         if existing_location is not None:
-            show_error_with_back(
-                self,
-                "Duplicate instrument name",
-                (
-                    f'An instrument named "{candidate_name}" already exists in this portfolio '
-                    f"(under {existing_location}). Please choose a different name."
-                ),
+            self._show_duplicate_name_error(
+                candidate_name=candidate_name,
+                existing_location=existing_location,
             )
             return
         self._result_data = AddInstrumentWizardResult(
