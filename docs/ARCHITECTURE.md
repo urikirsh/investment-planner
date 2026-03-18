@@ -78,7 +78,7 @@ FX thread-safety guards in this flow:
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
   - for NYSE only, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
   - TASE currently skips network ticker verification and advances directly to step 3
-  - ticker-not-found and ticker-lookup communication failures are shown as Back-only modals and keep the flow on step 2
+  - ticker-not-found, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
   - duplicate names are blocked on final add with a Back-only modal that names the existing location
   - return/cancel prompts for discard only when user has edited wizard input
 - `ui/screens/summary_screen.py`
@@ -182,7 +182,8 @@ FX thread-safety guards in this flow:
 - `portfolio_core/ticker_lookup_service.py`
   - Nasdaq Trader symbol-directory lookup boundary for ticker existence
   - NYSE is verified via `otherlisted.txt` rows with exchange codes `N`, `A`, `P`, and `Z`
-  - keeps an in-memory app-session cache of NYSE-relevant rows (filtered by exchange code, not by ticker)
+  - parses `otherlisted.txt` using Python `csv` with pipe delimiter (`|`) and skips the provider footer row
+  - keeps an immutable in-memory app-session cache of NYSE-relevant rows plus a symbol index map (filtered by exchange code, not by ticker)
   - TASE network lookup is intentionally not implemented yet
   - raises typed communication errors on network/payload failures
 - `portfolio_core/portfolio_document.py`

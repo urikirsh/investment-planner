@@ -53,6 +53,7 @@ class _NyseLookupCacheStore:
     """Thread-safe holder for app-session NYSE lookup cache."""
 
     def __init__(self) -> None:
+        """Initialize empty cache storage and synchronization primitive."""
         self._cache: _NyseLookupCache | None = None
         self._lock = Lock()
 

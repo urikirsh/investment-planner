@@ -33,7 +33,7 @@ The application never executes trades automatically. All actions are explicit an
 - Instruments with current market value in ILS
 - Required per-instrument `ticker` field
   - `TASE`: exactly 7 digits
-  - `NYSE`: exactly 4 uppercase letters or digits
+  - `NYSE`: 1 to 14 uppercase letters/digits, optionally one dot (for example `BRK.B`)
 - Required per-instrument `quantity` field (non-negative integer)
 - Per-instrument `exchange` (`TASE` or `NYSE`) for wizard price-entry semantics
   - `TASE` prices are treated as ILS (agorot entry in wizard)
@@ -92,6 +92,8 @@ The application never executes trades automatically. All actions are explicit an
   - gray when you do not
 - Main editor includes:
   - `Add Instrument` opens a guided flow with exchange-aware ticker validation and required non-negative integer units input
+  - for NYSE instruments, the add flow verifies ticker existence before continuing
+  - if ticker verification fails, the flow stays on the ticker step and shows a clear error
   - while this flow is open, the portfolio screen is temporarily unavailable
   - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions
   - instrument `ticker` is set when adding an instrument
@@ -154,7 +156,7 @@ Notes:
 - `instruments[*].exchange` is required and must be `TASE` or `NYSE`.
 - `instruments[*].ticker` is required.
   - `TASE` tickers must be exactly 7 digits.
-  - `NYSE` tickers must be exactly 4 uppercase letters or digits.
+  - `NYSE` tickers must be 1 to 14 uppercase letters/digits, optionally one dot.
 - `instruments[*].quantity` is required and must be a non-negative integer.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.

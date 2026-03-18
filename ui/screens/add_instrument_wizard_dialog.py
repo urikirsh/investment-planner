@@ -131,6 +131,7 @@ class _Step3ValidationOutcome:
 
     @property
     def is_valid(self) -> bool:
+        """Return whether step-3 validation produced an accepted payload."""
         return self.payload is not None
 
 
@@ -180,6 +181,7 @@ class _TickerLookupWorker(QObject):
         ticker: str,
         checker: Callable[..., bool],
     ) -> None:
+        """Store lookup inputs and callable used for background verification."""
         super().__init__()
         self._exchange = exchange
         self._ticker = ticker
@@ -256,6 +258,7 @@ class AddInstrumentWizardDialog(QDialog):
         existing_name_locations: dict[str, str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
+        """Initialize the modal wizard and wire all step UI/validation state."""
         super().__init__(parent)
         self._instrument_group_name = instrument_group_name
         self._is_non_investable_group = is_non_investable_group
