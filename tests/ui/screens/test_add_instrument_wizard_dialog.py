@@ -92,6 +92,18 @@ def _fill_step_3_details(
     dialog.units_edit.setText(units)
 
 
+def _submit_nyse_step_2(
+    dialog: AddInstrumentWizardDialog,
+    *,
+    ticker: str = "AB12",
+) -> None:
+    """Navigate to step 2 with NYSE selected and submit ticker lookup."""
+    dialog.exchange_combo.setCurrentText("NYSE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText(ticker)
+    dialog.next_step_2_btn.click()
+
+
 def _wait_until(predicate: Callable[[], bool], *, timeout_ms: int = 1500) -> None:
     """Pump Qt events until predicate returns true or timeout expires."""
     app = QApplication.instance()
@@ -291,10 +303,7 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
         lambda _parent, title, message: shown.append((title, message)),
     )
 
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    _submit_nyse_step_2(dialog)
     _wait_until(lambda: dialog.pages.currentIndex() == 2)
     dialog.name_edit.setText("  World ETF  ")
     dialog.target_pct_edit.setText("25")
@@ -323,10 +332,7 @@ def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
         lambda _parent, title, message: shown.append((title, message)),
     )
 
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    _submit_nyse_step_2(dialog)
 
     _wait_until(lambda: len(shown) == 1)
     assert dialog.pages.currentIndex() == 1
@@ -354,10 +360,7 @@ def test_add_instrument_wizard_step_2_shows_network_error_message_for_communicat
         lambda _parent, title, message: shown.append((title, message)),
     )
 
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    _submit_nyse_step_2(dialog)
 
     _wait_until(lambda: len(shown) == 1)
     assert dialog.pages.currentIndex() == 1
@@ -385,10 +388,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpecte
         lambda _parent, title, message: shown.append((title, message)),
     )
 
-    dialog.exchange_combo.setCurrentText("NYSE")
-    dialog.next_step_1_btn.click()
-    dialog.ticker_edit.setText("AB12")
-    dialog.next_step_2_btn.click()
+    _submit_nyse_step_2(dialog)
 
     _wait_until(lambda: len(shown) == 1)
     assert dialog.pages.currentIndex() == 1
