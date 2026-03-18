@@ -26,17 +26,26 @@ class _FakeResponse:
         return None
 
 
+def _build_otherlisted_payload(*rows: str, include_footer: bool = True) -> bytes:
+    """Build `otherlisted.txt` bytes with standard header and optional footer row."""
+    lines = [
+        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol",
+        *rows,
+    ]
+    if include_footer:
+        lines.append("File Creation Time: 0317202611:00")
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
 @pytest.fixture(autouse=True)
 def _reset_lookup_cache() -> None:
     ticker_lookup_service._nyse_lookup_store.clear_for_tests()
 
 
 def test_check_ticker_exists_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    )
     monkeypatch.setattr(
         "portfolio_core.ticker_lookup_service.urlopen",
         lambda *_args, **_kwargs: _FakeResponse(raw),
@@ -48,11 +57,9 @@ def test_check_ticker_exists_in_exchange_returns_true_for_nyse_symbol(monkeypatc
 def test_check_ticker_exists_in_exchange_returns_true_for_bzx_symbol_under_nyse_filter(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY",
+    )
     monkeypatch.setattr(
         "portfolio_core.ticker_lookup_service.urlopen",
         lambda *_args, **_kwargs: _FakeResponse(raw),
@@ -64,11 +71,9 @@ def test_check_ticker_exists_in_exchange_returns_true_for_bzx_symbol_under_nyse_
 def test_check_ticker_exists_in_exchange_parses_quoted_pipe_in_security_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        'AAPL|"Apple|Inc."|N|AAPL|N|100|N|AAPL\n'
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        'AAPL|"Apple|Inc."|N|AAPL|N|100|N|AAPL',
+    )
     monkeypatch.setattr(
         "portfolio_core.ticker_lookup_service.urlopen",
         lambda *_args, **_kwargs: _FakeResponse(raw),
@@ -82,11 +87,9 @@ def test_check_ticker_exists_in_exchange_returns_true_for_nyse_family_exchange_c
     monkeypatch: pytest.MonkeyPatch,
     exchange_code: str,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        f"AAPL|Apple Inc.|{exchange_code}|AAPL|N|100|N|AAPL\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        f"AAPL|Apple Inc.|{exchange_code}|AAPL|N|100|N|AAPL",
+    )
     monkeypatch.setattr(
         "portfolio_core.ticker_lookup_service.urlopen",
         lambda *_args, **_kwargs: _FakeResponse(raw),
@@ -96,11 +99,9 @@ def test_check_ticker_exists_in_exchange_returns_true_for_nyse_family_exchange_c
 
 
 def test_check_ticker_exists_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPL|Apple Inc.|Q|AAPL|N|100|N|AAPL\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|Q|AAPL|N|100|N|AAPL",
+    )
     monkeypatch.setattr(
         "portfolio_core.ticker_lookup_service.urlopen",
         lambda *_args, **_kwargs: _FakeResponse(raw),
@@ -148,11 +149,9 @@ def test_check_ticker_exists_in_exchange_raises_communication_error_for_invalid_
 def test_check_ticker_exists_in_exchange_uses_cached_rows_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    )
     calls = {"count": 0}
 
     def _urlopen_counted(*_args, **_kwargs) -> _FakeResponse:
@@ -169,11 +168,9 @@ def test_check_ticker_exists_in_exchange_uses_cached_rows_without_refetch(
 def test_check_ticker_exists_in_exchange_uses_session_cache_without_expiry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    )
     calls = {"count": 0}
 
     def _urlopen_counted(*_args, **_kwargs) -> _FakeResponse:
@@ -190,13 +187,11 @@ def test_check_ticker_exists_in_exchange_uses_session_cache_without_expiry(
 def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
-        "QQQX|Sample Nasdaq Symbol|Q|QQQX|Y|100|N|QQQX\n"
-        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+        "QQQX|Sample Nasdaq Symbol|Q|QQQX|Y|100|N|QQQX",
+        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY",
+    )
     monkeypatch.setattr(
         "portfolio_core.ticker_lookup_service.urlopen",
         lambda *_args, **_kwargs: _FakeResponse(raw),
@@ -214,11 +209,9 @@ def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
 def test_check_ticker_exists_in_exchange_populates_cache_once_under_concurrency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = (
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol\n"
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL\n"
-        "File Creation Time: 0317202611:00\n"
-    ).encode("utf-8")
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    )
     calls = {"count": 0}
     barrier = Barrier(3)
 
