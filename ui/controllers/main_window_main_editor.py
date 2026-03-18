@@ -2,10 +2,10 @@ from __future__ import annotations
 
 """Main-editor screen setup and row-level editing actions."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import cast
 
-from PySide6.QtWidgets import QApplication, QDialog, QTreeWidgetItem, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
 
 from portfolio_core.models import Exchange
 from portfolio_core.planning_types import PlanningMode
@@ -57,34 +57,37 @@ class MainWindowMainEditorController:
 
     def _build_existing_instrument_name_locations(self) -> dict[str, str]:
         """Return normalized-name -> first-found human-readable location mapping."""
-        tree = self._host.tree
         name_locations: dict[str, str] = {}
-        for top_index in range(tree.topLevelItemCount()):
-            parent = tree.topLevelItem(top_index)
-            if parent is None:
+        for child, location in self._iter_instrument_rows_with_locations(self._host.tree):
+            child_name = child.text(Col.NAME.value).strip()
+            if not child_name:
                 continue
-            parent_kind = get_item_kind(parent)
-            if parent_kind == RowKind.NON_INVESTABLE_BUCKET:
-                location = "non-investable bucket"
-            else:
-                location = parent.text(Col.NAME.value).strip() or "unnamed group"
-
-            for child_index in range(parent.childCount()):
-                child = parent.child(child_index)
-                if child is None or get_item_kind(child) != RowKind.INSTRUMENT:
-                    continue
-                child_name = child.text(Col.NAME.value).strip()
-                if not child_name:
-                    continue
-                normalized_name = child_name.casefold()
-                if normalized_name not in name_locations:
-                    name_locations[normalized_name] = location
+            normalized_name = child_name.casefold()
+            if normalized_name not in name_locations:
+                name_locations[normalized_name] = location
         return name_locations
 
     def _build_existing_instrument_ticker_locations(self) -> dict[tuple[Exchange, str], str]:
         """Return normalized `(exchange, ticker)` -> first-found location mapping."""
-        tree = self._host.tree
         ticker_locations: dict[tuple[Exchange, str], str] = {}
+        for child, location in self._iter_instrument_rows_with_locations(self._host.tree):
+            exchange_text = child.text(Col.EXCHANGE.value).strip()
+            try:
+                exchange = Exchange(exchange_text)
+            except ValueError:
+                continue
+            ticker_text = child.text(Col.TICKER.value).strip()
+            normalized_ticker = _EXCHANGE_TICKER_NORMALIZERS[exchange](ticker_text).strip()
+            if not normalized_ticker:
+                continue
+            key = (exchange, normalized_ticker)
+            if key not in ticker_locations:
+                ticker_locations[key] = location
+        return ticker_locations
+
+    @staticmethod
+    def _iter_instrument_rows_with_locations(tree: QTreeWidget) -> Iterator[tuple[QTreeWidgetItem, str]]:
+        """Yield instrument rows with their first-level human-readable location."""
         for top_index in range(tree.topLevelItemCount()):
             parent = tree.topLevelItem(top_index)
             if parent is None:
@@ -99,19 +102,7 @@ class MainWindowMainEditorController:
                 child = parent.child(child_index)
                 if child is None or get_item_kind(child) != RowKind.INSTRUMENT:
                     continue
-                exchange_text = child.text(Col.EXCHANGE.value).strip()
-                try:
-                    exchange = Exchange(exchange_text)
-                except ValueError:
-                    continue
-                ticker_text = child.text(Col.TICKER.value).strip()
-                normalized_ticker = _EXCHANGE_TICKER_NORMALIZERS[exchange](ticker_text).strip()
-                if not normalized_ticker:
-                    continue
-                key = (exchange, normalized_ticker)
-                if key not in ticker_locations:
-                    ticker_locations[key] = location
-        return ticker_locations
+                yield child, location
 
     def _run_add_instrument_wizard(
         self,
