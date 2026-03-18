@@ -7,9 +7,10 @@ The dialog is intentionally self-contained and keeps a 3-step flow:
 2. enter ticker with exchange-specific live validation/normalization
 3. enter name + strategy percentage + units and confirm add
 
-The final step also protects against duplicate instrument names in the current
-portfolio (case-insensitive), showing a Back-only modal so the user can keep
-editing without closing the wizard.
+Step 2 blocks duplicate `(exchange, ticker)` combinations already present in
+the portfolio, and the final step protects against duplicate instrument names
+(case-insensitive). Both use a Back-only modal so the user can keep editing
+without closing the wizard.
 """
 
 from dataclasses import dataclass
@@ -58,6 +59,8 @@ from ui.shared.ui_utils import (
     exchange_choices,
     normalize_and_validate_non_negative_integer_text,
 )
+
+_ExchangeTickerKey = tuple[Exchange, str]
 
 
 @dataclass(frozen=True)
@@ -256,6 +259,7 @@ class AddInstrumentWizardDialog(QDialog):
         instrument_group_name: str,
         is_non_investable_group: bool,
         existing_name_locations: dict[str, str] | None = None,
+        existing_ticker_locations: dict[_ExchangeTickerKey, str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         """Initialize the modal wizard and wire all step UI/validation state."""
@@ -263,6 +267,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._instrument_group_name = instrument_group_name
         self._is_non_investable_group = is_non_investable_group
         self._existing_name_locations = existing_name_locations or {}
+        self._existing_ticker_locations = existing_ticker_locations or {}
         self._result_data: AddInstrumentWizardResult | None = None
         self._ticker_lookup_thread: QThread | None = None
         self._ticker_lookup_worker: _TickerLookupWorker | None = None
@@ -454,13 +459,28 @@ class AddInstrumentWizardDialog(QDialog):
         return actions
 
     def _go_to_step_3(self) -> None:
-        """Run ticker network verification before advancing from step 2 to step 3."""
-        if self._current_exchange() is not Exchange.NYSE:
-            self._advance_to_step_3()
+        """Block duplicate exchange+ticker first, then run optional network verification."""
+        duplicate_location = self._existing_ticker_locations.get(
+            (self._current_exchange(), self.ticker_edit.text().strip())
+        )
+        if duplicate_location is not None:
+            exchange_text = self._current_exchange().value
+            ticker_text = self.ticker_edit.text().strip()
+            show_error_with_back(
+                self,
+                "Duplicate ticker",
+                (
+                    f'Ticker "{ticker_text}" on {exchange_text} already exists in this portfolio '
+                    f"(under {duplicate_location}). Please choose a different ticker."
+                ),
+            )
             return
-        if self._ticker_lookup_thread is not None:
+        if self._current_exchange() is Exchange.NYSE:
+            if self._ticker_lookup_thread is not None:
+                return
+            self._begin_ticker_lookup()
             return
-        self._begin_ticker_lookup()
+        self._advance_to_step_3()
 
     def _advance_to_step_3(self) -> None:
         """Advance wizard to step 3 and refresh dependent context/validation state."""

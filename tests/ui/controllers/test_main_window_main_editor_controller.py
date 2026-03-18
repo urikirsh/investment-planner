@@ -6,9 +6,10 @@ import pytest
 from PySide6.QtWidgets import QDialog, QTreeWidgetItem
 
 import ui.controllers.main_window_main_editor as controller_mod
+from portfolio_core.models import Exchange
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import set_group_tree_item
+from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 
 class _FakeOverlay:
@@ -84,3 +85,37 @@ def test_add_instrument_noop_when_wizard_is_canceled(
     window._main_editor_controller.add_instrument()
 
     assert group.childCount() == 0
+
+
+def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Equity", "100", "grp_equity")
+    add_instrument_item_to_group(
+        group,
+        "ab12",
+        "World ETF",
+        10,
+        "1",
+        "100",
+        exchange=Exchange.NYSE,
+    )
+    window.tree.setCurrentItem(group)
+    captured_kwargs: dict[str, object] = {}
+
+    class _FakeWizard:
+        def __init__(self, **kwargs: object) -> None:
+            captured_kwargs.update(kwargs)
+            self.result_data = None
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+
+    window._main_editor_controller.add_instrument()
+
+    assert captured_kwargs["existing_ticker_locations"] == {(Exchange.NYSE, "AB12"): "Equity"}

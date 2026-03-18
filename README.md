@@ -92,7 +92,8 @@ The application never executes trades automatically. All actions are explicit an
   - gray when you do not
 - Main editor includes:
   - `Add Instrument` opens a guided flow with exchange-aware ticker validation and required non-negative integer units input
-  - for NYSE instruments, the add flow verifies ticker existence before continuing
+  - the add flow blocks duplicate `(exchange, ticker)` combinations already present in the portfolio
+  - for NYSE instruments, after duplicate checking, the add flow verifies ticker existence before continuing
   - if ticker verification fails, the flow stays on the ticker step and shows a clear error
   - while this flow is open, the portfolio screen is temporarily unavailable
   - `Ticker` column (instrument rows), required and exchange-validated on save/planning actions

@@ -10,6 +10,7 @@ from typing import Protocol
 import pytest
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
+from portfolio_core.models import Exchange
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
@@ -21,6 +22,7 @@ class WizardDialogFactory(Protocol):
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
+        existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
     ) -> AddInstrumentWizardDialog: ...
 
 
@@ -48,11 +50,13 @@ def wizard_dialog_factory() -> WizardDialogFactory:
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
+        existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
     ) -> AddInstrumentWizardDialog:
         return AddInstrumentWizardDialog(
             instrument_group_name=instrument_group_name,
             is_non_investable_group=is_non_investable_group,
             existing_name_locations=existing_name_locations,
+            existing_ticker_locations=existing_ticker_locations,
         )
 
     return _build
@@ -340,6 +344,75 @@ def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
     assert dialog.pages.currentIndex() == 1
     assert shown[0][0] == "Ticker not found"
     assert "selected exchange" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_nyse_lookup(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, object]] = []
+    dialog = wizard_dialog_factory(
+        existing_ticker_locations={(Exchange.NYSE, "AB12"): "US Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    def _checker(*, exchange: object, ticker: object) -> bool:
+        calls.append((exchange, ticker))
+        return True
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _checker,
+    )
+
+    _submit_nyse_step_2(dialog)
+
+    assert dialog.pages.currentIndex() == 1
+    assert shown
+    assert shown[0][0] == "Duplicate ticker"
+    assert 'Ticker "AB12" on NYSE already exists' in shown[0][1]
+    assert "under US Equity" in shown[0][1]
+    assert calls == []
+
+
+def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_for_tase(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory(
+        existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    dialog.exchange_combo.setCurrentText("TASE")
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText("1234567")
+    dialog.next_step_2_btn.click()
+
+    assert dialog.pages.currentIndex() == 1
+    assert shown
+    assert shown[0][0] == "Duplicate ticker"
+    assert 'Ticker "1234567" on TASE already exists' in shown[0][1]
+    assert "under IL Equity" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory(
+        existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        lambda *, exchange, ticker: bool(exchange) and bool(ticker),
+    )
+
+    _submit_nyse_step_2(dialog, ticker="1234567")
+
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
+    assert shown == []
 
 
 def test_add_instrument_wizard_step_2_shows_network_error_message_for_communication_failure(

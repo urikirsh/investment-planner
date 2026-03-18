@@ -2,11 +2,14 @@ from __future__ import annotations
 
 """Main-editor screen setup and row-level editing actions."""
 
+from collections.abc import Callable
 from typing import cast
 
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidgetItem, QWidget
 
+from portfolio_core.models import Exchange
 from portfolio_core.planning_types import PlanningMode
+from portfolio_core.ticker_rules import normalize_nyse_ticker, normalize_tase_ticker
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
@@ -16,6 +19,11 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, AddInstrumentWizardResult
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
+
+_EXCHANGE_TICKER_NORMALIZERS: dict[Exchange, Callable[[str], str]] = {
+    Exchange.TASE: normalize_tase_ticker,
+    Exchange.NYSE: normalize_nyse_ticker,
+}
 
 
 class MainWindowMainEditorController:
@@ -73,6 +81,38 @@ class MainWindowMainEditorController:
                     name_locations[normalized_name] = location
         return name_locations
 
+    def _build_existing_instrument_ticker_locations(self) -> dict[tuple[Exchange, str], str]:
+        """Return normalized `(exchange, ticker)` -> first-found location mapping."""
+        tree = self._host.tree
+        ticker_locations: dict[tuple[Exchange, str], str] = {}
+        for top_index in range(tree.topLevelItemCount()):
+            parent = tree.topLevelItem(top_index)
+            if parent is None:
+                continue
+            parent_kind = get_item_kind(parent)
+            if parent_kind == RowKind.NON_INVESTABLE_BUCKET:
+                location = "non-investable bucket"
+            else:
+                location = parent.text(Col.NAME.value).strip() or "unnamed group"
+
+            for child_index in range(parent.childCount()):
+                child = parent.child(child_index)
+                if child is None or get_item_kind(child) != RowKind.INSTRUMENT:
+                    continue
+                exchange_text = child.text(Col.EXCHANGE.value).strip()
+                try:
+                    exchange = Exchange(exchange_text)
+                except ValueError:
+                    continue
+                ticker_text = child.text(Col.TICKER.value).strip()
+                normalized_ticker = _EXCHANGE_TICKER_NORMALIZERS[exchange](ticker_text).strip()
+                if not normalized_ticker:
+                    continue
+                key = (exchange, normalized_ticker)
+                if key not in ticker_locations:
+                    ticker_locations[key] = location
+        return ticker_locations
+
     def _run_add_instrument_wizard(
         self,
         *,
@@ -92,6 +132,7 @@ class MainWindowMainEditorController:
                 instrument_group_name=instrument_group_name,
                 is_non_investable_group=is_non_investable_group,
                 existing_name_locations=self._build_existing_instrument_name_locations(),
+                existing_ticker_locations=self._build_existing_instrument_ticker_locations(),
                 parent=self._host_widget(),
             )
             if wizard.exec() != QDialog.DialogCode.Accepted:
