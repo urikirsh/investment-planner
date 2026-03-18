@@ -104,6 +104,16 @@ def _submit_nyse_step_2(
     dialog.next_step_2_btn.click()
 
 
+def _capture_back_modal_messages(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    """Patch Back-only error modal helper and return captured `(title, message)` list."""
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+    return shown
+
+
 def _wait_until(predicate: Callable[[], bool], *, timeout_ms: int = 1500) -> None:
     """Pump Qt events until predicate returns true or timeout expires."""
     app = QApplication.instance()
@@ -297,11 +307,7 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     dialog = wizard_dialog_factory(
         existing_name_locations={"world etf": "US Equity"},
     )
-    shown: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
-        lambda _parent, title, message: shown.append((title, message)),
-    )
+    shown = _capture_back_modal_messages(monkeypatch)
 
     _submit_nyse_step_2(dialog)
     _wait_until(lambda: dialog.pages.currentIndex() == 2)
@@ -322,14 +328,10 @@ def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dialog = wizard_dialog_factory()
-    shown: list[tuple[str, str]] = []
+    shown = _capture_back_modal_messages(monkeypatch)
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
         lambda *, exchange, ticker: False,
-    )
-    monkeypatch.setattr(
-        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
-        lambda _parent, title, message: shown.append((title, message)),
     )
 
     _submit_nyse_step_2(dialog)
@@ -345,7 +347,7 @@ def test_add_instrument_wizard_step_2_shows_network_error_message_for_communicat
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dialog = wizard_dialog_factory()
-    shown: list[tuple[str, str]] = []
+    shown = _capture_back_modal_messages(monkeypatch)
 
     def _raise_network(*, exchange: object, ticker: object) -> bool:
         _ = (exchange, ticker)
@@ -354,10 +356,6 @@ def test_add_instrument_wizard_step_2_shows_network_error_message_for_communicat
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
         _raise_network,
-    )
-    monkeypatch.setattr(
-        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
-        lambda _parent, title, message: shown.append((title, message)),
     )
 
     _submit_nyse_step_2(dialog)
@@ -373,7 +371,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpecte
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dialog = wizard_dialog_factory()
-    shown: list[tuple[str, str]] = []
+    shown = _capture_back_modal_messages(monkeypatch)
 
     def _raise_internal(*, exchange: object, ticker: object) -> bool:
         _ = (exchange, ticker)
@@ -382,10 +380,6 @@ def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpecte
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
         _raise_internal,
-    )
-    monkeypatch.setattr(
-        "ui.screens.add_instrument_wizard_dialog.show_error_with_back",
-        lambda _parent, title, message: shown.append((title, message)),
     )
 
     _submit_nyse_step_2(dialog)
