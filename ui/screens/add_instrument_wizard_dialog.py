@@ -473,10 +473,14 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _show_duplicate_ticker_error(self, duplicate_location: str) -> None:
         """Show step-2 Back-only error modal for duplicate `(exchange, ticker)` input."""
+        title, message = self._format_duplicate_ticker_error(duplicate_location)
+        show_error_with_back(self, title, message)
+
+    def _format_duplicate_ticker_error(self, duplicate_location: str) -> tuple[str, str]:
+        """Build `(title, message)` shown when `(exchange, ticker)` already exists."""
         exchange_text = self._current_exchange().value
         ticker_text = self.ticker_edit.text().strip()
-        show_error_with_back(
-            self,
+        return (
             "Duplicate ticker",
             (
                 f'Ticker "{ticker_text}" on {exchange_text} already exists in this portfolio '
