@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import pytest
 
+from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
     normalize_nyse_ticker,
+    normalize_ticker_for_exchange,
     normalize_tase_ticker,
 )
 
@@ -16,6 +18,14 @@ def test_normalize_tase_ticker_keeps_only_digits() -> None:
 
 def test_normalize_nyse_ticker_uppercases_and_filters_invalid_chars() -> None:
     assert normalize_nyse_ticker("brk.b-1%") == "BRK.B1"
+
+
+def test_normalize_ticker_for_exchange_uses_tase_rules() -> None:
+    assert normalize_ticker_for_exchange(exchange=Exchange.TASE, raw="12A-34 567") == "1234567"
+
+
+def test_normalize_ticker_for_exchange_uses_nyse_rules() -> None:
+    assert normalize_ticker_for_exchange(exchange=Exchange.NYSE, raw="brk.b-1%") == "BRK.B1"
 
 
 @pytest.mark.parametrize("ticker", ["1234567"])

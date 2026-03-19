@@ -8,8 +8,10 @@ import time
 from typing import Protocol
 
 import pytest
-from PySide6.QtTest import QSignalSpy
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
+from portfolio_core.models import Exchange
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
@@ -21,6 +23,7 @@ class WizardDialogFactory(Protocol):
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
+        existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
     ) -> AddInstrumentWizardDialog: ...
 
 
@@ -48,11 +51,13 @@ def wizard_dialog_factory() -> WizardDialogFactory:
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
+        existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
     ) -> AddInstrumentWizardDialog:
         return AddInstrumentWizardDialog(
             instrument_group_name=instrument_group_name,
             is_non_investable_group=is_non_investable_group,
             existing_name_locations=existing_name_locations,
+            existing_ticker_locations=existing_ticker_locations,
         )
 
     return _build
@@ -102,6 +107,21 @@ def _submit_nyse_step_2(
     dialog.next_step_1_btn.click()
     dialog.ticker_edit.setText(ticker)
     dialog.next_step_2_btn.click()
+
+
+def _open_add_instrument_wizard_step_2(
+    wizard_dialog_factory: WizardDialogFactory,
+    *,
+    exchange: str = "NYSE",
+    ticker: str = "AB12",
+    existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
+) -> AddInstrumentWizardDialog:
+    """Create wizard dialog and navigate to step 2 with selected exchange/ticker."""
+    dialog = wizard_dialog_factory(existing_ticker_locations=existing_ticker_locations)
+    dialog.exchange_combo.setCurrentText(exchange)
+    dialog.next_step_1_btn.click()
+    dialog.ticker_edit.setText(ticker)
+    return dialog
 
 
 def _capture_back_modal_messages(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
@@ -205,6 +225,38 @@ def test_add_instrument_wizard_step_2_nyse_ticker_limits_length_and_symbol_chars
 
     dialog.ticker_edit.setText("AB-12")
     assert dialog.ticker_edit.text() == "AB12"
+
+
+def test_add_instrument_wizard_step_2_enter_advances_when_next_enabled(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="AB12",
+    )
+    dialog.ticker_edit.setFocus()
+
+    assert dialog.next_step_2_btn.isEnabled() is True
+    QTest.keyClick(dialog.ticker_edit, Qt.Key.Key_Return)
+
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
+
+
+def test_add_instrument_wizard_step_2_enter_does_not_advance_when_next_disabled(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="1234",
+    )
+    dialog.ticker_edit.setFocus()
+
+    assert dialog.next_step_2_btn.isEnabled() is False
+    QTest.keyClick(dialog.ticker_edit, Qt.Key.Key_Return)
+
+    assert dialog.pages.currentIndex() == 1
 
 
 def test_add_instrument_wizard_units_field_rejects_non_digit_input(
@@ -314,7 +366,9 @@ def test_add_instrument_wizard_blocks_duplicate_name_with_back_only_modal(
     dialog.name_edit.setText("  World ETF  ")
     dialog.target_pct_edit.setText("25")
     dialog.units_edit.setText("10")
-    dialog.add_step_3_btn.click()
+    assert dialog.add_step_3_btn.isEnabled() is False
+    assert "already exists in this portfolio" in dialog.name_error_label.text()
+    dialog._accept_result()
 
     assert shown
     assert shown[0][0] == "Duplicate instrument name"
@@ -340,6 +394,83 @@ def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
     assert dialog.pages.currentIndex() == 1
     assert shown[0][0] == "Ticker not found"
     assert "selected exchange" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_nyse_lookup(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, object]] = []
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="AB12",
+        existing_ticker_locations={(Exchange.NYSE, "AB12"): "US Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    def _checker(*, exchange: object, ticker: object) -> bool:
+        calls.append((exchange, ticker))
+        return True
+
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        _checker,
+    )
+
+    assert dialog.next_step_2_btn.isEnabled() is False
+    assert "already exists for this exchange" in dialog.ticker_error_label.text()
+    dialog._go_to_step_3()
+    assert dialog.pages.currentIndex() == 1
+    assert shown
+    assert shown[0][0] == "Duplicate ticker"
+    assert 'Ticker "AB12" on NYSE already exists' in shown[0][1]
+    assert "under US Equity" in shown[0][1]
+    assert calls == []
+
+
+def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_for_tase(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="1234567",
+        existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    assert dialog.next_step_2_btn.isEnabled() is False
+    assert "already exists for this exchange" in dialog.ticker_error_label.text()
+    dialog._go_to_step_3()
+    assert dialog.pages.currentIndex() == 1
+    assert shown
+    assert shown[0][0] == "Duplicate ticker"
+    assert 'Ticker "1234567" on TASE already exists' in shown[0][1]
+    assert "under IL Equity" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="1234567",
+        existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.check_ticker_exists_in_exchange",
+        lambda *, exchange, ticker: bool(exchange) and bool(ticker),
+    )
+
+    dialog.next_step_2_btn.click()
+
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
+    assert shown == []
 
 
 def test_add_instrument_wizard_step_2_shows_network_error_message_for_communication_failure(

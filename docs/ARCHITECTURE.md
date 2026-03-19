@@ -56,7 +56,7 @@ FX thread-safety guards in this flow:
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
   - controller keeps add flow orchestration-focused by running wizard execution (overlay + accept/result checks) in a dedicated helper
-  - add flow builds a case-insensitive portfolio-wide name map so duplicate instrument names are blocked before row creation
+  - add flow builds case-insensitive portfolio-wide name locations and exchange+ticker locations so duplicate keys are blocked before row creation
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
 - `ui/controllers/main_window_metrics.py`
@@ -72,14 +72,15 @@ FX thread-safety guards in this flow:
 - `ui/screens/add_instrument_wizard_dialog.py`
   - modal 3-step add-instrument flow used from screen 2
   - step 1: exchange choice
-  - step 2: ticker input with exchange-specific live validation
-  - step 3: name + strategy percentage validation and final add action
+  - step 2: ticker input with exchange-specific live normalization/validation plus duplicate `(exchange, ticker)` inline blocking
+  - step 3: name + strategy percentage validation and final add action, including inline duplicate-name blocking
   - each step renders the selected group plus prior step decisions for review
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
+  - step-2 ticker input `Enter` key behaves like `Next` when `Next` is enabled
   - for NYSE only, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
   - TASE currently skips network ticker verification and advances directly to step 3
   - ticker-not-found, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
-  - duplicate names are blocked on final add with a Back-only modal that names the existing location
+  - duplicate ticker/name submit paths keep defensive Back-only modals naming the existing location
   - return/cancel prompts for discard only when user has edited wizard input
 - `ui/screens/summary_screen.py`
   - screen 3 presentation/layout (plan summary)
@@ -229,7 +230,7 @@ UI-focused tests:
 - `tests/ui/screens/test_screens.py`
   - structural tests for main screen modules (defaults, controls, static setup)
 - `tests/ui/screens/test_add_instrument_wizard_dialog.py`
-  - focused add-instrument wizard dialog tests (step flow, validation, context text, and duplicate-name guards)
+  - focused add-instrument wizard dialog tests (step flow, validation, Enter shortcut behavior, context text, and duplicate ticker/name guards)
 - `tests/ui/shared/test_ui_utils.py`
   - exchange parsing/default fallback and UI helper behavior
 - `tests/ui/shared/test_loading_overlay.py`

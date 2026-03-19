@@ -7,9 +7,11 @@ The dialog is intentionally self-contained and keeps a 3-step flow:
 2. enter ticker with exchange-specific live validation/normalization
 3. enter name + strategy percentage + units and confirm add
 
-The final step also protects against duplicate instrument names in the current
-portfolio (case-insensitive), showing a Back-only modal so the user can keep
-editing without closing the wizard.
+Step 2 blocks duplicate `(exchange, ticker)` combinations already present in
+the portfolio with inline validation before `Next` can run verification. The
+final step similarly blocks duplicate instrument names (case-insensitive)
+inline before `Add` can be used. Both keep a Back-only modal as a defensive
+guard when submit handlers are invoked directly.
 """
 
 from dataclasses import dataclass
@@ -46,8 +48,7 @@ from portfolio_core.ticker_rules import (
     TASE_TICKER_PLACEHOLDER,
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
-    normalize_nyse_ticker,
-    normalize_tase_ticker,
+    normalize_ticker_for_exchange,
 )
 from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
 from ui.dialogs import confirm_discard_changes, show_error_with_back
@@ -59,6 +60,8 @@ from ui.shared.ui_utils import (
     normalize_and_validate_non_negative_integer_text,
 )
 
+_ExchangeTickerKey = tuple[Exchange, str]
+
 
 @dataclass(frozen=True)
 class _TickerRule:
@@ -68,7 +71,6 @@ class _TickerRule:
     validator_pattern: str
     placeholder: str
     error_text: str
-    normalize: Callable[[str], str]
     is_complete: Callable[[str], bool]
 
 
@@ -78,7 +80,6 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         validator_pattern=TASE_TICKER_INPUT_PATTERN,
         placeholder=TASE_TICKER_PLACEHOLDER,
         error_text=TASE_TICKER_ERROR,
-        normalize=normalize_tase_ticker,
         is_complete=is_complete_tase_ticker,
     ),
     Exchange.NYSE: _TickerRule(
@@ -86,7 +87,6 @@ _TICKER_RULES: dict[Exchange, _TickerRule] = {
         validator_pattern=NYSE_TICKER_INPUT_PATTERN,
         placeholder=NYSE_TICKER_PLACEHOLDER,
         error_text=NYSE_TICKER_ERROR,
-        normalize=normalize_nyse_ticker,
         is_complete=is_complete_nyse_ticker,
     ),
 }
@@ -256,6 +256,7 @@ class AddInstrumentWizardDialog(QDialog):
         instrument_group_name: str,
         is_non_investable_group: bool,
         existing_name_locations: dict[str, str] | None = None,
+        existing_ticker_locations: dict[_ExchangeTickerKey, str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         """Initialize the modal wizard and wire all step UI/validation state."""
@@ -263,6 +264,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._instrument_group_name = instrument_group_name
         self._is_non_investable_group = is_non_investable_group
         self._existing_name_locations = existing_name_locations or {}
+        self._existing_ticker_locations = existing_ticker_locations or {}
         self._result_data: AddInstrumentWizardResult | None = None
         self._ticker_lookup_thread: QThread | None = None
         self._ticker_lookup_worker: _TickerLookupWorker | None = None
@@ -353,6 +355,7 @@ class AddInstrumentWizardDialog(QDialog):
         form = QFormLayout()
         self.ticker_edit = QLineEdit(page)
         self.ticker_edit.textChanged.connect(self._on_ticker_changed)
+        self.ticker_edit.returnPressed.connect(self._on_step_2_ticker_return_pressed)
         form.addRow("Ticker:", self.ticker_edit)
         layout.addLayout(form)
 
@@ -454,13 +457,66 @@ class AddInstrumentWizardDialog(QDialog):
         return actions
 
     def _go_to_step_3(self) -> None:
-        """Run ticker network verification before advancing from step 2 to step 3."""
-        if self._current_exchange() is not Exchange.NYSE:
-            self._advance_to_step_3()
+        """Block duplicate exchange+ticker first, then run optional network verification."""
+        duplicate_location = self._find_duplicate_ticker_location()
+        if duplicate_location is not None:
+            self._show_duplicate_ticker_error(duplicate_location)
             return
-        if self._ticker_lookup_thread is not None:
+        self._start_step_2_verification_flow()
+
+    def _find_duplicate_ticker_location(self) -> str | None:
+        """Return location for duplicate `(exchange, ticker)` in portfolio, if present."""
+        return self._validate_duplicate_ticker(
+            key=self._current_step_2_key(),
+            existing_ticker_locations=self._existing_ticker_locations,
+        )
+
+    @staticmethod
+    def _validate_duplicate_ticker(
+        *,
+        key: _ExchangeTickerKey,
+        existing_ticker_locations: dict[_ExchangeTickerKey, str],
+    ) -> str | None:
+        """Return duplicate location when `(exchange, ticker)` key already exists."""
+        return existing_ticker_locations.get(key)
+
+    def _show_duplicate_ticker_error(self, duplicate_location: str) -> None:
+        """Show step-2 Back-only error modal for duplicate `(exchange, ticker)` input."""
+        title, message = self._format_duplicate_ticker_error(duplicate_location)
+        show_error_with_back(self, title, message)
+
+    def _format_duplicate_ticker_error(self, duplicate_location: str) -> tuple[str, str]:
+        """Build `(title, message)` shown when `(exchange, ticker)` already exists."""
+        exchange, ticker_text = self._current_step_2_key()
+        exchange_text = exchange.value
+        return (
+            "Duplicate ticker",
+            (
+                f'Ticker "{ticker_text}" on {exchange_text} already exists in this portfolio '
+                f"(under {duplicate_location}). Please choose a different ticker."
+            ),
+        )
+
+    @staticmethod
+    def _format_duplicate_ticker_inline_error(duplicate_location: str) -> str:
+        """Build inline step-2 error message for duplicate `(exchange, ticker)` input."""
+        return (
+            "Ticker already exists for this exchange in your portfolio "
+            f"(under {duplicate_location})."
+        )
+
+    def _current_step_2_key(self) -> _ExchangeTickerKey:
+        """Return current step-2 `(exchange, ticker)` key used for duplicate checks."""
+        return (self._current_exchange(), self.ticker_edit.text().strip())
+
+    def _start_step_2_verification_flow(self) -> None:
+        """Run NYSE lookup when required; otherwise advance directly to details step."""
+        if self._current_exchange() is Exchange.NYSE:
+            if self._ticker_lookup_thread is not None:
+                return
+            self._begin_ticker_lookup()
             return
-        self._begin_ticker_lookup()
+        self._advance_to_step_3()
 
     def _advance_to_step_3(self) -> None:
         """Advance wizard to step 3 and refresh dependent context/validation state."""
@@ -528,9 +584,8 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _on_ticker_changed(self, _value: str) -> None:
         """Normalize ticker text as user types and revalidate step 2."""
-        rule = self._current_ticker_rule()
         raw = self.ticker_edit.text()
-        normalized = rule.normalize(raw)
+        normalized = normalize_ticker_for_exchange(exchange=self._current_exchange(), raw=raw)
         if normalized != raw:
             cursor = self.ticker_edit.cursorPosition()
             # Prevent recursive textChanged while preserving cursor position.
@@ -543,6 +598,12 @@ class AddInstrumentWizardDialog(QDialog):
             self._last_ticker = current_ticker
         self._refresh_context_labels()
         self._update_step_2_validity()
+
+    def _on_step_2_ticker_return_pressed(self) -> None:
+        """Advance from step 2 on Enter when ticker is valid and Next is enabled."""
+        if not self.next_step_2_btn.isEnabled():
+            return
+        self._go_to_step_3()
 
     def _sync_exchange_ticker_validator(self) -> None:
         """Swap ticker regex/placeholder/max-length based on selected exchange."""
@@ -572,10 +633,14 @@ class AddInstrumentWizardDialog(QDialog):
         rule = self._current_ticker_rule()
 
         is_valid = rule.is_complete(ticker)
+        duplicate_location = self._find_duplicate_ticker_location() if is_valid else None
         if not ticker:
             error_text = "Ticker is required."
         elif not is_valid:
             error_text = rule.error_text
+        elif duplicate_location is not None:
+            error_text = self._format_duplicate_ticker_inline_error(duplicate_location)
+            is_valid = False
         else:
             error_text = ""
         self.ticker_error_label.setText(error_text)
@@ -593,11 +658,24 @@ class AddInstrumentWizardDialog(QDialog):
             units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        self.name_error_label.setText(outcome.name_error)
+        duplicate_name_location = (
+            self._find_duplicate_name_location(outcome.payload.name)
+            if outcome.payload is not None
+            else None
+        )
+        name_error = outcome.name_error
+        is_valid = outcome.is_valid
+        payload = outcome.payload
+        if duplicate_name_location is not None:
+            name_error = self._format_duplicate_name_inline_error(duplicate_name_location)
+            is_valid = False
+            payload = None
+
+        self.name_error_label.setText(name_error)
         self.target_pct_error_label.setText(outcome.target_error)
         self.units_error_label.setText(outcome.units_error)
-        self.add_step_3_btn.setEnabled(outcome.is_valid)
-        return outcome.payload
+        self.add_step_3_btn.setEnabled(is_valid)
+        return payload
 
     @staticmethod
     def _validate_step_3(
@@ -662,22 +740,61 @@ class AddInstrumentWizardDialog(QDialog):
         )
         return _UnitsValidationResult(error=error, units=units)
 
+    @staticmethod
+    def _validate_duplicate_name(*, normalized_name: str, existing_name_locations: dict[str, str]) -> str | None:
+        """Return duplicate location for normalized name if already present."""
+        return existing_name_locations.get(normalized_name)
+
+    def _find_duplicate_name_location(self, candidate_name: str) -> str | None:
+        """Return duplicate-name location in portfolio for candidate instrument name."""
+        return self._validate_duplicate_name(
+            normalized_name=candidate_name.casefold(),
+            existing_name_locations=self._existing_name_locations,
+        )
+
+    @staticmethod
+    def _format_duplicate_name_inline_error(duplicate_location: str) -> str:
+        """Build inline step-3 error for duplicate instrument name."""
+        return f"Instrument name already exists in this portfolio (under {duplicate_location})."
+
+    @staticmethod
+    def _format_duplicate_name_error(candidate_name: str, existing_location: str) -> tuple[str, str]:
+        """Build `(title, message)` shown when instrument name already exists."""
+        return (
+            "Duplicate instrument name",
+            (
+                f'An instrument named "{candidate_name}" already exists in this portfolio '
+                f"(under {existing_location}). Please choose a different name."
+            ),
+        )
+
+    def _show_duplicate_name_error(self, *, candidate_name: str, existing_location: str) -> None:
+        """Show Back-only duplicate-name error modal."""
+        title, message = self._format_duplicate_name_error(candidate_name, existing_location)
+        show_error_with_back(self, title, message)
+
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
         validated = self._compute_and_apply_step_3_outcome()
         if validated is None:
+            candidate_name = self.name_edit.text().strip()
+            existing_location = (
+                self._find_duplicate_name_location(candidate_name)
+                if candidate_name
+                else None
+            )
+            if existing_location is not None:
+                self._show_duplicate_name_error(
+                    candidate_name=candidate_name,
+                    existing_location=existing_location,
+                )
             return
         candidate_name = validated.name
-        normalized_name = candidate_name.casefold()
-        existing_location = self._existing_name_locations.get(normalized_name)
+        existing_location = self._find_duplicate_name_location(candidate_name)
         if existing_location is not None:
-            show_error_with_back(
-                self,
-                "Duplicate instrument name",
-                (
-                    f'An instrument named "{candidate_name}" already exists in this portfolio '
-                    f"(under {existing_location}). Please choose a different name."
-                ),
+            self._show_duplicate_name_error(
+                candidate_name=candidate_name,
+                existing_location=existing_location,
             )
             return
         self._result_data = AddInstrumentWizardResult(
