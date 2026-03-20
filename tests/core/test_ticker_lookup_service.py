@@ -8,7 +8,11 @@ import pytest
 
 import portfolio_core.ticker_lookup_service as ticker_lookup_service
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
+from portfolio_core.ticker_lookup_service import (
+    TickerLookupCommunicationError,
+    check_ticker_exists_in_exchange,
+    lookup_ticker_in_exchange,
+)
 
 
 class _FakeResponse:
@@ -125,6 +129,34 @@ def test_check_ticker_exists_in_exchange_returns_false_for_tase_without_network(
     assert check_ticker_exists_in_exchange(exchange=Exchange.TASE, ticker="1234567") is False
 
 
+def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = _build_otherlisted_payload(
+        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    )
+    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert result.exists is True
+    assert result.instrument_name == "Apple Inc."
+
+
+def test_lookup_ticker_in_exchange_returns_empty_name_when_symbol_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = _build_otherlisted_payload(
+        "MSFT|Microsoft Corp.|N|MSFT|N|100|N|MSFT",
+    )
+    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert result.exists is False
+    assert result.instrument_name == ""
+
+
 def test_check_ticker_exists_in_exchange_raises_communication_error_on_url_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -190,6 +222,7 @@ def test_check_ticker_exists_in_exchange_caches_only_nyse_relevant_rows(
     assert cache is not None
     assert set(cache.rows_by_symbol.keys()) == {"AAPL", "AAPY"}
     assert cache.rows_by_symbol["AAPL"].act_symbol == "AAPL"
+    assert cache.rows_by_symbol["AAPL"].security_name == "Apple Inc."
 
 
 def test_check_ticker_exists_in_exchange_populates_cache_once_under_concurrency(

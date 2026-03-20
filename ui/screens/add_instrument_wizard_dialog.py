@@ -50,7 +50,11 @@ from portfolio_core.ticker_rules import (
     is_complete_tase_ticker,
     normalize_ticker_for_exchange,
 )
-from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
+from portfolio_core.ticker_lookup_service import (
+    TickerLookupCommunicationError,
+    TickerLookupResult,
+    lookup_ticker_in_exchange,
+)
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
 from ui.shared.loading_overlay import LoadingOverlay
@@ -165,6 +169,7 @@ class _TickerLookupOutcome:
     """Final outcome of step-2 ticker network verification."""
 
     ticker_exists: bool
+    instrument_name: str
     message_title: str
     message_text: str
 
@@ -179,7 +184,7 @@ class _TickerLookupWorker(QObject):
         *,
         exchange: Exchange,
         ticker: str,
-        checker: Callable[..., bool],
+        checker: Callable[..., TickerLookupResult],
     ) -> None:
         """Store lookup inputs and callable used for background verification."""
         super().__init__()
@@ -192,6 +197,7 @@ class _TickerLookupWorker(QObject):
         """Build outcome payload for network/communication lookup failures."""
         return _TickerLookupOutcome(
             ticker_exists=False,
+            instrument_name="",
             message_title="Ticker lookup network error",
             message_text=(
                 "Could not verify this ticker due to a network/communication issue. "
@@ -204,6 +210,7 @@ class _TickerLookupWorker(QObject):
         """Build outcome payload for unexpected internal lookup failures."""
         return _TickerLookupOutcome(
             ticker_exists=False,
+            instrument_name="",
             message_title="Ticker lookup internal error",
             message_text=(
                 "Could not verify this ticker due to an internal error. "
@@ -216,15 +223,17 @@ class _TickerLookupWorker(QObject):
         """Build outcome payload for missing symbol on selected exchange."""
         return _TickerLookupOutcome(
             ticker_exists=False,
+            instrument_name="",
             message_title="Ticker not found",
             message_text="Ticker was not found on the selected exchange. Please review and try again.",
         )
 
     @staticmethod
-    def _success_outcome() -> _TickerLookupOutcome:
+    def _success_outcome(*, instrument_name: str) -> _TickerLookupOutcome:
         """Build outcome payload for successful ticker verification."""
         return _TickerLookupOutcome(
             ticker_exists=True,
+            instrument_name=instrument_name,
             message_title="",
             message_text="",
         )
@@ -233,7 +242,7 @@ class _TickerLookupWorker(QObject):
     def run(self) -> None:
         """Run blocking ticker lookup and emit typed outcome for UI thread handling."""
         try:
-            exists = self._checker(exchange=self._exchange, ticker=self._ticker)
+            result = self._checker(exchange=self._exchange, ticker=self._ticker)
         except TickerLookupCommunicationError:
             self.finished.emit(self._network_error_outcome())
             return
@@ -241,8 +250,8 @@ class _TickerLookupWorker(QObject):
             self.finished.emit(self._internal_error_outcome())
             return
 
-        if exists:
-            self.finished.emit(self._success_outcome())
+        if result.exists:
+            self.finished.emit(self._success_outcome(instrument_name=result.instrument_name))
             return
         self.finished.emit(self._not_found_outcome())
 
@@ -524,6 +533,15 @@ class AddInstrumentWizardDialog(QDialog):
         self._refresh_context_labels()
         self._update_step_3_validity()
 
+    def _prefill_step_3_name_if_empty(self, instrument_name: str) -> None:
+        """Pre-fill step-3 name only when empty so user edits are never overwritten."""
+        if not instrument_name.strip():
+            return
+        if self.name_edit.text().strip():
+            return
+        with QSignalBlocker(self.name_edit):
+            self.name_edit.setText(instrument_name)
+
     def _begin_ticker_lookup(self) -> None:
         """Create and start async ticker-lookup worker/thread wiring for step 2."""
         self._set_step_2_actions_enabled(False)
@@ -531,7 +549,7 @@ class AddInstrumentWizardDialog(QDialog):
         worker = _TickerLookupWorker(
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
-            checker=check_ticker_exists_in_exchange,
+            checker=lookup_ticker_in_exchange,
         )
         thread = QThread(self)
         worker.moveToThread(thread)
@@ -561,6 +579,7 @@ class AddInstrumentWizardDialog(QDialog):
         outcome = cast(_TickerLookupOutcome, payload)
         self._teardown_ticker_lookup()
         if outcome.ticker_exists:
+            self._prefill_step_3_name_if_empty(outcome.instrument_name)
             self._advance_to_step_3()
             return
         self._set_page(_WizardPage.TICKER)
