@@ -175,7 +175,7 @@ def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, s
 def _looks_like_otherlisted_header(header: Sequence[str]) -> bool:
     """Return whether header columns match expected `otherlisted.txt` identifiers."""
     normalized = {item.strip().upper() for item in header}
-    required = {_FIELD_ACT_SYMBOL, _FIELD_EXCHANGE, _FIELD_SECURITY_NAME}
+    required = {_FIELD_ACT_SYMBOL, _FIELD_EXCHANGE}
     return required.issubset(normalized)
 
 
