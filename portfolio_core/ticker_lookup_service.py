@@ -50,8 +50,15 @@ class TickerLookupResult:
     exists: bool
     instrument_name: str
 
+    @classmethod
+    def not_found(cls) -> "TickerLookupResult":
+        """Return canonical payload for unresolved lookup."""
+        return cls(exists=False, instrument_name="")
 
-_EMPTY_TICKER_LOOKUP_RESULT = TickerLookupResult(exists=False, instrument_name="")
+    @classmethod
+    def found(cls, *, instrument_name: str) -> "TickerLookupResult":
+        """Return canonical payload for successful lookup."""
+        return cls(exists=True, instrument_name=instrument_name)
 
 
 @dataclass(frozen=True)
@@ -123,15 +130,15 @@ def lookup_ticker_in_exchange(
 ) -> TickerLookupResult:
     """Return resolved lookup payload (`exists` + normalized instrument name)."""
     if exchange is not Exchange.NYSE:
-        return _EMPTY_TICKER_LOOKUP_RESULT
+        return TickerLookupResult.not_found()
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
-        return _EMPTY_TICKER_LOOKUP_RESULT
+        return TickerLookupResult.not_found()
     cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
     row = cache.rows_by_symbol.get(normalized_ticker)
     if row is None:
-        return _EMPTY_TICKER_LOOKUP_RESULT
-    return TickerLookupResult(exists=True, instrument_name=row.security_name)
+        return TickerLookupResult.not_found()
+    return TickerLookupResult.found(instrument_name=row.security_name)
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
