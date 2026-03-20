@@ -792,29 +792,28 @@ class AddInstrumentWizardDialog(QDialog):
         title, message = self._format_duplicate_name_error(candidate_name, existing_location)
         show_error_with_back(self, title, message)
 
+    def _maybe_show_duplicate_name_error(self, candidate_name: str) -> bool:
+        """Show duplicate-name modal when candidate already exists and return whether shown."""
+        if not candidate_name:
+            return False
+        existing_location = self._find_duplicate_name_location(candidate_name)
+        if existing_location is None:
+            return False
+        self._show_duplicate_name_error(
+            candidate_name=candidate_name,
+            existing_location=existing_location,
+        )
+        return True
+
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
         validated = self._compute_and_apply_step_3_outcome()
         if validated is None:
             candidate_name = self.name_edit.text().strip()
-            existing_location = (
-                self._find_duplicate_name_location(candidate_name)
-                if candidate_name
-                else None
-            )
-            if existing_location is not None:
-                self._show_duplicate_name_error(
-                    candidate_name=candidate_name,
-                    existing_location=existing_location,
-                )
+            _ = self._maybe_show_duplicate_name_error(candidate_name)
             return
         candidate_name = validated.name
-        existing_location = self._find_duplicate_name_location(candidate_name)
-        if existing_location is not None:
-            self._show_duplicate_name_error(
-                candidate_name=candidate_name,
-                existing_location=existing_location,
-            )
+        if self._maybe_show_duplicate_name_error(candidate_name):
             return
         self._result_data = AddInstrumentWizardResult(
             exchange=self._current_exchange(),
