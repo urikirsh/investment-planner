@@ -51,6 +51,9 @@ class TickerLookupResult:
     instrument_name: str
 
 
+_EMPTY_TICKER_LOOKUP_RESULT = TickerLookupResult(exists=False, instrument_name="")
+
+
 @dataclass(frozen=True)
 class _NyseLookupCache:
     """In-memory cache of NYSE symbol index for app-session reuse."""
@@ -120,14 +123,14 @@ def lookup_ticker_in_exchange(
 ) -> TickerLookupResult:
     """Return resolved lookup payload (`exists` + normalized instrument name)."""
     if exchange is not Exchange.NYSE:
-        return TickerLookupResult(exists=False, instrument_name="")
+        return _EMPTY_TICKER_LOOKUP_RESULT
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
-        return TickerLookupResult(exists=False, instrument_name="")
+        return _EMPTY_TICKER_LOOKUP_RESULT
     cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
     row = cache.rows_by_symbol.get(normalized_ticker)
     if row is None:
-        return TickerLookupResult(exists=False, instrument_name="")
+        return _EMPTY_TICKER_LOOKUP_RESULT
     return TickerLookupResult(exists=True, instrument_name=row.security_name)
 
 
