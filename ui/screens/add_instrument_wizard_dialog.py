@@ -165,13 +165,21 @@ class _WizardDisplayContext:
 
 
 @dataclass(frozen=True)
-class _TickerLookupOutcome:
-    """Final outcome of step-2 ticker network verification."""
+class _TickerLookupSuccessOutcome:
+    """Successful step-2 ticker verification payload."""
 
-    ticker_exists: bool
     instrument_name: str
+
+
+@dataclass(frozen=True)
+class _TickerLookupErrorOutcome:
+    """Failed step-2 ticker verification payload."""
+
     message_title: str
     message_text: str
+
+
+_TickerLookupOutcome = _TickerLookupSuccessOutcome | _TickerLookupErrorOutcome
 
 
 class _TickerLookupChecker(Protocol):
@@ -201,9 +209,7 @@ class _TickerLookupWorker(QObject):
     @staticmethod
     def _error_outcome(*, message_title: str, message_text: str) -> _TickerLookupOutcome:
         """Build standardized failure outcome payload."""
-        return _TickerLookupOutcome(
-            ticker_exists=False,
-            instrument_name="",
+        return _TickerLookupErrorOutcome(
             message_title=message_title,
             message_text=message_text,
         )
@@ -241,11 +247,8 @@ class _TickerLookupWorker(QObject):
     @staticmethod
     def _success_outcome(*, instrument_name: str) -> _TickerLookupOutcome:
         """Build outcome payload for successful ticker verification."""
-        return _TickerLookupOutcome(
-            ticker_exists=True,
+        return _TickerLookupSuccessOutcome(
             instrument_name=instrument_name,
-            message_title="",
-            message_text="",
         )
 
     @Slot()
@@ -588,7 +591,7 @@ class AddInstrumentWizardDialog(QDialog):
         """Handle async ticker check result and continue/block wizard flow."""
         outcome = cast(_TickerLookupOutcome, payload)
         self._teardown_ticker_lookup()
-        if outcome.ticker_exists:
+        if isinstance(outcome, _TickerLookupSuccessOutcome):
             self._prefill_step_3_name_if_empty(outcome.instrument_name)
             self._advance_to_step_3()
             return
