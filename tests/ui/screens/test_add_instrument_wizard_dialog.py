@@ -555,6 +555,24 @@ def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpecte
     assert "internal error" in shown[0][1].lower()
 
 
+def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup_payload(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="NYSE",
+        ticker="AB12",
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    dialog._on_ticker_lookup_finished(object())
+
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker lookup internal error"
+    assert "internal error" in shown[0][1].lower()
+
+
 def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,

@@ -16,7 +16,7 @@ guard when submit handlers are invoked directly.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Protocol, cast
+from typing import Protocol
 
 from PySide6.QtCore import QObject, QRegularExpression, QSignalBlocker, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QRegularExpressionValidator
@@ -216,7 +216,7 @@ class _TickerLookupWorker(QObject):
         self._checker = checker
 
     @staticmethod
-    def _error_outcome(*, message_title: str, message_text: str) -> _TickerLookupOutcome:
+    def _error_outcome(*, message_title: str, message_text: str) -> _TickerLookupErrorOutcome:
         """Build standardized failure outcome payload."""
         return _TickerLookupErrorOutcome(
             message_title=message_title,
@@ -224,7 +224,7 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _network_error_outcome() -> _TickerLookupOutcome:
+    def _network_error_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for network/communication lookup failures."""
         return _TickerLookupWorker._error_outcome(
             message_title="Ticker lookup network error",
@@ -235,7 +235,7 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _internal_error_outcome() -> _TickerLookupOutcome:
+    def _internal_error_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for unexpected internal lookup failures."""
         return _TickerLookupWorker._error_outcome(
             message_title="Ticker lookup internal error",
@@ -246,7 +246,7 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _not_found_outcome() -> _TickerLookupOutcome:
+    def _not_found_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for missing symbol on selected exchange."""
         return _TickerLookupWorker._error_outcome(
             message_title="Ticker not found",
@@ -254,7 +254,7 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _success_outcome(*, instrument_name: str) -> _TickerLookupOutcome:
+    def _success_outcome(*, instrument_name: str) -> _TickerLookupSuccessOutcome:
         """Build outcome payload for successful ticker verification."""
         return _TickerLookupSuccessOutcome(
             instrument_name=instrument_name,
@@ -598,14 +598,18 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot(object)
     def _on_ticker_lookup_finished(self, payload: object) -> None:
         """Handle async ticker check result and continue/block wizard flow."""
-        outcome = cast(_TickerLookupOutcome, payload)
         self._teardown_ticker_lookup()
-        if isinstance(outcome, _TickerLookupSuccessOutcome):
-            self._prefill_step_3_name_if_empty(outcome.instrument_name)
+        if isinstance(payload, _TickerLookupSuccessOutcome):
+            self._prefill_step_3_name_if_empty(payload.instrument_name)
             self._advance_to_step_3()
             return
+        if isinstance(payload, _TickerLookupErrorOutcome):
+            self._set_page(_WizardPage.TICKER)
+            show_error_with_back(self, payload.message_title, payload.message_text)
+            return
+        internal_error = _TickerLookupWorker._internal_error_outcome()
         self._set_page(_WizardPage.TICKER)
-        show_error_with_back(self, outcome.message_title, outcome.message_text)
+        show_error_with_back(self, internal_error.message_title, internal_error.message_text)
 
     def _set_step_2_actions_enabled(self, enabled: bool) -> None:
         """Enable or disable all step-2 actions during ticker verification."""
