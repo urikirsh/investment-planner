@@ -110,8 +110,13 @@ def lookup_ticker_in_exchange(
     timeout_seconds: float = 8.0,
 ) -> TickerLookupResult:
     """Return resolved lookup payload (`exists` + normalized instrument name)."""
-    if exchange is not Exchange.NYSE:
-        return TickerLookupResult.not_found()
+    if exchange is Exchange.NYSE:
+        return _lookup_nyse_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
+    return TickerLookupResult.not_found()
+
+
+def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
         return TickerLookupResult.not_found()
