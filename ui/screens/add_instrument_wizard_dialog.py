@@ -140,6 +140,15 @@ class _Step3ValidationOutcome:
 
 
 @dataclass(frozen=True)
+class _AppliedStep3Outcome:
+    """Step-3 UI-applied outcome reused by submit flow without recomputation."""
+
+    payload: _ValidatedStep3Payload | None
+    candidate_name: str
+    duplicate_name_location: str | None
+
+
+@dataclass(frozen=True)
 class _TargetValidationResult:
     """Validation output for strategy-percentage input."""
 
@@ -682,32 +691,38 @@ class AddInstrumentWizardDialog(QDialog):
         """Validate name/strategy fields and gate final `Add` action."""
         _ = self._compute_and_apply_step_3_outcome()
 
-    def _compute_and_apply_step_3_outcome(self) -> _ValidatedStep3Payload | None:
-        """Compute step-3 validation and apply UI error/button state."""
+    def _compute_and_apply_step_3_outcome(self) -> _AppliedStep3Outcome:
+        """Compute step-3 validation, apply UI state, and return submit-ready outcome."""
         outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
             units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        duplicate_name_location = (
-            self._find_duplicate_name_location(outcome.payload.name)
+        candidate_name = (
+            outcome.payload.name
             if outcome.payload is not None
-            else None
+            else self.name_edit.text().strip()
         )
+        duplicate_name_location = self._find_duplicate_name_location(candidate_name) if candidate_name else None
         name_error = outcome.name_error
         is_valid = outcome.is_valid
         payload = outcome.payload
         if duplicate_name_location is not None:
-            name_error = self._format_duplicate_name_inline_error(duplicate_name_location)
-            is_valid = False
-            payload = None
+            if payload is not None:
+                name_error = self._format_duplicate_name_inline_error(duplicate_name_location)
+                is_valid = False
+                payload = None
 
         self.name_error_label.setText(name_error)
         self.target_pct_error_label.setText(outcome.target_error)
         self.units_error_label.setText(outcome.units_error)
         self.add_step_3_btn.setEnabled(is_valid)
-        return payload
+        return _AppliedStep3Outcome(
+            payload=payload,
+            candidate_name=candidate_name,
+            duplicate_name_location=duplicate_name_location,
+        )
 
     @staticmethod
     def _validate_step_3(
@@ -805,33 +820,22 @@ class AddInstrumentWizardDialog(QDialog):
         title, message = self._format_duplicate_name_error(candidate_name, existing_location)
         show_error_with_back(self, title, message)
 
-    def _maybe_show_duplicate_name_error(self, candidate_name: str) -> bool:
-        """Show duplicate-name modal when candidate already exists and return whether shown."""
-        if not candidate_name:
-            return False
-        existing_location = self._find_duplicate_name_location(candidate_name)
-        if existing_location is None:
-            return False
-        self._show_duplicate_name_error(
-            candidate_name=candidate_name,
-            existing_location=existing_location,
-        )
-        return True
-
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
-        validated = self._compute_and_apply_step_3_outcome()
-        if validated is None:
-            candidate_name = self.name_edit.text().strip()
-            _ = self._maybe_show_duplicate_name_error(candidate_name)
+        applied_outcome = self._compute_and_apply_step_3_outcome()
+        if applied_outcome.duplicate_name_location is not None:
+            self._show_duplicate_name_error(
+                candidate_name=applied_outcome.candidate_name,
+                existing_location=applied_outcome.duplicate_name_location,
+            )
             return
-        candidate_name = validated.name
-        if self._maybe_show_duplicate_name_error(candidate_name):
+        if applied_outcome.payload is None:
             return
+        validated = applied_outcome.payload
         self._result_data = AddInstrumentWizardResult(
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
-            name=candidate_name,
+            name=validated.name,
             target_in_group_pct=validated.target_in_group_pct,
             units=validated.units,
         )
