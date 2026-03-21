@@ -146,8 +146,6 @@ def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
     parsed_rows: list[_NyseRelevantRow] = []
     for row in reader:
         normalized_row = _normalize_otherlisted_row(row)
-        if normalized_row.get(_FIELD_ACT_SYMBOL, "").startswith("FILE CREATION TIME"):
-            continue
         maybe_row = _to_nyse_relevant_row(normalized_row)
         if maybe_row is not None:
             parsed_rows.append(maybe_row)
