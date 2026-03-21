@@ -103,25 +103,6 @@ class _NyseLookupCacheStore:
 _nyse_lookup_store = _NyseLookupCacheStore()
 
 
-def check_ticker_exists_in_exchange(
-    *,
-    exchange: Exchange,
-    ticker: str,
-    timeout_seconds: float = 8.0,
-) -> bool:
-    """Return whether `ticker` exists on `exchange` from official symbol directories.
-
-    Notes:
-    - NYSE lookup is supported via Nasdaq Trader `otherlisted.txt`.
-    - TASE lookup is intentionally unsupported for now and always returns `False`.
-    """
-    return lookup_ticker_in_exchange(
-        exchange=exchange,
-        ticker=ticker,
-        timeout_seconds=timeout_seconds,
-    ).exists
-
-
 def lookup_ticker_in_exchange(
     *,
     exchange: Exchange,
