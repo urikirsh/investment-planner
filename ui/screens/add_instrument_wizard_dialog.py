@@ -16,7 +16,7 @@ guard when submit handlers are invoked directly.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import cast
+from typing import Protocol, cast
 
 from PySide6.QtCore import QObject, QRegularExpression, QSignalBlocker, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QRegularExpressionValidator
@@ -174,6 +174,12 @@ class _TickerLookupOutcome:
     message_text: str
 
 
+class _TickerLookupChecker(Protocol):
+    """Typed callable contract for ticker lookup workers."""
+
+    def __call__(self, *, exchange: Exchange, ticker: str) -> TickerLookupResult: ...
+
+
 class _TickerLookupWorker(QObject):
     """Background worker that verifies ticker existence on selected exchange."""
 
@@ -184,7 +190,7 @@ class _TickerLookupWorker(QObject):
         *,
         exchange: Exchange,
         ticker: str,
-        checker: Callable[..., TickerLookupResult],
+        checker: _TickerLookupChecker,
     ) -> None:
         """Store lookup inputs and callable used for background verification."""
         super().__init__()
