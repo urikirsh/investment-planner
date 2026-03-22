@@ -16,7 +16,7 @@ guard when submit handlers are invoked directly.
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import cast
+from typing import Protocol
 
 from PySide6.QtCore import QObject, QRegularExpression, QSignalBlocker, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QRegularExpressionValidator
@@ -50,7 +50,13 @@ from portfolio_core.ticker_rules import (
     is_complete_tase_ticker,
     normalize_ticker_for_exchange,
 )
-from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, check_ticker_exists_in_exchange
+from portfolio_core.ticker_lookup_service import (
+    TickerLookupCommunicationError,
+    TickerLookupFound,
+    TickerLookupNotFound,
+    TickerLookupResult,
+    lookup_ticker_in_exchange,
+)
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
 from ui.shared.loading_overlay import LoadingOverlay
@@ -136,6 +142,15 @@ class _Step3ValidationOutcome:
 
 
 @dataclass(frozen=True)
+class _AppliedStep3Outcome:
+    """Step-3 UI-applied outcome reused by submit flow without recomputation."""
+
+    payload: _ValidatedStep3Payload | None
+    candidate_name: str
+    duplicate_name_location: str | None
+
+
+@dataclass(frozen=True)
 class _TargetValidationResult:
     """Validation output for strategy-percentage input."""
 
@@ -161,12 +176,23 @@ class _WizardDisplayContext:
 
 
 @dataclass(frozen=True)
-class _TickerLookupOutcome:
-    """Final outcome of step-2 ticker network verification."""
+class _TickerLookupSuccessOutcome:
+    """Successful step-2 ticker verification payload."""
 
-    ticker_exists: bool
+    instrument_name: str
+
+
+@dataclass(frozen=True)
+class _TickerLookupErrorOutcome:
+    """Failed step-2 ticker verification payload."""
+
     message_title: str
     message_text: str
+
+class _TickerLookupChecker(Protocol):
+    """Typed callable contract for ticker lookup workers."""
+
+    def __call__(self, *, exchange: Exchange, ticker: str) -> TickerLookupResult: ...
 
 
 class _TickerLookupWorker(QObject):
@@ -179,7 +205,7 @@ class _TickerLookupWorker(QObject):
         *,
         exchange: Exchange,
         ticker: str,
-        checker: Callable[..., bool],
+        checker: _TickerLookupChecker,
     ) -> None:
         """Store lookup inputs and callable used for background verification."""
         super().__init__()
@@ -188,10 +214,9 @@ class _TickerLookupWorker(QObject):
         self._checker = checker
 
     @staticmethod
-    def _network_error_outcome() -> _TickerLookupOutcome:
+    def _network_error_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for network/communication lookup failures."""
-        return _TickerLookupOutcome(
-            ticker_exists=False,
+        return _TickerLookupErrorOutcome(
             message_title="Ticker lookup network error",
             message_text=(
                 "Could not verify this ticker due to a network/communication issue. "
@@ -200,10 +225,9 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _internal_error_outcome() -> _TickerLookupOutcome:
+    def _internal_error_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for unexpected internal lookup failures."""
-        return _TickerLookupOutcome(
-            ticker_exists=False,
+        return _TickerLookupErrorOutcome(
             message_title="Ticker lookup internal error",
             message_text=(
                 "Could not verify this ticker due to an internal error. "
@@ -212,28 +236,25 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _not_found_outcome() -> _TickerLookupOutcome:
+    def _not_found_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for missing symbol on selected exchange."""
-        return _TickerLookupOutcome(
-            ticker_exists=False,
+        return _TickerLookupErrorOutcome(
             message_title="Ticker not found",
             message_text="Ticker was not found on the selected exchange. Please review and try again.",
         )
 
     @staticmethod
-    def _success_outcome() -> _TickerLookupOutcome:
+    def _success_outcome(*, instrument_name: str) -> _TickerLookupSuccessOutcome:
         """Build outcome payload for successful ticker verification."""
-        return _TickerLookupOutcome(
-            ticker_exists=True,
-            message_title="",
-            message_text="",
+        return _TickerLookupSuccessOutcome(
+            instrument_name=instrument_name,
         )
 
     @Slot()
     def run(self) -> None:
         """Run blocking ticker lookup and emit typed outcome for UI thread handling."""
         try:
-            exists = self._checker(exchange=self._exchange, ticker=self._ticker)
+            result = self._checker(exchange=self._exchange, ticker=self._ticker)
         except TickerLookupCommunicationError:
             self.finished.emit(self._network_error_outcome())
             return
@@ -241,8 +262,11 @@ class _TickerLookupWorker(QObject):
             self.finished.emit(self._internal_error_outcome())
             return
 
-        if exists:
-            self.finished.emit(self._success_outcome())
+        if isinstance(result, TickerLookupFound):
+            self.finished.emit(self._success_outcome(instrument_name=result.instrument_name))
+            return
+        if isinstance(result, TickerLookupNotFound):
+            self.finished.emit(self._not_found_outcome())
             return
         self.finished.emit(self._not_found_outcome())
 
@@ -524,6 +548,15 @@ class AddInstrumentWizardDialog(QDialog):
         self._refresh_context_labels()
         self._update_step_3_validity()
 
+    def _prefill_step_3_name_if_empty(self, instrument_name: str) -> None:
+        """Pre-fill step-3 name only when empty so user edits are never overwritten."""
+        if not instrument_name.strip():
+            return
+        if self.name_edit.text().strip():
+            return
+        with QSignalBlocker(self.name_edit):
+            self.name_edit.setText(instrument_name)
+
     def _begin_ticker_lookup(self) -> None:
         """Create and start async ticker-lookup worker/thread wiring for step 2."""
         self._set_step_2_actions_enabled(False)
@@ -531,7 +564,7 @@ class AddInstrumentWizardDialog(QDialog):
         worker = _TickerLookupWorker(
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
-            checker=check_ticker_exists_in_exchange,
+            checker=lookup_ticker_in_exchange,
         )
         thread = QThread(self)
         worker.moveToThread(thread)
@@ -558,13 +591,18 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot(object)
     def _on_ticker_lookup_finished(self, payload: object) -> None:
         """Handle async ticker check result and continue/block wizard flow."""
-        outcome = cast(_TickerLookupOutcome, payload)
         self._teardown_ticker_lookup()
-        if outcome.ticker_exists:
+        if isinstance(payload, _TickerLookupSuccessOutcome):
+            self._prefill_step_3_name_if_empty(payload.instrument_name)
             self._advance_to_step_3()
             return
+        if isinstance(payload, _TickerLookupErrorOutcome):
+            self._set_page(_WizardPage.TICKER)
+            show_error_with_back(self, payload.message_title, payload.message_text)
+            return
+        internal_error = _TickerLookupWorker._internal_error_outcome()
         self._set_page(_WizardPage.TICKER)
-        show_error_with_back(self, outcome.message_title, outcome.message_text)
+        show_error_with_back(self, internal_error.message_title, internal_error.message_text)
 
     def _set_step_2_actions_enabled(self, enabled: bool) -> None:
         """Enable or disable all step-2 actions during ticker verification."""
@@ -650,32 +688,38 @@ class AddInstrumentWizardDialog(QDialog):
         """Validate name/strategy fields and gate final `Add` action."""
         _ = self._compute_and_apply_step_3_outcome()
 
-    def _compute_and_apply_step_3_outcome(self) -> _ValidatedStep3Payload | None:
-        """Compute step-3 validation and apply UI error/button state."""
+    def _compute_and_apply_step_3_outcome(self) -> _AppliedStep3Outcome:
+        """Compute step-3 validation, apply UI state, and return submit-ready outcome."""
         outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
             units_text=self.units_edit.text(),
             is_non_investable_group=self._is_non_investable_group,
         )
-        duplicate_name_location = (
-            self._find_duplicate_name_location(outcome.payload.name)
+        candidate_name = (
+            outcome.payload.name
             if outcome.payload is not None
-            else None
+            else self.name_edit.text().strip()
         )
+        duplicate_name_location = self._find_duplicate_name_location(candidate_name) if candidate_name else None
         name_error = outcome.name_error
         is_valid = outcome.is_valid
         payload = outcome.payload
         if duplicate_name_location is not None:
-            name_error = self._format_duplicate_name_inline_error(duplicate_name_location)
-            is_valid = False
-            payload = None
+            if payload is not None:
+                name_error = self._format_duplicate_name_inline_error(duplicate_name_location)
+                is_valid = False
+                payload = None
 
         self.name_error_label.setText(name_error)
         self.target_pct_error_label.setText(outcome.target_error)
         self.units_error_label.setText(outcome.units_error)
         self.add_step_3_btn.setEnabled(is_valid)
-        return payload
+        return _AppliedStep3Outcome(
+            payload=payload,
+            candidate_name=candidate_name,
+            duplicate_name_location=duplicate_name_location,
+        )
 
     @staticmethod
     def _validate_step_3(
@@ -775,32 +819,20 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _accept_result(self) -> None:
         """Accept wizard only when step 3 is valid and name is not duplicate."""
-        validated = self._compute_and_apply_step_3_outcome()
-        if validated is None:
-            candidate_name = self.name_edit.text().strip()
-            existing_location = (
-                self._find_duplicate_name_location(candidate_name)
-                if candidate_name
-                else None
-            )
-            if existing_location is not None:
-                self._show_duplicate_name_error(
-                    candidate_name=candidate_name,
-                    existing_location=existing_location,
-                )
-            return
-        candidate_name = validated.name
-        existing_location = self._find_duplicate_name_location(candidate_name)
-        if existing_location is not None:
+        applied_outcome = self._compute_and_apply_step_3_outcome()
+        if applied_outcome.duplicate_name_location is not None:
             self._show_duplicate_name_error(
-                candidate_name=candidate_name,
-                existing_location=existing_location,
+                candidate_name=applied_outcome.candidate_name,
+                existing_location=applied_outcome.duplicate_name_location,
             )
             return
+        if applied_outcome.payload is None:
+            return
+        validated = applied_outcome.payload
         self._result_data = AddInstrumentWizardResult(
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
-            name=candidate_name,
+            name=validated.name,
             target_in_group_pct=validated.target_in_group_pct,
             units=validated.units,
         )

@@ -21,6 +21,7 @@ _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlist
 _NYSE_ACCEPTED_EXCHANGE_CODES = {"N", "A", "P", "Z"}
 _FIELD_ACT_SYMBOL = "ACT SYMBOL"
 _FIELD_EXCHANGE = "EXCHANGE"
+_FIELD_SECURITY_NAME = "SECURITY NAME"
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -39,6 +40,27 @@ class _NyseRelevantRow:
     """Minimal cached row used for NYSE ticker existence checks."""
 
     act_symbol: str
+    security_name: str
+
+
+@dataclass(frozen=True)
+class TickerLookupFound:
+    """Resolved payload for successful ticker lookup."""
+
+    instrument_name: str
+
+    def __post_init__(self) -> None:
+        """Enforce non-empty instrument names for found lookups."""
+        if not self.instrument_name.strip():
+            raise ValueError("instrument_name must be non-empty for found ticker lookups")
+
+
+@dataclass(frozen=True)
+class TickerLookupNotFound:
+    """Resolved payload for missing/unsupported ticker lookup."""
+
+
+TickerLookupResult = TickerLookupFound | TickerLookupNotFound
 
 
 @dataclass(frozen=True)
@@ -83,25 +105,31 @@ class _NyseLookupCacheStore:
 _nyse_lookup_store = _NyseLookupCacheStore()
 
 
-def check_ticker_exists_in_exchange(
+def lookup_ticker_in_exchange(
     *,
     exchange: Exchange,
     ticker: str,
     timeout_seconds: float = 8.0,
-) -> bool:
-    """Return whether `ticker` exists on `exchange` from official symbol directories.
+) -> TickerLookupResult:
+    """Return resolved lookup payload for supported exchange/ticker combinations."""
+    if exchange is Exchange.NYSE:
+        return _lookup_nyse_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
+    return TickerLookupNotFound()
 
-    Notes:
-    - NYSE lookup is supported via Nasdaq Trader `otherlisted.txt`.
-    - TASE lookup is intentionally unsupported for now and always returns `False`.
-    """
-    if exchange is not Exchange.NYSE:
-        return False
+
+def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
-        return False
+        return TickerLookupNotFound()
     cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
-    return normalized_ticker in cache.rows_by_symbol
+    row = cache.rows_by_symbol.get(normalized_ticker)
+    if row is None:
+        return TickerLookupNotFound()
+    security_name = row.security_name.strip()
+    if not security_name:
+        return TickerLookupNotFound()
+    return TickerLookupFound(instrument_name=security_name)
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
@@ -128,8 +156,6 @@ def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
     parsed_rows: list[_NyseRelevantRow] = []
     for row in reader:
         normalized_row = _normalize_otherlisted_row(row)
-        if normalized_row.get(_FIELD_ACT_SYMBOL, "").startswith("FILE CREATION TIME"):
-            continue
         maybe_row = _to_nyse_relevant_row(normalized_row)
         if maybe_row is not None:
             parsed_rows.append(maybe_row)
@@ -137,9 +163,9 @@ def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
 
 
 def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, str]:
-    """Normalize parsed CSV row keys/values by stripping and uppercasing."""
+    """Normalize parsed CSV row keys and trim values for stable parsing."""
     return {
-        key.strip().upper(): value.strip().upper()
+        key.strip().upper(): value.strip()
         for key, value in row.items()
         if key is not None and value is not None
     }
@@ -154,9 +180,11 @@ def _looks_like_otherlisted_header(header: Sequence[str]) -> bool:
 
 def _to_nyse_relevant_row(row: dict[str, str]) -> _NyseRelevantRow | None:
     """Return minimal cached row when exchange code is NYSE-relevant, otherwise ``None``."""
-    if row.get(_FIELD_EXCHANGE, "") not in _NYSE_ACCEPTED_EXCHANGE_CODES:
+    exchange_code = row.get(_FIELD_EXCHANGE, "").upper()
+    if exchange_code not in _NYSE_ACCEPTED_EXCHANGE_CODES:
         return None
-    act_symbol = row.get(_FIELD_ACT_SYMBOL, "")
+    act_symbol = row.get(_FIELD_ACT_SYMBOL, "").upper()
     if not act_symbol:
         return None
-    return _NyseRelevantRow(act_symbol=act_symbol)
+    security_name = row.get(_FIELD_SECURITY_NAME, "")
+    return _NyseRelevantRow(act_symbol=act_symbol, security_name=security_name)
