@@ -52,6 +52,8 @@ from portfolio_core.ticker_rules import (
 )
 from portfolio_core.ticker_lookup_service import (
     TickerLookupCommunicationError,
+    TickerLookupFound,
+    TickerLookupNotFound,
     TickerLookupResult,
     lookup_ticker_in_exchange,
 )
@@ -187,10 +189,6 @@ class _TickerLookupErrorOutcome:
     message_title: str
     message_text: str
 
-
-_TickerLookupOutcome = _TickerLookupSuccessOutcome | _TickerLookupErrorOutcome
-
-
 class _TickerLookupChecker(Protocol):
     """Typed callable contract for ticker lookup workers."""
 
@@ -264,8 +262,11 @@ class _TickerLookupWorker(QObject):
             self.finished.emit(self._internal_error_outcome())
             return
 
-        if result.exists:
+        if isinstance(result, TickerLookupFound):
             self.finished.emit(self._success_outcome(instrument_name=result.instrument_name))
+            return
+        if isinstance(result, TickerLookupNotFound):
+            self.finished.emit(self._not_found_outcome())
             return
         self.finished.emit(self._not_found_outcome())
 

@@ -10,6 +10,8 @@ import portfolio_core.ticker_lookup_service as ticker_lookup_service
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_lookup_service import (
     TickerLookupCommunicationError,
+    TickerLookupFound,
+    TickerLookupNotFound,
     lookup_ticker_in_exchange,
 )
 
@@ -70,7 +72,7 @@ def test_lookup_ticker_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pyt
     )
     _patch_urlopen_with_payload(monkeypatch, payload=raw)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
 
 def test_lookup_ticker_in_exchange_returns_true_for_bzx_symbol_under_nyse_filter(
@@ -81,7 +83,7 @@ def test_lookup_ticker_in_exchange_returns_true_for_bzx_symbol_under_nyse_filter
     )
     _patch_urlopen_with_payload(monkeypatch, payload=raw)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPY").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPY"), TickerLookupFound)
 
 
 def test_lookup_ticker_in_exchange_parses_quoted_pipe_in_security_name(
@@ -92,7 +94,7 @@ def test_lookup_ticker_in_exchange_parses_quoted_pipe_in_security_name(
     )
     _patch_urlopen_with_payload(monkeypatch, payload=raw)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
 
 @pytest.mark.parametrize("exchange_code", ["A", "P"])
@@ -105,7 +107,7 @@ def test_lookup_ticker_in_exchange_returns_true_for_nyse_family_exchange_codes(
     )
     _patch_urlopen_with_payload(monkeypatch, payload=raw)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
 
 def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,7 +116,7 @@ def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch
     )
     _patch_urlopen_with_payload(monkeypatch, payload=raw)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is False
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupNotFound)
 
 
 def test_lookup_ticker_in_exchange_returns_false_for_tase_without_network(
@@ -125,7 +127,7 @@ def test_lookup_ticker_in_exchange_returns_false_for_tase_without_network(
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Should not be called for TASE")),
     )
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567").exists is False
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567"), TickerLookupNotFound)
 
 
 def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
@@ -138,7 +140,7 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
-    assert result.exists is True
+    assert isinstance(result, TickerLookupFound)
     assert result.instrument_name == "Apple Inc."
 
 
@@ -152,8 +154,7 @@ def test_lookup_ticker_in_exchange_returns_empty_name_when_symbol_missing(
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
-    assert result.exists is False
-    assert result.instrument_name == ""
+    assert isinstance(result, TickerLookupNotFound)
 
 
 def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
@@ -187,8 +188,8 @@ def test_lookup_ticker_in_exchange_uses_cached_rows_without_refetch(
     calls = {"count": 0}
     _patch_urlopen_with_payload(monkeypatch, payload=raw, calls=calls)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert calls["count"] == 1
 
 
@@ -201,8 +202,8 @@ def test_lookup_ticker_in_exchange_uses_session_cache_without_expiry(
     calls = {"count": 0}
     _patch_urlopen_with_payload(monkeypatch, payload=raw, calls=calls)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert calls["count"] == 1
 
 
@@ -216,7 +217,7 @@ def test_lookup_ticker_in_exchange_caches_only_nyse_relevant_rows(
     )
     _patch_urlopen_with_payload(monkeypatch, payload=raw)
 
-    assert lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists is True
+    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     cache = ticker_lookup_service._nyse_lookup_store.get_cached_for_tests()
     assert cache is not None
     assert set(cache.rows_by_symbol.keys()) == {"AAPL", "AAPY"}
@@ -244,7 +245,8 @@ def test_lookup_ticker_in_exchange_populates_cache_once_under_concurrency(
 
     def _worker() -> None:
         barrier.wait()
-        results.append(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL").exists)
+        result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+        results.append(isinstance(result, TickerLookupFound))
 
     t1 = Thread(target=_worker)
     t2 = Thread(target=_worker)

@@ -44,21 +44,23 @@ class _NyseRelevantRow:
 
 
 @dataclass(frozen=True)
-class TickerLookupResult:
-    """Resolved ticker lookup payload used by UI flows."""
+class TickerLookupFound:
+    """Resolved payload for successful ticker lookup."""
 
-    exists: bool
     instrument_name: str
 
-    @classmethod
-    def not_found(cls) -> "TickerLookupResult":
-        """Return canonical payload for unresolved lookup."""
-        return cls(exists=False, instrument_name="")
+    def __post_init__(self) -> None:
+        """Enforce non-empty instrument names for found lookups."""
+        if not self.instrument_name.strip():
+            raise ValueError("instrument_name must be non-empty for found ticker lookups")
 
-    @classmethod
-    def found(cls, *, instrument_name: str) -> "TickerLookupResult":
-        """Return canonical payload for successful lookup."""
-        return cls(exists=True, instrument_name=instrument_name)
+
+@dataclass(frozen=True)
+class TickerLookupNotFound:
+    """Resolved payload for missing/unsupported ticker lookup."""
+
+
+TickerLookupResult = TickerLookupFound | TickerLookupNotFound
 
 
 @dataclass(frozen=True)
@@ -109,22 +111,25 @@ def lookup_ticker_in_exchange(
     ticker: str,
     timeout_seconds: float = 8.0,
 ) -> TickerLookupResult:
-    """Return resolved lookup payload (`exists` + normalized instrument name)."""
+    """Return resolved lookup payload for supported exchange/ticker combinations."""
     if exchange is Exchange.NYSE:
         return _lookup_nyse_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
-    return TickerLookupResult.not_found()
+    return TickerLookupNotFound()
 
 
 def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
     """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
     normalized_ticker = ticker.strip().upper()
     if not normalized_ticker:
-        return TickerLookupResult.not_found()
+        return TickerLookupNotFound()
     cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
     row = cache.rows_by_symbol.get(normalized_ticker)
     if row is None:
-        return TickerLookupResult.not_found()
-    return TickerLookupResult.found(instrument_name=row.security_name)
+        return TickerLookupNotFound()
+    security_name = row.security_name.strip()
+    if not security_name:
+        return TickerLookupNotFound()
+    return TickerLookupFound(instrument_name=security_name)
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:

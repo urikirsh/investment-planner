@@ -12,7 +12,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_lookup_service import TickerLookupCommunicationError, TickerLookupResult
+from portfolio_core.ticker_lookup_service import (
+    TickerLookupCommunicationError,
+    TickerLookupFound,
+    TickerLookupNotFound,
+    TickerLookupResult,
+)
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog
 
 
@@ -38,9 +43,10 @@ def _mock_ticker_lookup_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default ticker lookup mock for deterministic wizard tests."""
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
-        lambda *, exchange, ticker: TickerLookupResult(
-            exists=bool(exchange) and bool(ticker),
-            instrument_name="",
+        lambda *, exchange, ticker: (
+            TickerLookupFound(instrument_name="Resolved Instrument")
+            if bool(exchange) and bool(ticker)
+            else TickerLookupNotFound()
         ),
     )
 
@@ -388,10 +394,7 @@ def test_add_instrument_wizard_step_2_blocks_unknown_ticker_with_back_modal(
     shown = _capture_back_modal_messages(monkeypatch)
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
-        lambda *, exchange, ticker: TickerLookupResult(
-            exists=False,
-            instrument_name="",
-        ),
+        lambda *, exchange, ticker: TickerLookupNotFound(),
     )
 
     _submit_nyse_step_2(dialog)
@@ -417,7 +420,8 @@ def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_ny
 
     def _checker(*, exchange: object, ticker: object) -> TickerLookupResult:
         calls.append((exchange, ticker))
-        return TickerLookupResult(exists=True, instrument_name="")
+        _ = (exchange, ticker)
+        return TickerLookupFound(instrument_name="Resolved Instrument")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
@@ -470,9 +474,10 @@ def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
     shown = _capture_back_modal_messages(monkeypatch)
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
-        lambda *, exchange, ticker: TickerLookupResult(
-            exists=bool(exchange) and bool(ticker),
-            instrument_name="",
+        lambda *, exchange, ticker: (
+            TickerLookupFound(instrument_name="Resolved Instrument")
+            if bool(exchange) and bool(ticker)
+            else TickerLookupNotFound()
         ),
     )
 
@@ -493,9 +498,10 @@ def test_add_instrument_wizard_step_2_prefills_step_3_name_from_successful_looku
     )
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
-        lambda *, exchange, ticker: TickerLookupResult(
-            exists=bool(exchange) and bool(ticker),
-            instrument_name="Apple Inc.",
+        lambda *, exchange, ticker: (
+            TickerLookupFound(instrument_name="Apple Inc.")
+            if bool(exchange) and bool(ticker)
+            else TickerLookupNotFound()
         ),
     )
 
@@ -582,7 +588,8 @@ def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
 
     def _checker(*, exchange: object, ticker: object) -> TickerLookupResult:
         calls.append((exchange, ticker))
-        return TickerLookupResult(exists=True, instrument_name="")
+        _ = (exchange, ticker)
+        return TickerLookupFound(instrument_name="Resolved Instrument")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
