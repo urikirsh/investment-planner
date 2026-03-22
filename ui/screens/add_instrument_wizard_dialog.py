@@ -216,17 +216,9 @@ class _TickerLookupWorker(QObject):
         self._checker = checker
 
     @staticmethod
-    def _error_outcome(*, message_title: str, message_text: str) -> _TickerLookupErrorOutcome:
-        """Build standardized failure outcome payload."""
-        return _TickerLookupErrorOutcome(
-            message_title=message_title,
-            message_text=message_text,
-        )
-
-    @staticmethod
     def _network_error_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for network/communication lookup failures."""
-        return _TickerLookupWorker._error_outcome(
+        return _TickerLookupErrorOutcome(
             message_title="Ticker lookup network error",
             message_text=(
                 "Could not verify this ticker due to a network/communication issue. "
@@ -237,7 +229,7 @@ class _TickerLookupWorker(QObject):
     @staticmethod
     def _internal_error_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for unexpected internal lookup failures."""
-        return _TickerLookupWorker._error_outcome(
+        return _TickerLookupErrorOutcome(
             message_title="Ticker lookup internal error",
             message_text=(
                 "Could not verify this ticker due to an internal error. "
@@ -248,7 +240,7 @@ class _TickerLookupWorker(QObject):
     @staticmethod
     def _not_found_outcome() -> _TickerLookupErrorOutcome:
         """Build outcome payload for missing symbol on selected exchange."""
-        return _TickerLookupWorker._error_outcome(
+        return _TickerLookupErrorOutcome(
             message_title="Ticker not found",
             message_text="Ticker was not found on the selected exchange. Please review and try again.",
         )
