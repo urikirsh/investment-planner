@@ -234,6 +234,18 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
+def test_lookup_ticker_in_exchange_raises_communication_error_on_custom_transport_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "portfolio_core.ticker_lookup_service._http_client.fetch_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("custom transport failure")),
+    )
+
+    with pytest.raises(TickerLookupCommunicationError):
+        lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
+
+
 def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_header(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

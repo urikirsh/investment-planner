@@ -39,8 +39,16 @@ def test_canonicalize_tase_ticker_returns_zero_for_all_zeros() -> None:
     assert canonicalize_tase_ticker("0000000") == "0"
 
 
+def test_canonicalize_tase_ticker_rejects_non_digit_input() -> None:
+    assert canonicalize_tase_ticker("12A3456") == ""
+
+
 def test_canonicalize_nyse_ticker_uses_uppercase_identifier_form() -> None:
-    assert canonicalize_nyse_ticker("brk.b-1%") == "BRK.B1"
+    assert canonicalize_nyse_ticker("brk.b") == "BRK.B"
+
+
+def test_canonicalize_nyse_ticker_rejects_invalid_chars() -> None:
+    assert canonicalize_nyse_ticker("brk.b-1%") == ""
 
 
 def test_canonicalize_ticker_for_exchange_uses_tase_rules() -> None:
@@ -48,7 +56,11 @@ def test_canonicalize_ticker_for_exchange_uses_tase_rules() -> None:
 
 
 def test_canonicalize_ticker_for_exchange_uses_nyse_rules() -> None:
-    assert canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=" brk.b-1% ") == "BRK.B1"
+    assert canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=" brk.b ") == "BRK.B"
+
+
+def test_canonicalize_ticker_for_exchange_rejects_invalid_nyse_input() -> None:
+    assert canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=" brk.b-1% ") == ""
 
 
 @pytest.mark.parametrize("ticker", ["123456", "1234567"])

@@ -58,6 +58,9 @@ class _TickerLookupTransportError(Exception):
 class _TickerHttpClient(Protocol):
     """Transport contract for retrieving textual payloads from remote endpoints."""
 
+    # Implementations should raise `_TickerLookupTransportError` for network
+    # transport failures so callers can convert to communication errors.
+
     def fetch_text(
         self,
         *,
@@ -384,7 +387,7 @@ def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]
             headers=_REQUEST_HEADERS,
             timeout_seconds=timeout_seconds,
         )
-    except _TickerLookupTransportError as exc:
+    except Exception as exc:
         raise TickerLookupCommunicationError("Failed to fetch Nasdaq Trader symbol directory") from exc
     return _nyse_parser.parse_rows(body)
 
@@ -404,7 +407,7 @@ def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
             headers=_TASE_REQUEST_HEADERS,
             timeout_seconds=timeout_seconds,
         )
-    except _TickerLookupTransportError as exc:
+    except Exception as exc:
         raise TickerLookupCommunicationError("Failed to fetch TASE security data") from exc
 
 

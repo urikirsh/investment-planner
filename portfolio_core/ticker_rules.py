@@ -45,16 +45,32 @@ def normalize_ticker_for_exchange(*, exchange: Exchange, raw: str) -> str:
 
 
 def canonicalize_tase_ticker(raw: str) -> str:
-    """Return canonical TASE security number with leading zeros removed."""
-    digits_only = normalize_tase_ticker(raw).strip()
-    if not digits_only:
+    """Return canonical TASE security number with leading zeros removed.
+
+    Canonicalization is identity-focused and lossless except for trimming and
+    leading-zero normalization. Inputs with non-digit characters are rejected.
+    """
+    stripped = raw.strip()
+    if not stripped:
         return ""
-    return digits_only.lstrip("0") or "0"
+    if any(not ch.isdigit() for ch in stripped):
+        return ""
+    return stripped.lstrip("0") or "0"
 
 
 def canonicalize_nyse_ticker(raw: str) -> str:
-    """Return canonical NYSE ticker identifier."""
-    return normalize_nyse_ticker(raw).strip()
+    """Return canonical NYSE ticker identifier.
+
+    Canonicalization is identity-focused and lossless except for trimming and
+    case normalization. Inputs with unsupported characters are rejected.
+    """
+    stripped = raw.strip()
+    if not stripped:
+        return ""
+    upper_ticker = stripped.upper()
+    if any((not ch.isascii()) or (not (ch.isalnum() or ch == ".")) for ch in upper_ticker):
+        return ""
+    return upper_ticker
 
 
 _TICKER_CANONICALIZERS: Final[dict[Exchange, Callable[[str], str]]] = {
