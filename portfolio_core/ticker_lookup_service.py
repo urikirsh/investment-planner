@@ -496,18 +496,6 @@ def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
     return _default_ticker_lookup_service.fetch_tase_security_payload(ticker, timeout_seconds)
 
 
-def normalize_tase_security_number(raw_ticker: str) -> str:
-    """Return canonical TASE security number with leading zeros removed.
-
-    Examples:
-    - `"0312017"` -> `"312017"`
-    - `"0000000"` -> `"0"`
-    - `"   "` -> `""`
-    """
-    stripped = raw_ticker.strip()
-    return canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=stripped)
-
-
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
     """Parse `otherlisted.txt` into NYSE-relevant rows only (`N/A/P/Z`)."""
     return _nyse_parser.parse_rows(raw_text)

@@ -9,12 +9,12 @@ import pytest
 
 import portfolio_core.ticker_lookup_service as ticker_lookup_service
 from portfolio_core.models import Exchange
+from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 from portfolio_core.ticker_lookup_service import (
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
     lookup_ticker_in_exchange,
-    normalize_tase_security_number,
 )
 
 
@@ -350,8 +350,8 @@ def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_
         ("   ", ""),
     ],
 )
-def test_normalize_tase_security_number(raw_ticker: str, normalized: str) -> None:
-    assert normalize_tase_security_number(raw_ticker) == normalized
+def test_canonicalize_tase_security_number(raw_ticker: str, normalized: str) -> None:
+    assert canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=raw_ticker) == normalized
 
 
 def test_lookup_ticker_in_exchange_caches_only_nyse_relevant_rows(
