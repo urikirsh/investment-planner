@@ -381,14 +381,12 @@ def lookup_ticker_in_exchange(
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
     """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
-    try:
-        body = _http_client.fetch_text(
-            url=_NASDAQ_OTHERLISTED_URL,
-            headers=_REQUEST_HEADERS,
-            timeout_seconds=timeout_seconds,
-        )
-    except Exception as exc:
-        raise TickerLookupCommunicationError("Failed to fetch Nasdaq Trader symbol directory") from exc
+    body = _fetch_text_or_raise_communication_error(
+        url=_NASDAQ_OTHERLISTED_URL,
+        headers=_REQUEST_HEADERS,
+        timeout_seconds=timeout_seconds,
+        error_message="Failed to fetch Nasdaq Trader symbol directory",
+    )
     return _nyse_parser.parse_rows(body)
 
 
@@ -401,14 +399,26 @@ def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerL
 def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
     """Fetch raw TASE security-data API payload for one canonical security number."""
     url = _TASE_SECURITYDATA_URL_TEMPLATE.format(security_id=ticker)
+    return _fetch_text_or_raise_communication_error(
+        url=url,
+        headers=_TASE_REQUEST_HEADERS,
+        timeout_seconds=timeout_seconds,
+        error_message="Failed to fetch TASE security data",
+    )
+
+
+def _fetch_text_or_raise_communication_error(
+    *,
+    url: str,
+    headers: Mapping[str, str],
+    timeout_seconds: float,
+    error_message: str,
+) -> str:
+    """Fetch transport payload and normalize transport failures to communication errors."""
     try:
-        return _http_client.fetch_text(
-            url=url,
-            headers=_TASE_REQUEST_HEADERS,
-            timeout_seconds=timeout_seconds,
-        )
+        return _http_client.fetch_text(url=url, headers=headers, timeout_seconds=timeout_seconds)
     except Exception as exc:
-        raise TickerLookupCommunicationError("Failed to fetch TASE security data") from exc
+        raise TickerLookupCommunicationError(error_message) from exc
 
 
 def _extract_optional_string(payload: Mapping[str, object], key: str) -> str | None:
