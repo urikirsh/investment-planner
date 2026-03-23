@@ -160,6 +160,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/ticker_rules.py`
   - shared exchange-specific ticker normalization and validation helpers
   - centralizes TASE/NYSE ticker regex rules, input constraints, and UI-facing rule constants
+  - defines canonical exchange+ticker identity keys and a shared duplicate-location index value object used by wizard/editor flows
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
@@ -266,9 +267,9 @@ Core/domain tests:
 - `tests/core/test_fx_service.py`
   - BOI USD/ILS payload parsing and "last published day" detection behavior
 - `tests/core/test_ticker_lookup_service.py`
-  - Nasdaq Trader NYSE lookup parsing/matching and communication-failure behavior
+  - NYSE/TASE ticker lookup parsing/matching, cache behavior, and communication-failure behavior
 - `tests/core/test_ticker_rules.py`
-  - shared ticker normalization and shape-validation rule coverage
+  - shared ticker normalization/shape-validation rules plus canonical exchange+ticker key/index behavior
 
 ## Updating this document
 Update this file when:

@@ -35,7 +35,10 @@ class ExchangeTickerKey:
 
 @dataclass(frozen=True)
 class ExchangeTickerLocationIndex:
-    """Immutable `(exchange, canonical_ticker)` -> location index for duplicate checks."""
+    """Immutable duplicate index keyed by canonical `(exchange, ticker)` identity.
+
+    When duplicate keys are loaded, the first observed location wins.
+    """
 
     _locations: Mapping[ExchangeTickerKey, str]
 

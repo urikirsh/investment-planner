@@ -67,7 +67,7 @@ class MainWindowMainEditorController:
         return name_locations
 
     def _build_existing_instrument_ticker_locations(self) -> ExchangeTickerLocationIndex:
-        """Return normalized `(exchange, ticker)` -> first-found location mapping."""
+        """Return duplicate ticker-location index keyed by canonical exchange+ticker identity."""
         pairs: list[tuple[ExchangeTickerKey, str]] = []
         for child, location in self._iter_instrument_rows_with_locations(self._host.tree):
             key = self._build_instrument_ticker_key(child)
