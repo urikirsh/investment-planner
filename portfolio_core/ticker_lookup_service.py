@@ -454,7 +454,11 @@ class TickerLookupService:
         timeout_seconds: float,
         error_message: str,
     ) -> str:
-        """Fetch transport payload and normalize transport failures to communication errors."""
+        """Fetch transport payload and normalize all transport exceptions to communication errors.
+
+        This includes expected network failures and custom transport exceptions
+        raised by injected HTTP client implementations.
+        """
         try:
             return self._http_client.fetch_text(url=url, headers=headers, timeout_seconds=timeout_seconds)
         except Exception as exc:
