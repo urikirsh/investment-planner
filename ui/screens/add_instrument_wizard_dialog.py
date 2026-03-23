@@ -46,6 +46,7 @@ from portfolio_core.ticker_rules import (
     TASE_TICKER_INPUT_PATTERN,
     TASE_TICKER_MAX_LENGTH,
     TASE_TICKER_PLACEHOLDER,
+    canonicalize_ticker_for_exchange,
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
     normalize_ticker_for_exchange,
@@ -57,7 +58,6 @@ from portfolio_core.ticker_lookup_service import (
     TickerLookupNotFound,
     TickerLookupResult,
     lookup_ticker_in_exchange,
-    normalize_tase_security_number,
 )
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
@@ -532,15 +532,12 @@ class AddInstrumentWizardDialog(QDialog):
     def _current_step_2_key(self) -> _ExchangeTickerKey:
         """Return normalized `(exchange, ticker)` key used for duplicate checks.
 
-        TASE security numbers are canonicalized (leading zeros removed) so
-        equivalent IDs such as `0312017` and `312017` are treated as the same
-        duplicate key.
+        Exchange-specific canonicalization ensures equivalent identifiers map
+        to one key (for example, TASE `0312017` and `312017`).
         """
         exchange = self._current_exchange()
         raw_ticker = self.ticker_edit.text().strip()
-        if exchange is Exchange.TASE:
-            return (exchange, normalize_tase_security_number(raw_ticker))
-        return (exchange, raw_ticker)
+        return (exchange, canonicalize_ticker_for_exchange(exchange=exchange, raw=raw_ticker))
 
     def _start_step_2_verification_flow(self) -> None:
         """Run ticker lookup for supported exchanges before advancing to step 3."""

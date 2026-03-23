@@ -4,6 +4,9 @@ import pytest
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
+    canonicalize_nyse_ticker,
+    canonicalize_tase_ticker,
+    canonicalize_ticker_for_exchange,
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
     normalize_nyse_ticker,
@@ -26,6 +29,26 @@ def test_normalize_ticker_for_exchange_uses_tase_rules() -> None:
 
 def test_normalize_ticker_for_exchange_uses_nyse_rules() -> None:
     assert normalize_ticker_for_exchange(exchange=Exchange.NYSE, raw="brk.b-1%") == "BRK.B1"
+
+
+def test_canonicalize_tase_ticker_strips_leading_zeros() -> None:
+    assert canonicalize_tase_ticker(" 0312017 ") == "312017"
+
+
+def test_canonicalize_tase_ticker_returns_zero_for_all_zeros() -> None:
+    assert canonicalize_tase_ticker("0000000") == "0"
+
+
+def test_canonicalize_nyse_ticker_uses_uppercase_identifier_form() -> None:
+    assert canonicalize_nyse_ticker("brk.b-1%") == "BRK.B1"
+
+
+def test_canonicalize_ticker_for_exchange_uses_tase_rules() -> None:
+    assert canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=" 000312017 ") == "312017"
+
+
+def test_canonicalize_ticker_for_exchange_uses_nyse_rules() -> None:
+    assert canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=" brk.b-1% ") == "BRK.B1"
 
 
 @pytest.mark.parametrize("ticker", ["123456", "1234567"])

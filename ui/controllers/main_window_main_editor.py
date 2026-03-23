@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetIte
 
 from portfolio_core.models import Exchange
 from portfolio_core.planning_types import PlanningMode
-from portfolio_core.ticker_rules import normalize_ticker_for_exchange
+from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
@@ -72,7 +72,7 @@ class MainWindowMainEditorController:
             except ValueError:
                 continue
             ticker_text = child.text(Col.TICKER.value).strip()
-            normalized_ticker = normalize_ticker_for_exchange(exchange=exchange, raw=ticker_text).strip()
+            normalized_ticker = canonicalize_ticker_for_exchange(exchange=exchange, raw=ticker_text)
             if not normalized_ticker:
                 continue
             key = (exchange, normalized_ticker)

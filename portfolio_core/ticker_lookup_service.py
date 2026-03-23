@@ -22,6 +22,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from portfolio_core.models import Exchange
+from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 
 _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
@@ -219,7 +220,7 @@ class _NyseTickerLookupProvider:
 
     def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
-        normalized_ticker = ticker.strip().upper()
+        normalized_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=ticker)
         if not normalized_ticker:
             return TickerLookupNotFound()
         cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
@@ -248,7 +249,7 @@ class _TaseTickerLookupProvider:
 
     def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve TASE ticker from cache/API after canonical security-number normalization."""
-        normalized_ticker = normalize_tase_security_number(ticker)
+        normalized_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=ticker)
         if not normalized_ticker:
             return TickerLookupNotFound()
         return _tase_lookup_store.get_or_load(
@@ -326,7 +327,7 @@ def _parse_tase_security_payload(raw_text: str) -> TickerLookupResult:
     security_id = payload.get("Id")
     if security_id in (None, ""):
         return TickerLookupNotFound()
-    canonical_ticker = normalize_tase_security_number(str(security_id))
+    canonical_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=str(security_id))
     if not canonical_ticker:
         return TickerLookupNotFound()
     instrument_name = _extract_tase_english_instrument_name(payload)
@@ -386,9 +387,7 @@ def normalize_tase_security_number(raw_ticker: str) -> str:
     - `"   "` -> `""`
     """
     stripped = raw_ticker.strip()
-    if not stripped:
-        return ""
-    return stripped.lstrip("0") or "0"
+    return canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=stripped)
 
 
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:

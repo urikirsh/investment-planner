@@ -40,8 +40,32 @@ _TICKER_NORMALIZERS: Final[dict[Exchange, Callable[[str], str]]] = {
 
 
 def normalize_ticker_for_exchange(*, exchange: Exchange, raw: str) -> str:
-    """Normalize ticker text using exchange-specific canonical rules."""
+    """Normalize ticker text using exchange-specific input rules."""
     return _TICKER_NORMALIZERS[exchange](raw)
+
+
+def canonicalize_tase_ticker(raw: str) -> str:
+    """Return canonical TASE security number with leading zeros removed."""
+    digits_only = normalize_tase_ticker(raw).strip()
+    if not digits_only:
+        return ""
+    return digits_only.lstrip("0") or "0"
+
+
+def canonicalize_nyse_ticker(raw: str) -> str:
+    """Return canonical NYSE ticker identifier."""
+    return normalize_nyse_ticker(raw).strip()
+
+
+_TICKER_CANONICALIZERS: Final[dict[Exchange, Callable[[str], str]]] = {
+    Exchange.TASE: canonicalize_tase_ticker,
+    Exchange.NYSE: canonicalize_nyse_ticker,
+}
+
+
+def canonicalize_ticker_for_exchange(*, exchange: Exchange, raw: str) -> str:
+    """Return exchange-specific canonical ticker identifier used for keying/lookups."""
+    return _TICKER_CANONICALIZERS[exchange](raw)
 
 
 def is_complete_tase_ticker(ticker: str) -> bool:
