@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
     ExchangeTickerKey,
+    ExchangeTickerLocationIndex,
     NYSE_TICKER_ERROR,
     NYSE_TICKER_INPUT_PATTERN,
     NYSE_TICKER_MAX_LENGTH,
@@ -278,7 +279,7 @@ class AddInstrumentWizardDialog(QDialog):
         instrument_group_name: str,
         is_non_investable_group: bool,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[ExchangeTickerKey, str] | None = None,
+        existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
         parent: QWidget | None = None,
     ) -> None:
         """Initialize the modal wizard and wire all step UI/validation state."""
@@ -286,7 +287,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._instrument_group_name = instrument_group_name
         self._is_non_investable_group = is_non_investable_group
         self._existing_name_locations = existing_name_locations or {}
-        self._existing_ticker_locations = existing_ticker_locations or {}
+        self._existing_ticker_locations = existing_ticker_locations or ExchangeTickerLocationIndex.empty()
         self._result_data: AddInstrumentWizardResult | None = None
         self._ticker_lookup_thread: QThread | None = None
         self._ticker_lookup_worker: _TickerLookupWorker | None = None
@@ -497,10 +498,10 @@ class AddInstrumentWizardDialog(QDialog):
     def _validate_duplicate_ticker(
         *,
         key: ExchangeTickerKey,
-        existing_ticker_locations: dict[ExchangeTickerKey, str],
+        existing_ticker_locations: ExchangeTickerLocationIndex,
     ) -> str | None:
         """Return duplicate location when `(exchange, ticker)` key already exists."""
-        return existing_ticker_locations.get(key)
+        return existing_ticker_locations.find_location(key=key)
 
     def _show_duplicate_ticker_error(self, duplicate_location: str) -> None:
         """Show step-2 Back-only error modal for duplicate `(exchange, ticker)` input."""

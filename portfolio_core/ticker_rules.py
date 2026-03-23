@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Final
 
 from portfolio_core.models import Exchange
@@ -30,6 +31,42 @@ class ExchangeTickerKey:
 
     exchange: Exchange
     canonical_ticker: str
+
+
+@dataclass(frozen=True)
+class ExchangeTickerLocationIndex:
+    """Immutable `(exchange, canonical_ticker)` -> location index for duplicate checks."""
+
+    _locations: Mapping[ExchangeTickerKey, str]
+
+    def __post_init__(self) -> None:
+        """Store an immutable copy so callers cannot mutate duplicate-check state."""
+        object.__setattr__(self, "_locations", MappingProxyType(dict(self._locations)))
+
+    @classmethod
+    def empty(cls) -> ExchangeTickerLocationIndex:
+        """Return an empty index."""
+        return cls(_locations={})
+
+    @classmethod
+    def from_pairs(
+        cls,
+        pairs: Iterable[tuple[ExchangeTickerKey, str]],
+    ) -> ExchangeTickerLocationIndex:
+        """Build index from key/location pairs while keeping first location per key."""
+        deduped: dict[ExchangeTickerKey, str] = {}
+        for key, location in pairs:
+            if key not in deduped:
+                deduped[key] = location
+        return cls(_locations=deduped)
+
+    def find_location(self, *, key: ExchangeTickerKey) -> str | None:
+        """Return duplicate location for key, when present."""
+        return self._locations.get(key)
+
+    def as_dict_for_tests(self) -> dict[ExchangeTickerKey, str]:
+        """Return a mutable snapshot for deterministic assertions in tests."""
+        return dict(self._locations)
 
 
 def normalize_tase_ticker(raw: str) -> str:

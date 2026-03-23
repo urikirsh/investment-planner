@@ -5,6 +5,7 @@ import pytest
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
     ExchangeTickerKey,
+    ExchangeTickerLocationIndex,
     build_exchange_ticker_key,
     canonicalize_nyse_ticker,
     canonicalize_tase_ticker,
@@ -73,6 +74,25 @@ def test_build_exchange_ticker_key_builds_canonical_tase_key() -> None:
 def test_build_exchange_ticker_key_builds_canonical_nyse_key() -> None:
     key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=" brk.b ")
     assert key == ExchangeTickerKey(exchange=Exchange.NYSE, canonical_ticker="BRK.B")
+
+
+def test_exchange_ticker_location_index_returns_none_when_key_missing() -> None:
+    index = ExchangeTickerLocationIndex.empty()
+    key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12")
+
+    assert index.find_location(key=key) is None
+
+
+def test_exchange_ticker_location_index_keeps_first_location_for_duplicate_key() -> None:
+    key = build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="0312017")
+    index = ExchangeTickerLocationIndex.from_pairs(
+        [
+            (key, "IL Equity"),
+            (key, "Duplicate Location"),
+        ]
+    )
+
+    assert index.find_location(key=key) == "IL Equity"
 
 
 @pytest.mark.parametrize("ticker", ["123456", "1234567"])

@@ -12,7 +12,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import ExchangeTickerKey, build_exchange_ticker_key
+from portfolio_core.ticker_rules import (
+    ExchangeTickerKey,
+    ExchangeTickerLocationIndex,
+    build_exchange_ticker_key,
+)
 from portfolio_core.ticker_lookup_service import (
     TickerLookupCommunicationError,
     TickerLookupFound,
@@ -30,7 +34,7 @@ class WizardDialogFactory(Protocol):
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[ExchangeTickerKey, str] | None = None,
+        existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
     ) -> AddInstrumentWizardDialog: ...
 
 
@@ -62,7 +66,7 @@ def wizard_dialog_factory() -> WizardDialogFactory:
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[ExchangeTickerKey, str] | None = None,
+        existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
     ) -> AddInstrumentWizardDialog:
         return AddInstrumentWizardDialog(
             instrument_group_name=instrument_group_name,
@@ -125,7 +129,7 @@ def _open_add_instrument_wizard_step_2(
     *,
     exchange: str = "NYSE",
     ticker: str = "AB12",
-    existing_ticker_locations: dict[ExchangeTickerKey, str] | None = None,
+    existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
 ) -> AddInstrumentWizardDialog:
     """Create wizard dialog and navigate to step 2 with selected exchange/ticker."""
     dialog = wizard_dialog_factory(existing_ticker_locations=existing_ticker_locations)
@@ -133,6 +137,11 @@ def _open_add_instrument_wizard_step_2(
     dialog.next_step_1_btn.click()
     dialog.ticker_edit.setText(ticker)
     return dialog
+
+
+def _ticker_location_index(*pairs: tuple[ExchangeTickerKey, str]) -> ExchangeTickerLocationIndex:
+    """Build immutable duplicate-ticker index for wizard setup."""
+    return ExchangeTickerLocationIndex.from_pairs(pairs)
 
 
 def _capture_back_modal_messages(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
@@ -429,9 +438,9 @@ def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_ny
         wizard_dialog_factory,
         exchange="NYSE",
         ticker="AB12",
-        existing_ticker_locations={
-            build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12"): "US Equity"
-        },
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12"), "US Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
@@ -466,9 +475,9 @@ def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_fo
         wizard_dialog_factory,
         exchange="TASE",
         ticker="1234567",
-        existing_ticker_locations={
-            build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="1234567"): "IL Equity"
-        },
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="1234567"), "IL Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
@@ -490,9 +499,9 @@ def test_add_instrument_wizard_step_2_tase_duplicate_check_normalizes_leading_ze
         wizard_dialog_factory,
         exchange="TASE",
         ticker="0312017",
-        existing_ticker_locations={
-            build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="312017"): "IL Equity"
-        },
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="312017"), "IL Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
@@ -514,9 +523,9 @@ def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
         wizard_dialog_factory,
         exchange="NYSE",
         ticker="1234567",
-        existing_ticker_locations={
-            build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="1234567"): "IL Equity"
-        },
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="1234567"), "IL Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
     monkeypatch.setattr(
