@@ -9,13 +9,13 @@ from portfolio_core.models import Exchange
 TASE_TICKER_MAX_LENGTH: Final[int] = 7
 NYSE_TICKER_MAX_LENGTH: Final[int] = 14
 
-TASE_TICKER_PLACEHOLDER: Final[str] = "7 digits (e.g. 1234567)"
+TASE_TICKER_PLACEHOLDER: Final[str] = "6-7 digits (e.g. 123456 or 1234567)"
 NYSE_TICKER_PLACEHOLDER: Final[str] = "1-14 uppercase letters/digits, optional one dot (e.g. BRK.B)"
 
-TASE_TICKER_ERROR: Final[str] = "Ticker for TASE must be exactly 7 digits."
+TASE_TICKER_ERROR: Final[str] = "Ticker for TASE must be 6 or 7 digits."
 NYSE_TICKER_ERROR: Final[str] = "Ticker for NYSE must be 1-14 uppercase letters/digits, optionally one dot."
 
-_TASE_TICKER_RE = re.compile(r"^\d{7}$")
+_TASE_TICKER_RE = re.compile(r"^\d{6,7}$")
 _NYSE_TICKER_RE = re.compile(r"^(?=.{1,14}$)(?!.*\..*\.)(?!.*\.$)[A-Z0-9][A-Z0-9.]*$")
 _NYSE_TICKER_INPUT_RE = re.compile(r"^(?=.{0,14}$)(?!.*\..*\.)(?:[A-Za-z0-9][A-Za-z0-9.]*|)$")
 

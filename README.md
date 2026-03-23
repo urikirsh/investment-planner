@@ -32,7 +32,7 @@ The application never executes trades automatically. All actions are explicit an
 - Asset groups with decimal target percentages
 - Instruments with current market value in ILS
 - Required per-instrument `ticker` field
-  - `TASE`: exactly 7 digits
+  - `TASE`: 6 or 7 digits
   - `NYSE`: 1 to 14 uppercase letters/digits, optionally one dot (for example `BRK.B`)
 - Required per-instrument `quantity` field (non-negative integer)
 - Per-instrument `exchange` (`TASE` or `NYSE`) for wizard price-entry semantics
@@ -158,7 +158,7 @@ Notes:
 - Monetary/percentage values are stored as strings and parsed as decimals.
 - `instruments[*].exchange` is required and must be `TASE` or `NYSE`.
 - `instruments[*].ticker` is required.
-  - `TASE` tickers must be exactly 7 digits.
+  - `TASE` tickers must be 6 or 7 digits.
   - `NYSE` tickers must be 1 to 14 uppercase letters/digits, optionally one dot.
 - `instruments[*].quantity` is required and must be a non-negative integer.
 - `groups[*].targetPercentage` must sum to exactly `100`.
