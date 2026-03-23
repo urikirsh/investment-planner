@@ -531,7 +531,12 @@ class AddInstrumentWizardDialog(QDialog):
         )
 
     def _current_step_2_key(self) -> _ExchangeTickerKey:
-        """Return current step-2 `(exchange, ticker)` key used for duplicate checks."""
+        """Return normalized `(exchange, ticker)` key used for duplicate checks.
+
+        TASE security numbers are canonicalized (leading zeros removed) so
+        equivalent IDs such as `0312017` and `312017` are treated as the same
+        duplicate key.
+        """
         exchange = self._current_exchange()
         raw_ticker = self.ticker_edit.text().strip()
         if exchange is Exchange.TASE:

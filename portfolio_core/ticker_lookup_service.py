@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-"""Ticker existence checks for NYSE and TASE exchanges."""
+"""Ticker existence and name lookup for NYSE/TASE with app-session caching.
+
+Behavior summary:
+- NYSE uses Nasdaq Trader `otherlisted.txt` and caches a symbol index for the app session.
+- TASE uses `api.tase.co.il` per-security lookup with per-ticker TTL cache entries.
+- TASE security numbers are normalized to canonical form (leading zeros removed)
+  before network lookup and cache keying.
+"""
 
 import csv
 import json
@@ -52,7 +59,12 @@ class _NyseRelevantRow:
 
 @dataclass(frozen=True)
 class TickerLookupFound:
-    """Resolved payload for successful ticker lookup."""
+    """Resolved payload for successful ticker lookup.
+
+    `instrument_name` may be empty when the exchange confirms ticker existence
+    but a preferred display name is unavailable (for example, TASE without an
+    English-only name candidate).
+    """
 
     instrument_name: str
 
@@ -185,7 +197,7 @@ def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupR
 
 
 def _lookup_tase_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-    """Resolve TASE ticker existence and optional English instrument name from cached API payload."""
+    """Resolve TASE ticker from cache/API after canonical security-number normalization."""
     normalized_ticker = normalize_tase_security_number(ticker)
     if not normalized_ticker:
         return TickerLookupNotFound()
@@ -213,7 +225,7 @@ def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerL
 
 
 def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
-    """Fetch raw TASE security-data API payload for one security number."""
+    """Fetch raw TASE security-data API payload for one canonical security number."""
     url = _TASE_SECURITYDATA_URL_TEMPLATE.format(security_id=ticker)
     request = Request(url, headers=_TASE_REQUEST_HEADERS)
     try:
@@ -225,7 +237,11 @@ def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
 
 
 def _parse_tase_security_payload(raw_text: str) -> TickerLookupResult:
-    """Parse TASE `company/securitydata` payload into a lookup result."""
+    """Parse TASE `company/securitydata` payload into a lookup result.
+
+    Returns `TickerLookupNotFound` for `null` payloads and for payloads without
+    a concrete `Id` field.
+    """
     normalized_text = raw_text.strip()
     if not normalized_text or normalized_text == "null":
         return TickerLookupNotFound()
@@ -270,7 +286,13 @@ def _contains_hebrew_letter(text: str) -> bool:
 
 
 def normalize_tase_security_number(raw_ticker: str) -> str:
-    """Return canonical TASE security number with leading zeros removed."""
+    """Return canonical TASE security number with leading zeros removed.
+
+    Examples:
+    - `"0312017"` -> `"312017"`
+    - `"0000000"` -> `"0"`
+    - `"   "` -> `""`
+    """
     stripped = raw_ticker.strip()
     if not stripped:
         return ""
