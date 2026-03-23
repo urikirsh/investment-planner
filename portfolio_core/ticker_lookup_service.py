@@ -460,11 +460,6 @@ class TickerLookupService:
 
 
 _default_ticker_lookup_service = TickerLookupService()
-_http_client = _default_ticker_lookup_service._http_client
-_nyse_parser = _default_ticker_lookup_service._nyse_parser
-_tase_parser = _default_ticker_lookup_service._tase_parser
-_nyse_lookup_store = _default_ticker_lookup_service._nyse_lookup_store
-_tase_lookup_store = _default_ticker_lookup_service._tase_lookup_store
 
 
 def lookup_ticker_in_exchange(
@@ -498,7 +493,7 @@ def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
 
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
     """Parse `otherlisted.txt` into NYSE-relevant rows only (`N/A/P/Z`)."""
-    return _nyse_parser.parse_rows(raw_text)
+    return _default_ticker_lookup_service._nyse_parser.parse_rows(raw_text)
 
 
 def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, str]:
