@@ -8,43 +8,68 @@ from typing import cast
 import pytest
 
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 from portfolio_core.ticker_lookup_service import (
-    TickerLookupService,
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
+    TickerLookupService,
     lookup_ticker_in_exchange,
 )
+from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 
 
-def _build_otherlisted_payload(*rows: str, include_footer: bool = True) -> bytes:
-    """Build `otherlisted.txt` bytes with standard header and optional footer row."""
-    lines = [
-        "ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol",
-        *rows,
-    ]
-    if include_footer:
-        lines.append("File Creation Time: 0317202611:00")
-    return ("\n".join(lines) + "\n").encode("utf-8")
+_INVESTING_SEARCH_URL = "https://www.investing.com/search/?q=AAPL"
+_INVESTING_INSTRUMENT_URL = "https://www.investing.com/equities/apple-computer-inc"
+_TASE_URL = "https://api.tase.co.il/api/company/securitydata?securityId=1159094&lang=1"
 
 
-def _install_default_lookup_service_with_payload(
+def _build_investing_search_payload(*, symbol: str = "AAPL", exchange: str = "NYSE", name: str = "Apple Inc.") -> str:
+    """Build an Investing.com search page payload with one structured quote result."""
+    result_json = (
+        f'[{{"pairId":6408,"name":"{name}","link":"\\/equities\\/apple-computer-inc",'
+        f'"symbol":"{symbol}","type":"Stock - {exchange}","exchange":"{exchange}"}}]'
+    )
+    return (
+        "<html><body>"
+        "<script>"
+        f"window.allResultsQuotesDataArray = {result_json};"
+        "</script>"
+        "</body></html>"
+    )
+
+
+def _build_investing_instrument_payload(
+    *,
+    currency: str = "USD",
+    isin: str = "US0378331005",
+    price: str = "210.50",
+) -> str:
+    """Build minimal Investing.com instrument page payload with parsable fields."""
+    return (
+        "<html><body>"
+        f'<div data-test="instrument-price-last">{price}</div>'
+        f'<script>{{"currency":"{currency}","underlying":{{"isin":"{isin}"}}}}</script>'
+        "</body></html>"
+    )
+
+
+def _install_default_lookup_service_with_url_payloads(
     monkeypatch: pytest.MonkeyPatch,
     *,
-    payload: bytes,
+    payloads_by_url: Mapping[str, str],
     calls: dict[str, int] | None = None,
     delay_seconds: float = 0.0,
 ) -> TickerLookupService:
-    """Install a default lookup service with deterministic HTTP payload behavior."""
-    decoded_payload = payload.decode("utf-8", errors="replace")
+    """Install a default lookup service with deterministic URL-specific payload behavior."""
 
-    def _fetch_text_stub(*_args, **_kwargs) -> str:
+    def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
         if calls is not None:
             calls["count"] += 1
         if delay_seconds > 0:
             time.sleep(delay_seconds)
-        return decoded_payload
+        if url in payloads_by_url:
+            return payloads_by_url[url]
+        raise AssertionError(f"Unexpected URL requested: {url}")
 
     http_client = type(
         "_StubHttpClient",
@@ -83,56 +108,41 @@ def _install_default_lookup_service_with_failing_transport(
 
 
 def test_lookup_ticker_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
+            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+        },
     )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
 
-def test_lookup_ticker_in_exchange_returns_true_for_bzx_symbol_under_nyse_filter(
+def test_lookup_ticker_in_exchange_returns_false_when_search_exchange_is_not_nyse(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY",
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_INVESTING_SEARCH_URL: _build_investing_search_payload(exchange="NASDAQ")},
     )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
 
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPY"), TickerLookupFound)
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(result, TickerLookupNotFound)
 
 
-def test_lookup_ticker_in_exchange_parses_quoted_pipe_in_security_name(
+def test_lookup_ticker_in_exchange_returns_false_when_search_symbol_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = _build_otherlisted_payload(
-        'AAPL|"Apple|Inc."|N|AAPL|N|100|N|AAPL',
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_INVESTING_SEARCH_URL: _build_investing_search_payload(symbol="MSFT")},
     )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
 
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
-
-@pytest.mark.parametrize("exchange_code", ["A", "P"])
-def test_lookup_ticker_in_exchange_returns_true_for_nyse_family_exchange_codes(
-    monkeypatch: pytest.MonkeyPatch,
-    exchange_code: str,
-) -> None:
-    raw = _build_otherlisted_payload(
-        f"AAPL|Apple Inc.|{exchange_code}|AAPL|N|100|N|AAPL",
-    )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
-
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-
-
-def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|Q|AAPL|N|100|N|AAPL",
-    )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
-
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupNotFound)
+    assert isinstance(result, TickerLookupNotFound)
 
 
 @pytest.mark.parametrize(
@@ -165,8 +175,11 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
     payload = (
         '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LongName":"'
         '(ISHARES CORE MSCI EUROPE UCITS ETF EUR (ACC)"}'
-    ).encode("utf-8")
-    _install_default_lookup_service_with_payload(monkeypatch, payload=payload)
+    )
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_TASE_URL: payload},
+    )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
@@ -180,10 +193,11 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
 def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    payload = (
-        '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
-    ).encode("utf-8")
-    _install_default_lookup_service_with_payload(monkeypatch, payload=payload)
+    payload = '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_TASE_URL: payload},
+    )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
@@ -210,8 +224,15 @@ def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
 def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_without_english(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    payload = '{"Id":1234567,"Name":"אשס.חוץ MSCIEURO","LongName":"איישרס חוץ"}'.encode("utf-8")
-    _install_default_lookup_service_with_payload(monkeypatch, payload=payload)
+    payload = (
+        '{"Id":1234567,'
+        '"Name":"\\u05d0\\u05d9\\u05d9\\u05e9\\u05e8\\u05e1 \\u05d7\\u05d5\\u05e5",'
+        '"LongName":"\\u05d0\\u05d9\\u05d9\\u05e9\\u05e8\\u05e1 \\u05d7\\u05d5\\u05e5"}'
+    )
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=1234567&lang=1": payload},
+    )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567")
 
@@ -222,7 +243,10 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
 def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_payload(monkeypatch, payload=b"null")
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=9999999&lang=1": "null"},
+    )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="9999999")
 
@@ -232,19 +256,25 @@ def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
 def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_tase_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_payload(monkeypatch, payload=b"{invalid-json")
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_TASE_URL: "{invalid-json"},
+    )
 
     with pytest.raises(TickerLookupCommunicationError):
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
 
-def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
+def test_lookup_ticker_in_exchange_returns_metadata_for_existing_nyse_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
+            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+        },
     )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
@@ -252,20 +282,12 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
     assert result.metadata.exchange is Exchange.NYSE
     assert result.metadata.canonical_ticker == "AAPL"
     assert result.metadata.display_name == "Apple Inc."
-    assert result.metadata.provider_data.get("exchange_code") == "N"
-
-
-def test_lookup_ticker_in_exchange_returns_empty_name_when_symbol_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    raw = _build_otherlisted_payload(
-        "MSFT|Microsoft Corp.|N|MSFT|N|100|N|MSFT",
-    )
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
-
-    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
-
-    assert isinstance(result, TickerLookupNotFound)
+    assert result.metadata.isin == "US0378331005"
+    assert result.metadata.currency == "USD"
+    assert result.metadata.provider_data.get("source") == "investing.com"
+    assert result.metadata.provider_data.get("pair_id") == 6408
+    assert result.metadata.provider_data.get("instrument_link") == "/equities/apple-computer-inc"
+    assert result.metadata.provider_data.get("search_exchange") == "NYSE"
 
 
 def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
@@ -292,50 +314,45 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_custom_transpor
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
 
-def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_header(
+def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_investing_search_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = "Unexpected|Header\nAAPL|N\n".encode("utf-8")
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_INVESTING_SEARCH_URL: "<html>missing array</html>"},
+    )
 
     with pytest.raises(TickerLookupCommunicationError):
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
-def test_lookup_ticker_in_exchange_uses_cached_rows_without_refetch(
+def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
-    )
     calls = {"count": 0}
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw, calls=calls)
-
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-    assert calls["count"] == 1
-
-
-def test_lookup_ticker_in_exchange_uses_session_cache_without_expiry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
+            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+        },
+        calls=calls,
     )
-    calls = {"count": 0}
-    _install_default_lookup_service_with_payload(monkeypatch, payload=raw, calls=calls)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-    assert calls["count"] == 1
+    assert calls["count"] == 2
 
 
 def test_lookup_ticker_in_exchange_uses_tase_ttl_cache_without_refetch_during_ttl(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    payload = b'{"Id":1159094,"Name":"ISH.FRF MSCIEUR"}'
     calls = {"count": 0}
-    _install_default_lookup_service_with_payload(monkeypatch, payload=payload, calls=calls)
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_TASE_URL: '{"Id":1159094,"Name":"ISH.FRF MSCIEUR"}'},
+        calls=calls,
+    )
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
     result2 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -348,9 +365,12 @@ def test_lookup_ticker_in_exchange_uses_tase_ttl_cache_without_refetch_during_tt
 def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    payload = b'{"Id":312017,"Name":"SAMPLE"}'
     calls = {"count": 0}
-    _install_default_lookup_service_with_payload(monkeypatch, payload=payload, calls=calls)
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=312017&lang=1": '{"Id":312017,"Name":"SAMPLE"}'},
+        calls=calls,
+    )
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="0312017")
     result2 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="312017")
@@ -375,38 +395,35 @@ def test_canonicalize_tase_security_number(raw_ticker: str, normalized: str) -> 
     assert canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=raw_ticker) == normalized
 
 
-def test_lookup_ticker_in_exchange_caches_only_nyse_relevant_rows(
+def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_ticker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
-        "QQQX|Sample Nasdaq Symbol|Q|QQQX|Y|100|N|QQQX",
-        "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY",
+    service = _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
+            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+        },
     )
-    service = _install_default_lookup_service_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     cache = service._nyse_lookup_store.get_cached_for_tests()
-    assert cache is not None
-    assert set(cache.rows_by_symbol.keys()) == {"AAPL", "AAPY"}
-    assert cache.rows_by_symbol["AAPL"].act_symbol == "AAPL"
-    assert cache.rows_by_symbol["AAPL"].security_name == "Apple Inc."
-    assert cache.rows_by_symbol["AAPL"].exchange_code == "N"
+    assert set(cache.keys()) == {"AAPL"}
+    assert isinstance(cache["AAPL"], TickerLookupFound)
 
 
-def test_lookup_ticker_in_exchange_populates_cache_once_under_concurrency(
+def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw = _build_otherlisted_payload(
-        "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
-    )
     calls = {"count": 0}
     barrier = Barrier(3)
-    _install_default_lookup_service_with_payload(
+    _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payload=raw,
+        payloads_by_url={
+            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
+            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+        },
         calls=calls,
-        # Hold the first fetch briefly so both worker threads compete for cold cache.
         delay_seconds=0.05,
     )
 
@@ -426,4 +443,4 @@ def test_lookup_ticker_in_exchange_populates_cache_once_under_concurrency(
     t2.join()
 
     assert results == [True, True]
-    assert calls["count"] == 1
+    assert calls["count"] == 2

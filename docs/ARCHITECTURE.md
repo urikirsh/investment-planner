@@ -182,9 +182,10 @@ FX thread-safety guards in this flow:
   - normalizes BOI payload into a typed quote object used by wizard flow
 - `portfolio_core/ticker_lookup_service.py`
   - NYSE+TASE ticker lookup boundary for existence and optional display-name resolution
-  - NYSE is verified via `otherlisted.txt` rows with exchange codes `N`, `A`, `P`, and `Z`
-  - parses `otherlisted.txt` using Python `csv` with pipe delimiter (`|`) and skips the provider footer row
-  - keeps an immutable in-memory app-session cache of NYSE symbol index entries (filtered by exchange code, not by ticker)
+  - NYSE is verified via Investing.com per-ticker scraping
+  - performs ticker search and requires exact `exchange == NYSE` + exact canonical symbol match
+  - extracts display name and optional `isin`/`currency` metadata from the instrument page payload
+  - keeps an in-memory app-session cache of NYSE lookup results keyed by canonical ticker
   - TASE is verified via `api.tase.co.il` `company/securitydata` per-security lookup
   - TASE lookups use per-ticker in-memory TTL cache entries and canonicalized security-number keys (leading zeros removed)
   - raises typed communication errors on network/payload failures

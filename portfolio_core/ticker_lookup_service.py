@@ -1,37 +1,37 @@
 from __future__ import annotations
 
-"""Ticker existence and name lookup for NYSE/TASE with app-session caching.
+"""Ticker existence and metadata lookup for NYSE/TASE with app-session caching.
 
 Behavior summary:
-- NYSE uses Nasdaq Trader `otherlisted.txt` and caches a symbol index for the app session.
+- NYSE uses Investing.com per-ticker scraping and caches lookup results per ticker
+  for the app session.
 - TASE uses `api.tase.co.il` per-security lookup with per-ticker TTL cache entries.
 - TASE security numbers are normalized to canonical form (leading zeros removed)
   before network lookup and cache keying.
 """
 
-import csv
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from io import StringIO
 from threading import Lock
 import time
 from types import MappingProxyType
 from typing import Protocol
 from urllib.error import URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import build_exchange_ticker_key, is_complete_nyse_ticker
 
-_NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
+_INVESTING_SEARCH_URL_TEMPLATE = "https://www.investing.com/search/?q={query}"
+_INVESTING_BASE_URL = "https://www.investing.com"
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
-_NYSE_ACCEPTED_EXCHANGE_CODES = {"N", "A", "P", "Z"}
-_FIELD_ACT_SYMBOL = "ACT SYMBOL"
-_FIELD_EXCHANGE = "EXCHANGE"
-_FIELD_SECURITY_NAME = "SECURITY NAME"
+_INVESTING_NYSE_EXCHANGE = "NYSE"
 _TASE_ENGLISH_NAME_KEYS = ("Name", "LongName", "SecurityLongName", "CompanyName")
 _TASE_CACHE_TTL_SECONDS = 900.0
+_INVESTING_SEARCH_DATA_ARRAY_MARKER = "window.allResultsQuotesDataArray"
+_INVESTING_PRICE_LAST_DATA_TEST = 'data-test="instrument-price-last">'
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -90,26 +90,129 @@ class _UrlopenTickerHttpClient:
             raise _TickerLookupTransportError("HTTP transport failed") from exc
 
 
-class _NyseOtherlistedParser:
-    """Parser for Nasdaq Trader `otherlisted.txt` payloads."""
+class _NyseInvestingSearchParser:
+    """Parser for Investing.com search payload inlined JSON array."""
 
-    def parse_rows(self, raw_text: str) -> list["_NyseRelevantRow"]:
-        """Parse `otherlisted.txt` payload text into NYSE-relevant rows."""
-        if not raw_text.strip():
-            raise TickerLookupCommunicationError("Nasdaq Trader symbol directory response is empty")
-        reader = csv.DictReader(StringIO(raw_text), delimiter="|")
-        if reader.fieldnames is None:
-            raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
-        if not _looks_like_otherlisted_header(reader.fieldnames):
-            raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
+    def parse_results(self, raw_text: str) -> list["_NyseInvestingSearchResult"]:
+        """Parse Investing.com search page HTML to structured quote search results."""
+        marker_index = raw_text.find(_INVESTING_SEARCH_DATA_ARRAY_MARKER)
+        if marker_index < 0:
+            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
+        array_start_index = raw_text.find("[", marker_index)
+        if array_start_index < 0:
+            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
+        array_end_index = raw_text.find("];", array_start_index)
+        if array_end_index < 0:
+            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
 
-        parsed_rows: list[_NyseRelevantRow] = []
-        for row in reader:
-            normalized_row = _normalize_otherlisted_row(row)
-            maybe_row = _to_nyse_relevant_row(normalized_row)
-            if maybe_row is not None:
-                parsed_rows.append(maybe_row)
-        return parsed_rows
+        json_array_text = raw_text[array_start_index : array_end_index + 1]
+        try:
+            payload = json.loads(json_array_text)
+        except json.JSONDecodeError as exc:
+            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format") from exc
+        if not isinstance(payload, list):
+            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
+
+        parsed: list[_NyseInvestingSearchResult] = []
+        for item in payload:
+            if not isinstance(item, Mapping):
+                continue
+            symbol = _as_upper_string(item.get("symbol"))
+            exchange = _as_upper_string(item.get("exchange"))
+            if not symbol or exchange != _INVESTING_NYSE_EXCHANGE:
+                continue
+            pair_id = _as_int(item.get("pairId"))
+            if pair_id is None:
+                continue
+            link = _as_string(item.get("link"))
+            if not link:
+                continue
+            parsed.append(
+                _NyseInvestingSearchResult(
+                    symbol=symbol,
+                    exchange=exchange,
+                    name=_as_string(item.get("name")),
+                    pair_id=pair_id,
+                    link=link,
+                    instrument_type=_as_string(item.get("type")),
+                )
+            )
+        return parsed
+
+
+class _NyseInvestingInstrumentParser:
+    """Parser for Investing.com instrument page fields needed for NYSE lookup metadata."""
+
+    def parse_metadata(
+        self,
+        *,
+        raw_text: str,
+        ticker: str,
+        fallback_display_name: str,
+        search_result: "_NyseInvestingSearchResult",
+    ) -> "TickerLookupMetadata":
+        """Extract NYSE lookup metadata from Investing.com instrument page HTML."""
+        isin = self._extract_isin(raw_text)
+        currency = self._extract_currency(raw_text)
+        _ = self._extract_price(raw_text)
+        return TickerLookupMetadata(
+            exchange=Exchange.NYSE,
+            canonical_ticker=ticker,
+            display_name=fallback_display_name,
+            isin=isin,
+            currency=currency,
+            provider_data=MappingProxyType(
+                {
+                    "source": "investing.com",
+                    "pair_id": search_result.pair_id,
+                    "instrument_link": search_result.link,
+                    "instrument_type": search_result.instrument_type,
+                    "search_exchange": search_result.exchange,
+                }
+            ),
+        )
+
+    def _extract_isin(self, raw_text: str) -> str | None:
+        """Extract first plausible ISIN from page payload, when present."""
+        for marker in ('"isin":"', '"isin": "'):
+            index = raw_text.find(marker)
+            while index >= 0:
+                start = index + len(marker)
+                end = raw_text.find('"', start)
+                if end <= start:
+                    break
+                candidate = raw_text[start:end].strip()
+                if _looks_like_isin(candidate):
+                    return candidate
+                index = raw_text.find(marker, end)
+        return None
+
+    def _extract_currency(self, raw_text: str) -> str | None:
+        """Extract three-letter instrument currency when present."""
+        for marker in ('"currency":"', '"currency": "'):
+            index = raw_text.find(marker)
+            if index < 0:
+                continue
+            start = index + len(marker)
+            end = raw_text.find('"', start)
+            if end <= start:
+                continue
+            candidate = raw_text[start:end].strip().upper()
+            if len(candidate) == 3 and candidate.isalpha():
+                return candidate
+        return None
+
+    def _extract_price(self, raw_text: str) -> str | None:
+        """Extract visible headline price from page HTML when present."""
+        index = raw_text.find(_INVESTING_PRICE_LAST_DATA_TEST)
+        if index < 0:
+            return None
+        start = index + len(_INVESTING_PRICE_LAST_DATA_TEST)
+        end = raw_text.find("<", start)
+        if end <= start:
+            return None
+        price_text = raw_text[start:end].strip()
+        return price_text or None
 
 
 class _TaseSecurityDataParser:
@@ -194,12 +297,15 @@ class TickerLookupMetadata:
 
 
 @dataclass(frozen=True)
-class _NyseRelevantRow:
-    """Minimal cached row used for NYSE ticker existence checks."""
+class _NyseInvestingSearchResult:
+    """Relevant Investing.com search result used to resolve a NYSE ticker."""
 
-    act_symbol: str
-    security_name: str
-    exchange_code: str
+    symbol: str
+    exchange: str
+    name: str
+    pair_id: int
+    link: str
+    instrument_type: str
 
 
 @dataclass(frozen=True)
@@ -246,13 +352,6 @@ def _deep_freeze_value(value: object) -> object:
 
 
 @dataclass(frozen=True)
-class _NyseLookupCache:
-    """In-memory cache of NYSE symbol index for app-session reuse."""
-
-    rows_by_symbol: Mapping[str, _NyseRelevantRow]
-
-
-@dataclass(frozen=True)
 class _TaseLookupCacheEntry:
     """Cached TASE ticker lookup result with monotonic expiration timestamp."""
 
@@ -261,40 +360,42 @@ class _TaseLookupCacheEntry:
 
 
 class _NyseLookupCacheStore:
-    """Thread-safe holder for app-session NYSE lookup cache."""
+    """Thread-safe holder for app-session NYSE per-ticker lookup cache."""
 
     def __init__(self) -> None:
         """Initialize empty cache storage and synchronization primitive."""
-        self._cache: _NyseLookupCache | None = None
+        self._cache: dict[str, TickerLookupResult] = {}
         self._lock = Lock()
 
     def get_or_load(
         self,
         *,
+        ticker: str,
         timeout_seconds: float,
-        rows_loader: Callable[[float], list[_NyseRelevantRow]],
-    ) -> _NyseLookupCache:
-        """Return cached NYSE symbol index, loading once on first access."""
-        if self._cache is not None:
-            return self._cache
+        result_loader: Callable[[str, float], TickerLookupResult],
+    ) -> TickerLookupResult:
+        """Return cached NYSE ticker lookup result, loading once per ticker."""
+        cached = self._cache.get(ticker)
+        if cached is not None:
+            return cached
 
-        # Double-checked locking so only one thread populates cache at cold start.
         with self._lock:
-            if self._cache is not None:
-                return self._cache
-            rows = rows_loader(timeout_seconds)
-            rows_by_symbol = MappingProxyType({row.act_symbol: row for row in rows})
-            self._cache = _NyseLookupCache(rows_by_symbol=rows_by_symbol)
-            return self._cache
+            cached = self._cache.get(ticker)
+            if cached is not None:
+                return cached
+            result = result_loader(ticker, timeout_seconds)
+            self._cache[ticker] = result
+            return result
 
     def clear_for_tests(self) -> None:
         """Reset cache state for deterministic tests."""
         with self._lock:
-            self._cache = None
+            self._cache.clear()
 
-    def get_cached_for_tests(self) -> _NyseLookupCache | None:
+    def get_cached_for_tests(self) -> dict[str, TickerLookupResult]:
         """Return current cached payload without triggering network load."""
-        return self._cache
+        with self._lock:
+            return dict(self._cache)
 
 
 class _TaseLookupCacheStore:
@@ -349,13 +450,15 @@ class TickerLookupService:
         self,
         *,
         http_client: _TickerHttpClient | None = None,
-        nyse_parser: _NyseOtherlistedParser | None = None,
+        nyse_search_parser: _NyseInvestingSearchParser | None = None,
+        nyse_instrument_parser: _NyseInvestingInstrumentParser | None = None,
         tase_parser: _TaseSecurityDataParser | None = None,
         nyse_lookup_store: _NyseLookupCacheStore | None = None,
         tase_lookup_store: _TaseLookupCacheStore | None = None,
     ) -> None:
         self._http_client = http_client or _UrlopenTickerHttpClient()
-        self._nyse_parser = nyse_parser or _NyseOtherlistedParser()
+        self._nyse_search_parser = nyse_search_parser or _NyseInvestingSearchParser()
+        self._nyse_instrument_parser = nyse_instrument_parser or _NyseInvestingInstrumentParser()
         self._tase_parser = tase_parser or _TaseSecurityDataParser()
         self._nyse_lookup_store = nyse_lookup_store or _NyseLookupCacheStore()
         self._tase_lookup_store = tase_lookup_store or _TaseLookupCacheStore(
@@ -384,15 +487,27 @@ class TickerLookupService:
             return TickerLookupNotFound()
         return provider(ticker, timeout_seconds)
 
-    def fetch_otherlisted_rows(self, timeout_seconds: float) -> list[_NyseRelevantRow]:
-        """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
+    def fetch_nyse_search_results(self, ticker: str, timeout_seconds: float) -> list[_NyseInvestingSearchResult]:
+        """Fetch and parse Investing.com quote search results for one ticker."""
+        search_url = _INVESTING_SEARCH_URL_TEMPLATE.format(query=quote(ticker))
         body = self._fetch_text_or_raise_communication_error(
-            url=_NASDAQ_OTHERLISTED_URL,
+            url=search_url,
             headers=_REQUEST_HEADERS,
             timeout_seconds=timeout_seconds,
-            error_message="Failed to fetch Nasdaq Trader symbol directory",
+            error_message="Failed to fetch Investing.com NYSE search data",
         )
-        return self._nyse_parser.parse_rows(body)
+        return self._nyse_search_parser.parse_results(body)
+
+    def fetch_nyse_instrument_payload(self, link: str, timeout_seconds: float) -> str:
+        """Fetch raw Investing.com instrument page payload for one search result link."""
+        normalized_link = link if link.startswith("/") else f"/{link}"
+        url = f"{_INVESTING_BASE_URL}{normalized_link}"
+        return self._fetch_text_or_raise_communication_error(
+            url=url,
+            headers=_REQUEST_HEADERS,
+            timeout_seconds=timeout_seconds,
+            error_message="Failed to fetch Investing.com NYSE instrument data",
+        )
 
     def fetch_tase_lookup_result(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Fetch and parse TASE security metadata for one security number."""
@@ -410,30 +525,46 @@ class TickerLookupService:
         )
 
     def _lookup_nyse_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
+        """Resolve NYSE ticker metadata from Investing.com search and instrument payloads."""
         key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=ticker)
         if not key.canonical_ticker:
             return TickerLookupNotFound()
         if not is_complete_nyse_ticker(key.canonical_ticker):
             return TickerLookupNotFound()
-        cache = self._nyse_lookup_store.get_or_load(
+        return self._nyse_lookup_store.get_or_load(
+            ticker=key.canonical_ticker,
             timeout_seconds=timeout_seconds,
-            rows_loader=self.fetch_otherlisted_rows,
+            result_loader=self._fetch_nyse_lookup_result,
         )
-        row = cache.rows_by_symbol.get(key.canonical_ticker)
-        if row is None:
+
+    def _fetch_nyse_lookup_result(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+        """Fetch uncached NYSE ticker lookup result from Investing.com sources."""
+        search_results = self.fetch_nyse_search_results(ticker, timeout_seconds)
+        search_result = self._find_nyse_search_result(search_results, ticker)
+        if search_result is None:
             return TickerLookupNotFound()
-        security_name = row.security_name.strip()
-        if not security_name:
+        display_name = search_result.name.strip()
+        if not display_name:
             return TickerLookupNotFound()
-        return TickerLookupFound(
-            metadata=TickerLookupMetadata(
-                exchange=Exchange.NYSE,
-                canonical_ticker=key.canonical_ticker,
-                display_name=security_name,
-                provider_data=MappingProxyType({"exchange_code": row.exchange_code}),
-            )
+        instrument_payload = self.fetch_nyse_instrument_payload(search_result.link, timeout_seconds)
+        metadata = self._nyse_instrument_parser.parse_metadata(
+            raw_text=instrument_payload,
+            ticker=ticker,
+            fallback_display_name=display_name,
+            search_result=search_result,
         )
+        return TickerLookupFound(metadata=metadata)
+
+    def _find_nyse_search_result(
+        self,
+        search_results: list[_NyseInvestingSearchResult],
+        ticker: str,
+    ) -> _NyseInvestingSearchResult | None:
+        """Return exact NYSE search match for canonical ticker, if present."""
+        for item in search_results:
+            if item.exchange == _INVESTING_NYSE_EXCHANGE and item.symbol == ticker:
+                return item
+        return None
 
     def _lookup_tase_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve TASE ticker from cache/API after canonical security-number normalization."""
@@ -481,34 +612,35 @@ def lookup_ticker_in_exchange(
         timeout_seconds=timeout_seconds,
     )
 
-
-def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, str]:
-    """Normalize parsed CSV row keys and trim values for stable parsing."""
-    return {
-        key.strip().upper(): value.strip()
-        for key, value in row.items()
-        if key is not None and value is not None
-    }
-
-
-def _looks_like_otherlisted_header(header: Sequence[str]) -> bool:
-    """Return whether header columns match expected `otherlisted.txt` identifiers."""
-    normalized = {item.strip().upper() for item in header}
-    required = {_FIELD_ACT_SYMBOL, _FIELD_EXCHANGE}
-    return required.issubset(normalized)
+def _as_string(value: object) -> str:
+    """Return stripped string value when source value is string-like, else empty string."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
 
 
-def _to_nyse_relevant_row(row: dict[str, str]) -> _NyseRelevantRow | None:
-    """Return minimal cached row when exchange code is NYSE-relevant, otherwise ``None``."""
-    exchange_code = row.get(_FIELD_EXCHANGE, "").upper()
-    if exchange_code not in _NYSE_ACCEPTED_EXCHANGE_CODES:
-        return None
-    act_symbol = row.get(_FIELD_ACT_SYMBOL, "").upper()
-    if not act_symbol:
-        return None
-    security_name = row.get(_FIELD_SECURITY_NAME, "")
-    return _NyseRelevantRow(
-        act_symbol=act_symbol,
-        security_name=security_name,
-        exchange_code=exchange_code,
-    )
+def _as_upper_string(value: object) -> str:
+    """Return upper-cased stripped string value when available, else empty string."""
+    return _as_string(value).upper()
+
+
+def _as_int(value: object) -> int | None:
+    """Return integer value when source value can be parsed as integer, else ``None``."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            return int(stripped)
+    return None
+
+
+def _looks_like_isin(candidate: str) -> bool:
+    """Return whether candidate is a plausible ISIN-like token."""
+    if len(candidate) != 12:
+        return False
+    if not candidate[:2].isalpha():
+        return False
+    return candidate.isalnum()
