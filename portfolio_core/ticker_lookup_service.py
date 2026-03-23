@@ -11,7 +11,7 @@ Behavior summary:
 
 import csv
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from io import StringIO
 from threading import Lock
@@ -146,11 +146,6 @@ class _TaseSecurityDataParser:
         )
 
 
-_http_client: _TickerHttpClient = _UrlopenTickerHttpClient()
-_nyse_parser = _NyseOtherlistedParser()
-_tase_parser = _TaseSecurityDataParser()
-
-
 @dataclass(frozen=True)
 class TickerLookupMetadata:
     """Canonical metadata returned for a resolved ticker."""
@@ -242,7 +237,12 @@ class _NyseLookupCacheStore:
         self._cache: _NyseLookupCache | None = None
         self._lock = Lock()
 
-    def get_or_load(self, *, timeout_seconds: float) -> _NyseLookupCache:
+    def get_or_load(
+        self,
+        *,
+        timeout_seconds: float,
+        rows_loader: Callable[[float], list[_NyseRelevantRow]],
+    ) -> _NyseLookupCache:
         """Return cached NYSE symbol index, loading once on first access."""
         if self._cache is not None:
             return self._cache
@@ -251,7 +251,7 @@ class _NyseLookupCacheStore:
         with self._lock:
             if self._cache is not None:
                 return self._cache
-            rows = _fetch_otherlisted_rows(timeout_seconds=timeout_seconds)
+            rows = rows_loader(timeout_seconds)
             rows_by_symbol = MappingProxyType({row.act_symbol: row for row in rows})
             self._cache = _NyseLookupCache(rows_by_symbol=rows_by_symbol)
             return self._cache
@@ -275,7 +275,13 @@ class _TaseLookupCacheStore:
         self._cache: dict[str, _TaseLookupCacheEntry] = {}
         self._lock = Lock()
 
-    def get_or_load(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    def get_or_load(
+        self,
+        *,
+        ticker: str,
+        timeout_seconds: float,
+        result_loader: Callable[[str, float], TickerLookupResult],
+    ) -> TickerLookupResult:
         """Return cached TASE lookup result for ticker, reloading when expired/missing."""
         now = time.monotonic()
         cached_entry = self._cache.get(ticker)
@@ -287,7 +293,7 @@ class _TaseLookupCacheStore:
             cached_entry = self._cache.get(ticker)
             if cached_entry is not None and cached_entry.expires_at_monotonic > now:
                 return cached_entry.result
-            result = _fetch_tase_lookup_result(ticker=ticker, timeout_seconds=timeout_seconds)
+            result = result_loader(ticker, timeout_seconds)
             self._cache[ticker] = _TaseLookupCacheEntry(
                 result=result,
                 expires_at_monotonic=now + self._ttl_seconds,
@@ -305,25 +311,82 @@ class _TaseLookupCacheStore:
             return dict(self._cache)
 
 
-_nyse_lookup_store = _NyseLookupCacheStore()
-_tase_lookup_store = _TaseLookupCacheStore(ttl_seconds=_TASE_CACHE_TTL_SECONDS)
+class TickerLookupService:
+    """Ticker lookup orchestration with injected transport/parsers/caches."""
 
+    def __init__(
+        self,
+        *,
+        http_client: _TickerHttpClient | None = None,
+        nyse_parser: _NyseOtherlistedParser | None = None,
+        tase_parser: _TaseSecurityDataParser | None = None,
+        nyse_lookup_store: _NyseLookupCacheStore | None = None,
+        tase_lookup_store: _TaseLookupCacheStore | None = None,
+    ) -> None:
+        self._http_client = http_client or _UrlopenTickerHttpClient()
+        self._nyse_parser = nyse_parser or _NyseOtherlistedParser()
+        self._tase_parser = tase_parser or _TaseSecurityDataParser()
+        self._nyse_lookup_store = nyse_lookup_store or _NyseLookupCacheStore()
+        self._tase_lookup_store = tase_lookup_store or _TaseLookupCacheStore(
+            ttl_seconds=_TASE_CACHE_TTL_SECONDS
+        )
+        self._lookup_by_exchange: Mapping[
+            Exchange,
+            Callable[[str, float], TickerLookupResult],
+        ] = MappingProxyType(
+            {
+                Exchange.NYSE: self._lookup_nyse_ticker,
+                Exchange.TASE: self._lookup_tase_ticker,
+            }
+        )
 
-class _ExchangeTickerLookupProvider(Protocol):
-    """Provider contract for exchange-specific ticker lookup implementations."""
+    def lookup_ticker_in_exchange(
+        self,
+        *,
+        exchange: Exchange,
+        ticker: str,
+        timeout_seconds: float = 8.0,
+    ) -> TickerLookupResult:
+        """Route ticker lookup to exchange-specific implementation."""
+        provider = self._lookup_by_exchange.get(exchange)
+        if provider is None:
+            return TickerLookupNotFound()
+        return provider(ticker, timeout_seconds)
 
-    def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult: ...
+    def fetch_otherlisted_rows(self, timeout_seconds: float) -> list[_NyseRelevantRow]:
+        """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
+        body = self._fetch_text_or_raise_communication_error(
+            url=_NASDAQ_OTHERLISTED_URL,
+            headers=_REQUEST_HEADERS,
+            timeout_seconds=timeout_seconds,
+            error_message="Failed to fetch Nasdaq Trader symbol directory",
+        )
+        return self._nyse_parser.parse_rows(body)
 
+    def fetch_tase_lookup_result(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+        """Fetch and parse TASE security metadata for one security number."""
+        payload_text = self.fetch_tase_security_payload(ticker, timeout_seconds)
+        return self._tase_parser.parse_lookup_result(payload_text)
 
-class _NyseTickerLookupProvider:
-    """NYSE provider backed by cached Nasdaq Trader `otherlisted.txt` rows."""
+    def fetch_tase_security_payload(self, ticker: str, timeout_seconds: float) -> str:
+        """Fetch raw TASE security-data API payload for one canonical security number."""
+        url = _TASE_SECURITYDATA_URL_TEMPLATE.format(security_id=ticker)
+        return self._fetch_text_or_raise_communication_error(
+            url=url,
+            headers=_TASE_REQUEST_HEADERS,
+            timeout_seconds=timeout_seconds,
+            error_message="Failed to fetch TASE security data",
+        )
 
-    def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    def _lookup_nyse_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
         normalized_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=ticker)
         if not normalized_ticker:
             return TickerLookupNotFound()
-        cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
+        cache = self._nyse_lookup_store.get_or_load(
+            timeout_seconds=timeout_seconds,
+            rows_loader=self.fetch_otherlisted_rows,
+        )
         row = cache.rows_by_symbol.get(normalized_ticker)
         if row is None:
             return TickerLookupNotFound()
@@ -335,35 +398,42 @@ class _NyseTickerLookupProvider:
                 exchange=Exchange.NYSE,
                 canonical_ticker=normalized_ticker,
                 display_name=security_name,
-                provider_data=MappingProxyType(
-                    {
-                        "exchange_code": row.exchange_code,
-                    }
-                ),
+                provider_data=MappingProxyType({"exchange_code": row.exchange_code}),
             )
         )
 
-
-class _TaseTickerLookupProvider:
-    """TASE provider backed by per-security API lookups with TTL cache."""
-
-    def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    def _lookup_tase_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve TASE ticker from cache/API after canonical security-number normalization."""
         normalized_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=ticker)
         if not normalized_ticker:
             return TickerLookupNotFound()
-        return _tase_lookup_store.get_or_load(
+        return self._tase_lookup_store.get_or_load(
             ticker=normalized_ticker,
             timeout_seconds=timeout_seconds,
+            result_loader=self.fetch_tase_lookup_result,
         )
 
+    def _fetch_text_or_raise_communication_error(
+        self,
+        *,
+        url: str,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+        error_message: str,
+    ) -> str:
+        """Fetch transport payload and normalize transport failures to communication errors."""
+        try:
+            return self._http_client.fetch_text(url=url, headers=headers, timeout_seconds=timeout_seconds)
+        except Exception as exc:
+            raise TickerLookupCommunicationError(error_message) from exc
 
-_LOOKUP_PROVIDERS_BY_EXCHANGE: Mapping[Exchange, _ExchangeTickerLookupProvider] = MappingProxyType(
-    {
-        Exchange.NYSE: _NyseTickerLookupProvider(),
-        Exchange.TASE: _TaseTickerLookupProvider(),
-    }
-)
+
+_default_ticker_lookup_service = TickerLookupService()
+_http_client = _default_ticker_lookup_service._http_client
+_nyse_parser = _default_ticker_lookup_service._nyse_parser
+_tase_parser = _default_ticker_lookup_service._tase_parser
+_nyse_lookup_store = _default_ticker_lookup_service._nyse_lookup_store
+_tase_lookup_store = _default_ticker_lookup_service._tase_lookup_store
 
 
 def lookup_ticker_in_exchange(
@@ -372,53 +442,27 @@ def lookup_ticker_in_exchange(
     ticker: str,
     timeout_seconds: float = 8.0,
 ) -> TickerLookupResult:
-    """Route ticker lookup to the exchange-specific provider implementation."""
-    provider = _LOOKUP_PROVIDERS_BY_EXCHANGE.get(exchange)
-    if provider is None:
-        return TickerLookupNotFound()
-    return provider.lookup(ticker=ticker, timeout_seconds=timeout_seconds)
+    """Route ticker lookup through the default app-level lookup service."""
+    return _default_ticker_lookup_service.lookup_ticker_in_exchange(
+        exchange=exchange,
+        ticker=ticker,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
-    """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
-    body = _fetch_text_or_raise_communication_error(
-        url=_NASDAQ_OTHERLISTED_URL,
-        headers=_REQUEST_HEADERS,
-        timeout_seconds=timeout_seconds,
-        error_message="Failed to fetch Nasdaq Trader symbol directory",
-    )
-    return _nyse_parser.parse_rows(body)
+    """Backward-compatible helper delegating to default lookup service."""
+    return _default_ticker_lookup_service.fetch_otherlisted_rows(timeout_seconds)
 
 
 def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-    """Fetch and parse TASE security metadata for one security number."""
-    payload_text = _fetch_tase_security_payload(ticker=ticker, timeout_seconds=timeout_seconds)
-    return _tase_parser.parse_lookup_result(payload_text)
+    """Backward-compatible helper delegating to default lookup service."""
+    return _default_ticker_lookup_service.fetch_tase_lookup_result(ticker, timeout_seconds)
 
 
 def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
-    """Fetch raw TASE security-data API payload for one canonical security number."""
-    url = _TASE_SECURITYDATA_URL_TEMPLATE.format(security_id=ticker)
-    return _fetch_text_or_raise_communication_error(
-        url=url,
-        headers=_TASE_REQUEST_HEADERS,
-        timeout_seconds=timeout_seconds,
-        error_message="Failed to fetch TASE security data",
-    )
-
-
-def _fetch_text_or_raise_communication_error(
-    *,
-    url: str,
-    headers: Mapping[str, str],
-    timeout_seconds: float,
-    error_message: str,
-) -> str:
-    """Fetch transport payload and normalize transport failures to communication errors."""
-    try:
-        return _http_client.fetch_text(url=url, headers=headers, timeout_seconds=timeout_seconds)
-    except Exception as exc:
-        raise TickerLookupCommunicationError(error_message) from exc
+    """Backward-compatible helper delegating to default lookup service."""
+    return _default_ticker_lookup_service.fetch_tase_security_payload(ticker, timeout_seconds)
 
 
 def _extract_optional_string(payload: Mapping[str, object], key: str) -> str | None:
