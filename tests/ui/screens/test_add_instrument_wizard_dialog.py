@@ -185,8 +185,10 @@ def test_add_instrument_wizard_step_2_validates_ticker_by_exchange(
     dialog.exchange_combo.setCurrentText("TASE")
     dialog.ticker_edit.setText("1234")
     assert not dialog.next_step_2_btn.isEnabled()
-    assert "exactly 7 digits" in dialog.ticker_error_label.text()
+    assert "6 or 7 digits" in dialog.ticker_error_label.text()
 
+    dialog.ticker_edit.setText("123456")
+    assert dialog.next_step_2_btn.isEnabled()
     dialog.ticker_edit.setText("1234567")
     assert dialog.next_step_2_btn.isEnabled()
 

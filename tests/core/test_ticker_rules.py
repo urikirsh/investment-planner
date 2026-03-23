@@ -28,12 +28,12 @@ def test_normalize_ticker_for_exchange_uses_nyse_rules() -> None:
     assert normalize_ticker_for_exchange(exchange=Exchange.NYSE, raw="brk.b-1%") == "BRK.B1"
 
 
-@pytest.mark.parametrize("ticker", ["1234567"])
+@pytest.mark.parametrize("ticker", ["123456", "1234567"])
 def test_is_complete_tase_ticker_accepts_valid_shape(ticker: str) -> None:
     assert is_complete_tase_ticker(ticker) is True
 
 
-@pytest.mark.parametrize("ticker", ["123456", "12AB567", "12345678"])
+@pytest.mark.parametrize("ticker", ["12345", "12AB567", "12345678"])
 def test_is_complete_tase_ticker_rejects_invalid_shape(ticker: str) -> None:
     assert is_complete_tase_ticker(ticker) is False
 

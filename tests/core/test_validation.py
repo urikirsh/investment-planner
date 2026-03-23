@@ -305,8 +305,16 @@ def test_validation_rejects_invalid_tase_ticker_format() -> None:
     data["instruments"][0]["exchange"] = "TASE"
     data["instruments"][0]["ticker"] = "12AB567"
     p = load_portfolio(data)
-    with pytest.raises(ValueError, match="ticker for TASE must be exactly 7 digits"):
+    with pytest.raises(ValueError, match="ticker for TASE must be 6 or 7 digits"):
         validate_portfolio(p)
+
+
+def test_validation_allows_6_digit_tase_ticker() -> None:
+    data = make_valid_data()
+    data["instruments"][0]["exchange"] = "TASE"
+    data["instruments"][0]["ticker"] = "123456"
+    p = load_portfolio(data)
+    validate_portfolio(p)
 
 
 def test_validation_allows_nyse_uppercase_alphanumeric_ticker() -> None:

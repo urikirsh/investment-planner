@@ -228,7 +228,7 @@ def _validate_instrument_ticker(name: str, ticker: str, exchange: Exchange) -> N
         raise ValueError(f"Instrument '{name}' ticker must be non-empty")
 
     if exchange is Exchange.TASE and not is_complete_tase_ticker(normalized_ticker):
-        raise ValueError(f"Instrument '{name}' ticker for TASE must be exactly 7 digits")
+        raise ValueError(f"Instrument '{name}' ticker for TASE must be 6 or 7 digits")
     if exchange is Exchange.NYSE and not is_complete_nyse_ticker(normalized_ticker):
         raise ValueError(
             f"Instrument '{name}' ticker for NYSE must be 1 to 14 uppercase letters/digits, optionally one dot"

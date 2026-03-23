@@ -155,7 +155,7 @@ class MainEditorScreen(QWidget):
         header_item.setToolTip(
             Col.TICKER.value,
             "Instrument ticker symbol (required).\n"
-            "TASE: exactly 7 digits.\n"
+            "TASE: 6 or 7 digits.\n"
             "NYSE: exactly 4 uppercase letters or digits.",
         )
         header_item.setToolTip(
