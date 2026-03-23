@@ -4,6 +4,8 @@ import pytest
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
+    ExchangeTickerKey,
+    build_exchange_ticker_key,
     canonicalize_nyse_ticker,
     canonicalize_tase_ticker,
     canonicalize_ticker_for_exchange,
@@ -61,6 +63,16 @@ def test_canonicalize_ticker_for_exchange_uses_nyse_rules() -> None:
 
 def test_canonicalize_ticker_for_exchange_rejects_invalid_nyse_input() -> None:
     assert canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=" brk.b-1% ") == ""
+
+
+def test_build_exchange_ticker_key_builds_canonical_tase_key() -> None:
+    key = build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker=" 0312017 ")
+    assert key == ExchangeTickerKey(exchange=Exchange.TASE, canonical_ticker="312017")
+
+
+def test_build_exchange_ticker_key_builds_canonical_nyse_key() -> None:
+    key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=" brk.b ")
+    assert key == ExchangeTickerKey(exchange=Exchange.NYSE, canonical_ticker="BRK.B")
 
 
 @pytest.mark.parametrize("ticker", ["123456", "1234567"])

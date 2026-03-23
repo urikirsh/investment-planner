@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
+    ExchangeTickerKey,
     NYSE_TICKER_ERROR,
     NYSE_TICKER_INPUT_PATTERN,
     NYSE_TICKER_MAX_LENGTH,
@@ -46,7 +47,7 @@ from portfolio_core.ticker_rules import (
     TASE_TICKER_INPUT_PATTERN,
     TASE_TICKER_MAX_LENGTH,
     TASE_TICKER_PLACEHOLDER,
-    canonicalize_ticker_for_exchange,
+    build_exchange_ticker_key,
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
     normalize_ticker_for_exchange,
@@ -67,9 +68,6 @@ from ui.shared.ui_utils import (
     exchange_choices,
     normalize_and_validate_non_negative_integer_text,
 )
-
-_ExchangeTickerKey = tuple[Exchange, str]
-
 
 @dataclass(frozen=True)
 class _TickerRule:
@@ -280,7 +278,7 @@ class AddInstrumentWizardDialog(QDialog):
         instrument_group_name: str,
         is_non_investable_group: bool,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[_ExchangeTickerKey, str] | None = None,
+        existing_ticker_locations: dict[ExchangeTickerKey, str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         """Initialize the modal wizard and wire all step UI/validation state."""
@@ -498,8 +496,8 @@ class AddInstrumentWizardDialog(QDialog):
     @staticmethod
     def _validate_duplicate_ticker(
         *,
-        key: _ExchangeTickerKey,
-        existing_ticker_locations: dict[_ExchangeTickerKey, str],
+        key: ExchangeTickerKey,
+        existing_ticker_locations: dict[ExchangeTickerKey, str],
     ) -> str | None:
         """Return duplicate location when `(exchange, ticker)` key already exists."""
         return existing_ticker_locations.get(key)
@@ -511,8 +509,9 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _format_duplicate_ticker_error(self, duplicate_location: str) -> tuple[str, str]:
         """Build `(title, message)` shown when `(exchange, ticker)` already exists."""
-        exchange, ticker_text = self._current_step_2_key()
-        exchange_text = exchange.value
+        key = self._current_step_2_key()
+        exchange_text = key.exchange.value
+        ticker_text = key.canonical_ticker
         return (
             "Duplicate ticker",
             (
@@ -529,7 +528,7 @@ class AddInstrumentWizardDialog(QDialog):
             f"(under {duplicate_location})."
         )
 
-    def _current_step_2_key(self) -> _ExchangeTickerKey:
+    def _current_step_2_key(self) -> ExchangeTickerKey:
         """Return normalized `(exchange, ticker)` key used for duplicate checks.
 
         Exchange-specific canonicalization ensures equivalent identifiers map
@@ -537,7 +536,7 @@ class AddInstrumentWizardDialog(QDialog):
         """
         exchange = self._current_exchange()
         raw_ticker = self.ticker_edit.text().strip()
-        return (exchange, canonicalize_ticker_for_exchange(exchange=exchange, raw=raw_ticker))
+        return build_exchange_ticker_key(exchange=exchange, raw_ticker=raw_ticker)
 
     def _start_step_2_verification_flow(self) -> None:
         """Run ticker lookup for supported exchanges before advancing to step 3."""

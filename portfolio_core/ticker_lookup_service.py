@@ -22,7 +22,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
+from portfolio_core.ticker_rules import build_exchange_ticker_key
 
 _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
@@ -130,14 +130,14 @@ class _TaseSecurityDataParser:
         security_id = payload.get("Id")
         if security_id in (None, ""):
             return TickerLookupNotFound()
-        canonical_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=str(security_id))
-        if not canonical_ticker:
+        key = build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker=str(security_id))
+        if not key.canonical_ticker:
             return TickerLookupNotFound()
         instrument_name = self._extract_english_instrument_name(payload)
         return TickerLookupFound(
             metadata=TickerLookupMetadata(
                 exchange=Exchange.TASE,
-                canonical_ticker=canonical_ticker,
+                canonical_ticker=key.canonical_ticker,
                 display_name=instrument_name,
                 isin=self._extract_optional_string(payload, "ISIN"),
                 currency=self._extract_optional_string(payload, "Currency"),
@@ -411,14 +411,14 @@ class TickerLookupService:
 
     def _lookup_nyse_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
-        normalized_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.NYSE, raw=ticker)
-        if not normalized_ticker:
+        key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=ticker)
+        if not key.canonical_ticker:
             return TickerLookupNotFound()
         cache = self._nyse_lookup_store.get_or_load(
             timeout_seconds=timeout_seconds,
             rows_loader=self.fetch_otherlisted_rows,
         )
-        row = cache.rows_by_symbol.get(normalized_ticker)
+        row = cache.rows_by_symbol.get(key.canonical_ticker)
         if row is None:
             return TickerLookupNotFound()
         security_name = row.security_name.strip()
@@ -427,7 +427,7 @@ class TickerLookupService:
         return TickerLookupFound(
             metadata=TickerLookupMetadata(
                 exchange=Exchange.NYSE,
-                canonical_ticker=normalized_ticker,
+                canonical_ticker=key.canonical_ticker,
                 display_name=security_name,
                 provider_data=MappingProxyType({"exchange_code": row.exchange_code}),
             )
@@ -435,11 +435,11 @@ class TickerLookupService:
 
     def _lookup_tase_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve TASE ticker from cache/API after canonical security-number normalization."""
-        normalized_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=ticker)
-        if not normalized_ticker:
+        key = build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker=ticker)
+        if not key.canonical_ticker:
             return TickerLookupNotFound()
         return self._tase_lookup_store.get_or_load(
-            ticker=normalized_ticker,
+            ticker=key.canonical_ticker,
             timeout_seconds=timeout_seconds,
             result_loader=self.fetch_tase_lookup_result,
         )

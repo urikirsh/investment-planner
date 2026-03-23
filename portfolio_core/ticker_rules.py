@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 from collections.abc import Callable
 from typing import Final
@@ -21,6 +22,14 @@ _NYSE_TICKER_INPUT_RE = re.compile(r"^(?=.{0,14}$)(?!.*\..*\.)(?:[A-Za-z0-9][A-Z
 
 NYSE_TICKER_INPUT_PATTERN: Final[str] = _NYSE_TICKER_INPUT_RE.pattern
 TASE_TICKER_INPUT_PATTERN: Final[str] = r"^\d{0,7}$"
+
+
+@dataclass(frozen=True)
+class ExchangeTickerKey:
+    """Canonical exchange+ticker identity key used across lookup and duplicate checks."""
+
+    exchange: Exchange
+    canonical_ticker: str
 
 
 def normalize_tase_ticker(raw: str) -> str:
@@ -82,6 +91,14 @@ _TICKER_CANONICALIZERS: Final[dict[Exchange, Callable[[str], str]]] = {
 def canonicalize_ticker_for_exchange(*, exchange: Exchange, raw: str) -> str:
     """Return exchange-specific canonical ticker identifier used for keying/lookups."""
     return _TICKER_CANONICALIZERS[exchange](raw)
+
+
+def build_exchange_ticker_key(*, exchange: Exchange, raw_ticker: str) -> ExchangeTickerKey:
+    """Build shared canonical exchange+ticker key from raw ticker text."""
+    return ExchangeTickerKey(
+        exchange=exchange,
+        canonical_ticker=canonicalize_ticker_for_exchange(exchange=exchange, raw=raw_ticker),
+    )
 
 
 def is_complete_tase_ticker(ticker: str) -> bool:

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetIte
 
 from portfolio_core.models import Exchange
 from portfolio_core.planning_types import PlanningMode
-from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
+from portfolio_core.ticker_rules import ExchangeTickerKey, build_exchange_ticker_key
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
@@ -62,9 +62,9 @@ class MainWindowMainEditorController:
                 name_locations[normalized_name] = location
         return name_locations
 
-    def _build_existing_instrument_ticker_locations(self) -> dict[tuple[Exchange, str], str]:
+    def _build_existing_instrument_ticker_locations(self) -> dict[ExchangeTickerKey, str]:
         """Return normalized `(exchange, ticker)` -> first-found location mapping."""
-        ticker_locations: dict[tuple[Exchange, str], str] = {}
+        ticker_locations: dict[ExchangeTickerKey, str] = {}
         for child, location in self._iter_instrument_rows_with_locations(self._host.tree):
             exchange_text = child.text(Col.EXCHANGE.value).strip()
             try:
@@ -72,10 +72,9 @@ class MainWindowMainEditorController:
             except ValueError:
                 continue
             ticker_text = child.text(Col.TICKER.value).strip()
-            normalized_ticker = canonicalize_ticker_for_exchange(exchange=exchange, raw=ticker_text)
-            if not normalized_ticker:
+            key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker_text)
+            if not key.canonical_ticker:
                 continue
-            key = (exchange, normalized_ticker)
             if key not in ticker_locations:
                 ticker_locations[key] = location
         return ticker_locations
