@@ -121,6 +121,5 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
 
     index = captured_kwargs["existing_ticker_locations"]
     assert isinstance(index, ExchangeTickerLocationIndex)
-    assert index.as_dict_for_tests() == {
-        build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12"): "Equity"
-    }
+    key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12")
+    assert index.find_location(key=key) == "Equity"

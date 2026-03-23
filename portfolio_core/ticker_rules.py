@@ -64,10 +64,6 @@ class ExchangeTickerLocationIndex:
         """Return duplicate location for key, when present."""
         return self._locations.get(key)
 
-    def as_dict_for_tests(self) -> dict[ExchangeTickerKey, str]:
-        """Return a mutable snapshot for deterministic assertions in tests."""
-        return dict(self._locations)
-
 
 def normalize_tase_ticker(raw: str) -> str:
     """Normalize TASE ticker text to digits only."""

@@ -476,26 +476,6 @@ def lookup_ticker_in_exchange(
     )
 
 
-def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
-    """Backward-compatible helper delegating to default lookup service."""
-    return _default_ticker_lookup_service.fetch_otherlisted_rows(timeout_seconds)
-
-
-def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-    """Backward-compatible helper delegating to default lookup service."""
-    return _default_ticker_lookup_service.fetch_tase_lookup_result(ticker, timeout_seconds)
-
-
-def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
-    """Backward-compatible helper delegating to default lookup service."""
-    return _default_ticker_lookup_service.fetch_tase_security_payload(ticker, timeout_seconds)
-
-
-def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
-    """Parse `otherlisted.txt` into NYSE-relevant rows only (`N/A/P/Z`)."""
-    return _default_ticker_lookup_service._nyse_parser.parse_rows(raw_text)
-
-
 def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, str]:
     """Normalize parsed CSV row keys and trim values for stable parsing."""
     return {
