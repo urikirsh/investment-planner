@@ -77,8 +77,7 @@ FX thread-safety guards in this flow:
   - each step renders the selected group plus prior step decisions for review
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
   - step-2 ticker input `Enter` key behaves like `Next` when `Next` is enabled
-  - for NYSE only, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
-  - TASE currently skips network ticker verification and advances directly to step 3
+  - for NYSE and TASE, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
   - ticker-not-found, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
   - duplicate ticker/name submit paths keep defensive Back-only modals naming the existing location
   - return/cancel prompts for discard only when user has edited wizard input

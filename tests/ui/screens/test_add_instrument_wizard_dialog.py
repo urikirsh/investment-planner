@@ -581,7 +581,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup
     assert "internal error" in shown[0][1].lower()
 
 
-def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
+def test_add_instrument_wizard_step_2_performs_tase_lookup_and_advances(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -603,8 +603,8 @@ def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
     dialog.ticker_edit.setText("1234567")
     dialog.next_step_2_btn.click()
 
-    assert dialog.pages.currentIndex() == 2
-    assert calls == []
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
+    assert calls == [(Exchange.TASE, "1234567")]
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:

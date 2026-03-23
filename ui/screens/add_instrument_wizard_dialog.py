@@ -534,13 +534,10 @@ class AddInstrumentWizardDialog(QDialog):
         return (self._current_exchange(), self.ticker_edit.text().strip())
 
     def _start_step_2_verification_flow(self) -> None:
-        """Run NYSE lookup when required; otherwise advance directly to details step."""
-        if self._current_exchange() is Exchange.NYSE:
-            if self._ticker_lookup_thread is not None:
-                return
-            self._begin_ticker_lookup()
+        """Run ticker lookup for supported exchanges before advancing to step 3."""
+        if self._ticker_lookup_thread is not None:
             return
-        self._advance_to_step_3()
+        self._begin_ticker_lookup()
 
     def _advance_to_step_3(self) -> None:
         """Advance wizard to step 3 and refresh dependent context/validation state."""

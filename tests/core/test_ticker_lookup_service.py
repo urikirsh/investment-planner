@@ -64,6 +64,7 @@ def _patch_urlopen_with_payload(
 @pytest.fixture(autouse=True)
 def _reset_lookup_cache() -> None:
     ticker_lookup_service._nyse_lookup_store.clear_for_tests()
+    ticker_lookup_service._tase_lookup_store.clear_for_tests()
 
 
 def test_lookup_ticker_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,15 +120,50 @@ def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupNotFound)
 
 
-def test_lookup_ticker_in_exchange_returns_false_for_tase_without_network(
+def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "portfolio_core.ticker_lookup_service.urlopen",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Should not be called for TASE")),
-    )
+    payload = (
+        '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LongName":"'
+        '(ISHARES CORE MSCI EUROPE UCITS ETF EUR (ACC)"}'
+    ).encode("utf-8")
+    _patch_urlopen_with_payload(monkeypatch, payload=payload)
 
-    assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567"), TickerLookupNotFound)
+    result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.instrument_name == "ISH.FRF MSCIEUR"
+
+
+def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_without_english(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = '{"Id":1234567,"Name":"אשס.חוץ MSCIEURO","LongName":"איישרס חוץ"}'.encode("utf-8")
+    _patch_urlopen_with_payload(monkeypatch, payload=payload)
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.instrument_name == ""
+
+
+def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_urlopen_with_payload(monkeypatch, payload=b"null")
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="9999999")
+
+    assert isinstance(result, TickerLookupNotFound)
+
+
+def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_tase_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_urlopen_with_payload(monkeypatch, payload=b"{invalid-json")
+
+    with pytest.raises(TickerLookupCommunicationError):
+        lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
 
 def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
@@ -204,6 +240,21 @@ def test_lookup_ticker_in_exchange_uses_session_cache_without_expiry(
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
+    assert calls["count"] == 1
+
+
+def test_lookup_ticker_in_exchange_uses_tase_ttl_cache_without_refetch_during_ttl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = b'{"Id":1159094,"Name":"ISH.FRF MSCIEUR"}'
+    calls = {"count": 0}
+    _patch_urlopen_with_payload(monkeypatch, payload=payload, calls=calls)
+
+    result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
+    result2 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
+
+    assert isinstance(result1, TickerLookupFound)
+    assert isinstance(result2, TickerLookupFound)
     assert calls["count"] == 1
 
 

@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-"""Ticker existence checks based on Nasdaq Trader symbol-directory files.
-
-Current behavior is intentionally scoped to NYSE validation only. TASE lookup
-is not implemented in this service yet.
-"""
+"""Ticker existence checks for NYSE and TASE exchanges."""
 
 import csv
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from io import StringIO
 from threading import Lock
+import time
 from types import MappingProxyType
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -18,16 +16,25 @@ from urllib.request import Request, urlopen
 from portfolio_core.models import Exchange
 
 _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
+_TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
 _NYSE_ACCEPTED_EXCHANGE_CODES = {"N", "A", "P", "Z"}
 _FIELD_ACT_SYMBOL = "ACT SYMBOL"
 _FIELD_EXCHANGE = "EXCHANGE"
 _FIELD_SECURITY_NAME = "SECURITY NAME"
+_TASE_ENGLISH_NAME_KEYS = ("Name", "LongName", "SecurityLongName", "CompanyName")
+_TASE_CACHE_TTL_SECONDS = 900.0
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/126.0.0.0 Safari/537.36"
     )
+}
+_TASE_REQUEST_HEADERS = {
+    **_REQUEST_HEADERS,
+    "Referer": "https://market.tase.co.il/",
+    "Origin": "https://market.tase.co.il",
+    "Accept": "application/json, text/plain, */*",
 }
 
 
@@ -49,11 +56,6 @@ class TickerLookupFound:
 
     instrument_name: str
 
-    def __post_init__(self) -> None:
-        """Enforce non-empty instrument names for found lookups."""
-        if not self.instrument_name.strip():
-            raise ValueError("instrument_name must be non-empty for found ticker lookups")
-
 
 @dataclass(frozen=True)
 class TickerLookupNotFound:
@@ -68,6 +70,14 @@ class _NyseLookupCache:
     """In-memory cache of NYSE symbol index for app-session reuse."""
 
     rows_by_symbol: Mapping[str, _NyseRelevantRow]
+
+
+@dataclass(frozen=True)
+class _TaseLookupCacheEntry:
+    """Cached TASE ticker lookup result with monotonic expiration timestamp."""
+
+    result: TickerLookupResult
+    expires_at_monotonic: float
 
 
 class _NyseLookupCacheStore:
@@ -102,7 +112,47 @@ class _NyseLookupCacheStore:
         return self._cache
 
 
+class _TaseLookupCacheStore:
+    """Thread-safe per-ticker TTL cache for TASE lookup results."""
+
+    def __init__(self, *, ttl_seconds: float) -> None:
+        """Initialize empty cache store with a configured TTL."""
+        self._ttl_seconds = ttl_seconds
+        self._cache: dict[str, _TaseLookupCacheEntry] = {}
+        self._lock = Lock()
+
+    def get_or_load(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+        """Return cached TASE lookup result for ticker, reloading when expired/missing."""
+        now = time.monotonic()
+        cached_entry = self._cache.get(ticker)
+        if cached_entry is not None and cached_entry.expires_at_monotonic > now:
+            return cached_entry.result
+
+        with self._lock:
+            now = time.monotonic()
+            cached_entry = self._cache.get(ticker)
+            if cached_entry is not None and cached_entry.expires_at_monotonic > now:
+                return cached_entry.result
+            result = _fetch_tase_lookup_result(ticker=ticker, timeout_seconds=timeout_seconds)
+            self._cache[ticker] = _TaseLookupCacheEntry(
+                result=result,
+                expires_at_monotonic=now + self._ttl_seconds,
+            )
+            return result
+
+    def clear_for_tests(self) -> None:
+        """Reset cache state for deterministic tests."""
+        with self._lock:
+            self._cache.clear()
+
+    def get_cached_for_tests(self) -> dict[str, _TaseLookupCacheEntry]:
+        """Return a shallow snapshot of current cache for test assertions."""
+        with self._lock:
+            return dict(self._cache)
+
+
 _nyse_lookup_store = _NyseLookupCacheStore()
+_tase_lookup_store = _TaseLookupCacheStore(ttl_seconds=_TASE_CACHE_TTL_SECONDS)
 
 
 def lookup_ticker_in_exchange(
@@ -114,6 +164,8 @@ def lookup_ticker_in_exchange(
     """Return resolved lookup payload for supported exchange/ticker combinations."""
     if exchange is Exchange.NYSE:
         return _lookup_nyse_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
+    if exchange is Exchange.TASE:
+        return _lookup_tase_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
     return TickerLookupNotFound()
 
 
@@ -132,6 +184,17 @@ def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupR
     return TickerLookupFound(instrument_name=security_name)
 
 
+def _lookup_tase_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    """Resolve TASE ticker existence and optional English instrument name from cached API payload."""
+    normalized_ticker = ticker.strip()
+    if not normalized_ticker:
+        return TickerLookupNotFound()
+    return _tase_lookup_store.get_or_load(
+        ticker=normalized_ticker,
+        timeout_seconds=timeout_seconds,
+    )
+
+
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
     """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
     request = Request(_NASDAQ_OTHERLISTED_URL, headers=_REQUEST_HEADERS)
@@ -141,6 +204,69 @@ def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]
     except (OSError, TimeoutError, URLError) as exc:
         raise TickerLookupCommunicationError("Failed to fetch Nasdaq Trader symbol directory") from exc
     return _parse_otherlisted_text(body)
+
+
+def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+    """Fetch and parse TASE security metadata for one security number."""
+    payload_text = _fetch_tase_security_payload(ticker=ticker, timeout_seconds=timeout_seconds)
+    return _parse_tase_security_payload(payload_text)
+
+
+def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
+    """Fetch raw TASE security-data API payload for one security number."""
+    url = _TASE_SECURITYDATA_URL_TEMPLATE.format(security_id=ticker)
+    request = Request(url, headers=_TASE_REQUEST_HEADERS)
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            raw_body = bytes(response.read())
+            return raw_body.decode("utf-8", errors="replace")
+    except (OSError, TimeoutError, URLError) as exc:
+        raise TickerLookupCommunicationError("Failed to fetch TASE security data") from exc
+
+
+def _parse_tase_security_payload(raw_text: str) -> TickerLookupResult:
+    """Parse TASE `company/securitydata` payload into a lookup result."""
+    normalized_text = raw_text.strip()
+    if not normalized_text or normalized_text == "null":
+        return TickerLookupNotFound()
+    try:
+        payload = json.loads(normalized_text)
+    except json.JSONDecodeError as exc:
+        raise TickerLookupCommunicationError("TASE security data response is not valid JSON") from exc
+    if not isinstance(payload, Mapping):
+        raise TickerLookupCommunicationError("TASE security data response has an unexpected payload format")
+
+    security_id = payload.get("Id")
+    if security_id in (None, ""):
+        return TickerLookupNotFound()
+    instrument_name = _extract_tase_english_instrument_name(payload)
+    return TickerLookupFound(instrument_name=instrument_name)
+
+
+def _extract_tase_english_instrument_name(payload: Mapping[str, object]) -> str:
+    """Return preferred English instrument display name, or empty string when unavailable."""
+    for key in _TASE_ENGLISH_NAME_KEYS:
+        value = payload.get(key)
+        if not isinstance(value, str):
+            continue
+        normalized_value = value.strip()
+        if (
+            normalized_value
+            and _contains_latin_letter(normalized_value)
+            and not _contains_hebrew_letter(normalized_value)
+        ):
+            return normalized_value
+    return ""
+
+
+def _contains_latin_letter(text: str) -> bool:
+    """Return whether text contains at least one basic Latin letter."""
+    return any("A" <= ch <= "Z" or "a" <= ch <= "z" for ch in text)
+
+
+def _contains_hebrew_letter(text: str) -> bool:
+    """Return whether text contains at least one Hebrew letter."""
+    return any("\u0590" <= ch <= "\u05FF" for ch in text)
 
 
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
