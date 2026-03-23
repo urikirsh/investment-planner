@@ -97,13 +97,13 @@ class _NyseInvestingSearchParser:
         """Parse Investing.com search page HTML to structured quote search results."""
         marker_index = raw_text.find(_INVESTING_SEARCH_DATA_ARRAY_MARKER)
         if marker_index < 0:
-            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
+            return []
         array_start_index = raw_text.find("[", marker_index)
         if array_start_index < 0:
-            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
+            return []
         array_end_index = raw_text.find("];", array_start_index)
         if array_end_index < 0:
-            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
+            return []
 
         json_array_text = raw_text[array_start_index : array_end_index + 1]
         try:

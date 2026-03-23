@@ -314,7 +314,7 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_custom_transpor
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
 
-def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_investing_search_payload(
+def test_lookup_ticker_in_exchange_returns_not_found_for_investing_search_payload_without_results_array(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_default_lookup_service_with_url_payloads(
@@ -322,8 +322,9 @@ def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_invest
         payloads_by_url={_INVESTING_SEARCH_URL: "<html>missing array</html>"},
     )
 
-    with pytest.raises(TickerLookupCommunicationError):
-        lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(result, TickerLookupNotFound)
 
 
 def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
