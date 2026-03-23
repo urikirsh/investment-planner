@@ -56,6 +56,7 @@ from portfolio_core.ticker_lookup_service import (
     TickerLookupNotFound,
     TickerLookupResult,
     lookup_ticker_in_exchange,
+    normalize_tase_security_number,
 )
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
@@ -531,7 +532,11 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _current_step_2_key(self) -> _ExchangeTickerKey:
         """Return current step-2 `(exchange, ticker)` key used for duplicate checks."""
-        return (self._current_exchange(), self.ticker_edit.text().strip())
+        exchange = self._current_exchange()
+        raw_ticker = self.ticker_edit.text().strip()
+        if exchange is Exchange.TASE:
+            return (exchange, normalize_tase_security_number(raw_ticker))
+        return (exchange, raw_ticker)
 
     def _start_step_2_verification_flow(self) -> None:
         """Run ticker lookup for supported exchanges before advancing to step 3."""

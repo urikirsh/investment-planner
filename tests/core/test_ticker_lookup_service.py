@@ -13,6 +13,7 @@ from portfolio_core.ticker_lookup_service import (
     TickerLookupFound,
     TickerLookupNotFound,
     lookup_ticker_in_exchange,
+    normalize_tase_security_number,
 )
 
 
@@ -256,6 +257,36 @@ def test_lookup_ticker_in_exchange_uses_tase_ttl_cache_without_refetch_during_tt
     assert isinstance(result1, TickerLookupFound)
     assert isinstance(result2, TickerLookupFound)
     assert calls["count"] == 1
+
+
+def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = b'{"Id":312017,"Name":"SAMPLE"}'
+    calls = {"count": 0}
+    _patch_urlopen_with_payload(monkeypatch, payload=payload, calls=calls)
+
+    result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="0312017")
+    result2 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="312017")
+
+    assert isinstance(result1, TickerLookupFound)
+    assert isinstance(result2, TickerLookupFound)
+    assert calls["count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("raw_ticker", "normalized"),
+    [
+        ("312017", "312017"),
+        ("0312017", "312017"),
+        ("0000000", "0"),
+        (" 001159094 ", "1159094"),
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_normalize_tase_security_number(raw_ticker: str, normalized: str) -> None:
+    assert normalize_tase_security_number(raw_ticker) == normalized
 
 
 def test_lookup_ticker_in_exchange_caches_only_nyse_relevant_rows(

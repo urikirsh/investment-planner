@@ -186,7 +186,7 @@ def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupR
 
 def _lookup_tase_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
     """Resolve TASE ticker existence and optional English instrument name from cached API payload."""
-    normalized_ticker = ticker.strip()
+    normalized_ticker = normalize_tase_security_number(ticker)
     if not normalized_ticker:
         return TickerLookupNotFound()
     return _tase_lookup_store.get_or_load(
@@ -267,6 +267,14 @@ def _contains_latin_letter(text: str) -> bool:
 def _contains_hebrew_letter(text: str) -> bool:
     """Return whether text contains at least one Hebrew letter."""
     return any("\u0590" <= ch <= "\u05FF" for ch in text)
+
+
+def normalize_tase_security_number(raw_ticker: str) -> str:
+    """Return canonical TASE security number with leading zeros removed."""
+    stripped = raw_ticker.strip()
+    if not stripped:
+        return ""
+    return stripped.lstrip("0") or "0"
 
 
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:

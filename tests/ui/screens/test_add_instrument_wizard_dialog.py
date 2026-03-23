@@ -463,6 +463,28 @@ def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_fo
     assert "under IL Equity" in shown[0][1]
 
 
+def test_add_instrument_wizard_step_2_tase_duplicate_check_normalizes_leading_zeros(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="0312017",
+        existing_ticker_locations={(Exchange.TASE, "312017"): "IL Equity"},
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    assert dialog.next_step_2_btn.isEnabled() is False
+    assert "already exists for this exchange" in dialog.ticker_error_label.text()
+    dialog._go_to_step_3()
+    assert dialog.pages.currentIndex() == 1
+    assert shown
+    assert shown[0][0] == "Duplicate ticker"
+    assert 'Ticker "312017" on TASE already exists' in shown[0][1]
+    assert "under IL Equity" in shown[0][1]
+
+
 def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
