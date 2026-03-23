@@ -111,6 +111,31 @@ def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupNotFound)
 
 
+@pytest.mark.parametrize(
+    ("exchange", "ticker"),
+    [
+        (Exchange.NYSE, "AAPL!"),
+        (Exchange.TASE, "12A3456"),
+    ],
+)
+def test_lookup_ticker_in_exchange_rejects_malformed_canonical_input_without_transport(
+    monkeypatch: pytest.MonkeyPatch,
+    exchange: Exchange,
+    ticker: str,
+) -> None:
+    def _unexpected_fetch(*_args, **_kwargs) -> str:
+        raise AssertionError("Transport should not be called for malformed canonical ticker input")
+
+    monkeypatch.setattr(
+        "portfolio_core.ticker_lookup_service._http_client.fetch_text",
+        _unexpected_fetch,
+    )
+
+    result = lookup_ticker_in_exchange(exchange=exchange, ticker=ticker)
+
+    assert isinstance(result, TickerLookupNotFound)
+
+
 def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

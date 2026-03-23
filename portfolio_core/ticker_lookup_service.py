@@ -58,8 +58,8 @@ class _TickerLookupTransportError(Exception):
 class _TickerHttpClient(Protocol):
     """Transport contract for retrieving textual payloads from remote endpoints."""
 
-    # Implementations should raise `_TickerLookupTransportError` for network
-    # transport failures so callers can convert to communication errors.
+    # Any transport failure is wrapped by lookup orchestration into
+    # `TickerLookupCommunicationError` for stable caller behavior.
 
     def fetch_text(
         self,
