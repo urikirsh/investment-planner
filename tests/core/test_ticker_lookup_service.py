@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from threading import Barrier, Thread
 import time
+from typing import cast
 from urllib.error import URLError
 
 import pytest
@@ -133,7 +135,40 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
     assert isinstance(result, TickerLookupFound)
-    assert result.instrument_name == "ISH.FRF MSCIEUR"
+    assert result.metadata.exchange is Exchange.TASE
+    assert result.metadata.canonical_ticker == "1159094"
+    assert result.metadata.display_name == "ISH.FRF MSCIEUR"
+    assert result.metadata.provider_data.get("Id") == 1159094
+
+
+def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
+    ).encode("utf-8")
+    _patch_urlopen_with_payload(monkeypatch, payload=payload)
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
+
+    assert isinstance(result, TickerLookupFound)
+    with pytest.raises(TypeError):
+        cast(dict[str, object], result.metadata.provider_data)["Nested"] = {}
+
+    nested = result.metadata.provider_data["Nested"]
+    assert isinstance(nested, Mapping)
+    with pytest.raises(TypeError):
+        cast(dict[str, object], nested)["x"] = "y"
+
+    levels = nested["levels"]
+    assert isinstance(levels, tuple)
+    with pytest.raises(TypeError):
+        cast(list[object], levels)[0] = "changed"
+
+    first_level = levels[0]
+    assert isinstance(first_level, Mapping)
+    with pytest.raises(TypeError):
+        cast(dict[str, object], first_level)["k"] = "changed"
 
 
 def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_without_english(
@@ -145,7 +180,7 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567")
 
     assert isinstance(result, TickerLookupFound)
-    assert result.instrument_name == ""
+    assert result.metadata.display_name == ""
 
 
 def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
@@ -178,7 +213,10 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
     assert isinstance(result, TickerLookupFound)
-    assert result.instrument_name == "Apple Inc."
+    assert result.metadata.exchange is Exchange.NYSE
+    assert result.metadata.canonical_ticker == "AAPL"
+    assert result.metadata.display_name == "Apple Inc."
+    assert result.metadata.provider_data.get("exchange_code") == "N"
 
 
 def test_lookup_ticker_in_exchange_returns_empty_name_when_symbol_missing(
@@ -305,6 +343,7 @@ def test_lookup_ticker_in_exchange_caches_only_nyse_relevant_rows(
     assert set(cache.rows_by_symbol.keys()) == {"AAPL", "AAPY"}
     assert cache.rows_by_symbol["AAPL"].act_symbol == "AAPL"
     assert cache.rows_by_symbol["AAPL"].security_name == "Apple Inc."
+    assert cache.rows_by_symbol["AAPL"].exchange_code == "N"
 
 
 def test_lookup_ticker_in_exchange_populates_cache_once_under_concurrency(

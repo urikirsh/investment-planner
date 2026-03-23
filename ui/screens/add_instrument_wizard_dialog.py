@@ -51,6 +51,7 @@ from portfolio_core.ticker_rules import (
     normalize_ticker_for_exchange,
 )
 from portfolio_core.ticker_lookup_service import (
+    TickerLookupMetadata,
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
@@ -180,7 +181,7 @@ class _WizardDisplayContext:
 class _TickerLookupSuccessOutcome:
     """Successful step-2 ticker verification payload."""
 
-    instrument_name: str
+    metadata: TickerLookupMetadata
 
 
 @dataclass(frozen=True)
@@ -245,11 +246,9 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _success_outcome(*, instrument_name: str) -> _TickerLookupSuccessOutcome:
+    def _success_outcome(*, metadata: TickerLookupMetadata) -> _TickerLookupSuccessOutcome:
         """Build outcome payload for successful ticker verification."""
-        return _TickerLookupSuccessOutcome(
-            instrument_name=instrument_name,
-        )
+        return _TickerLookupSuccessOutcome(metadata=metadata)
 
     @Slot()
     def run(self) -> None:
@@ -264,7 +263,7 @@ class _TickerLookupWorker(QObject):
             return
 
         if isinstance(result, TickerLookupFound):
-            self.finished.emit(self._success_outcome(instrument_name=result.instrument_name))
+            self.finished.emit(self._success_outcome(metadata=result.metadata))
             return
         if isinstance(result, TickerLookupNotFound):
             self.finished.emit(self._not_found_outcome())
@@ -600,7 +599,7 @@ class AddInstrumentWizardDialog(QDialog):
         """Handle async ticker check result and continue/block wizard flow."""
         self._teardown_ticker_lookup()
         if isinstance(payload, _TickerLookupSuccessOutcome):
-            self._prefill_step_3_name_if_empty(payload.instrument_name)
+            self._prefill_step_3_name_if_empty(payload.metadata.display_name)
             self._advance_to_step_3()
             return
         if isinstance(payload, _TickerLookupErrorOutcome):

@@ -15,6 +15,7 @@ from portfolio_core.models import Exchange
 from portfolio_core.ticker_lookup_service import (
     TickerLookupCommunicationError,
     TickerLookupFound,
+    TickerLookupMetadata,
     TickerLookupNotFound,
     TickerLookupResult,
 )
@@ -44,7 +45,7 @@ def _mock_ticker_lookup_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
         lambda *, exchange, ticker: (
-            TickerLookupFound(instrument_name="Resolved Instrument")
+            _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
             if bool(exchange) and bool(ticker)
             else TickerLookupNotFound()
         ),
@@ -154,6 +155,17 @@ def _wait_until(predicate: Callable[[], bool], *, timeout_ms: int = 1500) -> Non
         app.processEvents()
         time.sleep(0.01)
     raise AssertionError("Timed out waiting for async wizard state")
+
+
+def _lookup_found(*, exchange: Exchange, ticker: str, display_name: str) -> TickerLookupFound:
+    """Build found lookup payload with canonical metadata."""
+    return TickerLookupFound(
+        metadata=TickerLookupMetadata(
+            exchange=exchange,
+            canonical_ticker=ticker,
+            display_name=display_name,
+        )
+    )
 
 
 def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
@@ -423,7 +435,9 @@ def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_ny
     def _checker(*, exchange: object, ticker: object) -> TickerLookupResult:
         calls.append((exchange, ticker))
         _ = (exchange, ticker)
-        return TickerLookupFound(instrument_name="Resolved Instrument")
+        assert isinstance(exchange, Exchange)
+        assert isinstance(ticker, str)
+        return _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
@@ -499,7 +513,7 @@ def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
         lambda *, exchange, ticker: (
-            TickerLookupFound(instrument_name="Resolved Instrument")
+            _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
             if bool(exchange) and bool(ticker)
             else TickerLookupNotFound()
         ),
@@ -523,7 +537,7 @@ def test_add_instrument_wizard_step_2_prefills_step_3_name_from_successful_looku
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
         lambda *, exchange, ticker: (
-            TickerLookupFound(instrument_name="Apple Inc.")
+            _lookup_found(exchange=exchange, ticker=ticker, display_name="Apple Inc.")
             if bool(exchange) and bool(ticker)
             else TickerLookupNotFound()
         ),
@@ -613,7 +627,9 @@ def test_add_instrument_wizard_step_2_performs_tase_lookup_and_advances(
     def _checker(*, exchange: object, ticker: object) -> TickerLookupResult:
         calls.append((exchange, ticker))
         _ = (exchange, ticker)
-        return TickerLookupFound(instrument_name="Resolved Instrument")
+        assert isinstance(exchange, Exchange)
+        assert isinstance(ticker, str)
+        return _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",

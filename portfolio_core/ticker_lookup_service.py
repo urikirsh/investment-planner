@@ -12,7 +12,7 @@ Behavior summary:
 import csv
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import StringIO
 from threading import Lock
 import time
@@ -51,23 +51,45 @@ class TickerLookupCommunicationError(Exception):
 
 
 @dataclass(frozen=True)
+class TickerLookupMetadata:
+    """Canonical metadata returned for a resolved ticker."""
+
+    exchange: Exchange
+    canonical_ticker: str
+    display_name: str
+    isin: str | None = None
+    currency: str | None = None
+    provider_data: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Freeze provider metadata into an immutable mapping."""
+        object.__setattr__(self, "provider_data", _deep_freeze_mapping(self.provider_data))
+
+
+@dataclass(frozen=True)
 class _NyseRelevantRow:
     """Minimal cached row used for NYSE ticker existence checks."""
 
     act_symbol: str
     security_name: str
+    exchange_code: str
 
 
 @dataclass(frozen=True)
 class TickerLookupFound:
     """Resolved payload for successful ticker lookup.
 
-    `instrument_name` may be empty when the exchange confirms ticker existence
-    but a preferred display name is unavailable (for example, TASE without an
-    English-only name candidate).
+    `metadata.display_name` may be empty when the exchange confirms ticker
+    existence but a preferred display name is unavailable (for example, TASE
+    without an English-only name candidate).
     """
 
-    instrument_name: str
+    metadata: TickerLookupMetadata
+
+    @property
+    def instrument_name(self) -> str:
+        """Backward-compatible alias for display name used by existing callers."""
+        return self.metadata.display_name
 
 
 @dataclass(frozen=True)
@@ -76,6 +98,24 @@ class TickerLookupNotFound:
 
 
 TickerLookupResult = TickerLookupFound | TickerLookupNotFound
+
+
+def _deep_freeze_mapping(raw: Mapping[str, object]) -> Mapping[str, object]:
+    """Return recursively immutable metadata mapping."""
+    return MappingProxyType({key: _deep_freeze_value(value) for key, value in raw.items()})
+
+
+def _deep_freeze_value(value: object) -> object:
+    """Return recursively immutable metadata value."""
+    if isinstance(value, Mapping):
+        normalized_mapping: dict[str, object] = {}
+        for key, nested_value in value.items():
+            if isinstance(key, str):
+                normalized_mapping[key] = _deep_freeze_value(nested_value)
+        return MappingProxyType(normalized_mapping)
+    if isinstance(value, (list, tuple)):
+        return tuple(_deep_freeze_value(item) for item in value)
+    return value
 
 
 @dataclass(frozen=True)
@@ -189,7 +229,18 @@ class _NyseTickerLookupProvider:
         security_name = row.security_name.strip()
         if not security_name:
             return TickerLookupNotFound()
-        return TickerLookupFound(instrument_name=security_name)
+        return TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange.NYSE,
+                canonical_ticker=normalized_ticker,
+                display_name=security_name,
+                provider_data=MappingProxyType(
+                    {
+                        "exchange_code": row.exchange_code,
+                    }
+                ),
+            )
+        )
 
 
 class _TaseTickerLookupProvider:
@@ -275,8 +326,29 @@ def _parse_tase_security_payload(raw_text: str) -> TickerLookupResult:
     security_id = payload.get("Id")
     if security_id in (None, ""):
         return TickerLookupNotFound()
+    canonical_ticker = normalize_tase_security_number(str(security_id))
+    if not canonical_ticker:
+        return TickerLookupNotFound()
     instrument_name = _extract_tase_english_instrument_name(payload)
-    return TickerLookupFound(instrument_name=instrument_name)
+    return TickerLookupFound(
+        metadata=TickerLookupMetadata(
+            exchange=Exchange.TASE,
+            canonical_ticker=canonical_ticker,
+            display_name=instrument_name,
+            isin=_extract_optional_string(payload, "ISIN"),
+            currency=_extract_optional_string(payload, "Currency"),
+            provider_data=MappingProxyType(dict(payload)),
+        )
+    )
+
+
+def _extract_optional_string(payload: Mapping[str, object], key: str) -> str | None:
+    """Return a stripped optional string value when present and non-empty."""
+    value = payload.get(key)
+    if not isinstance(value, str):
+        return None
+    normalized_value = value.strip()
+    return normalized_value or None
 
 
 def _extract_tase_english_instrument_name(payload: Mapping[str, object]) -> str:
@@ -363,4 +435,8 @@ def _to_nyse_relevant_row(row: dict[str, str]) -> _NyseRelevantRow | None:
     if not act_symbol:
         return None
     security_name = row.get(_FIELD_SECURITY_NAME, "")
-    return _NyseRelevantRow(act_symbol=act_symbol, security_name=security_name)
+    return _NyseRelevantRow(
+        act_symbol=act_symbol,
+        security_name=security_name,
+        exchange_code=exchange_code,
+    )
