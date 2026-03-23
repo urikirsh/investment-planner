@@ -1,6 +1,6 @@
 [project]
 name = "investment-planner"
-version = "0.4.3"
+version = "0.5.0"
 requires-python = ">=3.13"
 
 [tool.pytest.ini_options]
