@@ -17,6 +17,7 @@ from io import StringIO
 from threading import Lock
 import time
 from types import MappingProxyType
+from typing import Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -167,44 +168,63 @@ _nyse_lookup_store = _NyseLookupCacheStore()
 _tase_lookup_store = _TaseLookupCacheStore(ttl_seconds=_TASE_CACHE_TTL_SECONDS)
 
 
+class _ExchangeTickerLookupProvider(Protocol):
+    """Provider contract for exchange-specific ticker lookup implementations."""
+
+    def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult: ...
+
+
+class _NyseTickerLookupProvider:
+    """NYSE provider backed by cached Nasdaq Trader `otherlisted.txt` rows."""
+
+    def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+        """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
+        normalized_ticker = ticker.strip().upper()
+        if not normalized_ticker:
+            return TickerLookupNotFound()
+        cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
+        row = cache.rows_by_symbol.get(normalized_ticker)
+        if row is None:
+            return TickerLookupNotFound()
+        security_name = row.security_name.strip()
+        if not security_name:
+            return TickerLookupNotFound()
+        return TickerLookupFound(instrument_name=security_name)
+
+
+class _TaseTickerLookupProvider:
+    """TASE provider backed by per-security API lookups with TTL cache."""
+
+    def lookup(self, *, ticker: str, timeout_seconds: float) -> TickerLookupResult:
+        """Resolve TASE ticker from cache/API after canonical security-number normalization."""
+        normalized_ticker = normalize_tase_security_number(ticker)
+        if not normalized_ticker:
+            return TickerLookupNotFound()
+        return _tase_lookup_store.get_or_load(
+            ticker=normalized_ticker,
+            timeout_seconds=timeout_seconds,
+        )
+
+
+_LOOKUP_PROVIDERS_BY_EXCHANGE: Mapping[Exchange, _ExchangeTickerLookupProvider] = MappingProxyType(
+    {
+        Exchange.NYSE: _NyseTickerLookupProvider(),
+        Exchange.TASE: _TaseTickerLookupProvider(),
+    }
+)
+
+
 def lookup_ticker_in_exchange(
     *,
     exchange: Exchange,
     ticker: str,
     timeout_seconds: float = 8.0,
 ) -> TickerLookupResult:
-    """Return resolved lookup payload for supported exchange/ticker combinations."""
-    if exchange is Exchange.NYSE:
-        return _lookup_nyse_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
-    if exchange is Exchange.TASE:
-        return _lookup_tase_ticker(ticker=ticker, timeout_seconds=timeout_seconds)
-    return TickerLookupNotFound()
-
-
-def _lookup_nyse_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-    """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
-    normalized_ticker = ticker.strip().upper()
-    if not normalized_ticker:
+    """Route ticker lookup to the exchange-specific provider implementation."""
+    provider = _LOOKUP_PROVIDERS_BY_EXCHANGE.get(exchange)
+    if provider is None:
         return TickerLookupNotFound()
-    cache = _nyse_lookup_store.get_or_load(timeout_seconds=timeout_seconds)
-    row = cache.rows_by_symbol.get(normalized_ticker)
-    if row is None:
-        return TickerLookupNotFound()
-    security_name = row.security_name.strip()
-    if not security_name:
-        return TickerLookupNotFound()
-    return TickerLookupFound(instrument_name=security_name)
-
-
-def _lookup_tase_ticker(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-    """Resolve TASE ticker from cache/API after canonical security-number normalization."""
-    normalized_ticker = normalize_tase_security_number(ticker)
-    if not normalized_ticker:
-        return TickerLookupNotFound()
-    return _tase_lookup_store.get_or_load(
-        ticker=normalized_ticker,
-        timeout_seconds=timeout_seconds,
-    )
+    return provider.lookup(ticker=ticker, timeout_seconds=timeout_seconds)
 
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
