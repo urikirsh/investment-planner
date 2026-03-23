@@ -133,17 +133,48 @@ class _TaseSecurityDataParser:
         canonical_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=str(security_id))
         if not canonical_ticker:
             return TickerLookupNotFound()
-        instrument_name = _extract_tase_english_instrument_name(payload)
+        instrument_name = self._extract_english_instrument_name(payload)
         return TickerLookupFound(
             metadata=TickerLookupMetadata(
                 exchange=Exchange.TASE,
                 canonical_ticker=canonical_ticker,
                 display_name=instrument_name,
-                isin=_extract_optional_string(payload, "ISIN"),
-                currency=_extract_optional_string(payload, "Currency"),
+                isin=self._extract_optional_string(payload, "ISIN"),
+                currency=self._extract_optional_string(payload, "Currency"),
                 provider_data=MappingProxyType(dict(payload)),
             )
         )
+
+    def _extract_optional_string(self, payload: Mapping[str, object], key: str) -> str | None:
+        """Return a stripped optional string value when present and non-empty."""
+        value = payload.get(key)
+        if not isinstance(value, str):
+            return None
+        normalized_value = value.strip()
+        return normalized_value or None
+
+    def _extract_english_instrument_name(self, payload: Mapping[str, object]) -> str:
+        """Return preferred English instrument display name, or empty string when unavailable."""
+        for key in _TASE_ENGLISH_NAME_KEYS:
+            value = payload.get(key)
+            if not isinstance(value, str):
+                continue
+            normalized_value = value.strip()
+            if (
+                normalized_value
+                and self._contains_latin_letter(normalized_value)
+                and not self._contains_hebrew_letter(normalized_value)
+            ):
+                return normalized_value
+        return ""
+
+    def _contains_latin_letter(self, text: str) -> bool:
+        """Return whether text contains at least one basic Latin letter."""
+        return any("A" <= ch <= "Z" or "a" <= ch <= "z" for ch in text)
+
+    def _contains_hebrew_letter(self, text: str) -> bool:
+        """Return whether text contains at least one Hebrew letter."""
+        return any("\u0590" <= ch <= "\u05FF" for ch in text)
 
 
 @dataclass(frozen=True)
@@ -463,41 +494,6 @@ def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerL
 def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
     """Backward-compatible helper delegating to default lookup service."""
     return _default_ticker_lookup_service.fetch_tase_security_payload(ticker, timeout_seconds)
-
-
-def _extract_optional_string(payload: Mapping[str, object], key: str) -> str | None:
-    """Return a stripped optional string value when present and non-empty."""
-    value = payload.get(key)
-    if not isinstance(value, str):
-        return None
-    normalized_value = value.strip()
-    return normalized_value or None
-
-
-def _extract_tase_english_instrument_name(payload: Mapping[str, object]) -> str:
-    """Return preferred English instrument display name, or empty string when unavailable."""
-    for key in _TASE_ENGLISH_NAME_KEYS:
-        value = payload.get(key)
-        if not isinstance(value, str):
-            continue
-        normalized_value = value.strip()
-        if (
-            normalized_value
-            and _contains_latin_letter(normalized_value)
-            and not _contains_hebrew_letter(normalized_value)
-        ):
-            return normalized_value
-    return ""
-
-
-def _contains_latin_letter(text: str) -> bool:
-    """Return whether text contains at least one basic Latin letter."""
-    return any("A" <= ch <= "Z" or "a" <= ch <= "z" for ch in text)
-
-
-def _contains_hebrew_letter(text: str) -> bool:
-    """Return whether text contains at least one Hebrew letter."""
-    return any("\u0590" <= ch <= "\u05FF" for ch in text)
 
 
 def normalize_tase_security_number(raw_ticker: str) -> str:
