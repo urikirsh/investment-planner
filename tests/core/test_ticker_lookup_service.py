@@ -139,6 +139,8 @@ def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch
     ("exchange", "ticker"),
     [
         (Exchange.NYSE, "AAPL!"),
+        (Exchange.NYSE, "BRK..B"),
+        (Exchange.NYSE, "AAPL."),
         (Exchange.TASE, "12A3456"),
     ],
 )

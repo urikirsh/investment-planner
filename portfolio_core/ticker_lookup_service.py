@@ -22,7 +22,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import build_exchange_ticker_key
+from portfolio_core.ticker_rules import build_exchange_ticker_key, is_complete_nyse_ticker
 
 _NASDAQ_OTHERLISTED_URL = "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
@@ -413,6 +413,8 @@ class TickerLookupService:
         """Resolve NYSE ticker existence and canonical instrument name from cached rows."""
         key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=ticker)
         if not key.canonical_ticker:
+            return TickerLookupNotFound()
+        if not is_complete_nyse_ticker(key.canonical_ticker):
             return TickerLookupNotFound()
         cache = self._nyse_lookup_store.get_or_load(
             timeout_seconds=timeout_seconds,
