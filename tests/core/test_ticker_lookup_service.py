@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from threading import Barrier, Thread
 import time
 from typing import cast
-from urllib.error import URLError
 
 import pytest
 
@@ -19,21 +18,6 @@ from portfolio_core.ticker_lookup_service import (
 )
 
 
-class _FakeResponse:
-    def __init__(self, body: bytes) -> None:
-        self._body = body
-
-    def read(self) -> bytes:
-        return self._body
-
-    def __enter__(self) -> "_FakeResponse":
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        _ = (exc_type, exc, tb)
-        return None
-
-
 def _build_otherlisted_payload(*rows: str, include_footer: bool = True) -> bytes:
     """Build `otherlisted.txt` bytes with standard header and optional footer row."""
     lines = [
@@ -45,23 +29,27 @@ def _build_otherlisted_payload(*rows: str, include_footer: bool = True) -> bytes
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
-def _patch_urlopen_with_payload(
+def _patch_http_client_with_payload(
     monkeypatch: pytest.MonkeyPatch,
     *,
     payload: bytes,
     calls: dict[str, int] | None = None,
     delay_seconds: float = 0.0,
 ) -> None:
-    """Patch ticker-lookup `urlopen` to return payload with optional call counting and delay."""
+    """Patch ticker-lookup HTTP transport to return payload with optional delay and counting."""
+    decoded_payload = payload.decode("utf-8", errors="replace")
 
-    def _urlopen_stub(*_args, **_kwargs) -> _FakeResponse:
+    def _fetch_text_stub(*_args, **_kwargs) -> str:
         if calls is not None:
             calls["count"] += 1
         if delay_seconds > 0:
             time.sleep(delay_seconds)
-        return _FakeResponse(payload)
+        return decoded_payload
 
-    monkeypatch.setattr("portfolio_core.ticker_lookup_service.urlopen", _urlopen_stub)
+    monkeypatch.setattr(
+        "portfolio_core.ticker_lookup_service._http_client.fetch_text",
+        _fetch_text_stub,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +62,7 @@ def test_lookup_ticker_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pyt
     raw = _build_otherlisted_payload(
         "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
@@ -85,7 +73,7 @@ def test_lookup_ticker_in_exchange_returns_true_for_bzx_symbol_under_nyse_filter
     raw = _build_otherlisted_payload(
         "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPY"), TickerLookupFound)
 
@@ -96,7 +84,7 @@ def test_lookup_ticker_in_exchange_parses_quoted_pipe_in_security_name(
     raw = _build_otherlisted_payload(
         'AAPL|"Apple|Inc."|N|AAPL|N|100|N|AAPL',
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
@@ -109,7 +97,7 @@ def test_lookup_ticker_in_exchange_returns_true_for_nyse_family_exchange_codes(
     raw = _build_otherlisted_payload(
         f"AAPL|Apple Inc.|{exchange_code}|AAPL|N|100|N|AAPL",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
@@ -118,7 +106,7 @@ def test_lookup_ticker_in_exchange_returns_false_for_non_nyse_symbol(monkeypatch
     raw = _build_otherlisted_payload(
         "AAPL|Apple Inc.|Q|AAPL|N|100|N|AAPL",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupNotFound)
 
@@ -130,7 +118,7 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
         '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LongName":"'
         '(ISHARES CORE MSCI EUROPE UCITS ETF EUR (ACC)"}'
     ).encode("utf-8")
-    _patch_urlopen_with_payload(monkeypatch, payload=payload)
+    _patch_http_client_with_payload(monkeypatch, payload=payload)
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
@@ -147,7 +135,7 @@ def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
     payload = (
         '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
     ).encode("utf-8")
-    _patch_urlopen_with_payload(monkeypatch, payload=payload)
+    _patch_http_client_with_payload(monkeypatch, payload=payload)
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
@@ -175,7 +163,7 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     payload = '{"Id":1234567,"Name":"אשס.חוץ MSCIEURO","LongName":"איישרס חוץ"}'.encode("utf-8")
-    _patch_urlopen_with_payload(monkeypatch, payload=payload)
+    _patch_http_client_with_payload(monkeypatch, payload=payload)
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567")
 
@@ -186,7 +174,7 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
 def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_urlopen_with_payload(monkeypatch, payload=b"null")
+    _patch_http_client_with_payload(monkeypatch, payload=b"null")
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="9999999")
 
@@ -196,7 +184,7 @@ def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
 def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_tase_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_urlopen_with_payload(monkeypatch, payload=b"{invalid-json")
+    _patch_http_client_with_payload(monkeypatch, payload=b"{invalid-json")
 
     with pytest.raises(TickerLookupCommunicationError):
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -208,7 +196,7 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_nyse_symbol(
     raw = _build_otherlisted_payload(
         "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
@@ -225,7 +213,7 @@ def test_lookup_ticker_in_exchange_returns_empty_name_when_symbol_missing(
     raw = _build_otherlisted_payload(
         "MSFT|Microsoft Corp.|N|MSFT|N|100|N|MSFT",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
@@ -236,8 +224,10 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "portfolio_core.ticker_lookup_service.urlopen",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(URLError("offline")),
+        "portfolio_core.ticker_lookup_service._http_client.fetch_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ticker_lookup_service._TickerLookupTransportError("offline")
+        ),
     )
 
     with pytest.raises(TickerLookupCommunicationError):
@@ -248,7 +238,7 @@ def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_header
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     raw = "Unexpected|Header\nAAPL|N\n".encode("utf-8")
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     with pytest.raises(TickerLookupCommunicationError):
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
@@ -261,7 +251,7 @@ def test_lookup_ticker_in_exchange_uses_cached_rows_without_refetch(
         "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
     )
     calls = {"count": 0}
-    _patch_urlopen_with_payload(monkeypatch, payload=raw, calls=calls)
+    _patch_http_client_with_payload(monkeypatch, payload=raw, calls=calls)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
@@ -275,7 +265,7 @@ def test_lookup_ticker_in_exchange_uses_session_cache_without_expiry(
         "AAPL|Apple Inc.|N|AAPL|N|100|N|AAPL",
     )
     calls = {"count": 0}
-    _patch_urlopen_with_payload(monkeypatch, payload=raw, calls=calls)
+    _patch_http_client_with_payload(monkeypatch, payload=raw, calls=calls)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
@@ -287,7 +277,7 @@ def test_lookup_ticker_in_exchange_uses_tase_ttl_cache_without_refetch_during_tt
 ) -> None:
     payload = b'{"Id":1159094,"Name":"ISH.FRF MSCIEUR"}'
     calls = {"count": 0}
-    _patch_urlopen_with_payload(monkeypatch, payload=payload, calls=calls)
+    _patch_http_client_with_payload(monkeypatch, payload=payload, calls=calls)
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
     result2 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -302,7 +292,7 @@ def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_
 ) -> None:
     payload = b'{"Id":312017,"Name":"SAMPLE"}'
     calls = {"count": 0}
-    _patch_urlopen_with_payload(monkeypatch, payload=payload, calls=calls)
+    _patch_http_client_with_payload(monkeypatch, payload=payload, calls=calls)
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="0312017")
     result2 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="312017")
@@ -335,7 +325,7 @@ def test_lookup_ticker_in_exchange_caches_only_nyse_relevant_rows(
         "QQQX|Sample Nasdaq Symbol|Q|QQQX|Y|100|N|QQQX",
         "AAPY|Kurv Yield Premium Strategy Apple (AAPL) ETF|Z|AAPY|Y|100|N|AAPY",
     )
-    _patch_urlopen_with_payload(monkeypatch, payload=raw)
+    _patch_http_client_with_payload(monkeypatch, payload=raw)
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     cache = ticker_lookup_service._nyse_lookup_store.get_cached_for_tests()
@@ -354,7 +344,7 @@ def test_lookup_ticker_in_exchange_populates_cache_once_under_concurrency(
     )
     calls = {"count": 0}
     barrier = Barrier(3)
-    _patch_urlopen_with_payload(
+    _patch_http_client_with_payload(
         monkeypatch,
         payload=raw,
         calls=calls,

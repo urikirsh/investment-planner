@@ -51,6 +51,103 @@ class TickerLookupCommunicationError(Exception):
     """Raised when ticker lookup cannot be completed due to communication/parsing errors."""
 
 
+class _TickerLookupTransportError(Exception):
+    """Raised when HTTP transport cannot fetch remote ticker payloads."""
+
+
+class _TickerHttpClient(Protocol):
+    """Transport contract for retrieving textual payloads from remote endpoints."""
+
+    def fetch_text(
+        self,
+        *,
+        url: str,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> str: ...
+
+
+class _UrlopenTickerHttpClient:
+    """Default HTTP transport backed by `urllib.request.urlopen`."""
+
+    def fetch_text(
+        self,
+        *,
+        url: str,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> str:
+        """Fetch response payload text from URL using provided headers and timeout."""
+        request = Request(url, headers=dict(headers))
+        try:
+            with urlopen(request, timeout=timeout_seconds) as response:
+                raw_body = bytes(response.read())
+                return raw_body.decode("utf-8", errors="replace")
+        except (OSError, TimeoutError, URLError) as exc:
+            raise _TickerLookupTransportError("HTTP transport failed") from exc
+
+
+class _NyseOtherlistedParser:
+    """Parser for Nasdaq Trader `otherlisted.txt` payloads."""
+
+    def parse_rows(self, raw_text: str) -> list["_NyseRelevantRow"]:
+        """Parse `otherlisted.txt` payload text into NYSE-relevant rows."""
+        if not raw_text.strip():
+            raise TickerLookupCommunicationError("Nasdaq Trader symbol directory response is empty")
+        reader = csv.DictReader(StringIO(raw_text), delimiter="|")
+        if reader.fieldnames is None:
+            raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
+        if not _looks_like_otherlisted_header(reader.fieldnames):
+            raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
+
+        parsed_rows: list[_NyseRelevantRow] = []
+        for row in reader:
+            normalized_row = _normalize_otherlisted_row(row)
+            maybe_row = _to_nyse_relevant_row(normalized_row)
+            if maybe_row is not None:
+                parsed_rows.append(maybe_row)
+        return parsed_rows
+
+
+class _TaseSecurityDataParser:
+    """Parser for TASE `company/securitydata` JSON payloads."""
+
+    def parse_lookup_result(self, raw_text: str) -> "TickerLookupResult":
+        """Parse one TASE security payload into found/not-found lookup result."""
+        normalized_text = raw_text.strip()
+        if not normalized_text or normalized_text == "null":
+            return TickerLookupNotFound()
+        try:
+            payload = json.loads(normalized_text)
+        except json.JSONDecodeError as exc:
+            raise TickerLookupCommunicationError("TASE security data response is not valid JSON") from exc
+        if not isinstance(payload, Mapping):
+            raise TickerLookupCommunicationError("TASE security data response has an unexpected payload format")
+
+        security_id = payload.get("Id")
+        if security_id in (None, ""):
+            return TickerLookupNotFound()
+        canonical_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=str(security_id))
+        if not canonical_ticker:
+            return TickerLookupNotFound()
+        instrument_name = _extract_tase_english_instrument_name(payload)
+        return TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange.TASE,
+                canonical_ticker=canonical_ticker,
+                display_name=instrument_name,
+                isin=_extract_optional_string(payload, "ISIN"),
+                currency=_extract_optional_string(payload, "Currency"),
+                provider_data=MappingProxyType(dict(payload)),
+            )
+        )
+
+
+_http_client: _TickerHttpClient = _UrlopenTickerHttpClient()
+_nyse_parser = _NyseOtherlistedParser()
+_tase_parser = _TaseSecurityDataParser()
+
+
 @dataclass(frozen=True)
 class TickerLookupMetadata:
     """Canonical metadata returned for a resolved ticker."""
@@ -281,66 +378,34 @@ def lookup_ticker_in_exchange(
 
 def _fetch_otherlisted_rows(*, timeout_seconds: float) -> list[_NyseRelevantRow]:
     """Fetch and parse Nasdaq Trader `otherlisted.txt` rows."""
-    request = Request(_NASDAQ_OTHERLISTED_URL, headers=_REQUEST_HEADERS)
     try:
-        with urlopen(request, timeout=timeout_seconds) as response:
-            body = response.read().decode("utf-8", errors="replace")
-    except (OSError, TimeoutError, URLError) as exc:
+        body = _http_client.fetch_text(
+            url=_NASDAQ_OTHERLISTED_URL,
+            headers=_REQUEST_HEADERS,
+            timeout_seconds=timeout_seconds,
+        )
+    except _TickerLookupTransportError as exc:
         raise TickerLookupCommunicationError("Failed to fetch Nasdaq Trader symbol directory") from exc
-    return _parse_otherlisted_text(body)
+    return _nyse_parser.parse_rows(body)
 
 
 def _fetch_tase_lookup_result(*, ticker: str, timeout_seconds: float) -> TickerLookupResult:
     """Fetch and parse TASE security metadata for one security number."""
     payload_text = _fetch_tase_security_payload(ticker=ticker, timeout_seconds=timeout_seconds)
-    return _parse_tase_security_payload(payload_text)
+    return _tase_parser.parse_lookup_result(payload_text)
 
 
 def _fetch_tase_security_payload(*, ticker: str, timeout_seconds: float) -> str:
     """Fetch raw TASE security-data API payload for one canonical security number."""
     url = _TASE_SECURITYDATA_URL_TEMPLATE.format(security_id=ticker)
-    request = Request(url, headers=_TASE_REQUEST_HEADERS)
     try:
-        with urlopen(request, timeout=timeout_seconds) as response:
-            raw_body = bytes(response.read())
-            return raw_body.decode("utf-8", errors="replace")
-    except (OSError, TimeoutError, URLError) as exc:
-        raise TickerLookupCommunicationError("Failed to fetch TASE security data") from exc
-
-
-def _parse_tase_security_payload(raw_text: str) -> TickerLookupResult:
-    """Parse TASE `company/securitydata` payload into a lookup result.
-
-    Returns `TickerLookupNotFound` for `null` payloads and for payloads without
-    a concrete `Id` field.
-    """
-    normalized_text = raw_text.strip()
-    if not normalized_text or normalized_text == "null":
-        return TickerLookupNotFound()
-    try:
-        payload = json.loads(normalized_text)
-    except json.JSONDecodeError as exc:
-        raise TickerLookupCommunicationError("TASE security data response is not valid JSON") from exc
-    if not isinstance(payload, Mapping):
-        raise TickerLookupCommunicationError("TASE security data response has an unexpected payload format")
-
-    security_id = payload.get("Id")
-    if security_id in (None, ""):
-        return TickerLookupNotFound()
-    canonical_ticker = canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=str(security_id))
-    if not canonical_ticker:
-        return TickerLookupNotFound()
-    instrument_name = _extract_tase_english_instrument_name(payload)
-    return TickerLookupFound(
-        metadata=TickerLookupMetadata(
-            exchange=Exchange.TASE,
-            canonical_ticker=canonical_ticker,
-            display_name=instrument_name,
-            isin=_extract_optional_string(payload, "ISIN"),
-            currency=_extract_optional_string(payload, "Currency"),
-            provider_data=MappingProxyType(dict(payload)),
+        return _http_client.fetch_text(
+            url=url,
+            headers=_TASE_REQUEST_HEADERS,
+            timeout_seconds=timeout_seconds,
         )
-    )
+    except _TickerLookupTransportError as exc:
+        raise TickerLookupCommunicationError("Failed to fetch TASE security data") from exc
 
 
 def _extract_optional_string(payload: Mapping[str, object], key: str) -> str | None:
@@ -392,21 +457,7 @@ def normalize_tase_security_number(raw_ticker: str) -> str:
 
 def _parse_otherlisted_text(raw_text: str) -> list[_NyseRelevantRow]:
     """Parse `otherlisted.txt` into NYSE-relevant rows only (`N/A/P/Z`)."""
-    if not raw_text.strip():
-        raise TickerLookupCommunicationError("Nasdaq Trader symbol directory response is empty")
-    reader = csv.DictReader(StringIO(raw_text), delimiter="|")
-    if reader.fieldnames is None:
-        raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
-    if not _looks_like_otherlisted_header(reader.fieldnames):
-        raise TickerLookupCommunicationError("Nasdaq Trader symbol directory has an unexpected header format")
-
-    parsed_rows: list[_NyseRelevantRow] = []
-    for row in reader:
-        normalized_row = _normalize_otherlisted_row(row)
-        maybe_row = _to_nyse_relevant_row(normalized_row)
-        if maybe_row is not None:
-            parsed_rows.append(maybe_row)
-    return parsed_rows
+    return _nyse_parser.parse_rows(raw_text)
 
 
 def _normalize_otherlisted_row(row: dict[str | None, str | None]) -> dict[str, str]:
