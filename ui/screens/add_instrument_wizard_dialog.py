@@ -38,6 +38,8 @@ from PySide6.QtWidgets import (
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import (
+    ExchangeTickerKey,
+    ExchangeTickerLocationIndex,
     NYSE_TICKER_ERROR,
     NYSE_TICKER_INPUT_PATTERN,
     NYSE_TICKER_MAX_LENGTH,
@@ -46,11 +48,13 @@ from portfolio_core.ticker_rules import (
     TASE_TICKER_INPUT_PATTERN,
     TASE_TICKER_MAX_LENGTH,
     TASE_TICKER_PLACEHOLDER,
+    build_exchange_ticker_key,
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
     normalize_ticker_for_exchange,
 )
 from portfolio_core.ticker_lookup_service import (
+    TickerLookupMetadata,
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
@@ -65,9 +69,6 @@ from ui.shared.ui_utils import (
     exchange_choices,
     normalize_and_validate_non_negative_integer_text,
 )
-
-_ExchangeTickerKey = tuple[Exchange, str]
-
 
 @dataclass(frozen=True)
 class _TickerRule:
@@ -179,7 +180,7 @@ class _WizardDisplayContext:
 class _TickerLookupSuccessOutcome:
     """Successful step-2 ticker verification payload."""
 
-    instrument_name: str
+    metadata: TickerLookupMetadata
 
 
 @dataclass(frozen=True)
@@ -244,11 +245,9 @@ class _TickerLookupWorker(QObject):
         )
 
     @staticmethod
-    def _success_outcome(*, instrument_name: str) -> _TickerLookupSuccessOutcome:
+    def _success_outcome(*, metadata: TickerLookupMetadata) -> _TickerLookupSuccessOutcome:
         """Build outcome payload for successful ticker verification."""
-        return _TickerLookupSuccessOutcome(
-            instrument_name=instrument_name,
-        )
+        return _TickerLookupSuccessOutcome(metadata=metadata)
 
     @Slot()
     def run(self) -> None:
@@ -263,7 +262,7 @@ class _TickerLookupWorker(QObject):
             return
 
         if isinstance(result, TickerLookupFound):
-            self.finished.emit(self._success_outcome(instrument_name=result.instrument_name))
+            self.finished.emit(self._success_outcome(metadata=result.metadata))
             return
         if isinstance(result, TickerLookupNotFound):
             self.finished.emit(self._not_found_outcome())
@@ -280,7 +279,7 @@ class AddInstrumentWizardDialog(QDialog):
         instrument_group_name: str,
         is_non_investable_group: bool,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[_ExchangeTickerKey, str] | None = None,
+        existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
         parent: QWidget | None = None,
     ) -> None:
         """Initialize the modal wizard and wire all step UI/validation state."""
@@ -288,7 +287,7 @@ class AddInstrumentWizardDialog(QDialog):
         self._instrument_group_name = instrument_group_name
         self._is_non_investable_group = is_non_investable_group
         self._existing_name_locations = existing_name_locations or {}
-        self._existing_ticker_locations = existing_ticker_locations or {}
+        self._existing_ticker_locations = existing_ticker_locations or ExchangeTickerLocationIndex.empty()
         self._result_data: AddInstrumentWizardResult | None = None
         self._ticker_lookup_thread: QThread | None = None
         self._ticker_lookup_worker: _TickerLookupWorker | None = None
@@ -498,11 +497,11 @@ class AddInstrumentWizardDialog(QDialog):
     @staticmethod
     def _validate_duplicate_ticker(
         *,
-        key: _ExchangeTickerKey,
-        existing_ticker_locations: dict[_ExchangeTickerKey, str],
+        key: ExchangeTickerKey,
+        existing_ticker_locations: ExchangeTickerLocationIndex,
     ) -> str | None:
         """Return duplicate location when `(exchange, ticker)` key already exists."""
-        return existing_ticker_locations.get(key)
+        return existing_ticker_locations.find_location(key=key)
 
     def _show_duplicate_ticker_error(self, duplicate_location: str) -> None:
         """Show step-2 Back-only error modal for duplicate `(exchange, ticker)` input."""
@@ -511,8 +510,9 @@ class AddInstrumentWizardDialog(QDialog):
 
     def _format_duplicate_ticker_error(self, duplicate_location: str) -> tuple[str, str]:
         """Build `(title, message)` shown when `(exchange, ticker)` already exists."""
-        exchange, ticker_text = self._current_step_2_key()
-        exchange_text = exchange.value
+        key = self._current_step_2_key()
+        exchange_text = key.exchange.value
+        ticker_text = key.canonical_ticker
         return (
             "Duplicate ticker",
             (
@@ -529,18 +529,21 @@ class AddInstrumentWizardDialog(QDialog):
             f"(under {duplicate_location})."
         )
 
-    def _current_step_2_key(self) -> _ExchangeTickerKey:
-        """Return current step-2 `(exchange, ticker)` key used for duplicate checks."""
-        return (self._current_exchange(), self.ticker_edit.text().strip())
+    def _current_step_2_key(self) -> ExchangeTickerKey:
+        """Return normalized `(exchange, ticker)` key used for duplicate checks.
+
+        Exchange-specific canonicalization ensures equivalent identifiers map
+        to one key (for example, TASE `0312017` and `312017`).
+        """
+        exchange = self._current_exchange()
+        raw_ticker = self.ticker_edit.text().strip()
+        return build_exchange_ticker_key(exchange=exchange, raw_ticker=raw_ticker)
 
     def _start_step_2_verification_flow(self) -> None:
-        """Run NYSE lookup when required; otherwise advance directly to details step."""
-        if self._current_exchange() is Exchange.NYSE:
-            if self._ticker_lookup_thread is not None:
-                return
-            self._begin_ticker_lookup()
+        """Run ticker lookup for supported exchanges before advancing to step 3."""
+        if self._ticker_lookup_thread is not None:
             return
-        self._advance_to_step_3()
+        self._begin_ticker_lookup()
 
     def _advance_to_step_3(self) -> None:
         """Advance wizard to step 3 and refresh dependent context/validation state."""
@@ -593,7 +596,7 @@ class AddInstrumentWizardDialog(QDialog):
         """Handle async ticker check result and continue/block wizard flow."""
         self._teardown_ticker_lookup()
         if isinstance(payload, _TickerLookupSuccessOutcome):
-            self._prefill_step_3_name_if_empty(payload.instrument_name)
+            self._prefill_step_3_name_if_empty(payload.metadata.display_name)
             self._advance_to_step_3()
             return
         if isinstance(payload, _TickerLookupErrorOutcome):

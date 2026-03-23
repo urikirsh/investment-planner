@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from types import MappingProxyType
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Final
 
 from portfolio_core.models import Exchange
@@ -23,6 +25,49 @@ NYSE_TICKER_INPUT_PATTERN: Final[str] = _NYSE_TICKER_INPUT_RE.pattern
 TASE_TICKER_INPUT_PATTERN: Final[str] = r"^\d{0,7}$"
 
 
+@dataclass(frozen=True)
+class ExchangeTickerKey:
+    """Canonical exchange+ticker identity key used across lookup and duplicate checks."""
+
+    exchange: Exchange
+    canonical_ticker: str
+
+
+@dataclass(frozen=True)
+class ExchangeTickerLocationIndex:
+    """Immutable duplicate index keyed by canonical `(exchange, ticker)` identity.
+
+    When duplicate keys are loaded, the first observed location wins.
+    """
+
+    _locations: Mapping[ExchangeTickerKey, str]
+
+    def __post_init__(self) -> None:
+        """Store an immutable copy so callers cannot mutate duplicate-check state."""
+        object.__setattr__(self, "_locations", MappingProxyType(dict(self._locations)))
+
+    @classmethod
+    def empty(cls) -> ExchangeTickerLocationIndex:
+        """Return an empty index."""
+        return cls(_locations={})
+
+    @classmethod
+    def from_pairs(
+        cls,
+        pairs: Iterable[tuple[ExchangeTickerKey, str]],
+    ) -> ExchangeTickerLocationIndex:
+        """Build index from key/location pairs while keeping first location per key."""
+        deduped: dict[ExchangeTickerKey, str] = {}
+        for key, location in pairs:
+            if key not in deduped:
+                deduped[key] = location
+        return cls(_locations=deduped)
+
+    def find_location(self, *, key: ExchangeTickerKey) -> str | None:
+        """Return duplicate location for key, when present."""
+        return self._locations.get(key)
+
+
 def normalize_tase_ticker(raw: str) -> str:
     """Normalize TASE ticker text to digits only."""
     return "".join(ch for ch in raw if ch.isdigit())
@@ -40,8 +85,56 @@ _TICKER_NORMALIZERS: Final[dict[Exchange, Callable[[str], str]]] = {
 
 
 def normalize_ticker_for_exchange(*, exchange: Exchange, raw: str) -> str:
-    """Normalize ticker text using exchange-specific canonical rules."""
+    """Normalize ticker text using exchange-specific input rules."""
     return _TICKER_NORMALIZERS[exchange](raw)
+
+
+def canonicalize_tase_ticker(raw: str) -> str:
+    """Return canonical TASE security number with leading zeros removed.
+
+    Canonicalization is identity-focused and lossless except for trimming and
+    leading-zero normalization. Inputs with non-digit characters are rejected.
+    """
+    stripped = raw.strip()
+    if not stripped:
+        return ""
+    if any(not ch.isdigit() for ch in stripped):
+        return ""
+    return stripped.lstrip("0") or "0"
+
+
+def canonicalize_nyse_ticker(raw: str) -> str:
+    """Return canonical NYSE ticker identifier.
+
+    Canonicalization is identity-focused and lossless except for trimming and
+    case normalization. Inputs with unsupported characters are rejected.
+    """
+    stripped = raw.strip()
+    if not stripped:
+        return ""
+    upper_ticker = stripped.upper()
+    if any((not ch.isascii()) or (not (ch.isalnum() or ch == ".")) for ch in upper_ticker):
+        return ""
+    return upper_ticker
+
+
+_TICKER_CANONICALIZERS: Final[dict[Exchange, Callable[[str], str]]] = {
+    Exchange.TASE: canonicalize_tase_ticker,
+    Exchange.NYSE: canonicalize_nyse_ticker,
+}
+
+
+def canonicalize_ticker_for_exchange(*, exchange: Exchange, raw: str) -> str:
+    """Return exchange-specific canonical ticker identifier used for keying/lookups."""
+    return _TICKER_CANONICALIZERS[exchange](raw)
+
+
+def build_exchange_ticker_key(*, exchange: Exchange, raw_ticker: str) -> ExchangeTickerKey:
+    """Build shared canonical exchange+ticker key from raw ticker text."""
+    return ExchangeTickerKey(
+        exchange=exchange,
+        canonical_ticker=canonicalize_ticker_for_exchange(exchange=exchange, raw=raw_ticker),
+    )
 
 
 def is_complete_tase_ticker(ticker: str) -> bool:

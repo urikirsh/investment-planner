@@ -12,9 +12,15 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 from portfolio_core.models import Exchange
+from portfolio_core.ticker_rules import (
+    ExchangeTickerKey,
+    ExchangeTickerLocationIndex,
+    build_exchange_ticker_key,
+)
 from portfolio_core.ticker_lookup_service import (
     TickerLookupCommunicationError,
     TickerLookupFound,
+    TickerLookupMetadata,
     TickerLookupNotFound,
     TickerLookupResult,
 )
@@ -28,7 +34,7 @@ class WizardDialogFactory(Protocol):
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
+        existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
     ) -> AddInstrumentWizardDialog: ...
 
 
@@ -44,7 +50,7 @@ def _mock_ticker_lookup_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
         lambda *, exchange, ticker: (
-            TickerLookupFound(instrument_name="Resolved Instrument")
+            _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
             if bool(exchange) and bool(ticker)
             else TickerLookupNotFound()
         ),
@@ -60,7 +66,7 @@ def wizard_dialog_factory() -> WizardDialogFactory:
         instrument_group_name: str = "Equity",
         is_non_investable_group: bool = False,
         existing_name_locations: dict[str, str] | None = None,
-        existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
+        existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
     ) -> AddInstrumentWizardDialog:
         return AddInstrumentWizardDialog(
             instrument_group_name=instrument_group_name,
@@ -123,7 +129,7 @@ def _open_add_instrument_wizard_step_2(
     *,
     exchange: str = "NYSE",
     ticker: str = "AB12",
-    existing_ticker_locations: dict[tuple[Exchange, str], str] | None = None,
+    existing_ticker_locations: ExchangeTickerLocationIndex | None = None,
 ) -> AddInstrumentWizardDialog:
     """Create wizard dialog and navigate to step 2 with selected exchange/ticker."""
     dialog = wizard_dialog_factory(existing_ticker_locations=existing_ticker_locations)
@@ -131,6 +137,11 @@ def _open_add_instrument_wizard_step_2(
     dialog.next_step_1_btn.click()
     dialog.ticker_edit.setText(ticker)
     return dialog
+
+
+def _ticker_location_index(*pairs: tuple[ExchangeTickerKey, str]) -> ExchangeTickerLocationIndex:
+    """Build immutable duplicate-ticker index for wizard setup."""
+    return ExchangeTickerLocationIndex.from_pairs(pairs)
 
 
 def _capture_back_modal_messages(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
@@ -154,6 +165,17 @@ def _wait_until(predicate: Callable[[], bool], *, timeout_ms: int = 1500) -> Non
         app.processEvents()
         time.sleep(0.01)
     raise AssertionError("Timed out waiting for async wizard state")
+
+
+def _lookup_found(*, exchange: Exchange, ticker: str, display_name: str) -> TickerLookupFound:
+    """Build found lookup payload with canonical metadata."""
+    return TickerLookupFound(
+        metadata=TickerLookupMetadata(
+            exchange=exchange,
+            canonical_ticker=ticker,
+            display_name=display_name,
+        )
+    )
 
 
 def _assert_step_3_inputs_reset(dialog: AddInstrumentWizardDialog) -> None:
@@ -416,14 +438,18 @@ def test_add_instrument_wizard_step_2_blocks_duplicate_exchange_ticker_before_ny
         wizard_dialog_factory,
         exchange="NYSE",
         ticker="AB12",
-        existing_ticker_locations={(Exchange.NYSE, "AB12"): "US Equity"},
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12"), "US Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
     def _checker(*, exchange: object, ticker: object) -> TickerLookupResult:
         calls.append((exchange, ticker))
         _ = (exchange, ticker)
-        return TickerLookupFound(instrument_name="Resolved Instrument")
+        assert isinstance(exchange, Exchange)
+        assert isinstance(ticker, str)
+        return _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
@@ -449,7 +475,9 @@ def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_fo
         wizard_dialog_factory,
         exchange="TASE",
         ticker="1234567",
-        existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="1234567"), "IL Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
@@ -463,6 +491,30 @@ def test_add_instrument_wizard_step_2_applies_duplicate_exchange_ticker_check_fo
     assert "under IL Equity" in shown[0][1]
 
 
+def test_add_instrument_wizard_step_2_tase_duplicate_check_normalizes_leading_zeros(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_2(
+        wizard_dialog_factory,
+        exchange="TASE",
+        ticker="0312017",
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="312017"), "IL Equity")
+        ),
+    )
+    shown = _capture_back_modal_messages(monkeypatch)
+
+    assert dialog.next_step_2_btn.isEnabled() is False
+    assert "already exists for this exchange" in dialog.ticker_error_label.text()
+    dialog._go_to_step_3()
+    assert dialog.pages.currentIndex() == 1
+    assert shown
+    assert shown[0][0] == "Duplicate ticker"
+    assert 'Ticker "312017" on TASE already exists' in shown[0][1]
+    assert "under IL Equity" in shown[0][1]
+
+
 def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
@@ -471,13 +523,15 @@ def test_add_instrument_wizard_step_2_allows_same_ticker_on_other_exchange(
         wizard_dialog_factory,
         exchange="NYSE",
         ticker="1234567",
-        existing_ticker_locations={(Exchange.TASE, "1234567"): "IL Equity"},
+        existing_ticker_locations=_ticker_location_index(
+            (build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker="1234567"), "IL Equity")
+        ),
     )
     shown = _capture_back_modal_messages(monkeypatch)
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
         lambda *, exchange, ticker: (
-            TickerLookupFound(instrument_name="Resolved Instrument")
+            _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
             if bool(exchange) and bool(ticker)
             else TickerLookupNotFound()
         ),
@@ -501,7 +555,7 @@ def test_add_instrument_wizard_step_2_prefills_step_3_name_from_successful_looku
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
         lambda *, exchange, ticker: (
-            TickerLookupFound(instrument_name="Apple Inc.")
+            _lookup_found(exchange=exchange, ticker=ticker, display_name="Apple Inc.")
             if bool(exchange) and bool(ticker)
             else TickerLookupNotFound()
         ),
@@ -581,7 +635,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup
     assert "internal error" in shown[0][1].lower()
 
 
-def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
+def test_add_instrument_wizard_step_2_performs_tase_lookup_and_advances(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -591,7 +645,9 @@ def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
     def _checker(*, exchange: object, ticker: object) -> TickerLookupResult:
         calls.append((exchange, ticker))
         _ = (exchange, ticker)
-        return TickerLookupFound(instrument_name="Resolved Instrument")
+        assert isinstance(exchange, Exchange)
+        assert isinstance(ticker, str)
+        return _lookup_found(exchange=exchange, ticker=ticker, display_name="Resolved Instrument")
 
     monkeypatch.setattr(
         "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
@@ -603,8 +659,8 @@ def test_add_instrument_wizard_step_2_skips_network_lookup_for_tase(
     dialog.ticker_edit.setText("1234567")
     dialog.next_step_2_btn.click()
 
-    assert dialog.pages.currentIndex() == 2
-    assert calls == []
+    _wait_until(lambda: dialog.pages.currentIndex() == 2)
+    assert calls == [(Exchange.TASE, "1234567")]
 
 
 def test_add_instrument_wizard_validate_step_3_inputs_requires_name() -> None:

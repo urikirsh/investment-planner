@@ -77,8 +77,7 @@ FX thread-safety guards in this flow:
   - each step renders the selected group plus prior step decisions for review
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
   - step-2 ticker input `Enter` key behaves like `Next` when `Next` is enabled
-  - for NYSE only, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
-  - TASE currently skips network ticker verification and advances directly to step 3
+  - for NYSE and TASE, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
   - ticker-not-found, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
   - duplicate ticker/name submit paths keep defensive Back-only modals naming the existing location
   - return/cancel prompts for discard only when user has edited wizard input
@@ -161,6 +160,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/ticker_rules.py`
   - shared exchange-specific ticker normalization and validation helpers
   - centralizes TASE/NYSE ticker regex rules, input constraints, and UI-facing rule constants
+  - defines canonical exchange+ticker identity keys and a shared duplicate-location index value object used by wizard/editor flows
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
@@ -181,11 +181,12 @@ FX thread-safety guards in this flow:
   - Bank of Israel USD/ILS fetch boundary and response parsing
   - normalizes BOI payload into a typed quote object used by wizard flow
 - `portfolio_core/ticker_lookup_service.py`
-  - Nasdaq Trader symbol-directory lookup boundary for ticker existence
+  - NYSE+TASE ticker lookup boundary for existence and optional display-name resolution
   - NYSE is verified via `otherlisted.txt` rows with exchange codes `N`, `A`, `P`, and `Z`
   - parses `otherlisted.txt` using Python `csv` with pipe delimiter (`|`) and skips the provider footer row
   - keeps an immutable in-memory app-session cache of NYSE symbol index entries (filtered by exchange code, not by ticker)
-  - TASE network lookup is intentionally not implemented yet
+  - TASE is verified via `api.tase.co.il` `company/securitydata` per-security lookup
+  - TASE lookups use per-ticker in-memory TTL cache entries and canonicalized security-number keys (leading zeros removed)
   - raises typed communication errors on network/payload failures
 - `portfolio_core/portfolio_document.py`
   - in-memory editable document state:
@@ -266,9 +267,9 @@ Core/domain tests:
 - `tests/core/test_fx_service.py`
   - BOI USD/ILS payload parsing and "last published day" detection behavior
 - `tests/core/test_ticker_lookup_service.py`
-  - Nasdaq Trader NYSE lookup parsing/matching and communication-failure behavior
+  - NYSE/TASE ticker lookup parsing/matching, cache behavior, and communication-failure behavior
 - `tests/core/test_ticker_rules.py`
-  - shared ticker normalization and shape-validation rule coverage
+  - shared ticker normalization/shape-validation rules plus canonical exchange+ticker key/index behavior
 
 ## Updating this document
 Update this file when:

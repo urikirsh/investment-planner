@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QDialog, QTreeWidgetItem
 
 import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.models import Exchange
+from portfolio_core.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
@@ -118,4 +119,7 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
 
     window._main_editor_controller.add_instrument()
 
-    assert captured_kwargs["existing_ticker_locations"] == {(Exchange.NYSE, "AB12"): "Equity"}
+    index = captured_kwargs["existing_ticker_locations"]
+    assert isinstance(index, ExchangeTickerLocationIndex)
+    key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12")
+    assert index.find_location(key=key) == "Equity"

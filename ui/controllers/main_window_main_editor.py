@@ -9,7 +9,11 @@ from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetIte
 
 from portfolio_core.models import Exchange
 from portfolio_core.planning_types import PlanningMode
-from portfolio_core.ticker_rules import normalize_ticker_for_exchange
+from portfolio_core.ticker_rules import (
+    ExchangeTickerKey,
+    ExchangeTickerLocationIndex,
+    build_exchange_ticker_key,
+)
 from portfolio_core.use_cases import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
@@ -62,23 +66,28 @@ class MainWindowMainEditorController:
                 name_locations[normalized_name] = location
         return name_locations
 
-    def _build_existing_instrument_ticker_locations(self) -> dict[tuple[Exchange, str], str]:
-        """Return normalized `(exchange, ticker)` -> first-found location mapping."""
-        ticker_locations: dict[tuple[Exchange, str], str] = {}
+    def _build_existing_instrument_ticker_locations(self) -> ExchangeTickerLocationIndex:
+        """Return duplicate ticker-location index keyed by canonical exchange+ticker identity."""
+        pairs: list[tuple[ExchangeTickerKey, str]] = []
         for child, location in self._iter_instrument_rows_with_locations(self._host.tree):
-            exchange_text = child.text(Col.EXCHANGE.value).strip()
-            try:
-                exchange = Exchange(exchange_text)
-            except ValueError:
-                continue
-            ticker_text = child.text(Col.TICKER.value).strip()
-            normalized_ticker = normalize_ticker_for_exchange(exchange=exchange, raw=ticker_text).strip()
-            if not normalized_ticker:
-                continue
-            key = (exchange, normalized_ticker)
-            if key not in ticker_locations:
-                ticker_locations[key] = location
-        return ticker_locations
+            key = self._build_instrument_ticker_key(child)
+            if key is not None:
+                pairs.append((key, location))
+        return ExchangeTickerLocationIndex.from_pairs(pairs)
+
+    @staticmethod
+    def _build_instrument_ticker_key(child: QTreeWidgetItem) -> ExchangeTickerKey | None:
+        """Return canonical exchange+ticker key from instrument row, or ``None`` when invalid."""
+        exchange_text = child.text(Col.EXCHANGE.value).strip()
+        try:
+            exchange = Exchange(exchange_text)
+        except ValueError:
+            return None
+        ticker_text = child.text(Col.TICKER.value).strip()
+        key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker_text)
+        if not key.canonical_ticker:
+            return None
+        return key
 
     @staticmethod
     def _iter_instrument_rows_with_locations(tree: QTreeWidget) -> Iterator[tuple[QTreeWidgetItem, str]]:
