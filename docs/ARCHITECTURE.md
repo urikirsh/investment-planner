@@ -182,9 +182,11 @@ FX thread-safety guards in this flow:
   - normalizes BOI payload into a typed quote object used by wizard flow
 - `portfolio_core/ticker_lookup_service.py`
   - NYSE+TASE ticker lookup boundary for existence and optional display-name resolution
-  - NYSE is verified via Investing.com per-ticker scraping
-  - performs ticker search and requires exact `exchange == NYSE` + exact canonical symbol match
-  - extracts display name and optional `isin`/`currency` metadata from the instrument page payload
+  - NYSE is verified via Stooq per-ticker quote lookup (`q/l`)
+  - NYSE display name is extracted from the Stooq symbol page title (`q/?s=`), with ticker text fallback when unavailable
+  - for dotted NYSE symbols, lookup also tries a dashed Stooq fallback key (for example `BRK.B` -> `brk-b.us`)
+  - Stooq `N/D` quote payloads are treated as ticker-not-found
+  - NYSE lookup metadata currently includes USD currency and raw Stooq quote fields in provider data
   - keeps an in-memory app-session cache of NYSE lookup results keyed by canonical ticker
   - TASE is verified via `api.tase.co.il` `company/securitydata` per-security lookup
   - TASE lookups use per-ticker in-memory TTL cache entries and canonicalized security-number keys (leading zeros removed)

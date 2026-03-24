@@ -18,39 +18,29 @@ from portfolio_core.ticker_lookup_service import (
 from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 
 
-_INVESTING_SEARCH_URL = "https://www.investing.com/search/?q=AAPL"
-_INVESTING_INSTRUMENT_URL = "https://www.investing.com/equities/apple-computer-inc"
+_STOOQ_AAPL_URL = "https://stooq.com/q/l/?s=aapl.us"
+_STOOQ_AAPL_PAGE_URL = "https://stooq.com/q/?s=aapl.us"
+_STOOQ_BRKB_DOTTED_URL = "https://stooq.com/q/l/?s=brk.b.us"
+_STOOQ_BRKB_DASHED_URL = "https://stooq.com/q/l/?s=brk-b.us"
+_STOOQ_BRKB_PAGE_URL = "https://stooq.com/q/?s=brk-b.us"
 _TASE_URL = "https://api.tase.co.il/api/company/securitydata?securityId=1159094&lang=1"
 
 
-def _build_investing_search_payload(*, symbol: str = "AAPL", exchange: str = "NYSE", name: str = "Apple Inc.") -> str:
-    """Build an Investing.com search page payload with one structured quote result."""
-    result_json = (
-        f'[{{"pairId":6408,"name":"{name}","link":"\\/equities\\/apple-computer-inc",'
-        f'"symbol":"{symbol}","type":"Stock - {exchange}","exchange":"{exchange}"}}]'
-    )
-    return (
-        "<html><body>"
-        "<script>"
-        f"window.allResultsQuotesDataArray = {result_json};"
-        "</script>"
-        "</body></html>"
-    )
-
-
-def _build_investing_instrument_payload(
+def _build_stooq_quote_payload(
     *,
-    currency: str = "USD",
-    isin: str = "US0378331005",
-    price: str = "210.50",
+    symbol: str = "AAPL.US",
+    date: str = "20260323",
+    quote_time: str = "204216",
+    close: str = "210.50",
+    volume: str = "18370971",
 ) -> str:
-    """Build minimal Investing.com instrument page payload with parsable fields."""
-    return (
-        "<html><body>"
-        f'<div data-test="instrument-price-last">{price}</div>'
-        f'<script>{{"currency":"{currency}","underlying":{{"isin":"{isin}"}}}}</script>'
-        "</body></html>"
-    )
+    """Build minimal Stooq quote one-line payload with parsable fields."""
+    return f"{symbol},{date},{quote_time},209.00,212.00,208.00,{close},{volume},"
+
+
+def _build_stooq_symbol_page_payload(*, symbol: str = "AAPL.US", company_name: str = "Apple Inc") -> str:
+    """Build minimal Stooq symbol page payload with title-based company name."""
+    return f"<html><head><title>{symbol} (+0.84%) - {company_name} - Stooq</title></head><body></body></html>"
 
 
 def _install_default_lookup_service_with_url_payloads(
@@ -111,20 +101,20 @@ def test_lookup_ticker_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pyt
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
-            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
         },
     )
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
 
-def test_lookup_ticker_in_exchange_returns_false_when_search_exchange_is_not_nyse(
+def test_lookup_ticker_in_exchange_returns_false_for_stooq_not_found_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_INVESTING_SEARCH_URL: _build_investing_search_payload(exchange="NASDAQ")},
+        payloads_by_url={_STOOQ_AAPL_URL: "AAPL.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D,N/D"},
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
@@ -132,17 +122,24 @@ def test_lookup_ticker_in_exchange_returns_false_when_search_exchange_is_not_nys
     assert isinstance(result, TickerLookupNotFound)
 
 
-def test_lookup_ticker_in_exchange_returns_false_when_search_symbol_is_missing(
+def test_lookup_ticker_in_exchange_tries_dashed_fallback_for_dot_ticker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_INVESTING_SEARCH_URL: _build_investing_search_payload(symbol="MSFT")},
+        payloads_by_url={
+            _STOOQ_BRKB_DOTTED_URL: "BRK.B.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D,N/D",
+            _STOOQ_BRKB_DASHED_URL: _build_stooq_quote_payload(symbol="BRK-B.US", close="482.06"),
+            _STOOQ_BRKB_PAGE_URL: _build_stooq_symbol_page_payload(symbol="BRK-B.US", company_name="Berkshire Hathaway Inc"),
+        },
     )
 
-    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="BRK.B")
 
-    assert isinstance(result, TickerLookupNotFound)
+    assert isinstance(result, TickerLookupFound)
+    assert result.metadata.canonical_ticker == "BRK.B"
+    assert result.metadata.provider_data.get("stooq_symbol") == "BRK-B.US"
+    assert result.metadata.display_name == "Berkshire Hathaway Inc"
 
 
 @pytest.mark.parametrize(
@@ -271,8 +268,8 @@ def test_lookup_ticker_in_exchange_returns_metadata_for_existing_nyse_symbol(
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
-            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
         },
     )
 
@@ -281,13 +278,15 @@ def test_lookup_ticker_in_exchange_returns_metadata_for_existing_nyse_symbol(
     assert isinstance(result, TickerLookupFound)
     assert result.metadata.exchange is Exchange.NYSE
     assert result.metadata.canonical_ticker == "AAPL"
-    assert result.metadata.display_name == "Apple Inc."
-    assert result.metadata.isin == "US0378331005"
+    assert result.metadata.display_name == "Apple Inc"
+    assert result.metadata.isin is None
     assert result.metadata.currency == "USD"
-    assert result.metadata.provider_data.get("source") == "investing.com"
-    assert result.metadata.provider_data.get("pair_id") == 6408
-    assert result.metadata.provider_data.get("instrument_link") == "/equities/apple-computer-inc"
-    assert result.metadata.provider_data.get("search_exchange") == "NYSE"
+    assert result.metadata.provider_data.get("source") == "stooq"
+    assert result.metadata.provider_data.get("stooq_symbol") == "AAPL.US"
+    assert result.metadata.provider_data.get("quote_symbol") == "AAPL.US"
+    assert result.metadata.provider_data.get("close") == "210.50"
+    assert result.metadata.provider_data.get("quote_date") == "20260323"
+    assert result.metadata.provider_data.get("quote_time_utc") == "204216"
 
 
 def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
@@ -314,17 +313,28 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_custom_transpor
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
 
-def test_lookup_ticker_in_exchange_returns_not_found_for_investing_search_payload_without_results_array(
+def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_stooq_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_INVESTING_SEARCH_URL: "<html>missing array</html>"},
+        payloads_by_url={_STOOQ_AAPL_URL: "broken"},
     )
 
-    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+    with pytest.raises(TickerLookupCommunicationError):
+        lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
-    assert isinstance(result, TickerLookupNotFound)
+
+def test_lookup_ticker_in_exchange_raises_communication_error_for_stooq_quote_with_invalid_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={_STOOQ_AAPL_URL: "AAPL.US,2026-03-23,204216,209.00,212.00,208.00,210.50,18370971,"},
+    )
+
+    with pytest.raises(TickerLookupCommunicationError):
+        lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
 def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
@@ -334,8 +344,8 @@ def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
-            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
         },
         calls=calls,
     )
@@ -402,8 +412,8 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_ticker(
     service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
-            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
         },
     )
 
@@ -421,8 +431,8 @@ def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _INVESTING_SEARCH_URL: _build_investing_search_payload(),
-            _INVESTING_INSTRUMENT_URL: _build_investing_instrument_payload(),
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
         },
         calls=calls,
         delay_seconds=0.05,

@@ -3,35 +3,35 @@ from __future__ import annotations
 """Ticker existence and metadata lookup for NYSE/TASE with app-session caching.
 
 Behavior summary:
-- NYSE uses Investing.com per-ticker scraping and caches lookup results per ticker
-  for the app session.
+- NYSE uses Stooq per-ticker quote lookup and caches lookup results per ticker for
+  the app session.
 - TASE uses `api.tase.co.il` per-security lookup with per-ticker TTL cache entries.
 - TASE security numbers are normalized to canonical form (leading zeros removed)
   before network lookup and cache keying.
 """
 
 import json
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
+from html import unescape
 from threading import Lock
 import time
 from types import MappingProxyType
 from typing import Protocol
 from urllib.error import URLError
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import build_exchange_ticker_key, is_complete_nyse_ticker
 
-_INVESTING_SEARCH_URL_TEMPLATE = "https://www.investing.com/search/?q={query}"
-_INVESTING_BASE_URL = "https://www.investing.com"
+_STOOQ_QUOTE_URL_TEMPLATE = "https://stooq.com/q/l/?s={symbol}"
+_STOOQ_SYMBOL_PAGE_URL_TEMPLATE = "https://stooq.com/q/?s={symbol}"
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
-_INVESTING_NYSE_EXCHANGE = "NYSE"
 _TASE_ENGLISH_NAME_KEYS = ("Name", "LongName", "SecurityLongName", "CompanyName")
 _TASE_CACHE_TTL_SECONDS = 900.0
-_INVESTING_SEARCH_DATA_ARRAY_MARKER = "window.allResultsQuotesDataArray"
-_INVESTING_PRICE_LAST_DATA_TEST = 'data-test="instrument-price-last">'
+_STOOQ_TITLE_PATTERN = re.compile(r"<title>(.*?)</title>", flags=re.IGNORECASE | re.DOTALL)
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -90,129 +90,89 @@ class _UrlopenTickerHttpClient:
             raise _TickerLookupTransportError("HTTP transport failed") from exc
 
 
-class _NyseInvestingSearchParser:
-    """Parser for Investing.com search payload inlined JSON array."""
+class _NyseStooqQuoteParser:
+    """Parser for one-line Stooq NYSE quote CSV payload."""
 
-    def parse_results(self, raw_text: str) -> list["_NyseInvestingSearchResult"]:
-        """Parse Investing.com search page HTML to structured quote search results."""
-        marker_index = raw_text.find(_INVESTING_SEARCH_DATA_ARRAY_MARKER)
-        if marker_index < 0:
-            return []
-        array_start_index = raw_text.find("[", marker_index)
-        if array_start_index < 0:
-            return []
-        array_end_index = raw_text.find("];", array_start_index)
-        if array_end_index < 0:
-            return []
+    def parse_quote(self, raw_text: str, *, expected_symbol: str) -> "_NyseStooqQuote | None":
+        """Parse one Stooq quote line and return quote payload when available."""
+        normalized = raw_text.strip()
+        if not normalized:
+            raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
+        first_line = normalized.splitlines()[0].strip()
+        if not first_line:
+            raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
+        parts = [part.strip() for part in first_line.split(",")]
+        if len(parts) < 8:
+            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected payload format")
 
-        json_array_text = raw_text[array_start_index : array_end_index + 1]
-        try:
-            payload = json.loads(json_array_text)
-        except json.JSONDecodeError as exc:
-            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format") from exc
-        if not isinstance(payload, list):
-            raise TickerLookupCommunicationError("Investing.com NYSE search response has an unexpected payload format")
-
-        parsed: list[_NyseInvestingSearchResult] = []
-        for item in payload:
-            if not isinstance(item, Mapping):
-                continue
-            symbol = _as_upper_string(item.get("symbol"))
-            exchange = _as_upper_string(item.get("exchange"))
-            if not symbol or exchange != _INVESTING_NYSE_EXCHANGE:
-                continue
-            pair_id = _as_int(item.get("pairId"))
-            if pair_id is None:
-                continue
-            link = _as_string(item.get("link"))
-            if not link:
-                continue
-            parsed.append(
-                _NyseInvestingSearchResult(
-                    symbol=symbol,
-                    exchange=exchange,
-                    name=_as_string(item.get("name")),
-                    pair_id=pair_id,
-                    link=link,
-                    instrument_type=_as_string(item.get("type")),
-                )
-            )
-        return parsed
-
-
-class _NyseInvestingInstrumentParser:
-    """Parser for Investing.com instrument page fields needed for NYSE lookup metadata."""
-
-    def parse_metadata(
-        self,
-        *,
-        raw_text: str,
-        ticker: str,
-        fallback_display_name: str,
-        search_result: "_NyseInvestingSearchResult",
-    ) -> "TickerLookupMetadata":
-        """Extract NYSE lookup metadata from Investing.com instrument page HTML."""
-        isin = self._extract_isin(raw_text)
-        currency = self._extract_currency(raw_text)
-        _ = self._extract_price(raw_text)
-        return TickerLookupMetadata(
-            exchange=Exchange.NYSE,
-            canonical_ticker=ticker,
-            display_name=fallback_display_name,
-            isin=isin,
-            currency=currency,
-            provider_data=MappingProxyType(
-                {
-                    "source": "investing.com",
-                    "pair_id": search_result.pair_id,
-                    "instrument_link": search_result.link,
-                    "instrument_type": search_result.instrument_type,
-                    "search_exchange": search_result.exchange,
-                }
-            ),
+        symbol = parts[0].upper()
+        date = parts[1]
+        time_utc = parts[2]
+        close = parts[6]
+        volume = parts[7]
+        if date == "N/D" or close == "N/D":
+            return None
+        if symbol != expected_symbol.upper():
+            return None
+        if not self._looks_like_stooq_symbol(symbol):
+            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected symbol format")
+        if not self._looks_like_yyyymmdd(date):
+            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected date format")
+        if not self._looks_like_hhmmss(time_utc):
+            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected time format")
+        if not self._looks_like_decimal(close):
+            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected close format")
+        return _NyseStooqQuote(
+            symbol=symbol,
+            date=date,
+            time_utc=time_utc,
+            close=close,
+            volume=volume,
         )
 
-    def _extract_isin(self, raw_text: str) -> str | None:
-        """Extract first plausible ISIN from page payload, when present."""
-        for marker in ('"isin":"', '"isin": "'):
-            index = raw_text.find(marker)
-            while index >= 0:
-                start = index + len(marker)
-                end = raw_text.find('"', start)
-                if end <= start:
-                    break
-                candidate = raw_text[start:end].strip()
-                if _looks_like_isin(candidate):
-                    return candidate
-                index = raw_text.find(marker, end)
-        return None
+    def _looks_like_stooq_symbol(self, value: str) -> bool:
+        """Return whether value looks like a US symbol key from Stooq quote rows."""
+        return value.endswith(".US") and all(ch.isalnum() or ch in {".", "-", "_"} for ch in value)
 
-    def _extract_currency(self, raw_text: str) -> str | None:
-        """Extract three-letter instrument currency when present."""
-        for marker in ('"currency":"', '"currency": "'):
-            index = raw_text.find(marker)
-            if index < 0:
-                continue
-            start = index + len(marker)
-            end = raw_text.find('"', start)
-            if end <= start:
-                continue
-            candidate = raw_text[start:end].strip().upper()
-            if len(candidate) == 3 and candidate.isalpha():
-                return candidate
-        return None
+    def _looks_like_yyyymmdd(self, value: str) -> bool:
+        """Return whether value matches an 8-digit date token."""
+        return len(value) == 8 and value.isdigit()
 
-    def _extract_price(self, raw_text: str) -> str | None:
-        """Extract visible headline price from page HTML when present."""
-        index = raw_text.find(_INVESTING_PRICE_LAST_DATA_TEST)
-        if index < 0:
+    def _looks_like_hhmmss(self, value: str) -> bool:
+        """Return whether value matches a 6-digit time token."""
+        return len(value) == 6 and value.isdigit()
+
+    def _looks_like_decimal(self, value: str) -> bool:
+        """Return whether value can be parsed as decimal number."""
+        try:
+            Decimal(value)
+        except (InvalidOperation, ValueError):
+            return False
+        return True
+
+
+class _NyseStooqSymbolPageParser:
+    """Parser for Stooq symbol page HTML fields used for NYSE display names."""
+
+    def parse_company_name(self, raw_text: str, *, expected_symbol: str) -> str | None:
+        """Extract company display name from the Stooq page `<title>` when available."""
+        match = _STOOQ_TITLE_PATTERN.search(raw_text)
+        if match is None:
             return None
-        start = index + len(_INVESTING_PRICE_LAST_DATA_TEST)
-        end = raw_text.find("<", start)
-        if end <= start:
+        title = unescape(match.group(1)).strip()
+        if not title:
             return None
-        price_text = raw_text[start:end].strip()
-        return price_text or None
+        if title.endswith(" - Stooq"):
+            title = title[: -len(" - Stooq")].strip()
+        if " - " not in title:
+            return None
+        left, _, company = title.partition(" - ")
+        if not left.upper().startswith(expected_symbol.upper()):
+            return None
+        normalized_company = company.strip()
+        if not normalized_company:
+            return None
+        return normalized_company
 
 
 class _TaseSecurityDataParser:
@@ -297,15 +257,14 @@ class TickerLookupMetadata:
 
 
 @dataclass(frozen=True)
-class _NyseInvestingSearchResult:
-    """Relevant Investing.com search result used to resolve a NYSE ticker."""
+class _NyseStooqQuote:
+    """Minimal parsed quote payload used for NYSE ticker lookup metadata."""
 
     symbol: str
-    exchange: str
-    name: str
-    pair_id: int
-    link: str
-    instrument_type: str
+    date: str
+    time_utc: str
+    close: str
+    volume: str
 
 
 @dataclass(frozen=True)
@@ -450,15 +409,15 @@ class TickerLookupService:
         self,
         *,
         http_client: _TickerHttpClient | None = None,
-        nyse_search_parser: _NyseInvestingSearchParser | None = None,
-        nyse_instrument_parser: _NyseInvestingInstrumentParser | None = None,
+        nyse_quote_parser: _NyseStooqQuoteParser | None = None,
+        nyse_symbol_page_parser: _NyseStooqSymbolPageParser | None = None,
         tase_parser: _TaseSecurityDataParser | None = None,
         nyse_lookup_store: _NyseLookupCacheStore | None = None,
         tase_lookup_store: _TaseLookupCacheStore | None = None,
     ) -> None:
         self._http_client = http_client or _UrlopenTickerHttpClient()
-        self._nyse_search_parser = nyse_search_parser or _NyseInvestingSearchParser()
-        self._nyse_instrument_parser = nyse_instrument_parser or _NyseInvestingInstrumentParser()
+        self._nyse_quote_parser = nyse_quote_parser or _NyseStooqQuoteParser()
+        self._nyse_symbol_page_parser = nyse_symbol_page_parser or _NyseStooqSymbolPageParser()
         self._tase_parser = tase_parser or _TaseSecurityDataParser()
         self._nyse_lookup_store = nyse_lookup_store or _NyseLookupCacheStore()
         self._tase_lookup_store = tase_lookup_store or _TaseLookupCacheStore(
@@ -487,26 +446,24 @@ class TickerLookupService:
             return TickerLookupNotFound()
         return provider(ticker, timeout_seconds)
 
-    def fetch_nyse_search_results(self, ticker: str, timeout_seconds: float) -> list[_NyseInvestingSearchResult]:
-        """Fetch and parse Investing.com quote search results for one ticker."""
-        search_url = _INVESTING_SEARCH_URL_TEMPLATE.format(query=quote(ticker))
-        body = self._fetch_text_or_raise_communication_error(
-            url=search_url,
-            headers=_REQUEST_HEADERS,
-            timeout_seconds=timeout_seconds,
-            error_message="Failed to fetch Investing.com NYSE search data",
-        )
-        return self._nyse_search_parser.parse_results(body)
-
-    def fetch_nyse_instrument_payload(self, link: str, timeout_seconds: float) -> str:
-        """Fetch raw Investing.com instrument page payload for one search result link."""
-        normalized_link = link if link.startswith("/") else f"/{link}"
-        url = f"{_INVESTING_BASE_URL}{normalized_link}"
+    def fetch_nyse_quote_payload(self, stooq_symbol: str, timeout_seconds: float) -> str:
+        """Fetch raw Stooq one-line quote payload for one NYSE symbol key."""
+        quote_url = _STOOQ_QUOTE_URL_TEMPLATE.format(symbol=stooq_symbol)
         return self._fetch_text_or_raise_communication_error(
-            url=url,
+            url=quote_url,
             headers=_REQUEST_HEADERS,
             timeout_seconds=timeout_seconds,
-            error_message="Failed to fetch Investing.com NYSE instrument data",
+            error_message="Failed to fetch Stooq NYSE quote data",
+        )
+
+    def fetch_nyse_symbol_page_payload(self, stooq_symbol: str, timeout_seconds: float) -> str:
+        """Fetch raw Stooq symbol page payload for one NYSE symbol key."""
+        page_url = _STOOQ_SYMBOL_PAGE_URL_TEMPLATE.format(symbol=stooq_symbol)
+        return self._fetch_text_or_raise_communication_error(
+            url=page_url,
+            headers=_REQUEST_HEADERS,
+            timeout_seconds=timeout_seconds,
+            error_message="Failed to fetch Stooq NYSE symbol page data",
         )
 
     def fetch_tase_lookup_result(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
@@ -525,7 +482,7 @@ class TickerLookupService:
         )
 
     def _lookup_nyse_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Resolve NYSE ticker metadata from Investing.com search and instrument payloads."""
+        """Resolve NYSE ticker metadata from Stooq quote and symbol page payloads."""
         key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=ticker)
         if not key.canonical_ticker:
             return TickerLookupNotFound()
@@ -538,33 +495,64 @@ class TickerLookupService:
         )
 
     def _fetch_nyse_lookup_result(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Fetch uncached NYSE ticker lookup result from Investing.com sources."""
-        search_results = self.fetch_nyse_search_results(ticker, timeout_seconds)
-        search_result = self._find_nyse_search_result(search_results, ticker)
-        if search_result is None:
-            return TickerLookupNotFound()
-        display_name = search_result.name.strip()
-        if not display_name:
-            return TickerLookupNotFound()
-        instrument_payload = self.fetch_nyse_instrument_payload(search_result.link, timeout_seconds)
-        metadata = self._nyse_instrument_parser.parse_metadata(
-            raw_text=instrument_payload,
-            ticker=ticker,
-            fallback_display_name=display_name,
-            search_result=search_result,
-        )
-        return TickerLookupFound(metadata=metadata)
+        """Fetch uncached NYSE ticker lookup result from Stooq quote endpoint."""
+        for stooq_symbol in self._nyse_stooq_symbol_candidates(ticker):
+            payload = self.fetch_nyse_quote_payload(stooq_symbol, timeout_seconds)
+            quote = self._nyse_quote_parser.parse_quote(payload, expected_symbol=stooq_symbol)
+            if quote is None:
+                continue
+            display_name = self._fetch_nyse_display_name(
+                stooq_symbol=stooq_symbol,
+                timeout_seconds=timeout_seconds,
+                fallback_ticker=ticker,
+            )
+            return TickerLookupFound(
+                metadata=TickerLookupMetadata(
+                    exchange=Exchange.NYSE,
+                    canonical_ticker=ticker,
+                    display_name=display_name,
+                    currency="USD",
+                    provider_data=MappingProxyType(
+                        {
+                            "source": "stooq",
+                            "stooq_symbol": stooq_symbol.upper(),
+                            "quote_symbol": quote.symbol,
+                            "quote_date": quote.date,
+                            "quote_time_utc": quote.time_utc,
+                            "close": quote.close,
+                            "volume": quote.volume,
+                        }
+                    ),
+                )
+            )
+        return TickerLookupNotFound()
 
-    def _find_nyse_search_result(
+    def _fetch_nyse_display_name(
         self,
-        search_results: list[_NyseInvestingSearchResult],
-        ticker: str,
-    ) -> _NyseInvestingSearchResult | None:
-        """Return exact NYSE search match for canonical ticker, if present."""
-        for item in search_results:
-            if item.exchange == _INVESTING_NYSE_EXCHANGE and item.symbol == ticker:
-                return item
-        return None
+        *,
+        stooq_symbol: str,
+        timeout_seconds: float,
+        fallback_ticker: str,
+    ) -> str:
+        """Return Stooq company name when available, otherwise fallback ticker text."""
+        try:
+            page_payload = self.fetch_nyse_symbol_page_payload(stooq_symbol, timeout_seconds)
+        except TickerLookupCommunicationError:
+            return fallback_ticker
+        parsed_name = self._nyse_symbol_page_parser.parse_company_name(
+            page_payload,
+            expected_symbol=stooq_symbol.upper(),
+        )
+        return parsed_name or fallback_ticker
+
+    def _nyse_stooq_symbol_candidates(self, ticker: str) -> list[str]:
+        """Return ordered Stooq symbol candidates for a canonical NYSE ticker."""
+        base = ticker.lower()
+        candidates = [f"{base}.us"]
+        dashed = base.replace(".", "-")
+        if dashed != base:
+            candidates.append(f"{dashed}.us")
+        return candidates
 
     def _lookup_tase_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
         """Resolve TASE ticker from cache/API after canonical security-number normalization."""
@@ -611,36 +599,3 @@ def lookup_ticker_in_exchange(
         ticker=ticker,
         timeout_seconds=timeout_seconds,
     )
-
-def _as_string(value: object) -> str:
-    """Return stripped string value when source value is string-like, else empty string."""
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value.strip()
-    return str(value).strip()
-
-
-def _as_upper_string(value: object) -> str:
-    """Return upper-cased stripped string value when available, else empty string."""
-    return _as_string(value).upper()
-
-
-def _as_int(value: object) -> int | None:
-    """Return integer value when source value can be parsed as integer, else ``None``."""
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped.isdigit():
-            return int(stripped)
-    return None
-
-
-def _looks_like_isin(candidate: str) -> bool:
-    """Return whether candidate is a plausible ISIN-like token."""
-    if len(candidate) != 12:
-        return False
-    if not candidate[:2].isalpha():
-        return False
-    return candidate.isalnum()
