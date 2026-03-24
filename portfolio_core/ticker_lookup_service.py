@@ -36,6 +36,12 @@ _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securityda
 _TASE_ENGLISH_NAME_KEYS = ("Name", "LongName", "SecurityLongName", "CompanyName")
 _TASE_CACHE_TTL_SECONDS = 900.0
 _STOOQ_TITLE_PATTERN = re.compile(r"<title>(.*?)</title>", flags=re.IGNORECASE | re.DOTALL)
+_STOOQ_MIN_QUOTE_COLUMNS = 8
+_STOOQ_COL_SYMBOL = 0
+_STOOQ_COL_DATE = 1
+_STOOQ_COL_TIME = 2
+_STOOQ_COL_CLOSE = 6
+_STOOQ_COL_VOLUME = 7
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -99,21 +105,12 @@ class _NyseStooqQuoteParser:
 
     def parse_quote(self, raw_text: str, *, expected_symbol: str) -> "_NyseStooqQuote | None":
         """Parse one Stooq quote line and return quote payload when available."""
-        normalized = raw_text.strip()
-        if not normalized:
-            raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
-        first_line = normalized.splitlines()[0].strip()
-        if not first_line:
-            raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
-        parts = [part.strip() for part in first_line.split(",")]
-        if len(parts) < 8:
-            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected payload format")
-
-        symbol = parts[0].upper()
-        date = parts[1]
-        time_utc = parts[2]
-        close = parts[6]
-        volume = parts[7]
+        parts = self._split_first_quote_row(raw_text)
+        symbol = parts[_STOOQ_COL_SYMBOL].upper()
+        date = parts[_STOOQ_COL_DATE]
+        time_utc = parts[_STOOQ_COL_TIME]
+        close = parts[_STOOQ_COL_CLOSE]
+        volume = parts[_STOOQ_COL_VOLUME]
         if date == "N/D" or close == "N/D":
             return None
         if symbol != expected_symbol.upper():
@@ -133,6 +130,19 @@ class _NyseStooqQuoteParser:
             close=close,
             volume=volume,
         )
+
+    def _split_first_quote_row(self, raw_text: str) -> list[str]:
+        """Return normalized first CSV row from payload or raise on malformed content."""
+        normalized = raw_text.strip()
+        if not normalized:
+            raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
+        first_line = normalized.splitlines()[0].strip()
+        if not first_line:
+            raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
+        parts = [part.strip() for part in first_line.split(",")]
+        if len(parts) < _STOOQ_MIN_QUOTE_COLUMNS:
+            raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected payload format")
+        return parts
 
     def _looks_like_stooq_symbol(self, value: str) -> bool:
         """Return whether value looks like a US symbol key from Stooq quote rows."""
@@ -510,26 +520,42 @@ class TickerLookupService:
                 timeout_seconds=timeout_seconds,
                 fallback_ticker=ticker,
             )
-            return TickerLookupFound(
-                metadata=TickerLookupMetadata(
-                    exchange=Exchange.NYSE,
-                    canonical_ticker=ticker,
-                    display_name=display_name,
-                    currency="USD",
-                    provider_data=MappingProxyType(
-                        {
-                            "source": "stooq",
-                            "stooq_symbol": stooq_symbol.upper(),
-                            "quote_symbol": quote.symbol,
-                            "quote_date": quote.date,
-                            "quote_time_utc": quote.time_utc,
-                            "close": quote.close,
-                            "volume": quote.volume,
-                        }
-                    ),
-                )
+            return self._build_nyse_found_result(
+                ticker=ticker,
+                display_name=display_name,
+                stooq_symbol=stooq_symbol,
+                quote=quote,
             )
         return TickerLookupNotFound()
+
+    def _build_nyse_found_result(
+        self,
+        *,
+        ticker: str,
+        display_name: str,
+        stooq_symbol: str,
+        quote: _NyseStooqQuote,
+    ) -> TickerLookupFound:
+        """Build immutable NYSE lookup result payload from parsed Stooq quote data."""
+        return TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange.NYSE,
+                canonical_ticker=ticker,
+                display_name=display_name,
+                currency="USD",
+                provider_data=MappingProxyType(
+                    {
+                        "source": "stooq",
+                        "stooq_symbol": stooq_symbol.upper(),
+                        "quote_symbol": quote.symbol,
+                        "quote_date": quote.date,
+                        "quote_time_utc": quote.time_utc,
+                        "close": quote.close,
+                        "volume": quote.volume,
+                    }
+                ),
+            )
+        )
 
     def _fetch_nyse_display_name(
         self,
