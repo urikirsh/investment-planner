@@ -482,18 +482,12 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot()
     def _on_ticker_lookup_started(self) -> None:
         """Disable step-2 actions and show loading state when lookup starts."""
-        self._set_step_2_actions_enabled(False)
-        self._ticker_lookup_overlay.show_overlay()
-
-    def _teardown_ticker_lookup(self) -> None:
-        """Restore UI state immediately after lookup result is received."""
-        self._ticker_lookup_overlay.hide_overlay()
+        self._apply_step_2_lookup_ui_state(lookup_in_progress=True, refresh_validation=False)
 
     @Slot()
     def _on_ticker_lookup_thread_finished(self) -> None:
         """Restore step-2 actions after thread teardown completes."""
-        self._set_step_2_actions_enabled(True)
-        self._update_step_2_validity()
+        self._apply_step_2_lookup_ui_state(lookup_in_progress=False, refresh_validation=True)
 
     def _set_page(self, page: _WizardPage) -> None:
         """Switch stacked wizard content to a typed page identifier."""
@@ -502,7 +496,7 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot(object)
     def _on_ticker_lookup_success(self, payload: object) -> None:
         """Handle successful async ticker lookup result."""
-        self._teardown_ticker_lookup()
+        self._apply_step_2_lookup_ui_state(lookup_in_progress=False, refresh_validation=False)
         if not isinstance(payload, TickerLookupSuccessOutcome):
             return
         self._prefill_step_3_name_if_empty(payload.metadata.display_name)
@@ -511,7 +505,7 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot(object)
     def _on_ticker_lookup_error(self, payload: object) -> None:
         """Handle failed async ticker lookup result."""
-        self._teardown_ticker_lookup()
+        self._apply_step_2_lookup_ui_state(lookup_in_progress=False, refresh_validation=False)
         if isinstance(payload, TickerLookupErrorOutcome):
             self._set_page(_WizardPage.TICKER)
             show_error_with_back(self, payload.message_title, payload.message_text)
@@ -531,6 +525,22 @@ class AddInstrumentWizardDialog(QDialog):
         self.back_step_2_btn.setEnabled(enabled)
         self.next_step_2_btn.setEnabled(enabled)
         self.return_step_2_btn.setEnabled(enabled)
+
+    def _apply_step_2_lookup_ui_state(
+        self,
+        *,
+        lookup_in_progress: bool,
+        refresh_validation: bool,
+    ) -> None:
+        """Apply step-2 lookup UI state consistently across lookup lifecycle events."""
+        if lookup_in_progress:
+            self._set_step_2_actions_enabled(False)
+            self._ticker_lookup_overlay.show_overlay()
+        else:
+            self._ticker_lookup_overlay.hide_overlay()
+            if refresh_validation:
+                self._set_step_2_actions_enabled(True)
+                self._update_step_2_validity()
 
     def _on_exchange_changed(self, _value: str) -> None:
         """React to exchange selection changes and recompute ticker rules."""
