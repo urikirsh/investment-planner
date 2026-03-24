@@ -148,8 +148,8 @@ class TickerLookupCoordinator(QObject):
         thread.finished.connect(thread.deleteLater)
         self._worker = worker
         self._thread = thread
-        self.started.emit()
         thread.start()
+        self.started.emit()
         return True
 
     @Slot(object)
