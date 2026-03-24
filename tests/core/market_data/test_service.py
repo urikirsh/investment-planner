@@ -415,7 +415,7 @@ def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
     assert calls["count"] == 2
 
 
-def test_lookup_ticker_in_exchange_uses_tase_ttl_cache_without_refetch_during_ttl(
+def test_lookup_ticker_in_exchange_uses_tase_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = {"count": 0}

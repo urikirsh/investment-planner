@@ -3,9 +3,7 @@ from __future__ import annotations
 """Market-data lookup service for NYSE/TASE with app-session caching."""
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from threading import Lock
-import time
 from types import MappingProxyType
 
 from portfolio_core.models import Exchange
@@ -20,7 +18,6 @@ from portfolio_core.market_data.providers.nyse_stooq import _NyseStooqLookupProv
 from portfolio_core.market_data.providers.tase_api import _TaseApiLookupProvider
 from portfolio_core.market_data.transport import TickerHttpClient, UrlopenTickerHttpClient
 
-_TASE_CACHE_TTL_SECONDS = 900.0
 _REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -34,14 +31,6 @@ _TASE_REQUEST_HEADERS = {
     "Origin": "https://market.tase.co.il",
     "Accept": "application/json, text/plain, */*",
 }
-
-
-@dataclass(frozen=True)
-class _TaseLookupCacheEntry:
-    """Cached TASE ticker lookup result with monotonic expiration timestamp."""
-
-    result: TickerLookupResult
-    expires_at_monotonic: float
 
 
 class _NyseLookupCacheStore:
@@ -84,12 +73,11 @@ class _NyseLookupCacheStore:
 
 
 class _TaseLookupCacheStore:
-    """Thread-safe per-ticker TTL cache for TASE lookup results."""
+    """Thread-safe holder for app-session TASE per-ticker lookup cache."""
 
-    def __init__(self, *, ttl_seconds: float) -> None:
-        """Initialize empty cache store with a configured TTL."""
-        self._ttl_seconds = ttl_seconds
-        self._cache: dict[str, _TaseLookupCacheEntry] = {}
+    def __init__(self) -> None:
+        """Initialize empty cache storage and synchronization primitive."""
+        self._cache: dict[str, TickerLookupResult] = {}
         self._lock = Lock()
 
     def get_or_load(
@@ -99,22 +87,17 @@ class _TaseLookupCacheStore:
         timeout_seconds: float,
         result_loader: Callable[[str, float], TickerLookupResult],
     ) -> TickerLookupResult:
-        """Return cached TASE lookup result for ticker, reloading when expired/missing."""
-        now = time.monotonic()
-        cached_entry = self._cache.get(ticker)
-        if cached_entry is not None and cached_entry.expires_at_monotonic > now:
-            return cached_entry.result
+        """Return cached TASE ticker lookup result, loading once per ticker."""
+        cached = self._cache.get(ticker)
+        if cached is not None:
+            return cached
 
         with self._lock:
-            now = time.monotonic()
-            cached_entry = self._cache.get(ticker)
-            if cached_entry is not None and cached_entry.expires_at_monotonic > now:
-                return cached_entry.result
+            cached = self._cache.get(ticker)
+            if cached is not None:
+                return cached
             result = result_loader(ticker, timeout_seconds)
-            self._cache[ticker] = _TaseLookupCacheEntry(
-                result=result,
-                expires_at_monotonic=now + self._ttl_seconds,
-            )
+            self._cache[ticker] = result
             return result
 
     def clear_for_tests(self) -> None:
@@ -122,8 +105,8 @@ class _TaseLookupCacheStore:
         with self._lock:
             self._cache.clear()
 
-    def get_cached_for_tests(self) -> dict[str, _TaseLookupCacheEntry]:
-        """Return a shallow snapshot of current cache for test assertions."""
+    def get_cached_for_tests(self) -> dict[str, TickerLookupResult]:
+        """Return current cached payload without triggering network load."""
         with self._lock:
             return dict(self._cache)
 
@@ -150,9 +133,7 @@ class MarketDataService:
             request_headers=MappingProxyType(dict(_TASE_REQUEST_HEADERS)),
         )
         self._nyse_lookup_store = nyse_lookup_store or _NyseLookupCacheStore()
-        self._tase_lookup_store = tase_lookup_store or _TaseLookupCacheStore(
-            ttl_seconds=_TASE_CACHE_TTL_SECONDS
-        )
+        self._tase_lookup_store = tase_lookup_store or _TaseLookupCacheStore()
         self._lookup_by_exchange: Mapping[
             Exchange,
             Callable[[str, float], TickerLookupResult],
