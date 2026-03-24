@@ -5,6 +5,10 @@ from __future__ import annotations
 Behavior summary:
 - NYSE uses Stooq per-ticker quote lookup and caches lookup results per ticker for
   the app session.
+- NYSE display name is extracted from Stooq symbol-page title when available, with
+  ticker-text fallback.
+- NYSE quote rows are validated for expected symbol/date/time/price formats before
+  returning a successful lookup.
 - TASE uses `api.tase.co.il` per-security lookup with per-ticker TTL cache entries.
 - TASE security numbers are normalized to canonical form (leading zeros removed)
   before network lookup and cache keying.
@@ -495,7 +499,7 @@ class TickerLookupService:
         )
 
     def _fetch_nyse_lookup_result(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Fetch uncached NYSE ticker lookup result from Stooq quote endpoint."""
+        """Fetch uncached NYSE ticker lookup result from Stooq quote + symbol-page payloads."""
         for stooq_symbol in self._nyse_stooq_symbol_candidates(ticker):
             payload = self.fetch_nyse_quote_payload(stooq_symbol, timeout_seconds)
             quote = self._nyse_quote_parser.parse_quote(payload, expected_symbol=stooq_symbol)
