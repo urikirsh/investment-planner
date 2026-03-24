@@ -53,7 +53,7 @@ from portfolio_core.ticker_rules import (
     is_complete_tase_ticker,
     normalize_ticker_for_exchange,
 )
-from portfolio_core.ticker_lookup_service import (
+from portfolio_core.market_data import (
     TickerLookupMetadata,
     TickerLookupCommunicationError,
     TickerLookupFound,

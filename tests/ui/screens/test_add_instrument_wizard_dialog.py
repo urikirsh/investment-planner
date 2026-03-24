@@ -17,7 +17,7 @@ from portfolio_core.ticker_rules import (
     ExchangeTickerLocationIndex,
     build_exchange_ticker_key,
 )
-from portfolio_core.ticker_lookup_service import (
+from portfolio_core.market_data import (
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupMetadata,

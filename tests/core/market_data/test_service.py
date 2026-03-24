@@ -8,11 +8,11 @@ from typing import cast
 import pytest
 
 from portfolio_core.models import Exchange
-from portfolio_core.ticker_lookup_service import (
+from portfolio_core.market_data import (
+    MarketDataService,
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
-    TickerLookupService,
     lookup_ticker_in_exchange,
 )
 from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
@@ -49,7 +49,7 @@ def _install_default_lookup_service_with_url_payloads(
     payloads_by_url: Mapping[str, str],
     calls: dict[str, int] | None = None,
     delay_seconds: float = 0.0,
-) -> TickerLookupService:
+) -> MarketDataService:
     """Install a default lookup service with deterministic URL-specific payload behavior."""
 
     def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
@@ -66,9 +66,9 @@ def _install_default_lookup_service_with_url_payloads(
         (),
         {"fetch_text": staticmethod(_fetch_text_stub)},
     )()
-    service = TickerLookupService(http_client=http_client)
+    service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
-        "portfolio_core.ticker_lookup_service._default_ticker_lookup_service",
+        "portfolio_core.market_data.service._default_market_data_service",
         service,
     )
     return service
@@ -78,7 +78,7 @@ def _install_default_lookup_service_with_failing_transport(
     monkeypatch: pytest.MonkeyPatch,
     *,
     exception: Exception,
-) -> TickerLookupService:
+) -> MarketDataService:
     """Install a default lookup service whose transport always raises."""
 
     def _raise_fetch(*_args, **_kwargs) -> str:
@@ -89,9 +89,9 @@ def _install_default_lookup_service_with_failing_transport(
         (),
         {"fetch_text": staticmethod(_raise_fetch)},
     )()
-    service = TickerLookupService(http_client=http_client)
+    service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
-        "portfolio_core.ticker_lookup_service._default_ticker_lookup_service",
+        "portfolio_core.market_data.service._default_market_data_service",
         service,
     )
     return service
@@ -343,9 +343,9 @@ def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_page_f
         (),
         {"fetch_text": staticmethod(_fetch_text_stub)},
     )()
-    service = TickerLookupService(http_client=http_client)
+    service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
-        "portfolio_core.ticker_lookup_service._default_ticker_lookup_service",
+        "portfolio_core.market_data.service._default_market_data_service",
         service,
     )
 

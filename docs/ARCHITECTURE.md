@@ -180,17 +180,14 @@ FX thread-safety guards in this flow:
 - `portfolio_core/fx_service.py`
   - Bank of Israel USD/ILS fetch boundary and response parsing
   - normalizes BOI payload into a typed quote object used by wizard flow
-- `portfolio_core/ticker_lookup_service.py`
-  - NYSE+TASE ticker lookup boundary for existence and optional display-name resolution
-  - NYSE is verified via Stooq per-ticker quote lookup (`q/l`)
-  - NYSE display name is extracted from the Stooq symbol page title (`q/?s=`), with ticker text fallback when unavailable
-  - for dotted NYSE symbols, lookup also tries a dashed Stooq fallback key (for example `BRK.B` -> `brk-b.us`)
-  - Stooq `N/D` quote payloads are treated as ticker-not-found
-  - NYSE lookup metadata currently includes USD currency and raw Stooq quote fields in provider data
-  - keeps an in-memory app-session cache of NYSE lookup results keyed by canonical ticker
-  - TASE is verified via `api.tase.co.il` `company/securitydata` per-security lookup
-  - TASE lookups use per-ticker in-memory TTL cache entries and canonicalized security-number keys (leading zeros removed)
-  - raises typed communication errors on network/payload failures
+- `portfolio_core/market_data/*`
+  - market-data lookup boundary for NYSE/TASE ticker existence and metadata resolution
+  - `market_data/service.py` routes lookups by exchange and owns NYSE/TASE cache policy
+  - `market_data/providers/nyse_stooq.py` resolves NYSE via Stooq quote endpoint (`q/l`) plus symbol page title (`q/?s=`) for display names
+  - NYSE dotted symbols also try dashed Stooq fallback keys (for example `BRK.B` -> `brk-b.us`)
+  - `market_data/providers/tase_api.py` resolves TASE via `api.tase.co.il` `company/securitydata`
+  - `market_data/models.py` defines lookup result/metadata contracts and immutable provider-data freezing
+  - `market_data/transport.py` defines the HTTP transport seam used by providers
 - `portfolio_core/portfolio_document.py`
   - in-memory editable document state:
     - current model
@@ -269,8 +266,8 @@ Core/domain tests:
   - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
 - `tests/core/test_fx_service.py`
   - BOI USD/ILS payload parsing and "last published day" detection behavior
-- `tests/core/test_ticker_lookup_service.py`
-  - NYSE/TASE ticker lookup parsing/matching, cache behavior, and communication-failure behavior
+- `tests/core/market_data/test_service.py`
+  - NYSE/TASE market-data lookup parsing/matching, cache behavior, and communication-failure behavior
 - `tests/core/test_ticker_rules.py`
   - shared ticker normalization/shape-validation rules plus canonical exchange+ticker key/index behavior
 
