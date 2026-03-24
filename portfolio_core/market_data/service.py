@@ -3,6 +3,7 @@ from __future__ import annotations
 """Market-data lookup service for NYSE/TASE with app-session caching."""
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from threading import Lock
 from typing import Protocol
 from types import MappingProxyType
@@ -37,6 +38,14 @@ class _TickerLookupProvider(Protocol):
     """Lookup-provider contract consumed by market-data orchestration."""
 
     def lookup_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult: ...
+
+
+@dataclass(frozen=True)
+class _ExchangeLookupRuntime:
+    """Exchange lookup runtime bundle used by generic routing."""
+
+    pre_validate: Callable[[str], bool]
+    provider: _TickerLookupProvider
 
 
 class _LookupCacheStore:
@@ -99,13 +108,19 @@ class MarketDataService:
             request_headers=MappingProxyType(dict(_TASE_REQUEST_HEADERS)),
         )
         self._lookup_store = lookup_store or _LookupCacheStore()
-        self._lookup_by_exchange: Mapping[
+        self._runtime_by_exchange: Mapping[
             Exchange,
-            Callable[[str, float], TickerLookupResult],
+            _ExchangeLookupRuntime,
         ] = MappingProxyType(
             {
-                Exchange.NYSE: self._lookup_nyse_ticker,
-                Exchange.TASE: self._lookup_tase_ticker,
+                Exchange.NYSE: _ExchangeLookupRuntime(
+                    pre_validate=is_complete_nyse_ticker,
+                    provider=self._nyse_provider,
+                ),
+                Exchange.TASE: _ExchangeLookupRuntime(
+                    pre_validate=lambda _ticker: True,
+                    provider=self._tase_provider,
+                ),
             }
         )
 
@@ -117,33 +132,18 @@ class MarketDataService:
         timeout_seconds: float = 8.0,
     ) -> TickerLookupResult:
         """Route ticker lookup to exchange-specific provider flow."""
-        provider = self._lookup_by_exchange.get(exchange)
-        if provider is None:
+        runtime = self._runtime_by_exchange.get(exchange)
+        if runtime is None:
             return TickerLookupNotFound()
-        return provider(ticker, timeout_seconds)
-
-    def _lookup_nyse_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Resolve NYSE ticker metadata through the configured NYSE provider."""
-        key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker=ticker)
+        key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker)
         if not key.canonical_ticker:
             return TickerLookupNotFound()
-        if not is_complete_nyse_ticker(key.canonical_ticker):
+        if not runtime.pre_validate(key.canonical_ticker):
             return TickerLookupNotFound()
         return self._lookup_store.get_or_load(
-            key=(Exchange.NYSE, key.canonical_ticker),
+            key=(exchange, key.canonical_ticker),
             timeout_seconds=timeout_seconds,
-            result_loader=self._nyse_provider.lookup_ticker,
-        )
-
-    def _lookup_tase_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Resolve TASE ticker metadata through the configured TASE provider."""
-        key = build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker=ticker)
-        if not key.canonical_ticker:
-            return TickerLookupNotFound()
-        return self._lookup_store.get_or_load(
-            key=(Exchange.TASE, key.canonical_ticker),
-            timeout_seconds=timeout_seconds,
-            result_loader=self._tase_provider.lookup_ticker,
+            result_loader=runtime.provider.lookup_ticker,
         )
 
 
