@@ -574,6 +574,7 @@ class AddInstrumentWizardDialog(QDialog):
         thread.started.connect(worker.run)
         worker.finished.connect(self._on_ticker_lookup_finished)
         worker.finished.connect(thread.quit)
+        thread.finished.connect(self._on_ticker_lookup_thread_finished)
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         self._ticker_lookup_worker = worker
@@ -581,11 +582,16 @@ class AddInstrumentWizardDialog(QDialog):
         thread.start()
 
     def _teardown_ticker_lookup(self) -> None:
-        """Restore UI/action state and clear worker/thread references after lookup completion."""
+        """Restore UI state immediately after lookup result is received."""
         self._ticker_lookup_overlay.hide_overlay()
+
+    @Slot()
+    def _on_ticker_lookup_thread_finished(self) -> None:
+        """Restore step-2 actions and clear references after thread teardown completes."""
         self._set_step_2_actions_enabled(True)
         self._ticker_lookup_worker = None
         self._ticker_lookup_thread = None
+        self._update_step_2_validity()
 
     def _set_page(self, page: _WizardPage) -> None:
         """Switch stacked wizard content to a typed page identifier."""
