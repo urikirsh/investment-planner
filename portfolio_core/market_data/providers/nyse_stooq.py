@@ -16,6 +16,7 @@ from portfolio_core.market_data.models import (
     TickerLookupNotFound,
     TickerLookupResult,
 )
+from portfolio_core.market_data.providers.base import _BaseHttpLookupProvider
 from portfolio_core.market_data.transport import TickerHttpClient
 
 _STOOQ_QUOTE_URL_TEMPLATE = "https://stooq.com/q/l/?s={symbol}"
@@ -129,7 +130,7 @@ class _NyseStooqSymbolPageParser:
         return normalized_company
 
 
-class _NyseStooqLookupProvider:
+class _NyseStooqLookupProvider(_BaseHttpLookupProvider):
     """NYSE lookup provider backed by Stooq quote and symbol-page endpoints."""
 
     def __init__(
@@ -140,8 +141,7 @@ class _NyseStooqLookupProvider:
         quote_parser: _NyseStooqQuoteParser | None = None,
         symbol_page_parser: _NyseStooqSymbolPageParser | None = None,
     ) -> None:
-        self._http_client = http_client
-        self._request_headers = request_headers
+        super().__init__(http_client=http_client, request_headers=request_headers)
         self._quote_parser = quote_parser or _NyseStooqQuoteParser()
         self._symbol_page_parser = symbol_page_parser or _NyseStooqSymbolPageParser()
 
@@ -222,20 +222,3 @@ class _NyseStooqLookupProvider:
             expected_symbol=stooq_symbol.upper(),
         )
         return parsed_name or fallback_ticker
-
-    def _fetch_text_or_raise_communication_error(
-        self,
-        *,
-        url: str,
-        timeout_seconds: float,
-        error_message: str,
-    ) -> str:
-        """Fetch payload and normalize transport/parsing failures to communication errors."""
-        try:
-            return self._http_client.fetch_text(
-                url=url,
-                headers=self._request_headers,
-                timeout_seconds=timeout_seconds,
-            )
-        except Exception as exc:
-            raise TickerLookupCommunicationError(error_message) from exc

@@ -14,6 +14,7 @@ from portfolio_core.market_data.models import (
     TickerLookupNotFound,
     TickerLookupResult,
 )
+from portfolio_core.market_data.providers.base import _BaseHttpLookupProvider
 from portfolio_core.market_data.transport import TickerHttpClient
 
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
@@ -85,7 +86,7 @@ class _TaseSecurityDataParser:
         return any("\u0590" <= ch <= "\u05FF" for ch in text)
 
 
-class _TaseApiLookupProvider:
+class _TaseApiLookupProvider(_BaseHttpLookupProvider):
     """TASE lookup provider backed by ``api.tase.co.il`` security-data endpoint."""
 
     def __init__(
@@ -95,8 +96,7 @@ class _TaseApiLookupProvider:
         request_headers: Mapping[str, str],
         parser: _TaseSecurityDataParser | None = None,
     ) -> None:
-        self._http_client = http_client
-        self._request_headers = request_headers
+        super().__init__(http_client=http_client, request_headers=request_headers)
         self._parser = parser or _TaseSecurityDataParser()
 
     def lookup_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
@@ -112,20 +112,3 @@ class _TaseApiLookupProvider:
             timeout_seconds=timeout_seconds,
             error_message="Failed to fetch TASE security data",
         )
-
-    def _fetch_text_or_raise_communication_error(
-        self,
-        *,
-        url: str,
-        timeout_seconds: float,
-        error_message: str,
-    ) -> str:
-        """Fetch payload and normalize transport/parsing failures to communication errors."""
-        try:
-            return self._http_client.fetch_text(
-                url=url,
-                headers=self._request_headers,
-                timeout_seconds=timeout_seconds,
-            )
-        except Exception as exc:
-            raise TickerLookupCommunicationError(error_message) from exc

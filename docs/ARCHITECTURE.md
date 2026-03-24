@@ -183,6 +183,7 @@ FX thread-safety guards in this flow:
 - `portfolio_core/market_data/*`
   - market-data lookup boundary for NYSE/TASE ticker existence and metadata resolution
   - `market_data/service.py` routes lookups by exchange and owns NYSE/TASE cache policy
+  - `market_data/providers/base.py` provides shared HTTP transport error-normalization for provider implementations
   - `market_data/providers/nyse_stooq.py` resolves NYSE via Stooq quote endpoint (`q/l`) plus symbol page title (`q/?s=`) for display names
   - NYSE dotted symbols also try dashed Stooq fallback keys (for example `BRK.B` -> `brk-b.us`)
   - `market_data/providers/tase_api.py` resolves TASE via `api.tase.co.il` `company/securitydata`
