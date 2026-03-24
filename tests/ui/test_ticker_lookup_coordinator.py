@@ -53,19 +53,19 @@ def test_ticker_lookup_coordinator_emits_result_then_stopped_for_success() -> No
     events: list[str] = []
     payloads: list[object] = []
 
-    def _on_result(payload: object) -> None:
-        events.append("result")
+    def _on_success(payload: object) -> None:
+        events.append("success")
         payloads.append(payload)
         assert coordinator.is_running is True
 
     coordinator.started.connect(lambda: events.append("started"))
-    coordinator.result_ready.connect(_on_result)
+    coordinator.success.connect(_on_success)
     coordinator.stopped.connect(lambda: events.append("stopped"))
 
     assert coordinator.start_lookup(exchange=Exchange.NYSE, ticker="AAPL") is True
     _wait_until(lambda: len(events) == 3)
 
-    assert events == ["started", "result", "stopped"]
+    assert events == ["started", "success", "stopped"]
     assert isinstance(payloads[0], TickerLookupSuccessOutcome)
     assert payloads[0].metadata.display_name == "Resolved Name"
     assert coordinator.is_running is False
@@ -81,7 +81,7 @@ def test_ticker_lookup_coordinator_maps_communication_errors_to_network_outcome(
     )
     payloads: list[object] = []
 
-    coordinator.result_ready.connect(payloads.append)
+    coordinator.error.connect(payloads.append)
     assert coordinator.start_lookup(exchange=Exchange.TASE, ticker="1159094") is True
     _wait_until(lambda: len(payloads) == 1)
 

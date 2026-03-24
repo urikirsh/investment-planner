@@ -68,7 +68,6 @@ from ui.ticker_lookup_coordinator import (
     TickerLookupCoordinator,
     TickerLookupErrorOutcome,
     TickerLookupSuccessOutcome,
-    build_internal_error_outcome,
 )
 
 @dataclass(frozen=True)
@@ -201,7 +200,8 @@ class AddInstrumentWizardDialog(QDialog):
             parent=self,
         )
         self._ticker_lookup_coordinator.started.connect(self._on_ticker_lookup_started)
-        self._ticker_lookup_coordinator.result_ready.connect(self._on_ticker_lookup_finished)
+        self._ticker_lookup_coordinator.success.connect(self._on_ticker_lookup_success)
+        self._ticker_lookup_coordinator.error.connect(self._on_ticker_lookup_error)
         self._ticker_lookup_coordinator.stopped.connect(self._on_ticker_lookup_thread_finished)
         self.setWindowTitle("Add Instrument")
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -500,20 +500,31 @@ class AddInstrumentWizardDialog(QDialog):
         self.pages.setCurrentIndex(int(page))
 
     @Slot(object)
-    def _on_ticker_lookup_finished(self, payload: object) -> None:
-        """Handle async ticker check result and continue/block wizard flow."""
+    def _on_ticker_lookup_success(self, payload: object) -> None:
+        """Handle successful async ticker lookup result."""
         self._teardown_ticker_lookup()
-        if isinstance(payload, TickerLookupSuccessOutcome):
-            self._prefill_step_3_name_if_empty(payload.metadata.display_name)
-            self._advance_to_step_3()
+        if not isinstance(payload, TickerLookupSuccessOutcome):
             return
+        self._prefill_step_3_name_if_empty(payload.metadata.display_name)
+        self._advance_to_step_3()
+
+    @Slot(object)
+    def _on_ticker_lookup_error(self, payload: object) -> None:
+        """Handle failed async ticker lookup result."""
+        self._teardown_ticker_lookup()
         if isinstance(payload, TickerLookupErrorOutcome):
             self._set_page(_WizardPage.TICKER)
             show_error_with_back(self, payload.message_title, payload.message_text)
             return
-        internal_error = build_internal_error_outcome()
         self._set_page(_WizardPage.TICKER)
-        show_error_with_back(self, internal_error.message_title, internal_error.message_text)
+        show_error_with_back(
+            self,
+            "Ticker lookup internal error",
+            (
+                "Could not verify this ticker due to an internal error. "
+                "Please try again or restart the app."
+            ),
+        )
 
     def _set_step_2_actions_enabled(self, enabled: bool) -> None:
         """Enable or disable all step-2 actions during ticker verification."""

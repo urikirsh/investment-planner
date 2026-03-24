@@ -618,7 +618,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpecte
     assert "internal error" in shown[0][1].lower()
 
 
-def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup_payload(
+def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup_error_payload(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -629,7 +629,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
-    dialog._on_ticker_lookup_finished(object())
+    dialog._on_ticker_lookup_error(object())
 
     assert dialog.pages.currentIndex() == 1
     assert shown[0][0] == "Ticker lookup internal error"

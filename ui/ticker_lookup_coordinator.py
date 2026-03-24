@@ -52,7 +52,8 @@ def build_internal_error_outcome() -> TickerLookupErrorOutcome:
 class _TickerLookupWorker(QObject):
     """Background worker that verifies ticker existence on selected exchange."""
 
-    finished = Signal(object)
+    success = Signal(object)
+    error = Signal(object)
 
     def __init__(
         self,
@@ -91,26 +92,27 @@ class _TickerLookupWorker(QObject):
         try:
             result = self._checker(exchange=self._exchange, ticker=self._ticker)
         except TickerLookupCommunicationError:
-            self.finished.emit(self._network_error_outcome())
+            self.error.emit(self._network_error_outcome())
             return
         except Exception:
-            self.finished.emit(build_internal_error_outcome())
+            self.error.emit(build_internal_error_outcome())
             return
 
         if isinstance(result, TickerLookupFound):
-            self.finished.emit(TickerLookupSuccessOutcome(metadata=result.metadata))
+            self.success.emit(TickerLookupSuccessOutcome(metadata=result.metadata))
             return
         if isinstance(result, TickerLookupNotFound):
-            self.finished.emit(self._not_found_outcome())
+            self.error.emit(self._not_found_outcome())
             return
-        self.finished.emit(self._not_found_outcome())
+        self.error.emit(self._not_found_outcome())
 
 
 class TickerLookupCoordinator(QObject):
     """Own worker/thread lifecycle for async ticker verification."""
 
     started = Signal()
-    result_ready = Signal(object)
+    success = Signal(object)
+    error = Signal(object)
     stopped = Signal()
 
     def __init__(
@@ -141,8 +143,10 @@ class TickerLookupCoordinator(QObject):
         thread = QThread(self)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        worker.finished.connect(self._on_worker_finished)
-        worker.finished.connect(thread.quit)
+        worker.success.connect(self.success.emit)
+        worker.error.connect(self.error.emit)
+        worker.success.connect(thread.quit)
+        worker.error.connect(thread.quit)
         thread.finished.connect(self._on_thread_finished)
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
@@ -151,11 +155,6 @@ class TickerLookupCoordinator(QObject):
         thread.start()
         self.started.emit()
         return True
-
-    @Slot(object)
-    def _on_worker_finished(self, payload: object) -> None:
-        """Forward worker outcome payload to coordinator consumers."""
-        self.result_ready.emit(payload)
 
     @Slot()
     def _on_thread_finished(self) -> None:
