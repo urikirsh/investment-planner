@@ -325,6 +325,37 @@ def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_stooq_
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
+def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_page_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"count": 0}
+
+    def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
+        calls["count"] += 1
+        if url == _STOOQ_AAPL_URL:
+            return _build_stooq_quote_payload()
+        if url == _STOOQ_AAPL_PAGE_URL:
+            raise RuntimeError("symbol page unavailable")
+        raise AssertionError(f"Unexpected URL requested: {url}")
+
+    http_client = type(
+        "_StubHttpClient",
+        (),
+        {"fetch_text": staticmethod(_fetch_text_stub)},
+    )()
+    service = TickerLookupService(http_client=http_client)
+    monkeypatch.setattr(
+        "portfolio_core.ticker_lookup_service._default_ticker_lookup_service",
+        service,
+    )
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.metadata.display_name == "AAPL"
+    assert calls["count"] == 2
+
+
 def test_lookup_ticker_in_exchange_raises_communication_error_for_stooq_quote_with_invalid_date(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

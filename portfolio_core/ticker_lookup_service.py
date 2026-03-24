@@ -146,7 +146,7 @@ class _NyseStooqQuoteParser:
 
     def _looks_like_stooq_symbol(self, value: str) -> bool:
         """Return whether value looks like a US symbol key from Stooq quote rows."""
-        return value.endswith(".US") and all(ch.isalnum() or ch in {".", "-", "_"} for ch in value)
+        return value.endswith(".US") and all(ch.isalnum() or ch in {".", "-"} for ch in value)
 
     def _looks_like_yyyymmdd(self, value: str) -> bool:
         """Return whether value matches an 8-digit date token."""
