@@ -466,7 +466,7 @@ def test_canonicalize_tase_security_number(raw_ticker: str, normalized: str) -> 
     assert canonicalize_ticker_for_exchange(exchange=Exchange.TASE, raw=raw_ticker) == normalized
 
 
-def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_ticker(
+def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_ticker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _install_default_lookup_service_with_url_payloads(
@@ -478,9 +478,9 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_ticker(
     )
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-    cache = service._nyse_lookup_store.get_cached_for_tests()
-    assert set(cache.keys()) == {"AAPL"}
-    assert isinstance(cache["AAPL"], TickerLookupFound)
+    cache = service._lookup_store.get_cached_for_tests()
+    assert set(cache.keys()) == {(Exchange.NYSE, "AAPL")}
+    assert isinstance(cache[(Exchange.NYSE, "AAPL")], TickerLookupFound)
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(

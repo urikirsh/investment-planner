@@ -33,32 +33,32 @@ _TASE_REQUEST_HEADERS = {
 }
 
 
-class _NyseLookupCacheStore:
-    """Thread-safe holder for app-session NYSE per-ticker lookup cache."""
+class _LookupCacheStore:
+    """Thread-safe holder for app-session per-(exchange, ticker) lookup cache."""
 
     def __init__(self) -> None:
         """Initialize empty cache storage and synchronization primitive."""
-        self._cache: dict[str, TickerLookupResult] = {}
+        self._cache: dict[tuple[Exchange, str], TickerLookupResult] = {}
         self._lock = Lock()
 
     def get_or_load(
         self,
         *,
-        ticker: str,
+        key: tuple[Exchange, str],
         timeout_seconds: float,
         result_loader: Callable[[str, float], TickerLookupResult],
     ) -> TickerLookupResult:
-        """Return cached NYSE ticker lookup result, loading once per ticker."""
-        cached = self._cache.get(ticker)
+        """Return cached ticker lookup result, loading once per cache key."""
+        cached = self._cache.get(key)
         if cached is not None:
             return cached
 
         with self._lock:
-            cached = self._cache.get(ticker)
+            cached = self._cache.get(key)
             if cached is not None:
                 return cached
-            result = result_loader(ticker, timeout_seconds)
-            self._cache[ticker] = result
+            result = result_loader(key[1], timeout_seconds)
+            self._cache[key] = result
             return result
 
     def clear_for_tests(self) -> None:
@@ -66,46 +66,7 @@ class _NyseLookupCacheStore:
         with self._lock:
             self._cache.clear()
 
-    def get_cached_for_tests(self) -> dict[str, TickerLookupResult]:
-        """Return current cached payload without triggering network load."""
-        with self._lock:
-            return dict(self._cache)
-
-
-class _TaseLookupCacheStore:
-    """Thread-safe holder for app-session TASE per-ticker lookup cache."""
-
-    def __init__(self) -> None:
-        """Initialize empty cache storage and synchronization primitive."""
-        self._cache: dict[str, TickerLookupResult] = {}
-        self._lock = Lock()
-
-    def get_or_load(
-        self,
-        *,
-        ticker: str,
-        timeout_seconds: float,
-        result_loader: Callable[[str, float], TickerLookupResult],
-    ) -> TickerLookupResult:
-        """Return cached TASE ticker lookup result, loading once per ticker."""
-        cached = self._cache.get(ticker)
-        if cached is not None:
-            return cached
-
-        with self._lock:
-            cached = self._cache.get(ticker)
-            if cached is not None:
-                return cached
-            result = result_loader(ticker, timeout_seconds)
-            self._cache[ticker] = result
-            return result
-
-    def clear_for_tests(self) -> None:
-        """Reset cache state for deterministic tests."""
-        with self._lock:
-            self._cache.clear()
-
-    def get_cached_for_tests(self) -> dict[str, TickerLookupResult]:
+    def get_cached_for_tests(self) -> dict[tuple[Exchange, str], TickerLookupResult]:
         """Return current cached payload without triggering network load."""
         with self._lock:
             return dict(self._cache)
@@ -120,8 +81,7 @@ class MarketDataService:
         http_client: TickerHttpClient | None = None,
         nyse_provider: _NyseStooqLookupProvider | None = None,
         tase_provider: _TaseApiLookupProvider | None = None,
-        nyse_lookup_store: _NyseLookupCacheStore | None = None,
-        tase_lookup_store: _TaseLookupCacheStore | None = None,
+        lookup_store: _LookupCacheStore | None = None,
     ) -> None:
         self._http_client = http_client or UrlopenTickerHttpClient()
         self._nyse_provider = nyse_provider or _NyseStooqLookupProvider(
@@ -132,8 +92,7 @@ class MarketDataService:
             http_client=self._http_client,
             request_headers=MappingProxyType(dict(_TASE_REQUEST_HEADERS)),
         )
-        self._nyse_lookup_store = nyse_lookup_store or _NyseLookupCacheStore()
-        self._tase_lookup_store = tase_lookup_store or _TaseLookupCacheStore()
+        self._lookup_store = lookup_store or _LookupCacheStore()
         self._lookup_by_exchange: Mapping[
             Exchange,
             Callable[[str, float], TickerLookupResult],
@@ -164,8 +123,8 @@ class MarketDataService:
             return TickerLookupNotFound()
         if not is_complete_nyse_ticker(key.canonical_ticker):
             return TickerLookupNotFound()
-        return self._nyse_lookup_store.get_or_load(
-            ticker=key.canonical_ticker,
+        return self._lookup_store.get_or_load(
+            key=(Exchange.NYSE, key.canonical_ticker),
             timeout_seconds=timeout_seconds,
             result_loader=self._nyse_provider.lookup_ticker,
         )
@@ -175,8 +134,8 @@ class MarketDataService:
         key = build_exchange_ticker_key(exchange=Exchange.TASE, raw_ticker=ticker)
         if not key.canonical_ticker:
             return TickerLookupNotFound()
-        return self._tase_lookup_store.get_or_load(
-            ticker=key.canonical_ticker,
+        return self._lookup_store.get_or_load(
+            key=(Exchange.TASE, key.canonical_ticker),
             timeout_seconds=timeout_seconds,
             result_loader=self._tase_provider.lookup_ticker,
         )
