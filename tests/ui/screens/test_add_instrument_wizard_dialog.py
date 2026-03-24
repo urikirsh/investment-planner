@@ -641,19 +641,18 @@ def test_add_instrument_wizard_keeps_close_guard_until_lookup_thread_finishes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dialog = wizard_dialog_factory()
-    _ = _capture_back_modal_messages(monkeypatch)
-    dialog._ticker_lookup_thread = object()  # type: ignore[assignment]
+    running = {"value": True}
+    monkeypatch.setattr(
+        dialog,
+        "_is_ticker_lookup_running",
+        lambda: running["value"],
+    )
 
-    dialog._on_ticker_lookup_finished(object())
-
-    assert dialog._ticker_lookup_thread is not None
     blocked_event = QCloseEvent()
     dialog.closeEvent(blocked_event)
     assert blocked_event.isAccepted() is False
 
-    dialog._on_ticker_lookup_thread_finished()
-
-    assert dialog._ticker_lookup_thread is None
+    running["value"] = False
     allowed_event = QCloseEvent()
     dialog.closeEvent(allowed_event)
     assert allowed_event.isAccepted() is True

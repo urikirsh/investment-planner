@@ -77,7 +77,7 @@ FX thread-safety guards in this flow:
   - each step renders the selected group plus prior step decisions for review
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
   - step-2 ticker input `Enter` key behaves like `Next` when `Next` is enabled
-  - for NYSE and TASE, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in a background worker
+  - for NYSE and TASE, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in an async lookup coordinator
   - ticker-not-found, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
   - duplicate ticker/name submit paths keep defensive Back-only modals naming the existing location
   - return/cancel prompts for discard only when user has edited wizard input
@@ -146,6 +146,9 @@ FX thread-safety guards in this flow:
   - extracted FX-only coordinator used by `MainWindowWizardMixin`
   - owns USD-step FX panel rendering and reset behavior for wizard runs
   - reads session-cached USD/ILS quote; wizard does not trigger BOI fetch
+- `ui/ticker_lookup_coordinator.py`
+  - extracted ticker-lookup worker/thread lifecycle coordinator used by add-instrument wizard step 2
+  - normalizes lookup outcomes into typed success/error payloads consumed by the dialog UI
 
 ## portfolio_core module map
 - `portfolio_core/models.py`
@@ -251,6 +254,8 @@ UI-focused tests:
   - planning/wizard state defaults and behavior
 - `tests/ui/test_wizard_fx_coordinator.py`
   - FX coordinator behavior (session-cache hydration and USD-step panel rendering)
+- `tests/ui/test_ticker_lookup_coordinator.py`
+  - ticker-lookup coordinator lifecycle and outcome mapping behavior
 
 Core/domain tests:
 - `tests/core/helpers.py`
