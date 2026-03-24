@@ -356,6 +356,35 @@ def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_page_f
     assert calls["count"] == 2
 
 
+@pytest.mark.parametrize(
+    "symbol_page_payload",
+    [
+        # Missing expected " - " separator
+        "<html><head><title>AAPL.US (+0.84%) Apple Inc - Stooq</title></head><body></body></html>",
+        # Empty title
+        "<html><head><title></title></head><body></body></html>",
+        # Title symbol does not match expected symbol
+        "<html><head><title>MSFT.US (+0.84%) - Microsoft Corp - Stooq</title></head><body></body></html>",
+    ],
+)
+def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_title_is_unexpected(
+    monkeypatch: pytest.MonkeyPatch,
+    symbol_page_payload: str,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: symbol_page_payload,
+        },
+    )
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.metadata.display_name == "AAPL"
+
+
 def test_lookup_ticker_in_exchange_raises_communication_error_for_stooq_quote_with_invalid_date(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
