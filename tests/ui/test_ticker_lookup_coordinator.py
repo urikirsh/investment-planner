@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from threading import Event
 
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -86,3 +87,34 @@ def test_ticker_lookup_coordinator_maps_communication_errors_to_network_outcome(
 
     assert isinstance(payloads[0], TickerLookupErrorOutcome)
     assert payloads[0].message_title == "Ticker lookup network error"
+
+
+def test_ticker_lookup_coordinator_rejects_second_start_while_running() -> None:
+    release = Event()
+    checker_calls = {"count": 0}
+
+    def _gated_success(*, exchange: Exchange, ticker: str) -> TickerLookupResult:
+        checker_calls["count"] += 1
+        assert release.wait(timeout=1.0)
+        return TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=exchange,
+                canonical_ticker=ticker,
+                display_name="Resolved Name",
+            )
+        )
+
+    coordinator = TickerLookupCoordinator(checker=_gated_success)
+    stop_events = {"count": 0}
+    coordinator.stopped.connect(lambda: stop_events.__setitem__("count", stop_events["count"] + 1))
+
+    assert coordinator.start_lookup(exchange=Exchange.NYSE, ticker="AAPL") is True
+    assert coordinator.is_running is True
+    assert coordinator.start_lookup(exchange=Exchange.NYSE, ticker="MSFT") is False
+    assert coordinator.is_running is True
+
+    release.set()
+    _wait_until(lambda: stop_events["count"] == 1)
+
+    assert checker_calls["count"] == 1
+    assert coordinator.is_running is False
