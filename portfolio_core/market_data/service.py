@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from threading import Lock
+from typing import Protocol
 from types import MappingProxyType
 
 from portfolio_core.models import Exchange
 from portfolio_core.ticker_rules import build_exchange_ticker_key, is_complete_nyse_ticker
 
 from portfolio_core.market_data.models import (
-    TickerLookupFound,
     TickerLookupNotFound,
     TickerLookupResult,
 )
@@ -31,6 +31,12 @@ _TASE_REQUEST_HEADERS = {
     "Origin": "https://market.tase.co.il",
     "Accept": "application/json, text/plain, */*",
 }
+
+
+class _TickerLookupProvider(Protocol):
+    """Lookup-provider contract consumed by market-data orchestration."""
+
+    def lookup_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult: ...
 
 
 class _LookupCacheStore:
@@ -79,8 +85,8 @@ class MarketDataService:
         self,
         *,
         http_client: TickerHttpClient | None = None,
-        nyse_provider: _NyseStooqLookupProvider | None = None,
-        tase_provider: _TaseApiLookupProvider | None = None,
+        nyse_provider: _TickerLookupProvider | None = None,
+        tase_provider: _TickerLookupProvider | None = None,
         lookup_store: _LookupCacheStore | None = None,
     ) -> None:
         self._http_client = http_client or UrlopenTickerHttpClient()
