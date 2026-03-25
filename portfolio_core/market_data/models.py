@@ -1,3 +1,16 @@
+"""Domain models for market-data ticker lookup results.
+
+This module defines the typed result contracts shared across providers, service,
+and UI layers:
+- the communication-level error used for lookup failures
+- immutable metadata for resolved tickers
+- success/not-found result payload types
+
+It is responsible for preserving immutability guarantees on provider metadata
+via deep-freeze normalization, while keeping provider/service orchestration logic
+out of the model layer.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

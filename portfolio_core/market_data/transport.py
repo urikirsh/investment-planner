@@ -1,3 +1,15 @@
+"""HTTP transport seam for market-data lookup providers.
+
+This module defines:
+- a typed protocol used by providers to fetch text payloads from remote URLs
+- a transport-level error type used to normalize I/O failures
+- the default ``urllib``-based implementation used in production
+
+Responsibilities are limited to HTTP request/response mechanics and timeout/header
+handling. Parsing and domain-level error mapping are handled by provider/service
+layers.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
