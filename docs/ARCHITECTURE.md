@@ -155,7 +155,7 @@ FX thread-safety guards in this flow:
   - app-level metadata helpers shared across layers
   - lazily resolves app version from `pyproject.toml` (`[project].version`)
   - returns `None` when metadata is unavailable (welcome screen hides version label)
-- `portfolio_core/calc_stock_units.py`
+- `portfolio_core/planning/calc_stock_units.py`
   - unit-level trade math:
     - agorot-to-ILS conversion and unit flooring (`calculate_buy_units`)
     - direct ILS-price unit flooring (`calculate_buy_units_from_ils_price`)
@@ -172,7 +172,7 @@ FX thread-safety guards in this flow:
   - `Exchange` enum is the canonical instrument trading selector (`TASE`, `NYSE`)
   - exchange-to-currency mapping lives in the enum (`TASE->ILS`, `NYSE->USD`)
   - planning output model `AssetGroupPlanRow`
-- `portfolio_core/planning.py`
+- `portfolio_core/planning/planning.py`
   - pure planning logic:
     - invest budget calculation
     - group-level deltas (`plan_invest_no_sell`, `plan_rebalance`)

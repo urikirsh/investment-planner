@@ -22,7 +22,7 @@ Focused-row layout:
 
 Price-entry semantics:
 - ILS steps use agorot input (`Price (Agorot)`), matching
-  `portfolio_core.calc_stock_units.calculate_buy_units`.
+  `portfolio_core.planning.calc_stock_units.calculate_buy_units`.
 - USD steps use USD unit-price input (`Price (USD)`), with conversion handled
   by the wizard FX coordinator before calculation.
 

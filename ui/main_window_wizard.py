@@ -15,7 +15,7 @@ from typing import cast
 
 from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
 
-from portfolio_core.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
+from portfolio_core.planning.calc_stock_units import calculate_buy_units, calculate_buy_units_from_ils_price
 from portfolio_core.domain.models import Currency, Portfolio
 from portfolio_core.session.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step

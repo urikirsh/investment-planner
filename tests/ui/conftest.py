@@ -18,7 +18,7 @@ from typing import Iterator
 import pytest
 from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem
 
-from portfolio_core.calc_stock_units import BuyCalculation
+from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.models import Exchange
 from portfolio_core.use_cases import PlanStep
 from ui.main_window import MainWindow

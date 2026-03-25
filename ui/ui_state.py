@@ -33,7 +33,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
-from portfolio_core.calc_stock_units import BuyCalculation
+from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
 

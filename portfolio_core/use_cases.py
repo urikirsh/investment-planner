@@ -5,11 +5,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, Mapping
 
-from portfolio_core.calc_stock_units import commit_buy, commit_sell
+from portfolio_core.planning.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.domain.models import AssetGroupPlanRow, Exchange, Instrument, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.planning import (
+from portfolio_core.planning.planning import (
     compute_invest_budget,
     map_asset_group_deltas_to_instruments,
     plan_invest_no_sell,
