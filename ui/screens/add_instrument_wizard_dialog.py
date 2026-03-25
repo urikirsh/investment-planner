@@ -20,7 +20,7 @@ from decimal import Decimal, InvalidOperation
 from PySide6.QtCore import QRegularExpression, QSignalBlocker, Qt, Slot
 from PySide6.QtGui import QCloseEvent, QRegularExpressionValidator
 from collections.abc import Callable
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -106,6 +106,14 @@ class _WizardPage(IntEnum):
     EXCHANGE = 0
     TICKER = 1
     DETAILS = 2
+
+
+class _Step2LookupUiState(Enum):
+    """UI transition states for step-2 async ticker lookup flow."""
+
+    IN_PROGRESS = "in_progress"
+    RESULT_RECEIVED = "result_received"
+    FINISHED = "finished"
 
 
 @dataclass(frozen=True)
@@ -483,12 +491,12 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot()
     def _on_ticker_lookup_started(self) -> None:
         """Disable step-2 actions and show loading state when lookup starts."""
-        self._apply_step_2_lookup_ui_state(lookup_in_progress=True, refresh_validation=False)
+        self._apply_step_2_lookup_ui_state(state=_Step2LookupUiState.IN_PROGRESS)
 
     @Slot()
     def _on_ticker_lookup_thread_finished(self) -> None:
         """Restore step-2 actions after thread teardown completes."""
-        self._apply_step_2_lookup_ui_state(lookup_in_progress=False, refresh_validation=True)
+        self._apply_step_2_lookup_ui_state(state=_Step2LookupUiState.FINISHED)
 
     def _set_page(self, page: _WizardPage) -> None:
         """Switch stacked wizard content to a typed page identifier."""
@@ -497,7 +505,7 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot(object)
     def _on_ticker_lookup_success(self, payload: object) -> None:
         """Handle successful async ticker lookup result."""
-        self._apply_step_2_lookup_ui_state(lookup_in_progress=False, refresh_validation=False)
+        self._apply_step_2_lookup_ui_state(state=_Step2LookupUiState.RESULT_RECEIVED)
         if not isinstance(payload, TickerLookupSuccessOutcome):
             return
         self._prefill_step_3_name_if_empty(payload.metadata.display_name)
@@ -506,7 +514,7 @@ class AddInstrumentWizardDialog(QDialog):
     @Slot(object)
     def _on_ticker_lookup_error(self, payload: object) -> None:
         """Handle failed async ticker lookup result."""
-        self._apply_step_2_lookup_ui_state(lookup_in_progress=False, refresh_validation=False)
+        self._apply_step_2_lookup_ui_state(state=_Step2LookupUiState.RESULT_RECEIVED)
         if isinstance(payload, TickerLookupErrorOutcome):
             self._set_page(_WizardPage.TICKER)
             show_error_with_back(self, payload.message_title, payload.message_text)
@@ -525,21 +533,18 @@ class AddInstrumentWizardDialog(QDialog):
         self.next_step_2_btn.setEnabled(enabled)
         self.return_step_2_btn.setEnabled(enabled)
 
-    def _apply_step_2_lookup_ui_state(
-        self,
-        *,
-        lookup_in_progress: bool,
-        refresh_validation: bool,
-    ) -> None:
+    def _apply_step_2_lookup_ui_state(self, *, state: _Step2LookupUiState) -> None:
         """Apply step-2 lookup UI state consistently across lookup lifecycle events."""
-        if lookup_in_progress:
+        if state is _Step2LookupUiState.IN_PROGRESS:
             self._set_step_2_actions_enabled(False)
             self._ticker_lookup_overlay.show_overlay()
-        else:
+            return
+        if state is _Step2LookupUiState.RESULT_RECEIVED:
             self._ticker_lookup_overlay.hide_overlay()
-            if refresh_validation:
-                self._set_step_2_actions_enabled(True)
-                self._update_step_2_validity()
+            return
+        self._ticker_lookup_overlay.hide_overlay()
+        self._set_step_2_actions_enabled(True)
+        self._update_step_2_validity()
 
     def _on_exchange_changed(self, _value: str) -> None:
         """React to exchange selection changes and recompute ticker rules."""
