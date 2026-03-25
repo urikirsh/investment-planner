@@ -54,6 +54,7 @@ class Cash:
 
     Monetary fields are expected in ILS and represented as ``Decimal``.
     """
+
     value: D
     min_reserve: D
     future_tax: D
@@ -72,6 +73,7 @@ class AssetGroup:
     - ``target_pct`` is positive
     - portfolio-level sum of all group targets is exactly 100
     """
+
     id: str
     name: str
     target_pct: D  # e.g. Decimal("25.0")
@@ -95,8 +97,8 @@ class Instrument:
     - ``quantity`` is a non-negative integer
     - investable instruments must reference a valid ``asset_group_id``
     - non-investable instruments must have ``asset_group_id is None``
-
     """
+
     id: str
     ticker: str
     name: str
@@ -122,9 +124,10 @@ class Portfolio:
     - ``asset_groups`` order is semantically important and drives plan output order.
     - ``instruments`` order is preserved for stable UI rendering and iteration.
     """
+
     cash: Cash
-    asset_groups: list[AssetGroup]       # ordered (drives planning order)
-    instruments: list[Instrument]        # ordered (drives UI order; not required for planning)
+    asset_groups: list[AssetGroup]  # ordered (drives planning order)
+    instruments: list[Instrument]  # ordered (drives UI order; not required for planning)
 
 
 @dataclass(frozen=True)
@@ -152,8 +155,9 @@ class AssetGroupPlanRow:
     This structure is produced by the planning logic and consumed by the
     investment execution flow. It contains no execution or UI behavior.
     """
+
     asset_group_id: str
     asset_group_name: str
     target_pct: D
     current_value: D
-    planned_delta_money: D              # positive=buy, negative=sell
+    planned_delta_money: D  # positive=buy, negative=sell

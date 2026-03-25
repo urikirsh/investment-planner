@@ -3,8 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from portfolio_core.models import Exchange, Portfolio
-from portfolio_core.ticker_rules import (
+from portfolio_core.domain.models import Exchange, Portfolio
+from portfolio_core.domain.ticker_rules import (
     is_complete_nyse_ticker,
     is_complete_tase_ticker,
 )
@@ -67,6 +67,7 @@ def validate_portfolio(p: Portfolio) -> None:
     _validate_asset_groups(p)
     _validate_instruments(p)
 
+
 def _validate_cash(p: Portfolio) -> None:
     """Validate cash-level numeric and relationship constraints."""
     if p.cash.value <= 0:
@@ -77,6 +78,7 @@ def _validate_cash(p: Portfolio) -> None:
         raise ValueError("cash.future_tax cannot be negative")
     if p.cash.min_reserve > p.cash.value:
         raise ValueError("cash.reserve must be <= cash.value")
+
 
 def _validate_asset_groups(p: Portfolio) -> None:
     """
@@ -103,6 +105,7 @@ def _validate_asset_groups(p: Portfolio) -> None:
     pct_sum = sum((g.target_pct for g in p.asset_groups), D("0"))
     if pct_sum != D("100"):
         raise ValueError(f"Sum of asset group target percentages must be exactly 100, got {pct_sum}")
+
 
 def _validate_instruments(p: Portfolio) -> None:
     """

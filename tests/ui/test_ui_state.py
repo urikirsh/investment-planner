@@ -11,8 +11,8 @@ reintroduce implicit/dynamic state behavior.
 from decimal import Decimal
 from typing import Callable
 
-from portfolio_core.calc_stock_units import BuyCalculation
-from portfolio_core.planning_types import PlanningMode
+from portfolio_core.planning.calc_stock_units import BuyCalculation
+from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
 from ui.ui_state import PlanningState, WizardState
 

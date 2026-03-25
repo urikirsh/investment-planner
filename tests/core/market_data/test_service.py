@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 from portfolio_core.market_data import (
     MarketDataService,
     TickerLookupCommunicationError,
@@ -16,7 +16,7 @@ from portfolio_core.market_data import (
     lookup_ticker_in_exchange,
 )
 from portfolio_core.market_data.service import _LookupCacheKey
-from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
+from portfolio_core.domain.ticker_rules import canonicalize_ticker_for_exchange
 
 
 _STOOQ_AAPL_URL = "https://stooq.com/q/l/?s=aapl.us"

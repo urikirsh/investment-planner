@@ -6,8 +6,8 @@ import pytest
 from PySide6.QtWidgets import QDialog, QTreeWidgetItem
 
 import ui.controllers.main_window_main_editor as controller_mod
-from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
+from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item

@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.portfolio_document import PortfolioDocument
-from portfolio_core.models import Exchange, Portfolio
+from portfolio_core.session.portfolio_document import PortfolioDocument
+from portfolio_core.domain.models import Exchange, Portfolio
 
 """
 portfolio_session.py

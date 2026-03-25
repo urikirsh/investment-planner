@@ -9,8 +9,8 @@ Current responsibility:
 
 from typing import Any, Protocol
 
-from portfolio_core.models import Currency
-from portfolio_core.portfolio_session import CachedUsdIlsQuote, PortfolioSession
+from portfolio_core.domain.models import Currency
+from portfolio_core.session.portfolio_session import CachedUsdIlsQuote, PortfolioSession
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 from ui.ui_state import PlanningState, WizardState
 

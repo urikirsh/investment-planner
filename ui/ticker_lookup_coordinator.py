@@ -13,7 +13,7 @@ from portfolio_core.market_data import (
     TickerLookupMetadata,
     TickerLookupResult,
 )
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 
 
 @dataclass(frozen=True)

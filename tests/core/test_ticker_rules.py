@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import (
+from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.ticker_rules import (
     ExchangeTickerKey,
     ExchangeTickerLocationIndex,
     build_exchange_ticker_key,

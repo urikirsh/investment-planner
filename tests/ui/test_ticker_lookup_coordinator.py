@@ -13,7 +13,7 @@ from portfolio_core.market_data import (
     TickerLookupMetadata,
     TickerLookupResult,
 )
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 from ui.ticker_lookup_coordinator import (
     TickerLookupCoordinator,
     TickerLookupErrorOutcome,

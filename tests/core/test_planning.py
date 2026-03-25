@@ -9,10 +9,10 @@ delta split semantics and defensive edge-path coverage.
 
 import pytest
 
-import portfolio_core.planning as planning_mod
+import portfolio_core.planning.planning as planning_mod
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.models import AssetGroupPlanRow
-from portfolio_core.planning import map_asset_group_deltas_to_instruments, plan_invest_no_sell, plan_rebalance
+from portfolio_core.domain.models import AssetGroupPlanRow
+from portfolio_core.planning.planning import map_asset_group_deltas_to_instruments, plan_invest_no_sell, plan_rebalance
 from tests.core.helpers import D, make_valid_data
 
 

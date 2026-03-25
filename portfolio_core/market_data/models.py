@@ -17,7 +17,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 
 
 class TickerLookupCommunicationError(Exception):

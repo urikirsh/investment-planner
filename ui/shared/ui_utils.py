@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QBrush
 
-from portfolio_core.models import Currency, Exchange
+from portfolio_core.domain.models import Currency, Exchange
 from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
