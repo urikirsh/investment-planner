@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QSta
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.session.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import PlanBuildResult, PlanStep, build_plan_for_current_document, load_document
 from ui.shared.constants import APP_NAME, CLOSE_EVENT_CLEANUP_WAIT_MS
 from ui.controllers import (

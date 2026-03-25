@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTextEdit, QTre
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.portfolio_session import PortfolioSession
+from portfolio_core.session.portfolio_session import PortfolioSession
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen

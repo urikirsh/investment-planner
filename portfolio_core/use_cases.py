@@ -15,7 +15,7 @@ from portfolio_core.planning import (
     plan_invest_no_sell,
     plan_rebalance,
 )
-from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.domain.validation import validate_portfolio
 
 """

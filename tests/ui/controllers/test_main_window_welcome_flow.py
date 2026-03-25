@@ -5,7 +5,7 @@ from typing import Callable
 from pathlib import Path
 import pytest
 
-import portfolio_core.portfolio_session as session_mod
+import portfolio_core.session.portfolio_session as session_mod
 import ui.controllers.main_window_welcome as welcome_mod
 from ui.main_window import MainWindow
 

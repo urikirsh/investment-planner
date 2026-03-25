@@ -179,13 +179,13 @@ FX thread-safety guards in this flow:
     - group-to-instrument delta splitting (`map_asset_group_deltas_to_instruments`)
 - `portfolio_core/domain/planning_types.py`
   - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
-- `portfolio_core/portfolio_document.py`
+- `portfolio_core/session/portfolio_document.py`
   - in-memory editable document state:
     - current model
     - saved snapshot
     - active file path
     - dirty-state detection
-- `portfolio_core/portfolio_session.py`
+- `portfolio_core/session/portfolio_session.py`
   - session-level file context and config-backed startup path behavior
   - exposes read-only remembered-path access for startup UI (`get_remembered_portfolio_path`)
   - holds cached last successful USD/ILS quote in session memory only

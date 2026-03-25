@@ -14,8 +14,8 @@ from datetime import date, datetime, timezone
 from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
 from portfolio_core.domain.models import Exchange
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.portfolio_document import PortfolioDocument
-from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.session.portfolio_document import PortfolioDocument
+from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.use_cases import (
     InsufficientQuantityForSellError,
     PlanStep,
