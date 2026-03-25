@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import csv
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from html import unescape
+from io import StringIO
 from types import MappingProxyType
 
 from portfolio_core.models import Exchange
@@ -80,7 +82,13 @@ class _NyseStooqQuoteParser:
         first_line = normalized.splitlines()[0].strip()
         if not first_line:
             raise TickerLookupCommunicationError("Stooq NYSE quote response is empty")
-        parts = [part.strip() for part in first_line.split(",")]
+        try:
+            row = next(csv.reader(StringIO(first_line)))
+        except (csv.Error, StopIteration) as exc:
+            raise TickerLookupCommunicationError(
+                "Stooq NYSE quote response has an unexpected payload format"
+            ) from exc
+        parts = [part.strip() for part in row]
         if len(parts) < _STOOQ_MIN_QUOTE_COLUMNS:
             raise TickerLookupCommunicationError("Stooq NYSE quote response has an unexpected payload format")
         return parts

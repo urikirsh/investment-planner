@@ -397,6 +397,23 @@ def test_lookup_ticker_in_exchange_raises_communication_error_for_stooq_quote_wi
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
+def test_lookup_ticker_in_exchange_parses_stooq_quote_csv_with_quoted_commas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _STOOQ_AAPL_URL: 'AAPL.US,20260323,204216,"209,00",212.00,208.00,210.50,18370971,',
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+        },
+    )
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.metadata.provider_data.get("close") == "210.50"
+
+
 def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
