@@ -1,3 +1,5 @@
+"""NYSE ticker lookup provider backed by Stooq quote and symbol-page endpoints."""
+
 from __future__ import annotations
 
 import csv
