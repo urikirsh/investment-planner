@@ -11,7 +11,6 @@ from portfolio_core.market_data import (
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupMetadata,
-    TickerLookupNotFound,
     TickerLookupResult,
 )
 from portfolio_core.models import Exchange
@@ -100,9 +99,6 @@ class _TickerLookupWorker(QObject):
 
         if isinstance(result, TickerLookupFound):
             self.success.emit(TickerLookupSuccessOutcome(metadata=result.metadata))
-            return
-        if isinstance(result, TickerLookupNotFound):
-            self.error.emit(self._not_found_outcome())
             return
         self.error.emit(self._not_found_outcome())
 
