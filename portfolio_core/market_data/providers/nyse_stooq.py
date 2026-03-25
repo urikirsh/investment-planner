@@ -172,6 +172,7 @@ class _NyseStooqLookupProvider(_BaseHttpLookupProvider):
                     exchange=Exchange.NYSE,
                     canonical_ticker=ticker,
                     display_name=display_name,
+                    last_traded_price=Decimal(quote.close),
                     currency="USD",
                     provider_data=MappingProxyType(
                         {

@@ -48,6 +48,17 @@ def build_internal_error_outcome() -> TickerLookupErrorOutcome:
     )
 
 
+def build_price_unavailable_error_outcome() -> TickerLookupErrorOutcome:
+    """Build outcome payload for successful lookup responses without price data."""
+    return TickerLookupErrorOutcome(
+        message_title="Ticker price unavailable",
+        message_text=(
+            "Ticker details were found, but the current/last traded price is unavailable. "
+            "Please try again later or choose a different instrument."
+        ),
+    )
+
+
 class _TickerLookupWorker(QObject):
     """Background worker that verifies ticker existence on selected exchange."""
 
@@ -98,6 +109,9 @@ class _TickerLookupWorker(QObject):
             return
 
         if isinstance(result, TickerLookupFound):
+            if result.metadata.last_traded_price is None:
+                self.error.emit(build_price_unavailable_error_outcome())
+                return
             self.success.emit(TickerLookupSuccessOutcome(metadata=result.metadata))
             return
         self.error.emit(self._not_found_outcome())
@@ -121,16 +135,23 @@ class TickerLookupCoordinator(QObject):
         self._checker = checker
         self._thread: QThread | None = None
         self._worker: _TickerLookupWorker | None = None
+        self._last_success_metadata: TickerLookupMetadata | None = None
 
     @property
     def is_running(self) -> bool:
         """Return whether lookup worker thread is currently active."""
         return self._thread is not None
 
+    @property
+    def last_success_metadata(self) -> TickerLookupMetadata | None:
+        """Return the most recent successful lookup metadata payload."""
+        return self._last_success_metadata
+
     def start_lookup(self, *, exchange: Exchange, ticker: str) -> bool:
         """Start async lookup if idle; return whether a new lookup was started."""
         if self._thread is not None:
             return False
+        self._last_success_metadata = None
         worker = _TickerLookupWorker(
             exchange=exchange,
             ticker=ticker,
@@ -139,6 +160,7 @@ class TickerLookupCoordinator(QObject):
         thread = QThread(self)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
+        worker.success.connect(self._remember_success_payload)
         worker.success.connect(self.success.emit)
         worker.error.connect(self.error.emit)
         worker.success.connect(thread.quit)
@@ -158,3 +180,9 @@ class TickerLookupCoordinator(QObject):
         self._worker = None
         self._thread = None
         self.stopped.emit()
+
+    @Slot(object)
+    def _remember_success_payload(self, payload: object) -> None:
+        """Store the most recent successful lookup metadata for dialog consumers."""
+        if isinstance(payload, TickerLookupSuccessOutcome):
+            self._last_success_metadata = payload.metadata

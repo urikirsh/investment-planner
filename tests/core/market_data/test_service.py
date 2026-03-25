@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from decimal import Decimal
 from threading import Barrier, Thread
 import time
 from typing import cast
@@ -172,7 +173,7 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
 ) -> None:
     payload = (
         '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LongName":"'
-        '(ISHARES CORE MSCI EUROPE UCITS ETF EUR (ACC)"}'
+        '(ISHARES CORE MSCI EUROPE UCITS ETF EUR (ACC)","LastRate":123.45}'
     )
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
@@ -185,6 +186,7 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
     assert result.metadata.exchange is Exchange.TASE
     assert result.metadata.canonical_ticker == "1159094"
     assert result.metadata.display_name == "ISH.FRF MSCIEUR"
+    assert result.metadata.last_traded_price == Decimal("1.2345")
     assert result.metadata.provider_data.get("Id") == 1159094
 
 
@@ -280,6 +282,7 @@ def test_lookup_ticker_in_exchange_returns_metadata_for_existing_nyse_symbol(
     assert result.metadata.exchange is Exchange.NYSE
     assert result.metadata.canonical_ticker == "AAPL"
     assert result.metadata.display_name == "Apple Inc"
+    assert result.metadata.last_traded_price == Decimal("210.50")
     assert result.metadata.isin is None
     assert result.metadata.currency == "USD"
     assert result.metadata.provider_data.get("source") == "stooq"
@@ -500,6 +503,9 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_tic
     expected_key = _LookupCacheKey(exchange=Exchange.NYSE, canonical_ticker="AAPL")
     assert set(cache.keys()) == {expected_key}
     assert isinstance(cache[expected_key], TickerLookupFound)
+    cached_result = cache[expected_key]
+    assert isinstance(cached_result, TickerLookupFound)
+    assert cached_result.metadata.last_traded_price == Decimal("210.50")
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(

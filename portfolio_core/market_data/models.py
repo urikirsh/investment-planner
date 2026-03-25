@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from decimal import Decimal
 from types import MappingProxyType
 
 from portfolio_core.domain.models import Exchange
@@ -31,6 +32,7 @@ class TickerLookupMetadata:
     exchange: Exchange
     canonical_ticker: str
     display_name: str
+    last_traded_price: Decimal | None = None
     isin: str | None = None
     currency: str | None = None
     provider_data: Mapping[str, object] = field(default_factory=dict)

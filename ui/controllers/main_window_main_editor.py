@@ -3,6 +3,7 @@ from __future__ import annotations
 """Main-editor screen setup and row-level editing actions."""
 
 from collections.abc import Iterator
+from decimal import Decimal
 from typing import cast
 
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
@@ -34,6 +35,16 @@ class MainWindowMainEditorController:
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for dialog parenting/screen construction."""
         return cast(QWidget, self._host)
+
+    def _build_added_instrument_total_value(self, result: AddInstrumentWizardResult) -> str:
+        """Return initial ILS total value derived from fetched price and entered units."""
+        native_total_value = result.last_traded_price * Decimal(result.units)
+        if result.exchange is Exchange.TASE:
+            return str(native_total_value)
+        cached_quote = self._host.session.cached_usd_ils_quote
+        if cached_quote is None:
+            raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
+        return str(native_total_value * cached_quote.rate)
 
     @staticmethod
     def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
@@ -197,7 +208,7 @@ class MainWindowMainEditorController:
             result.ticker,
             result.name,
             result.units,
-            "1",
+            self._build_added_instrument_total_value(result),
             in_group_pct,
             exchange=result.exchange,
         )

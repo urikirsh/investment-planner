@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from decimal import Decimal
 from threading import Event
 
 import pytest
@@ -47,6 +48,7 @@ def test_ticker_lookup_coordinator_emits_result_then_stopped_for_success() -> No
                 exchange=exchange,
                 canonical_ticker=ticker,
                 display_name="Resolved Name",
+                last_traded_price=Decimal("10"),
             )
         )
     )
@@ -68,6 +70,8 @@ def test_ticker_lookup_coordinator_emits_result_then_stopped_for_success() -> No
     assert events == ["started", "success", "stopped"]
     assert isinstance(payloads[0], TickerLookupSuccessOutcome)
     assert payloads[0].metadata.display_name == "Resolved Name"
+    assert payloads[0].metadata.last_traded_price == Decimal("10")
+    assert coordinator.last_success_metadata == payloads[0].metadata
     assert coordinator.is_running is False
 
 
@@ -101,6 +105,7 @@ def test_ticker_lookup_coordinator_rejects_second_start_while_running() -> None:
                 exchange=exchange,
                 canonical_ticker=ticker,
                 display_name="Resolved Name",
+                last_traded_price=Decimal("10"),
             )
         )
 
@@ -118,3 +123,25 @@ def test_ticker_lookup_coordinator_rejects_second_start_while_running() -> None:
 
     assert checker_calls["count"] == 1
     assert coordinator.is_running is False
+
+
+def test_ticker_lookup_coordinator_maps_missing_price_to_error_outcome() -> None:
+    coordinator = TickerLookupCoordinator(
+        checker=lambda *, exchange, ticker: TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=exchange,
+                canonical_ticker=ticker,
+                display_name="Resolved Name",
+                last_traded_price=None,
+            )
+        )
+    )
+    payloads: list[object] = []
+
+    coordinator.error.connect(payloads.append)
+    assert coordinator.start_lookup(exchange=Exchange.NYSE, ticker="AAPL") is True
+    _wait_until(lambda: len(payloads) == 1)
+
+    assert isinstance(payloads[0], TickerLookupErrorOutcome)
+    assert payloads[0].message_title == "Ticker price unavailable"
+    assert coordinator.last_success_metadata is None
