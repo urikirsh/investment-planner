@@ -68,6 +68,7 @@ from ui.ticker_lookup_coordinator import (
     TickerLookupCoordinator,
     TickerLookupErrorOutcome,
     TickerLookupSuccessOutcome,
+    build_internal_error_outcome,
 )
 
 @dataclass(frozen=True)
@@ -510,14 +511,12 @@ class AddInstrumentWizardDialog(QDialog):
             self._set_page(_WizardPage.TICKER)
             show_error_with_back(self, payload.message_title, payload.message_text)
             return
+        internal_error = build_internal_error_outcome()
         self._set_page(_WizardPage.TICKER)
         show_error_with_back(
             self,
-            "Ticker lookup internal error",
-            (
-                "Could not verify this ticker due to an internal error. "
-                "Please try again or restart the app."
-            ),
+            internal_error.message_title,
+            internal_error.message_text,
         )
 
     def _set_step_2_actions_enabled(self, enabled: bool) -> None:
