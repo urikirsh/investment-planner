@@ -9,6 +9,7 @@ from typing import Protocol
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 from portfolio_core.models import Exchange
@@ -17,7 +18,7 @@ from portfolio_core.ticker_rules import (
     ExchangeTickerLocationIndex,
     build_exchange_ticker_key,
 )
-from portfolio_core.ticker_lookup_service import (
+from portfolio_core.market_data import (
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupMetadata,
@@ -617,7 +618,7 @@ def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpecte
     assert "internal error" in shown[0][1].lower()
 
 
-def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup_payload(
+def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup_error_payload(
     wizard_dialog_factory: WizardDialogFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -628,11 +629,33 @@ def test_add_instrument_wizard_step_2_shows_internal_error_for_unexpected_lookup
     )
     shown = _capture_back_modal_messages(monkeypatch)
 
-    dialog._on_ticker_lookup_finished(object())
+    dialog._on_ticker_lookup_error(object())
 
     assert dialog.pages.currentIndex() == 1
     assert shown[0][0] == "Ticker lookup internal error"
     assert "internal error" in shown[0][1].lower()
+
+
+def test_add_instrument_wizard_keeps_close_guard_until_lookup_thread_finishes(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    running = {"value": True}
+    monkeypatch.setattr(
+        dialog,
+        "_is_ticker_lookup_running",
+        lambda: running["value"],
+    )
+
+    blocked_event = QCloseEvent()
+    dialog.closeEvent(blocked_event)
+    assert blocked_event.isAccepted() is False
+
+    running["value"] = False
+    allowed_event = QCloseEvent()
+    dialog.closeEvent(allowed_event)
+    assert allowed_event.isAccepted() is True
 
 
 def test_add_instrument_wizard_step_2_performs_tase_lookup_and_advances(
