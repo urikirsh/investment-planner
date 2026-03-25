@@ -1,3 +1,5 @@
+"""TASE ticker lookup provider backed by the TASE security-data API endpoint."""
+
 from __future__ import annotations
 
 import json
