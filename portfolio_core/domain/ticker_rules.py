@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from types import MappingProxyType
 import re
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Final
 
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 
 TASE_TICKER_MAX_LENGTH: Final[int] = 7
 NYSE_TICKER_MAX_LENGTH: Final[int] = 14

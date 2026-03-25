@@ -167,7 +167,7 @@ FX thread-safety guards in this flow:
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
   - requires instrument `exchange`, `ticker`, and `quantity`
-- `portfolio_core/models.py`
+- `portfolio_core/domain/models.py`
   - core immutable domain models (`Cash`, `AssetGroup`, `Instrument`, `Portfolio`)
   - `Exchange` enum is the canonical instrument trading selector (`TASE`, `NYSE`)
   - exchange-to-currency mapping lives in the enum (`TASE->ILS`, `NYSE->USD`)
@@ -177,7 +177,7 @@ FX thread-safety guards in this flow:
     - invest budget calculation
     - group-level deltas (`plan_invest_no_sell`, `plan_rebalance`)
     - group-to-instrument delta splitting (`map_asset_group_deltas_to_instruments`)
-- `portfolio_core/planning_types.py`
+- `portfolio_core/domain/planning_types.py`
   - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
 - `portfolio_core/portfolio_document.py`
   - in-memory editable document state:
@@ -191,7 +191,7 @@ FX thread-safety guards in this flow:
   - holds cached last successful USD/ILS quote in session memory only
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder
-- `portfolio_core/ticker_rules.py`
+- `portfolio_core/domain/ticker_rules.py`
   - shared exchange-specific ticker normalization and validation helpers
   - centralizes TASE/NYSE ticker regex rules, input constraints, and UI-facing rule constants
   - defines canonical exchange+ticker identity keys and a shared duplicate-location index value object used by wizard/editor flows
@@ -199,7 +199,7 @@ FX thread-safety guards in this flow:
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data
   - builds plan results and applies wizard steps with persistence behavior
-- `portfolio_core/validation.py`
+- `portfolio_core/domain/validation.py`
   - portfolio business-rule validation pipeline
   - validates instrument field constraints and exchange-specific invariants
   - validates cash constraints, allocation sums, instrument mapping, and naming/identity invariants

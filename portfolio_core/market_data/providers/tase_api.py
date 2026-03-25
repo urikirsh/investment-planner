@@ -6,8 +6,8 @@ import json
 from collections.abc import Mapping
 from types import MappingProxyType
 
-from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import build_exchange_ticker_key
+from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.ticker_rules import build_exchange_ticker_key
 
 from portfolio_core.market_data.models import (
     TickerLookupCommunicationError,

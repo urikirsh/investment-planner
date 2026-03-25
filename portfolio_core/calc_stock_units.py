@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_FLOOR, getcontext
 
-from portfolio_core.models import Portfolio, Instrument, Cash
+from portfolio_core.domain.models import Portfolio, Instrument, Cash
 
 """
 calc_stock_units.py

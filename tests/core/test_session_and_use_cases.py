@@ -12,8 +12,8 @@ import json
 from datetime import date, datetime, timezone
 
 from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
-from portfolio_core.models import Exchange
-from portfolio_core.planning_types import PlanningMode
+from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.portfolio_document import PortfolioDocument
 from portfolio_core.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.use_cases import (
@@ -25,7 +25,7 @@ from portfolio_core.use_cases import (
     save_document_from_data,
     sync_document_from_data,
 )
-from portfolio_core.validation import validate_portfolio
+from portfolio_core.domain.validation import validate_portfolio
 from tests.core.helpers import D, make_valid_data
 
 

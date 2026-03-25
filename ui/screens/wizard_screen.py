@@ -31,7 +31,7 @@ All trade execution behavior is intentionally delegated to the coordinator.
 
 from __future__ import annotations
 
-from portfolio_core.models import Currency, Exchange
+from portfolio_core.domain.models import Currency, Exchange
 from PySide6.QtGui import QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 

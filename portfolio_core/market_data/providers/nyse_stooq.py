@@ -11,7 +11,7 @@ from html import unescape
 from io import StringIO
 from types import MappingProxyType
 
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 
 from portfolio_core.market_data.models import (
     TickerLookupCommunicationError,

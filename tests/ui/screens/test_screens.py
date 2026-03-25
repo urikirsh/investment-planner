@@ -16,7 +16,7 @@ import pytest
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import QModelIndex
 from PySide6.QtWidgets import QLabel, QLineEdit, QStyleOptionViewItem
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
@@ -239,4 +239,3 @@ def test_main_editor_quantity_delegate_rejects_non_digit_input() -> None:
 
     editor.setText("10")
     assert editor.hasAcceptableInput()
-

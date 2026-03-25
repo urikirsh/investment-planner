@@ -20,7 +20,7 @@ from typing import Callable, NotRequired, TypedDict
 
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
-from portfolio_core.models import Portfolio
+from portfolio_core.domain.models import Portfolio
 from ui.shared.ui_types import Col, RowKind
 from ui.shared.ui_utils import (
     add_instrument_item_to_group,

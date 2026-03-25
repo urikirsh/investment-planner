@@ -13,8 +13,8 @@ from typing import cast
 import pytest
 
 from portfolio_core.io_json import dump_portfolio, load_portfolio
-from portfolio_core.models import AssetGroup, Cash, Exchange, Instrument, Portfolio
-from portfolio_core.validation import validate_portfolio
+from portfolio_core.domain.models import AssetGroup, Cash, Exchange, Instrument, Portfolio
+from portfolio_core.domain.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
 
 

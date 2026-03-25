@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable, cast
 
-from portfolio_core.models import Exchange
+from portfolio_core.domain.models import Exchange
 from portfolio_core.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import PlanStep
 from ui.ui_state import PlanningState, WizardState

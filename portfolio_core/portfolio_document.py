@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from portfolio_core.io_json import load_portfolio_file, save_portfolio_file
-from portfolio_core.models import Portfolio
+from portfolio_core.domain.models import Portfolio
 
 """
 portfolio_document.py

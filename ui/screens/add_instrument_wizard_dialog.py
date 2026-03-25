@@ -35,8 +35,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from portfolio_core.models import Exchange
-from portfolio_core.ticker_rules import (
+from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.ticker_rules import (
     ExchangeTickerKey,
     ExchangeTickerLocationIndex,
     NYSE_TICKER_ERROR,
