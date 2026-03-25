@@ -48,18 +48,26 @@ class _ExchangeLookupRuntime:
     provider: _TickerLookupProvider
 
 
+@dataclass(frozen=True)
+class _LookupCacheKey:
+    """Typed cache key for one canonical `(exchange, ticker)` lookup entry."""
+
+    exchange: Exchange
+    canonical_ticker: str
+
+
 class _LookupCacheStore:
     """Thread-safe holder for app-session per-(exchange, ticker) lookup cache."""
 
     def __init__(self) -> None:
         """Initialize empty cache storage and synchronization primitive."""
-        self._cache: dict[tuple[Exchange, str], TickerLookupResult] = {}
+        self._cache: dict[_LookupCacheKey, TickerLookupResult] = {}
         self._lock = Lock()
 
     def get_or_load(
         self,
         *,
-        key: tuple[Exchange, str],
+        key: _LookupCacheKey,
         timeout_seconds: float,
         result_loader: Callable[[str, float], TickerLookupResult],
     ) -> TickerLookupResult:
@@ -72,7 +80,7 @@ class _LookupCacheStore:
             cached = self._cache.get(key)
             if cached is not None:
                 return cached
-            result = result_loader(key[1], timeout_seconds)
+            result = result_loader(key.canonical_ticker, timeout_seconds)
             self._cache[key] = result
             return result
 
@@ -81,7 +89,7 @@ class _LookupCacheStore:
         with self._lock:
             self._cache.clear()
 
-    def get_cached_for_tests(self) -> dict[tuple[Exchange, str], TickerLookupResult]:
+    def get_cached_for_tests(self) -> dict[_LookupCacheKey, TickerLookupResult]:
         """Return current cached payload without triggering network load."""
         with self._lock:
             return dict(self._cache)
@@ -141,7 +149,10 @@ class MarketDataService:
         if not runtime.pre_validate(key.canonical_ticker):
             return TickerLookupNotFound()
         return self._lookup_store.get_or_load(
-            key=(exchange, key.canonical_ticker),
+            key=_LookupCacheKey(
+                exchange=exchange,
+                canonical_ticker=key.canonical_ticker,
+            ),
             timeout_seconds=timeout_seconds,
             result_loader=runtime.provider.lookup_ticker,
         )

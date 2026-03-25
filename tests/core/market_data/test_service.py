@@ -15,6 +15,7 @@ from portfolio_core.market_data import (
     TickerLookupNotFound,
     lookup_ticker_in_exchange,
 )
+from portfolio_core.market_data.service import _LookupCacheKey
 from portfolio_core.ticker_rules import canonicalize_ticker_for_exchange
 
 
@@ -496,8 +497,9 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_tic
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     cache = service._lookup_store.get_cached_for_tests()
-    assert set(cache.keys()) == {(Exchange.NYSE, "AAPL")}
-    assert isinstance(cache[(Exchange.NYSE, "AAPL")], TickerLookupFound)
+    expected_key = _LookupCacheKey(exchange=Exchange.NYSE, canonical_ticker="AAPL")
+    assert set(cache.keys()) == {expected_key}
+    assert isinstance(cache[expected_key], TickerLookupFound)
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
