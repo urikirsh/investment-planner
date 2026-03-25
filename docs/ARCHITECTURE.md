@@ -151,34 +151,50 @@ FX thread-safety guards in this flow:
   - normalizes lookup outcomes into typed success/error payloads consumed by the dialog UI
 
 ## portfolio_core module map
-- `portfolio_core/app_metadata.py`
-  - app-level metadata helpers shared across layers
-  - lazily resolves app version from `pyproject.toml` (`[project].version`)
-  - returns `None` when metadata is unavailable (welcome screen hides version label)
-- `portfolio_core/planning/calc_stock_units.py`
-  - unit-level trade math:
-    - agorot-to-ILS conversion and unit flooring (`calculate_buy_units`)
-    - direct ILS-price unit flooring (`calculate_buy_units_from_ils_price`)
-    - immutable portfolio mutation helpers for buy/sell commits (`commit_buy`, `commit_sell`)
-- `portfolio_core/fx_service.py`
-  - Bank of Israel USD/ILS fetch boundary and response parsing
-  - normalizes BOI payload into a typed quote object used by wizard flow
-- `portfolio_core/io_json.py`
-  - JSON parsing/serialization boundary for `Portfolio`
-  - handles structural parsing and decimal conversion, but not strategy validation
-  - requires instrument `exchange`, `ticker`, and `quantity`
 - `portfolio_core/domain/models.py`
   - core immutable domain models (`Cash`, `AssetGroup`, `Instrument`, `Portfolio`)
   - `Exchange` enum is the canonical instrument trading selector (`TASE`, `NYSE`)
   - exchange-to-currency mapping lives in the enum (`TASE->ILS`, `NYSE->USD`)
   - planning output model `AssetGroupPlanRow`
+- `portfolio_core/domain/planning_types.py`
+  - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
+- `portfolio_core/domain/ticker_rules.py`
+  - shared exchange-specific ticker normalization and validation helpers
+  - centralizes TASE/NYSE ticker regex rules, input constraints, and UI-facing rule constants
+  - defines canonical exchange+ticker identity keys and a shared duplicate-location index value object used by wizard/editor flows
+- `portfolio_core/domain/validation.py`
+  - portfolio business-rule validation pipeline
+  - validates instrument field constraints and exchange-specific invariants
+  - validates cash constraints, allocation sums, instrument mapping, and naming/identity invariants
+
+### market_data package
+- `portfolio_core/market_data/models.py`
+  - defines lookup result/metadata contracts and immutable provider-data freezing
+- `portfolio_core/market_data/service.py`
+  - routes lookups by exchange and owns NYSE/TASE cache policy
+- `portfolio_core/market_data/transport.py`
+  - defines the HTTP transport seam used by providers
+- `portfolio_core/market_data/providers/base.py`
+  - provides shared HTTP transport error-normalization for provider implementations
+- `portfolio_core/market_data/providers/nyse_stooq.py`
+  - resolves NYSE via Stooq quote endpoint (`q/l`) plus symbol page title (`q/?s=`) for display names
+  - NYSE dotted symbols also try dashed Stooq fallback keys (for example `BRK.B` -> `brk-b.us`)
+- `portfolio_core/market_data/providers/tase_api.py`
+  - resolves TASE via `api.tase.co.il` `company/securitydata`
+
+### planning package
+- `portfolio_core/planning/calc_stock_units.py`
+  - unit-level trade math:
+    - agorot-to-ILS conversion and unit flooring (`calculate_buy_units`)
+    - direct ILS-price unit flooring (`calculate_buy_units_from_ils_price`)
+    - immutable portfolio mutation helpers for buy/sell commits (`commit_buy`, `commit_sell`)
 - `portfolio_core/planning/planning.py`
   - pure planning logic:
     - invest budget calculation
     - group-level deltas (`plan_invest_no_sell`, `plan_rebalance`)
     - group-to-instrument delta splitting (`map_asset_group_deltas_to_instruments`)
-- `portfolio_core/domain/planning_types.py`
-  - shared planning enum `PlanningMode` (`INVEST`, `REBALANCE`)
+
+### session package
 - `portfolio_core/session/portfolio_document.py`
   - in-memory editable document state:
     - current model
@@ -191,33 +207,22 @@ FX thread-safety guards in this flow:
   - holds cached last successful USD/ILS quote in session memory only
   - coordinates `PortfolioDocument` load/save/new workflows
   - defines minimal default in-memory portfolio builder
-- `portfolio_core/domain/ticker_rules.py`
-  - shared exchange-specific ticker normalization and validation helpers
-  - centralizes TASE/NYSE ticker regex rules, input constraints, and UI-facing rule constants
-  - defines canonical exchange+ticker identity keys and a shared duplicate-location index value object used by wizard/editor flows
+
+- `portfolio_core/app_metadata.py`
+  - app-level metadata helpers shared across layers
+  - lazily resolves app version from `pyproject.toml` (`[project].version`)
+  - returns `None` when metadata is unavailable (welcome screen hides version label)
+- `portfolio_core/fx_service.py`
+  - Bank of Israel USD/ILS fetch boundary and response parsing
+  - normalizes BOI payload into a typed quote object used by wizard flow
+- `portfolio_core/io_json.py`
+  - JSON parsing/serialization boundary for `Portfolio`
+  - handles structural parsing and decimal conversion, but not strategy validation
+  - requires instrument `exchange`, `ticker`, and `quantity`
 - `portfolio_core/use_cases.py`
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data
   - builds plan results and applies wizard steps with persistence behavior
-- `portfolio_core/domain/validation.py`
-  - portfolio business-rule validation pipeline
-  - validates instrument field constraints and exchange-specific invariants
-  - validates cash constraints, allocation sums, instrument mapping, and naming/identity invariants
-
-### market_data package
-- `portfolio_core/market_data/service.py`
-  - routes lookups by exchange and owns NYSE/TASE cache policy
-- `portfolio_core/market_data/models.py`
-  - defines lookup result/metadata contracts and immutable provider-data freezing
-- `portfolio_core/market_data/transport.py`
-  - defines the HTTP transport seam used by providers
-- `portfolio_core/market_data/providers/base.py`
-  - provides shared HTTP transport error-normalization for provider implementations
-- `portfolio_core/market_data/providers/nyse_stooq.py`
-  - resolves NYSE via Stooq quote endpoint (`q/l`) plus symbol page title (`q/?s=`) for display names
-  - NYSE dotted symbols also try dashed Stooq fallback keys (for example `BRK.B` -> `brk-b.us`)
-- `portfolio_core/market_data/providers/tase_api.py`
-  - resolves TASE via `api.tase.co.il` `company/securitydata`
 
 ## Test map
 UI-focused tests:
