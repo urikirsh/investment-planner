@@ -49,7 +49,7 @@ def test_add_instrument_creates_row_from_wizard_result(
                 exchange=Exchange.NYSE,
                 ticker="AB12",
                 name="World ETF",
-                last_traded_price=Decimal("10"),
+                last_traded_price=Decimal("10.123"),
                 target_in_group_pct="25",
                 units=12,
             )
@@ -68,7 +68,7 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TICKER.value) == "AB12"
     assert child.text(Col.NAME.value) == "World ETF"
     assert child.text(Col.QUANTITY.value) == "12"
-    assert child.text(Col.TOT_VALUE.value) == "420.0"
+    assert child.text(Col.TOT_VALUE.value) == "425.17"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
     assert child.text(Col.TARGET_PCT.value) == "25"
 
