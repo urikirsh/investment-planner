@@ -3,6 +3,7 @@ from __future__ import annotations
 """Main-editor screen setup and row-level editing actions."""
 
 from collections.abc import Iterator
+from decimal import Decimal
 from typing import cast
 
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
@@ -24,6 +25,8 @@ from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, A
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
 
+_TABLE_VALUE_PRECISION = Decimal("0.01")
+
 
 class MainWindowMainEditorController:
     """Controller for main-editor screen wiring and direct row actions."""
@@ -34,6 +37,18 @@ class MainWindowMainEditorController:
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for dialog parenting/screen construction."""
         return cast(QWidget, self._host)
+
+    def _build_added_instrument_total_value(self, result: AddInstrumentWizardResult) -> str:
+        """Return rounded initial ILS total value derived from fetched price and units."""
+        units = Decimal(result.units)
+        native_total_value = result.last_traded_price * units
+        if result.exchange is Exchange.TASE:
+            return str(native_total_value.quantize(_TABLE_VALUE_PRECISION))
+        cached_quote = self._host.session.cached_usd_ils_quote
+        if cached_quote is None:
+            raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
+        value_ils = native_total_value * cached_quote.rate
+        return str(value_ils.quantize(_TABLE_VALUE_PRECISION))
 
     @staticmethod
     def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
@@ -197,7 +212,7 @@ class MainWindowMainEditorController:
             result.ticker,
             result.name,
             result.units,
-            "1",
+            self._build_added_instrument_total_value(result),
             in_group_pct,
             exchange=result.exchange,
         )

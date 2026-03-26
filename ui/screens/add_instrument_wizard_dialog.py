@@ -123,6 +123,7 @@ class AddInstrumentWizardResult:
     exchange: Exchange
     ticker: str
     name: str
+    last_traded_price: Decimal
     target_in_group_pct: Decimal | None
     units: int
 
@@ -777,10 +778,21 @@ class AddInstrumentWizardDialog(QDialog):
             exchange=self._current_exchange(),
             ticker=self.ticker_edit.text().strip(),
             name=validated.name,
+            last_traded_price=self._require_last_traded_price(),
             target_in_group_pct=validated.target_in_group_pct,
             units=validated.units,
         )
         self.accept()
+
+    def _require_last_traded_price(self) -> Decimal:
+        """Return step-2 fetched price or fail fast if submit flow is inconsistent."""
+        metadata = self._ticker_lookup_coordinator.last_success_metadata
+        if metadata is None:
+            raise ValueError("Ticker price is unavailable.")
+        current_price = metadata.last_traded_price
+        if current_price is None:
+            raise ValueError("Ticker price is unavailable.")
+        return current_price
 
     def _current_exchange(self) -> Exchange:
         """Return currently selected exchange value from the combo box."""

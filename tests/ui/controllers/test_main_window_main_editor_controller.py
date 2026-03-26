@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -31,6 +33,11 @@ def test_add_instrument_creates_row_from_wizard_result(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    window.session.cache_usd_ils_quote(
+        rate=Decimal("3.5"),
+        effective_date=date.fromisoformat("2026-03-25"),
+        used_last_published=False,
+    )
     group = QTreeWidgetItem(window.tree)
     set_group_tree_item(group, "Equity", "100", "grp_equity")
     window.tree.setCurrentItem(group)
@@ -39,9 +46,10 @@ def test_add_instrument_creates_row_from_wizard_result(
         def __init__(self, **kwargs: object) -> None:
             _ = kwargs
             self.result_data = SimpleNamespace(
-                exchange="NYSE",
+                exchange=Exchange.NYSE,
                 ticker="AB12",
                 name="World ETF",
+                last_traded_price=Decimal("10.123"),
                 target_in_group_pct="25",
                 units=12,
             )
@@ -60,6 +68,7 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TICKER.value) == "AB12"
     assert child.text(Col.NAME.value) == "World ETF"
     assert child.text(Col.QUANTITY.value) == "12"
+    assert child.text(Col.TOT_VALUE.value) == "425.17"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
     assert child.text(Col.TARGET_PCT.value) == "25"
 

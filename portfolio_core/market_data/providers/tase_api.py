@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 
 from portfolio_core.domain.models import Exchange
@@ -21,6 +22,7 @@ from portfolio_core.market_data.transport import TickerHttpClient
 
 _TASE_SECURITYDATA_URL_TEMPLATE = "https://api.tase.co.il/api/company/securitydata?securityId={security_id}&lang=1"
 _TASE_ENGLISH_NAME_KEYS = ("Name", "LongName", "SecurityLongName", "CompanyName")
+_AGOROT_PER_ILS = Decimal("100")
 
 
 class _TaseSecurityDataParser:
@@ -50,6 +52,7 @@ class _TaseSecurityDataParser:
                 exchange=Exchange.TASE,
                 canonical_ticker=key.canonical_ticker,
                 display_name=instrument_name,
+                last_traded_price=self._extract_last_traded_price(payload),
                 isin=self._extract_optional_string(payload, "ISIN"),
                 currency=self._extract_optional_string(payload, "Currency"),
                 provider_data=MappingProxyType(dict(payload)),
@@ -63,6 +66,20 @@ class _TaseSecurityDataParser:
             return None
         normalized_value = value.strip()
         return normalized_value or None
+
+    def _extract_last_traded_price(self, payload: Mapping[str, object]) -> Decimal | None:
+        """Return last traded TASE price normalized from agorot to ILS."""
+        for key in ("LastRate", "TradeRate", "LastTradedRate", "ClosingRate", "Price"):
+            value = payload.get(key)
+            if value in (None, ""):
+                continue
+            try:
+                parsed = Decimal(str(value))
+            except (InvalidOperation, ValueError):
+                continue
+            if parsed > 0:
+                return parsed / _AGOROT_PER_ILS
+        return None
 
     def _extract_english_instrument_name(self, payload: Mapping[str, object]) -> str:
         """Return preferred English instrument display name, or empty string when unavailable."""

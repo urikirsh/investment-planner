@@ -175,6 +175,7 @@ def _lookup_found(*, exchange: Exchange, ticker: str, display_name: str) -> Tick
             exchange=exchange,
             canonical_ticker=ticker,
             display_name=display_name,
+            last_traded_price=Decimal("12.5"),
         )
     )
 
@@ -592,6 +593,32 @@ def test_add_instrument_wizard_step_2_shows_network_error_message_for_communicat
     assert dialog.pages.currentIndex() == 1
     assert shown[0][0] == "Ticker lookup network error"
     assert "network/communication issue" in shown[0][1]
+
+
+def test_add_instrument_wizard_step_2_blocks_step_3_when_lookup_price_is_unavailable(
+    wizard_dialog_factory: WizardDialogFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = wizard_dialog_factory()
+    shown = _capture_back_modal_messages(monkeypatch)
+    monkeypatch.setattr(
+        "ui.screens.add_instrument_wizard_dialog.lookup_ticker_in_exchange",
+        lambda *, exchange, ticker: TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=exchange,
+                canonical_ticker=ticker,
+                display_name="Resolved Instrument",
+                last_traded_price=None,
+            )
+        ),
+    )
+
+    _submit_nyse_step_2(dialog)
+
+    _wait_until(lambda: len(shown) == 1)
+    assert dialog.pages.currentIndex() == 1
+    assert shown[0][0] == "Ticker price unavailable"
+    assert "price is unavailable" in shown[0][1]
 
 
 def test_add_instrument_wizard_step_2_shows_internal_error_message_for_unexpected_lookup_exception(
