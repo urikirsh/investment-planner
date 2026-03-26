@@ -25,7 +25,7 @@ from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, A
 from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
 
-_TABLE_PRICE_STEP = Decimal("0.01")
+_TABLE_VALUE_PRECISION = Decimal("0.01")
 
 
 class MainWindowMainEditorController:
@@ -40,13 +40,15 @@ class MainWindowMainEditorController:
 
     def _build_added_instrument_total_value(self, result: AddInstrumentWizardResult) -> str:
         """Return rounded initial ILS total value derived from fetched price and units."""
-        native_total_value = result.last_traded_price * Decimal(result.units)
+        units = Decimal(result.units)
+        native_total_value = result.last_traded_price * units
         if result.exchange is Exchange.TASE:
-            return str(native_total_value.quantize(_TABLE_PRICE_STEP))
+            return str(native_total_value.quantize(_TABLE_VALUE_PRECISION))
         cached_quote = self._host.session.cached_usd_ils_quote
         if cached_quote is None:
             raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
-        return str((native_total_value * cached_quote.rate).quantize(_TABLE_PRICE_STEP))
+        value_ils = native_total_value * cached_quote.rate
+        return str(value_ils.quantize(_TABLE_VALUE_PRECISION))
 
     @staticmethod
     def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
