@@ -27,7 +27,12 @@ class TickerLookupCommunicationError(Exception):
 
 @dataclass(frozen=True)
 class TickerLookupMetadata:
-    """Canonical metadata returned for a resolved ticker."""
+    """Canonical metadata returned for a resolved ticker.
+
+    ``last_traded_price`` uses the exchange's native quote units after provider
+    normalization. For example, TASE provider prices are converted from agorot
+    to ILS before they reach this model.
+    """
 
     exchange: Exchange
     canonical_ticker: str

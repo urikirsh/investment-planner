@@ -57,6 +57,9 @@ FX thread-safety guards in this flow:
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
   - controller keeps add flow orchestration-focused by running wizard execution (overlay + accept/result checks) in a dedicated helper
   - add flow builds case-insensitive portfolio-wide name locations and exchange+ticker locations so duplicate keys are blocked before row creation
+  - accepted add-flow results now include fetched lookup price; the controller seeds the new row `Total value` from `price * quantity`
+  - seeded add-flow values are rounded to 2 decimal places before writing the table cell
+  - NYSE seeded values are converted to ILS with the session-cached startup USD/ILS quote
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
 - `ui/controllers/main_window_metrics.py`
@@ -78,7 +81,8 @@ FX thread-safety guards in this flow:
   - NYSE ticker input normalizes lowercase letters to uppercase while typing
   - step-2 ticker input `Enter` key behaves like `Next` when `Next` is enabled
   - for NYSE and TASE, step-2 `Next` shows a blocking loading overlay ("reading data") while ticker verification runs in an async lookup coordinator
-  - ticker-not-found, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
+  - successful step-2 lookup requires both instrument metadata and a current/last traded price
+  - ticker-not-found, missing-price lookup results, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
   - duplicate ticker/name submit paths keep defensive Back-only modals naming the existing location
   - return/cancel prompts for discard only when user has edited wizard input
 - `ui/screens/summary_screen.py`
@@ -149,6 +153,8 @@ FX thread-safety guards in this flow:
 - `ui/ticker_lookup_coordinator.py`
   - extracted ticker-lookup worker/thread lifecycle coordinator used by add-instrument wizard step 2
   - normalizes lookup outcomes into typed success/error payloads consumed by the dialog UI
+  - remembers the latest successful lookup metadata for the dialog accept flow
+  - treats "metadata found but no price" as a step-2 error outcome rather than a success
 
 ## portfolio_core module map
 - `portfolio_core/domain/models.py`
@@ -170,8 +176,10 @@ FX thread-safety guards in this flow:
 ### market_data package
 - `portfolio_core/market_data/models.py`
   - defines lookup result/metadata contracts and immutable provider-data freezing
+  - lookup metadata now carries optional `last_traded_price` alongside display fields
 - `portfolio_core/market_data/service.py`
   - routes lookups by exchange and owns NYSE/TASE cache policy
+  - cache entries store the full typed lookup result, including fetched price metadata
 - `portfolio_core/market_data/transport.py`
   - defines the HTTP transport seam used by providers
 - `portfolio_core/market_data/providers/base.py`
@@ -181,6 +189,7 @@ FX thread-safety guards in this flow:
   - NYSE dotted symbols also try dashed Stooq fallback keys (for example `BRK.B` -> `brk-b.us`)
 - `portfolio_core/market_data/providers/tase_api.py`
   - resolves TASE via `api.tase.co.il` `company/securitydata`
+  - normalizes quoted TASE price fields from agorot to ILS before populating lookup metadata
 
 ### planning package
 - `portfolio_core/planning/calc_stock_units.py`
@@ -235,6 +244,7 @@ UI-focused tests:
   - table-driven wrapper->controller delegation guards for composed controllers
 - `tests/ui/controllers/test_main_window_main_editor_controller.py`
   - focused add-instrument wizard integration tests for accept/cancel tree-mutation behavior
+  - covers seeded table-value rounding for successful add flows
 - `tests/ui/controllers/test_main_window_controller_screen_signals.py`
   - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
 - `tests/ui/controllers/test_main_window_controller_state_flow.py`
@@ -247,6 +257,7 @@ UI-focused tests:
   - focused lifecycle tests for startup FX fetch worker/thread ownership (`start`, `cancel`, `clear`)
 - `tests/ui/screens/test_add_instrument_wizard_dialog.py`
   - focused add-instrument wizard dialog tests (step flow, validation, Enter shortcut behavior, context text, and duplicate ticker/name guards)
+  - covers the blocked step-2 path when lookup metadata is found but price is unavailable
 - `tests/ui/screens/test_screens.py`
   - structural tests for main screen modules (defaults, controls, static setup)
 - `tests/ui/shared/test_loading_overlay.py`
@@ -265,6 +276,7 @@ UI-focused tests:
   - pure recalculation rules and zero-denominator edge cases
 - `tests/ui/test_ticker_lookup_coordinator.py`
   - ticker-lookup coordinator lifecycle and outcome mapping behavior
+  - covers missing-price lookup mapping and remembered-success metadata
 - `tests/ui/test_ui_state.py`
   - planning/wizard state defaults and behavior
 - `tests/ui/test_wizard_fx_coordinator.py`

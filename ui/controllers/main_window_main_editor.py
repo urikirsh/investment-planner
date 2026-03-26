@@ -39,7 +39,7 @@ class MainWindowMainEditorController:
         return cast(QWidget, self._host)
 
     def _build_added_instrument_total_value(self, result: AddInstrumentWizardResult) -> str:
-        """Return initial ILS total value derived from fetched price and entered units."""
+        """Return rounded initial ILS total value derived from fetched price and units."""
         native_total_value = result.last_traded_price * Decimal(result.units)
         if result.exchange is Exchange.TASE:
             return str(native_total_value.quantize(_TABLE_PRICE_STEP))
