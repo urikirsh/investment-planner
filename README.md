@@ -84,7 +84,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Start New File`
   - `Quit`
   - after choosing a startup action that opens the main editor, a brief blocking transition overlay appears while startup tasks complete
-  - startup refreshes the latest value of every portfolio instrument before opening the main editor
+  - startup refreshes the latest value of every portfolio instrument before opening the main editor, including public TASE mutual funds when a public quote is available
   - if the USD/ILS rate or any instrument price is unavailable, the app keeps you on the welcome screen so you can retry
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
@@ -180,7 +180,7 @@ Notes:
 - If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - The app reuses the latest successful USD/ILS quote across wizard runs in the current app session.
-- Opening or creating a portfolio refreshes all instrument table values in memory during startup; the file on disk is updated only when you save.
+- Opening or creating a portfolio refreshes all instrument table values in memory during startup, including public TASE mutual funds when a public quote is available; the file on disk is updated only when you save.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.
