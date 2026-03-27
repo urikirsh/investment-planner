@@ -64,7 +64,10 @@ def _make_staged_portfolio() -> Portfolio:
 def window(qapp: object, monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[MainWindow]:
     _ = qapp
     _mock_remembered_portfolio_path(monkeypatch, path=None)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
+    win = MainWindow(
+        json_path=str(tmp_path / "portfolio.json"),
+        config_path=tmp_path / "config.json",
+    )
     yield win
     win.close()
 
@@ -114,7 +117,10 @@ def test_welcome_screen_marks_missing_recent_portfolio_in_red(
     _ = qapp
     missing_path = tmp_path / "missing.json"
     _mock_remembered_portfolio_path(monkeypatch, path=missing_path)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
+    win = MainWindow(
+        json_path=str(tmp_path / "portfolio.json"),
+        config_path=tmp_path / "config.json",
+    )
     try:
         assert not win.screen_welcome.open_last_btn.isEnabled()
         assert "Not found" in win.screen_welcome.last_path_label.text()
@@ -198,6 +204,58 @@ def test_welcome_start_new_loads_default_and_enters_main(
     assert window.stack.currentWidget() is window.screen_main
     assert window.session.current_file_path is None
     assert window.tree.topLevelItemCount() > 0
+
+
+def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    seed_session_usd_ils_cache: Callable[[MainWindow], None],
+) -> None:
+    remembered_path = tmp_path / "remembered.json"
+    remembered_path.write_text("{}", encoding="utf-8")
+    staged_portfolio = _make_staged_portfolio()
+    refreshed_portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1234567",
+                    "name": "ETF",
+                    "quantity": 1,
+                    "value": "150",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+
+    def fake_prepare_portfolio(path: Path) -> bool:
+        window._welcome_controller._pending_startup_portfolio = welcome_mod._PendingStartupPortfolio(
+            portfolio=staged_portfolio,
+            file_path=path,
+        )
+        return True
+
+    _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
+    monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_path", fake_prepare_portfolio)
+    seed_session_usd_ils_cache(window)
+    _run_welcome_transition_immediately(monkeypatch, window)
+    monkeypatch.setattr(
+        window._welcome_controller,
+        "_start_startup_fx_fetch",
+        lambda: window._welcome_controller._on_startup_fx_fetch_finished(None, refreshed_portfolio, None),
+    )
+
+    window._on_welcome_open_last_clicked()
+
+    assert window.stack.currentWidget() is window.screen_main
+    assert window.total_label.text() == "Total portfolio (ILS): 250"
 
 
 def test_welcome_success_action_shows_overlay_before_delayed_main_transition(

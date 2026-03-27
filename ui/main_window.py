@@ -73,15 +73,13 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     investable_balance_label: QLabel
     total_label: QLabel
 
-    def __init__(self, json_path: str = "portfolio.json"):
+    def __init__(self, json_path: str = "portfolio.json", *, config_path: Path | None = None):
         super().__init__()
         self._base_window_title = APP_NAME
         self.setWindowTitle(self._base_window_title)
 
-        app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
-        cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
-        config_path = cfg_dir / "config.json"
-        self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
+        resolved_config_path = config_path or self._default_config_path()
+        self.session = PortfolioSession(default_json_path=Path(json_path), config_path=resolved_config_path)
         self.planning_state = PlanningState()
         self.wizard_state = WizardState()
         self._non_investable_bucket_id = NON_INVESTABLE_BUCKET_ID
@@ -114,6 +112,13 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
         self.tree.itemChanged.connect(self._table_editing_controller.on_item_changed_guard_and_recalc)
         self.tree.itemDoubleClicked.connect(self._table_editing_controller.on_item_double_clicked)
+
+    @staticmethod
+    def _default_config_path() -> Path:
+        """Return the default per-user config path used outside tests."""
+        app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+        cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
+        return cfg_dir / "config.json"
 
     # -------------------------
     # Main orchestrator behavior
