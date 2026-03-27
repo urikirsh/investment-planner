@@ -18,8 +18,13 @@ from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QSta
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.session.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import PlanBuildResult, PlanStep, build_plan_for_current_document, load_document
+from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.use_cases import (
+    PlanBuildResult,
+    PlanStep,
+    build_plan_for_current_document,
+    load_document,
+)
 from ui.shared.constants import APP_NAME, CLOSE_EVENT_CLEANUP_WAIT_MS
 from ui.controllers import (
     MainWindowMainEditorController,
@@ -152,6 +157,10 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
         p = load_document(self.session, path)
         self._render_main_editor_from_portfolio(p, switch_to_main=False)
         self._update_file_context_ui()
+
+    def _build_default_portfolio_for_startup(self) -> Portfolio:
+        """Build a new default startup portfolio without rendering it immediately."""
+        return build_default_portfolio()
 
     def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
         """Render a portfolio in screen 2 widgets and recompute all derived fields."""
