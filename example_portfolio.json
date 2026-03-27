@@ -72,10 +72,10 @@
     },
     {
       "id": "ins_1abc5853",
-      "ticker": "SPY1",
+      "ticker": "1183441",
       "name": "Invesco S&P 500",
       "value": "272883",
-      "exchange": "NYSE",
+      "exchange": "TASE",
       "investable": true,
       "targetInGroupPercentage": "65",
       "quantity": 240,
