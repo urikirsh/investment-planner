@@ -228,6 +228,7 @@ class MainWindowWelcomeController:
         self._startup_fx_fetch = _StartupFxFetchLifecycle()
         self._startup_transition = _StartupTransitionState()
         self._pending_startup_portfolio: _PendingStartupPortfolio | None = None
+        self._last_prepare_error_message: str | None = None
 
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for screen/dialog parenting."""
@@ -328,9 +329,11 @@ class MainWindowWelcomeController:
     def _prepare_portfolio_from_path(self, path: Path) -> bool:
         """Stage a portfolio from disk without committing it to the live editor yet."""
         _append_startup_debug_log(f"prepare_portfolio_from_path start path={path}")
+        self._last_prepare_error_message = None
         try:
             portfolio = load_portfolio_file(path)
         except Exception as exc:
+            self._last_prepare_error_message = str(exc) or repr(exc)
             _append_startup_debug_log(f"prepare_portfolio_from_path failed path={path} error={exc!r}")
             return False
         _append_startup_debug_log(
@@ -365,10 +368,23 @@ class MainWindowWelcomeController:
     ) -> None:
         """Run startup action; enter main editor on success."""
         if not action():
+            self._show_prepare_error_if_any()
             if on_failure is not None:
                 on_failure()
             return
         self._begin_startup_transition_to_main()
+
+    def _show_prepare_error_if_any(self) -> None:
+        """Show blocking modal for the most recent prepare/load failure, if any."""
+        error_message = self._last_prepare_error_message
+        self._last_prepare_error_message = None
+        if not error_message:
+            return
+        show_error_with_back(
+            self._host_widget(),
+            "Load failed",
+            error_message,
+        )
 
     def _begin_startup_transition_to_main(self) -> None:
         """Show loading overlay and enter main only after delay + startup fetch."""
