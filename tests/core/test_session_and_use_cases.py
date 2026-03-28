@@ -19,12 +19,15 @@ from portfolio_core.session.portfolio_session import PortfolioSession, build_def
 from portfolio_core.use_cases import (
     InsufficientQuantityForSellError,
     PlanStep,
+    StartupPortfolioPriceRefreshError,
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
+    refresh_portfolio_prices_for_startup,
     save_document_from_data,
     sync_document_from_data,
 )
+from portfolio_core.market_data import TickerLookupCommunicationError, TickerLookupFound, TickerLookupMetadata
 from portfolio_core.domain.validation import validate_portfolio
 from tests.core.helpers import D, make_valid_data
 
@@ -370,3 +373,116 @@ def test_use_case_apply_wizard_step_sell_raises_when_quantity_is_insufficient(tm
 
     with pytest.raises(InsufficientQuantityForSellError, match="Cannot sell 2 units"):
         apply_wizard_step(session, step, calc_units=2, spent=D("200"))
+
+
+def test_refresh_portfolio_prices_for_startup_raises_detailed_error_when_lookup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [
+                {"id": "g1", "name": "TASE Group", "targetPercentage": "50"},
+                {"id": "g2", "name": "NYSE Group", "targetPercentage": "50"},
+            ],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1159094",
+                    "name": "TASE ETF",
+                    "quantity": 2,
+                    "value": "10.00",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                },
+                {
+                    "id": "i2",
+                    "ticker": "TETH",
+                    "name": "NYSE ETF",
+                    "quantity": 3,
+                    "value": "0.00",
+                    "exchange": "NYSE",
+                    "investable": True,
+                    "groupId": "g2",
+                    "targetInGroupPercentage": "100",
+                },
+            ],
+        }
+    )
+
+    def fake_lookup_ticker_in_exchange(*, exchange: Exchange, ticker: str, timeout_seconds: float = 8.0):
+        _ = timeout_seconds
+        if exchange is Exchange.TASE and ticker == "1159094":
+            return TickerLookupFound(
+                metadata=TickerLookupMetadata(
+                    exchange=Exchange.TASE,
+                    canonical_ticker="1159094",
+                    display_name="TASE ETF",
+                    last_traded_price=D("12.34"),
+                    currency="ILS",
+                )
+            )
+        if exchange is Exchange.NYSE and ticker == "TETH":
+            raise TickerLookupCommunicationError(
+                "Failed to fetch Stooq NYSE quote data: HTTP transport timed out for https://stooq.com/q/l/?s=teth.us"
+            )
+        raise AssertionError(f"Unexpected lookup: {exchange.value}:{ticker}")
+
+    monkeypatch.setattr("portfolio_core.use_cases.lookup_ticker_in_exchange", fake_lookup_ticker_in_exchange)
+
+    with pytest.raises(StartupPortfolioPriceRefreshError, match="HTTP transport timed out"):
+        refresh_portfolio_prices_for_startup(
+            portfolio,
+            usd_ils_rate=D("3.50"),
+            lookup_timeout_seconds=5.0,
+        )
+
+
+def test_refresh_portfolio_prices_for_startup_converts_successful_nyse_lookup_to_ils(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "NYSE Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "TETH",
+                    "name": "NYSE ETF",
+                    "quantity": 4,
+                    "value": "0.00",
+                    "exchange": "NYSE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+
+    def fake_lookup_ticker_in_exchange(*, exchange: Exchange, ticker: str, timeout_seconds: float = 8.0):
+        _ = timeout_seconds
+        assert exchange is Exchange.NYSE
+        assert ticker == "TETH"
+        return TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange.NYSE,
+                canonical_ticker="TETH",
+                display_name="NYSE ETF",
+                last_traded_price=D("8.50"),
+                currency="USD",
+            )
+        )
+
+    monkeypatch.setattr("portfolio_core.use_cases.lookup_ticker_in_exchange", fake_lookup_ticker_in_exchange)
+
+    refreshed = refresh_portfolio_prices_for_startup(
+        portfolio,
+        usd_ils_rate=D("3.20"),
+        lookup_timeout_seconds=5.0,
+    )
+
+    assert refreshed.instruments[0].value == D("108.80")

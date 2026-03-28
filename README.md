@@ -86,6 +86,7 @@ The application never executes trades automatically. All actions are explicit an
   - after choosing a startup action that opens the main editor, a brief blocking transition overlay appears while startup tasks complete
   - startup refreshes the latest value of every portfolio instrument before opening the main editor, including public TASE mutual funds when a public quote is available
   - if the USD/ILS rate or any instrument price is unavailable, the app keeps you on the welcome screen so you can retry
+  - startup fetch failures include the underlying lookup reason when the provider exposes it, such as timeouts or HTTP-status failures
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:

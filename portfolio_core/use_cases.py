@@ -184,8 +184,10 @@ def _refresh_instrument_market_value(
             timeout_seconds=lookup_timeout_seconds,
         )
     except Exception as exc:
+        detail = str(exc).strip()
+        suffix = f": {detail}" if detail else ""
         raise StartupPortfolioPriceRefreshError(
-            f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+            f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker}){suffix}."
         ) from exc
 
     if not isinstance(lookup_result, TickerLookupFound):

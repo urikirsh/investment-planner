@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Protocol
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -50,5 +50,32 @@ class UrlopenTickerHttpClient:
             with urlopen(request, timeout=timeout_seconds) as response:
                 raw_body = bytes(response.read())
                 return raw_body.decode("utf-8", errors="replace")
+        except HTTPError as exc:
+            raise TickerLookupTransportError(_describe_http_error(url=url, exc=exc)) from exc
         except (OSError, TimeoutError, URLError) as exc:
-            raise TickerLookupTransportError("HTTP transport failed") from exc
+            raise TickerLookupTransportError(_describe_transport_error(url=url, exc=exc)) from exc
+
+
+def _describe_http_error(*, url: str, exc: HTTPError) -> str:
+    """Return a concise transport message for HTTP status failures."""
+    return f"HTTP {exc.code} from {url}"
+
+
+def _describe_transport_error(*, url: str, exc: OSError | TimeoutError | URLError) -> str:
+    """Return a concise transport message for non-HTTP response failures."""
+    if isinstance(exc, TimeoutError):
+        return f"HTTP transport timed out for {url}"
+    if isinstance(exc, URLError):
+        reason = exc.reason
+        reason_text = str(reason).strip() if reason is not None else ""
+        if reason_text and "timed out" in reason_text.lower():
+            return f"HTTP transport timed out for {url}"
+        if reason_text:
+            return f"HTTP transport failed for {url}: {reason_text}"
+        return f"HTTP transport failed for {url}"
+    detail = str(exc).strip()
+    if detail and "timed out" in detail.lower():
+        return f"HTTP transport timed out for {url}"
+    if detail:
+        return f"HTTP transport failed for {url}: {detail}"
+    return f"HTTP transport failed for {url}"
