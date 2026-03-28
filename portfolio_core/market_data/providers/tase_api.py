@@ -158,7 +158,7 @@ class _TaseMutualFundParser:
         return normalized_value or None
 
     def _extract_last_traded_price(self, payload: Mapping[str, object]) -> Decimal | None:
-        """Return mutual-fund price from redemption/purchase fields in ILS."""
+        """Return mutual-fund price normalized from agorot to ILS."""
         for key in ("redemptionPrice", "purchasePrice"):
             value = payload.get(key)
             if value in (None, ""):
@@ -168,7 +168,7 @@ class _TaseMutualFundParser:
             except (InvalidOperation, ValueError):
                 continue
             if parsed > 0:
-                return parsed
+                return parsed / _AGOROT_PER_ILS
         return None
 
 

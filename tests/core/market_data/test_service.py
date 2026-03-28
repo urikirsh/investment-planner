@@ -274,7 +274,7 @@ def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_lookup(
     assert result.metadata.exchange is Exchange.TASE
     assert result.metadata.canonical_ticker == "5139910"
     assert result.metadata.display_name == "IBI MEHAKA S&P Bitcoin"
-    assert result.metadata.last_traded_price == Decimal("63.94")
+    assert result.metadata.last_traded_price == Decimal("0.6394")
     assert result.metadata.isin == "IL0051399108"
     assert result.metadata.provider_data.get("fundId") == 5139910
     assert result.metadata.provider_data.get("ratesAsOf") == "2026-03-25"
@@ -295,7 +295,7 @@ def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_when_primary_h
 
     assert isinstance(result, TickerLookupFound)
     assert result.metadata.display_name == "IBI MEHAKA S&P Bitcoin"
-    assert result.metadata.last_traded_price == Decimal("63.94")
+    assert result.metadata.last_traded_price == Decimal("0.6394")
 
 
 def test_lookup_ticker_in_exchange_preserves_primary_tase_communication_error_when_mutual_fund_fallback_is_missing(
