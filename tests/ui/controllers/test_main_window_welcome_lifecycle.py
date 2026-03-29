@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import pytest
 
-import ui.controllers.main_window_welcome as welcome_mod
+import ui.controllers.startup_transition as transition_mod
 
 
 class _FakeSignal:
@@ -75,11 +75,11 @@ class _FakeResultRelay:
 
 
 def test_startup_fx_lifecycle_start_wires_and_starts_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(welcome_mod, "QThread", _FakeThread)
-    monkeypatch.setattr(welcome_mod, "_StartupFxFetchWorker", _FakeWorker)
-    monkeypatch.setattr(welcome_mod, "_StartupFxFetchResultRelay", _FakeResultRelay)
+    monkeypatch.setattr(transition_mod, "QThread", _FakeThread)
+    monkeypatch.setattr(transition_mod, "StartupFxFetchWorker", _FakeWorker)
+    monkeypatch.setattr(transition_mod, "StartupFxFetchResultRelay", _FakeResultRelay)
 
-    lifecycle = welcome_mod._StartupFxFetchLifecycle()
+    lifecycle = transition_mod.StartupFxFetchLifecycle()
     parent = object()
 
     def on_finished(_quote_obj: object, _portfolio_obj: object, _error_obj: object) -> None:
@@ -120,7 +120,7 @@ def test_startup_fx_lifecycle_cancel_returns_false_when_wait_times_out() -> None
     thread.wait_result = False
     worker = _FakeWorker(portfolio=None, cached_quote=None, timeout_seconds=1.0)
     result_relay = _FakeResultRelay(on_finished=lambda *_args: None, parent=object())
-    lifecycle = welcome_mod._StartupFxFetchLifecycle(
+    lifecycle = transition_mod.StartupFxFetchLifecycle(
         thread=cast(Any, thread),
         worker=cast(Any, worker),
         result_relay=cast(Any, result_relay),
@@ -142,7 +142,7 @@ def test_startup_fx_lifecycle_cancel_clears_refs_after_successful_stop() -> None
     thread.running = True
     thread.wait_result = True
     worker = _FakeWorker(portfolio=None, cached_quote=None, timeout_seconds=1.0)
-    lifecycle = welcome_mod._StartupFxFetchLifecycle(
+    lifecycle = transition_mod.StartupFxFetchLifecycle(
         thread=cast(Any, thread),
         worker=cast(Any, worker),
         result_relay=cast(Any, _FakeResultRelay(on_finished=lambda *_args: None, parent=object())),
@@ -160,7 +160,7 @@ def test_startup_fx_lifecycle_cancel_clears_refs_after_successful_stop() -> None
 
 
 def test_startup_fx_lifecycle_clear_resets_thread_and_worker_refs() -> None:
-    lifecycle = welcome_mod._StartupFxFetchLifecycle(
+    lifecycle = transition_mod.StartupFxFetchLifecycle(
         thread=cast(Any, _FakeThread(parent=object())),
         worker=cast(Any, _FakeWorker(portfolio=None, cached_quote=None, timeout_seconds=2.0)),
         result_relay=cast(Any, _FakeResultRelay(on_finished=lambda *_args: None, parent=object())),

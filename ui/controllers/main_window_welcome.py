@@ -3,111 +3,27 @@ from __future__ import annotations
 """Welcome-screen behavior for the composed main window controller."""
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Final, cast
 
-from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
 from portfolio_core.app_metadata import get_app_version
 from portfolio_core.domain.models import Portfolio
-from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
+from portfolio_core.fx_service import UsdIlsRateQuote
 from portfolio_core.io_json import load_portfolio_file
-from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
-from portfolio_core.use_cases import StartupPortfolioPriceRefreshError, refresh_portfolio_prices_for_startup
 from ui.controllers.protocols import MainWindowWelcomeHost
+from ui.controllers.startup_transition import (
+    StartupTransitionCoordinator,
+    StartupTransitionDecision,
+    append_startup_debug_log,
+)
 from ui.dialogs import show_cleanup_in_progress, show_error_with_back
-from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_FX_FETCH_TIMEOUT_SECONDS
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 from ui.screens.welcome_screen import WelcomeScreen
 
 _DEFAULT_PATH_MAX_CHARS: Final[int] = 96
-_STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
-_STARTUP_DEBUG_LOG_PATH: Final[Path] = Path(__file__).resolve().parents[2] / "startup_debug.log"
-
-
-def _append_startup_debug_log(message: str) -> None:
-    """Best-effort startup trace logging for crash investigation."""
-    timestamp = datetime.now().isoformat(timespec="milliseconds")
-    try:
-        _STARTUP_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _STARTUP_DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(f"{timestamp} {message}\n")
-    except Exception:
-        return
-
-
-class _StartupFxFetchWorker(QObject):
-    """Background startup market-data worker for welcome->main transition."""
-
-    finished = Signal(object, object, object)  # (UsdIlsRateQuote | None, Portfolio | None, error_text | None)
-
-    def __init__(
-        self,
-        *,
-        portfolio: Portfolio | None,
-        cached_quote: CachedUsdIlsQuote | None,
-        timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
-    ) -> None:
-        super().__init__()
-        self._portfolio = portfolio
-        self._cached_quote = cached_quote
-        self._timeout_seconds = timeout_seconds
-
-    @Slot()
-    def run(self) -> None:
-        _append_startup_debug_log(
-            "worker.run start "
-            f"portfolio_present={self._portfolio is not None} "
-            f"cached_quote_present={self._cached_quote is not None} "
-            f"timeout_seconds={self._timeout_seconds}"
-        )
-        try:
-            if self._portfolio is None:
-                raise StartupPortfolioPriceRefreshError("No portfolio loaded for startup price refresh.")
-            quote = None
-            if self._cached_quote is None:
-                _append_startup_debug_log("worker.run fetching usd-ils quote")
-                quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
-                usd_ils_rate = quote.rate
-                _append_startup_debug_log(
-                    "worker.run fetched usd-ils quote "
-                    f"rate={quote.rate} effective_date={quote.effective_date.isoformat()} "
-                    f"used_last_published={quote.used_last_published}"
-                )
-            else:
-                usd_ils_rate = self._cached_quote.rate
-                _append_startup_debug_log(f"worker.run using cached usd-ils rate={usd_ils_rate}")
-            refreshed_portfolio = refresh_portfolio_prices_for_startup(
-                self._portfolio,
-                usd_ils_rate=usd_ils_rate,
-                lookup_timeout_seconds=self._timeout_seconds,
-            )
-            _append_startup_debug_log(
-                "worker.run refresh complete "
-                f"instrument_count={len(refreshed_portfolio.instruments)}"
-            )
-            self.finished.emit(quote, refreshed_portfolio, None)
-        except StartupPortfolioPriceRefreshError as exc:
-            _append_startup_debug_log(f"worker.run startup refresh error={exc!r}")
-            self.finished.emit(None, None, str(exc))
-        except Exception as exc:
-            _append_startup_debug_log(f"worker.run unexpected error={exc!r}")
-            self.finished.emit(None, None, str(exc))
-
-
-class _StartupFxFetchResultRelay(QObject):
-    """GUI-thread relay for startup fetch completion results."""
-
-    def __init__(self, *, on_finished: Callable[[object, object, object], None], parent: QWidget) -> None:
-        super().__init__(parent)
-        self._on_finished = on_finished
-
-    @Slot(object, object, object)
-    def dispatch(self, quote_obj: object, portfolio_obj: object, error_obj: object) -> None:
-        """Forward worker results from the GUI thread to the controller callback."""
-        _append_startup_debug_log("result_relay.dispatch on gui thread")
-        self._on_finished(quote_obj, portfolio_obj, error_obj)
 
 
 @dataclass(frozen=True)
@@ -118,95 +34,6 @@ class WelcomeLastPortfolioStatus:
     path_text: str
     path_tooltip: str
     missing_path: bool
-
-
-@dataclass
-class _StartupFxFetchLifecycle:
-    """Mutable holder for startup FX worker/thread ownership."""
-
-    thread: QThread | None = None
-    worker: _StartupFxFetchWorker | None = None
-    result_relay: _StartupFxFetchResultRelay | None = None
-
-    def start(
-        self,
-        *,
-        parent: QWidget,
-        portfolio: Portfolio | None,
-        cached_quote: CachedUsdIlsQuote | None,
-        on_finished: Callable[[object, object, object], None],
-        timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
-    ) -> None:
-        """Create, wire, and start the startup FX fetch worker thread."""
-        _append_startup_debug_log(
-            "lifecycle.start "
-            f"portfolio_present={portfolio is not None} "
-            f"cached_quote_present={cached_quote is not None} "
-            f"timeout_seconds={timeout_seconds}"
-        )
-        thread = QThread(parent)
-        worker = _StartupFxFetchWorker(
-            portfolio=portfolio,
-            cached_quote=cached_quote,
-            timeout_seconds=timeout_seconds,
-        )
-        result_relay = _StartupFxFetchResultRelay(on_finished=on_finished, parent=parent)
-        self.thread = thread
-        self.worker = worker
-        self.result_relay = result_relay
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(result_relay.dispatch)
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self.clear)
-        thread.finished.connect(thread.deleteLater)
-        thread.start()
-
-    def cancel(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
-        """Stop and detach in-flight worker/thread, if any."""
-        _append_startup_debug_log(
-            "lifecycle.cancel "
-            f"thread_present={self.thread is not None} "
-            f"thread_running={self.thread.isRunning() if self.thread is not None else False} "
-            f"wait_timeout_ms={wait_timeout_ms}"
-        )
-        if self.thread is not None and self.thread.isRunning():
-            self.thread.quit()
-            if not self.thread.wait(wait_timeout_ms):
-                _append_startup_debug_log("lifecycle.cancel wait timed out")
-                return False
-        if self.worker is not None:
-            self.worker.deleteLater()
-        self.clear()
-        return True
-
-    def clear(self) -> None:
-        _append_startup_debug_log(
-            "lifecycle.clear "
-            f"thread_present={self.thread is not None} "
-            f"worker_present={self.worker is not None} "
-            f"result_relay_present={self.result_relay is not None}"
-        )
-        self.thread = None
-        self.worker = None
-        self.result_relay = None
-
-
-@dataclass
-class _StartupTransitionState:
-    """Gate state for welcome->main transition completion conditions."""
-
-    pending: bool = False
-    min_delay_elapsed: bool = False
-    fx_fetch_completed: bool = False
-    fx_fetch_error: str | None = None
-
-    def reset(self, *, pending: bool) -> None:
-        self.pending = pending
-        self.min_delay_elapsed = False
-        self.fx_fetch_completed = False
-        self.fx_fetch_error = None
 
 
 @dataclass
@@ -222,11 +49,10 @@ class MainWindowWelcomeController:
 
     def __init__(self, host: MainWindowWelcomeHost) -> None:
         self._host = host
-        self._startup_transition_timer = QTimer(self._host_widget())
-        self._startup_transition_timer.setSingleShot(True)
+        self._startup_transition_coordinator = StartupTransitionCoordinator(self._host_widget())
+        self._startup_transition_timer = self._startup_transition_coordinator.timer
+        self._startup_transition = self._startup_transition_coordinator.state
         self._startup_transition_timer.timeout.connect(self._complete_startup_transition_to_main)
-        self._startup_fx_fetch = _StartupFxFetchLifecycle()
-        self._startup_transition = _StartupTransitionState()
         self._pending_startup_portfolio: _PendingStartupPortfolio | None = None
         self._last_prepare_error_message: str | None = None
 
@@ -328,15 +154,15 @@ class MainWindowWelcomeController:
 
     def _prepare_portfolio_from_path(self, path: Path) -> bool:
         """Stage a portfolio from disk without committing it to the live editor yet."""
-        _append_startup_debug_log(f"prepare_portfolio_from_path start path={path}")
+        append_startup_debug_log(f"prepare_portfolio_from_path start path={path}")
         self._last_prepare_error_message = None
         try:
             portfolio = load_portfolio_file(path)
         except Exception as exc:
             self._last_prepare_error_message = str(exc) or repr(exc)
-            _append_startup_debug_log(f"prepare_portfolio_from_path failed path={path} error={exc!r}")
+            append_startup_debug_log(f"prepare_portfolio_from_path failed path={path} error={exc!r}")
             return False
-        _append_startup_debug_log(
+        append_startup_debug_log(
             "prepare_portfolio_from_path success "
             f"path={path} instrument_count={len(portfolio.instruments)}"
         )
@@ -346,7 +172,7 @@ class MainWindowWelcomeController:
     def _prepare_portfolio_from_picker(self) -> bool:
         """Prompt for a portfolio path, then stage it for startup transition."""
         path = self._host._prompt_select_open_path()
-        _append_startup_debug_log(f"prepare_portfolio_from_picker selected path={path}")
+        append_startup_debug_log(f"prepare_portfolio_from_picker selected path={path}")
         if path is None:
             self._last_prepare_error_message = None
             return False
@@ -355,7 +181,7 @@ class MainWindowWelcomeController:
     def _prepare_default_document(self) -> None:
         """Stage a new default portfolio without committing it to the live editor yet."""
         portfolio = self._host._build_default_portfolio_for_startup()
-        _append_startup_debug_log(
+        append_startup_debug_log(
             "prepare_default_document "
             f"instrument_count={len(portfolio.instruments)}"
         )
@@ -390,7 +216,7 @@ class MainWindowWelcomeController:
     def _begin_startup_transition_to_main(self) -> None:
         """Show loading overlay and enter main only after delay + startup fetch."""
         pending = self._pending_startup_portfolio
-        _append_startup_debug_log(
+        append_startup_debug_log(
             "begin_startup_transition "
             f"pending_present={pending is not None} "
             f"pending_file_path={pending.file_path if pending is not None else None}"
@@ -402,33 +228,29 @@ class MainWindowWelcomeController:
 
     def _complete_startup_transition_to_main(self) -> None:
         """Mark the min-delay timer complete and try finalizing transition."""
-        _append_startup_debug_log("complete_startup_transition timer elapsed")
-        self._startup_transition.min_delay_elapsed = True
-        self._try_finalize_startup_transition()
+        decision = self._startup_transition_coordinator.on_min_delay_elapsed()
+        if decision is not None:
+            self._finalize_startup_transition(decision)
 
     def _schedule_main_screen_transition(self) -> None:
         """Schedule minimum-delay transition with a cancelable timer."""
-        self._startup_transition_timer.start(_STARTUP_TRANSITION_MIN_DELAY_MS)
+        self._startup_transition_coordinator.schedule_min_delay()
 
     def _start_startup_fx_fetch(self) -> None:
         """Start startup market-data fetch for FX and portfolio prices."""
         pending = self._pending_startup_portfolio
-        _append_startup_debug_log(
-            "start_startup_fx_fetch "
-            f"pending_present={pending is not None} "
-            f"pending_file_path={pending.file_path if pending is not None else None} "
-            f"instrument_count={len(pending.portfolio.instruments) if pending is not None else 0} "
-            f"cached_quote_present={self._host.session.cached_usd_ils_quote is not None}"
-        )
         if not self._ensure_startup_cleanup_ready_for_restart():
+            self._abort_startup_transition_cleanup_in_progress()
             return
-        self._startup_fx_fetch.start(
+        started = self._startup_transition_coordinator.start_fetch(
             parent=self._host_widget(),
             portfolio=self._pending_portfolio(),
             cached_quote=self._host.session.cached_usd_ils_quote,
             on_finished=self._on_startup_fx_fetch_finished,
-            timeout_seconds=STARTUP_FX_FETCH_TIMEOUT_SECONDS,
+            pending_file_path=pending.file_path if pending is not None else None,
         )
+        if not started:
+            self._abort_startup_transition_cleanup_in_progress()
 
     def _pending_portfolio(self) -> Portfolio | None:
         """Return the staged portfolio prepared for the current startup action."""
@@ -439,10 +261,8 @@ class MainWindowWelcomeController:
 
     def _ensure_startup_cleanup_ready_for_restart(self) -> bool:
         """Ensure startup fetch cleanup completed before creating a new worker."""
-        _append_startup_debug_log("ensure_startup_cleanup_ready_for_restart")
         if self._cancel_startup_fx_fetch():
             return True
-        self._abort_startup_transition_cleanup_in_progress()
         return False
 
     @Slot(object, object, object)
@@ -451,47 +271,51 @@ class MainWindowWelcomeController:
         quote = quote_obj if isinstance(quote_obj, UsdIlsRateQuote) else None
         refreshed_portfolio = portfolio_obj if isinstance(portfolio_obj, Portfolio) else None
         error_text = str(error_obj) if isinstance(error_obj, str) else ""
-        _append_startup_debug_log(
+        append_startup_debug_log(
             "on_startup_fx_fetch_finished "
             f"quote_present={quote is not None} "
             f"portfolio_present={refreshed_portfolio is not None} "
             f"error_text={error_text!r}"
         )
 
+        transition_error: str | None
         if not error_text and refreshed_portfolio is not None:
             cached_quote = self._host.session.cached_usd_ils_quote
             if quote is not None:
-                _append_startup_debug_log("on_startup_fx_fetch_finished caching fetched quote")
+                append_startup_debug_log("on_startup_fx_fetch_finished caching fetched quote")
                 self._host.session.cache_usd_ils_quote(
                     rate=quote.rate,
                     effective_date=quote.effective_date,
                     used_last_published=quote.used_last_published,
                 )
             elif cached_quote is None:
-                _append_startup_debug_log("on_startup_fx_fetch_finished missing quote and no cache")
-                self._startup_transition.fx_fetch_error = "Failed to fetch USD to ILS exchange rate."
-                self._startup_transition.fx_fetch_completed = True
-                self._try_finalize_startup_transition()
+                append_startup_debug_log("on_startup_fx_fetch_finished missing quote and no cache")
+                decision = self._startup_transition_coordinator.record_fetch_outcome(
+                    error_message="Failed to fetch USD to ILS exchange rate."
+                )
+                if decision is not None:
+                    self._finalize_startup_transition(decision)
                 return
             self._commit_pending_startup_portfolio(refreshed_portfolio)
-            self._startup_transition.fx_fetch_error = None
+            transition_error = None
         else:
-            self._startup_transition.fx_fetch_error = self._build_startup_fetch_error_message(error_text)
+            transition_error = self._build_startup_fetch_error_message(error_text)
             self._pending_startup_portfolio = None
-            _append_startup_debug_log(
-                f"on_startup_fx_fetch_finished stored error={self._startup_transition.fx_fetch_error!r}"
+            append_startup_debug_log(
+                f"on_startup_fx_fetch_finished stored error={transition_error!r}"
             )
 
-        self._startup_transition.fx_fetch_completed = True
-        self._try_finalize_startup_transition()
+        decision = self._startup_transition_coordinator.record_fetch_outcome(error_message=transition_error)
+        if decision is not None:
+            self._finalize_startup_transition(decision)
 
     def _commit_pending_startup_portfolio(self, refreshed_portfolio: Portfolio) -> None:
         """Commit staged startup portfolio into session and main-editor UI."""
         pending = self._pending_startup_portfolio
         if pending is None:
-            _append_startup_debug_log("commit_pending_startup_portfolio missing pending portfolio")
+            append_startup_debug_log("commit_pending_startup_portfolio missing pending portfolio")
             raise RuntimeError("No pending startup portfolio to commit.")
-        _append_startup_debug_log(
+        append_startup_debug_log(
             "commit_pending_startup_portfolio "
             f"file_path={pending.file_path} "
             f"instrument_count={len(refreshed_portfolio.instruments)}"
@@ -513,41 +337,35 @@ class MainWindowWelcomeController:
 
     def _try_finalize_startup_transition(self) -> None:
         """Finalize welcome transition after both min-delay and startup fetch complete."""
-        state = self._startup_transition
-        _append_startup_debug_log(
-            "try_finalize_startup_transition "
-            f"pending={state.pending} "
-            f"min_delay_elapsed={state.min_delay_elapsed} "
-            f"fx_fetch_completed={state.fx_fetch_completed} "
-            f"fx_fetch_error={state.fx_fetch_error!r}"
+        decision = self._startup_transition_coordinator.record_fetch_outcome(
+            error_message=self._startup_transition.fx_fetch_error
         )
-        if not state.pending:
-            return
-        if not state.min_delay_elapsed or not state.fx_fetch_completed:
-            return
+        if decision is not None:
+            self._finalize_startup_transition(decision)
 
-        state.pending = False
+    def _finalize_startup_transition(self, decision: StartupTransitionDecision) -> None:
+        """Apply the resolved startup transition outcome to the UI."""
         self._host._hide_startup_loading_overlay()
-        if state.fx_fetch_error:
-            _append_startup_debug_log("try_finalize_startup_transition showing error and staying on welcome")
+        if decision.error_message:
+            append_startup_debug_log("try_finalize_startup_transition showing error and staying on welcome")
             self._host.stack.setCurrentWidget(self._host.screen_welcome)
             show_error_with_back(
                 self._host_widget(),
                 "Startup data fetch failed",
-                state.fx_fetch_error,
+                decision.error_message,
             )
             self.refresh_last_portfolio_ui()
             return
-        _append_startup_debug_log("try_finalize_startup_transition entering main screen")
+        append_startup_debug_log("try_finalize_startup_transition entering main screen")
         self.enter_main_screen()
 
     def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Stop and detach in-flight startup FX fetch worker, if any."""
-        return self._startup_fx_fetch.cancel(wait_timeout_ms=wait_timeout_ms)
+        return self._startup_transition_coordinator.cancel_fetch(wait_timeout_ms=wait_timeout_ms)
 
     def _abort_startup_transition_cleanup_in_progress(self) -> None:
         """Abort transition when prior startup FX cleanup could not finish."""
-        _append_startup_debug_log("abort_startup_transition_cleanup_in_progress")
+        append_startup_debug_log("abort_startup_transition_cleanup_in_progress")
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
         self._reset_startup_transition_state(pending=False)
@@ -559,16 +377,11 @@ class MainWindowWelcomeController:
 
     def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Cancel startup transition and return whether FX worker cleanup completed."""
-        _append_startup_debug_log(f"cancel_pending_startup_transition wait_timeout_ms={wait_timeout_ms}")
-        if self._startup_transition_timer.isActive():
-            self._startup_transition_timer.stop()
-        self._reset_startup_transition_state(pending=False)
-        stopped = self._cancel_startup_fx_fetch(wait_timeout_ms=wait_timeout_ms)
+        stopped = self._startup_transition_coordinator.cancel_pending_transition(wait_timeout_ms=wait_timeout_ms)
         self._pending_startup_portfolio = None
         self._host._hide_startup_loading_overlay()
         return stopped
 
     def _reset_startup_transition_state(self, *, pending: bool) -> None:
         """Reset startup-transition gate flags to a known baseline state."""
-        _append_startup_debug_log(f"reset_startup_transition_state pending={pending}")
-        self._startup_transition.reset(pending=pending)
+        self._startup_transition_coordinator.reset(pending=pending)
