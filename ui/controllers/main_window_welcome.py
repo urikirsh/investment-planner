@@ -348,6 +348,7 @@ class MainWindowWelcomeController:
         path = self._host._prompt_select_open_path()
         _append_startup_debug_log(f"prepare_portfolio_from_picker selected path={path}")
         if path is None:
+            self._last_prepare_error_message = None
             return False
         return self._prepare_portfolio_from_path(path)
 

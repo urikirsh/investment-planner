@@ -253,6 +253,36 @@ def test_welcome_load_different_shows_modal_with_prepare_error_details(
     assert window.stack.currentWidget() is window.screen_welcome
 
 
+def test_welcome_load_different_cancel_does_not_replay_previous_prepare_error(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    selected_path = tmp_path / "broken.json"
+    selected_path.write_text("{}", encoding="utf-8")
+    shown: list[tuple[str, str]] = []
+
+    def fake_prepare_portfolio(_path: Path) -> bool:
+        window._welcome_controller._last_prepare_error_message = "Missing or invalid 'cash' object"
+        return False
+
+    monkeypatch.setattr(window, "_prompt_select_open_path", lambda: selected_path)
+    monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_path", fake_prepare_portfolio)
+    monkeypatch.setattr(
+        welcome_mod,
+        "show_error_with_back",
+        lambda _parent, title, message: shown.append((title, message)),
+    )
+
+    window._on_welcome_load_different_clicked()
+
+    monkeypatch.setattr(window, "_prompt_select_open_path", lambda: None)
+    window._on_welcome_load_different_clicked()
+
+    assert shown == [("Load failed", "Missing or invalid 'cash' object")]
+    assert window.stack.currentWidget() is window.screen_welcome
+
+
 def test_welcome_start_new_loads_default_and_enters_main(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
