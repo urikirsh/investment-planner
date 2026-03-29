@@ -211,7 +211,7 @@ class _TaseApiLookupProvider(_BaseHttpLookupProvider):
         if primary_error is not None:
             raise primary_error
         if mutual_fund_error is not None:
-            return primary_result
+            raise mutual_fund_error
         return primary_result
 
     def _fetch_security_payload(self, ticker: str, timeout_seconds: float) -> str:

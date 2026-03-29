@@ -197,7 +197,10 @@ def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
     payload = '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_TASE_URL: payload},
+        payloads_by_url={
+            _TASE_URL: payload,
+            "https://maya.tase.co.il/api/v1/funds/mutual/1159094": "null",
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -232,7 +235,10 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
     )
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=1234567&lang=1": payload},
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=1234567&lang=1": payload,
+            "https://maya.tase.co.il/api/v1/funds/mutual/1234567": "null",
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567")
@@ -246,7 +252,10 @@ def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
 ) -> None:
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=9999999&lang=1": "null"},
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=9999999&lang=1": "null",
+            "https://maya.tase.co.il/api/v1/funds/mutual/9999999": "null",
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="9999999")
@@ -310,6 +319,21 @@ def test_lookup_ticker_in_exchange_preserves_primary_tase_communication_error_wh
     )
 
     with pytest.raises(TickerLookupCommunicationError, match="TASE security data response is not valid JSON"):
+        lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="5139910")
+
+
+def test_lookup_ticker_in_exchange_raises_mutual_fund_communication_error_when_primary_is_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "null",
+            _TASE_MUTUAL_FUND_URL: "{invalid-json",
+        },
+    )
+
+    with pytest.raises(TickerLookupCommunicationError, match="TASE mutual fund response is not valid JSON"):
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="5139910")
 
 
