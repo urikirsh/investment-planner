@@ -60,6 +60,42 @@ def _make_staged_portfolio() -> Portfolio:
     )
 
 
+def _stage_pending_startup_portfolio(window: MainWindow, *, portfolio: Portfolio, path: Path) -> bool:
+    window._welcome_controller._pending_startup_portfolio = welcome_mod._PendingStartupPortfolio(
+        portfolio=portfolio,
+        file_path=path,
+    )
+    return True
+
+
+def _mock_prepare_staged_portfolio(
+    monkeypatch: pytest.MonkeyPatch,
+    window: MainWindow,
+    *,
+    portfolio: Portfolio,
+    seen_paths: list[Path] | None = None,
+) -> None:
+    def fake_prepare_portfolio(path: Path) -> bool:
+        if seen_paths is not None:
+            seen_paths.append(path)
+        return _stage_pending_startup_portfolio(window, portfolio=portfolio, path=path)
+
+    monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_path", fake_prepare_portfolio)
+
+
+def _complete_startup_fetch_with_portfolio(
+    monkeypatch: pytest.MonkeyPatch,
+    window: MainWindow,
+    *,
+    portfolio: Portfolio,
+    error: str | None = None,
+) -> None:
+    def fake_start_fetch() -> None:
+        window._welcome_controller._on_startup_fx_fetch_finished(error, portfolio, None)
+
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)
+
+
 @pytest.fixture()
 def window(qapp: object, monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[MainWindow]:
     _ = qapp
@@ -140,23 +176,16 @@ def test_welcome_open_last_transitions_to_main_on_success(
     seen_paths: list[Path] = []
     staged_portfolio = _make_staged_portfolio()
 
-    def fake_prepare_portfolio(path: Path) -> bool:
-        seen_paths.append(path)
-        window._welcome_controller._pending_startup_portfolio = welcome_mod._PendingStartupPortfolio(
-            portfolio=staged_portfolio,
-            file_path=path,
-        )
-        return True
-
     _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
-    monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_path", fake_prepare_portfolio)
+    _mock_prepare_staged_portfolio(
+        monkeypatch,
+        window,
+        portfolio=staged_portfolio,
+        seen_paths=seen_paths,
+    )
     seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
-    monkeypatch.setattr(
-        window._welcome_controller,
-        "_start_startup_fx_fetch",
-        lambda: window._welcome_controller._on_startup_fx_fetch_finished(None, staged_portfolio, None),
-    )
+    _complete_startup_fetch_with_portfolio(monkeypatch, window, portfolio=staged_portfolio)
 
     window._on_welcome_open_last_clicked()
 
@@ -330,22 +359,11 @@ def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
         }
     )
 
-    def fake_prepare_portfolio(path: Path) -> bool:
-        window._welcome_controller._pending_startup_portfolio = welcome_mod._PendingStartupPortfolio(
-            portfolio=staged_portfolio,
-            file_path=path,
-        )
-        return True
-
     _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
-    monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_path", fake_prepare_portfolio)
+    _mock_prepare_staged_portfolio(monkeypatch, window, portfolio=staged_portfolio)
     seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
-    monkeypatch.setattr(
-        window._welcome_controller,
-        "_start_startup_fx_fetch",
-        lambda: window._welcome_controller._on_startup_fx_fetch_finished(None, refreshed_portfolio, None),
-    )
+    _complete_startup_fetch_with_portfolio(monkeypatch, window, portfolio=refreshed_portfolio)
 
     window._on_welcome_open_last_clicked()
 
