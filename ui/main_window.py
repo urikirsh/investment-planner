@@ -190,7 +190,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
                 return
             plan_result: PlanBuildResult = build_plan_for_current_document(self.session, mode)
             if plan_result.budget <= 0:
-                self._show_info("No budget", "No investable cash")
+                self._show_error("No budget", "No investable cash")
                 return
             self.planning_state.plan_steps = plan_result.steps
             self.planning_state.step_index = 0

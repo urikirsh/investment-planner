@@ -67,6 +67,7 @@ The application never executes trades automatically. All actions are explicit an
   - USD-priced steps use a USD/ILS rate prepared during startup
   - calculation can be triggered by button click, pressing `Enter`, or leaving the price field
   - unit amounts are rounded down to whole numbers
+  - when there is no investable cash, planning stops with an error message instead of opening the summary flow
 - Wizard actions:
   - `Save and continue` applies the current step and moves forward
   - `Save and continue` is enabled only after a valid calculation
@@ -184,6 +185,7 @@ Notes:
 - Opening or creating a portfolio refreshes all instrument table values in memory during startup, including public TASE mutual funds when a public quote is available; the file on disk is updated only when you save.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
+- Saving remains available even when cash is currently below the configured minimal reserve.
 - `Open` loads an existing portfolio file.
 - `New` starts a fresh default portfolio.
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
