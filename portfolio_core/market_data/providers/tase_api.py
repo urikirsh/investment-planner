@@ -26,20 +26,66 @@ _TASE_ENGLISH_NAME_KEYS = ("Name", "LongName", "SecurityLongName", "CompanyName"
 _AGOROT_PER_ILS = Decimal("100")
 
 
+def _parse_json_mapping(
+    raw_text: str,
+    *,
+    invalid_json_message: str,
+    invalid_shape_message: str,
+) -> Mapping[str, object] | None:
+    """Parse one JSON object payload or return ``None`` for empty/null responses."""
+    normalized_text = raw_text.strip()
+    if not normalized_text or normalized_text == "null":
+        return None
+    try:
+        payload = json.loads(normalized_text)
+    except json.JSONDecodeError as exc:
+        raise TickerLookupCommunicationError(invalid_json_message) from exc
+    if not isinstance(payload, Mapping):
+        raise TickerLookupCommunicationError(invalid_shape_message)
+    return payload
+
+
+def _extract_optional_string(payload: Mapping[str, object], key: str) -> str | None:
+    """Return a stripped optional string value when present and non-empty."""
+    value = payload.get(key)
+    if not isinstance(value, str):
+        return None
+    normalized_value = value.strip()
+    return normalized_value or None
+
+
+def _extract_positive_decimal(
+    payload: Mapping[str, object],
+    keys: tuple[str, ...],
+    *,
+    divisor: Decimal | None = None,
+) -> Decimal | None:
+    """Return the first positive decimal value found under the provided keys."""
+    for key in keys:
+        value = payload.get(key)
+        if value in (None, ""):
+            continue
+        try:
+            parsed = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            continue
+        if parsed > 0:
+            return parsed / divisor if divisor is not None else parsed
+    return None
+
+
 class _TaseSecurityDataParser:
     """Parser for TASE ``company/securitydata`` JSON payloads."""
 
     def parse_lookup_result(self, raw_text: str) -> TickerLookupResult:
         """Parse one TASE security payload into found/not-found lookup result."""
-        normalized_text = raw_text.strip()
-        if not normalized_text or normalized_text == "null":
+        payload = _parse_json_mapping(
+            raw_text,
+            invalid_json_message="TASE security data response is not valid JSON",
+            invalid_shape_message="TASE security data response has an unexpected payload format",
+        )
+        if payload is None:
             return TickerLookupNotFound()
-        try:
-            payload = json.loads(normalized_text)
-        except json.JSONDecodeError as exc:
-            raise TickerLookupCommunicationError("TASE security data response is not valid JSON") from exc
-        if not isinstance(payload, Mapping):
-            raise TickerLookupCommunicationError("TASE security data response has an unexpected payload format")
 
         security_id = payload.get("Id")
         if security_id in (None, ""):
@@ -54,33 +100,19 @@ class _TaseSecurityDataParser:
                 canonical_ticker=key.canonical_ticker,
                 display_name=instrument_name,
                 last_traded_price=self._extract_last_traded_price(payload),
-                isin=self._extract_optional_string(payload, "ISIN"),
-                currency=self._extract_optional_string(payload, "Currency"),
+                isin=_extract_optional_string(payload, "ISIN"),
+                currency=_extract_optional_string(payload, "Currency"),
                 provider_data=MappingProxyType(dict(payload)),
             )
         )
 
-    def _extract_optional_string(self, payload: Mapping[str, object], key: str) -> str | None:
-        """Return a stripped optional string value when present and non-empty."""
-        value = payload.get(key)
-        if not isinstance(value, str):
-            return None
-        normalized_value = value.strip()
-        return normalized_value or None
-
     def _extract_last_traded_price(self, payload: Mapping[str, object]) -> Decimal | None:
         """Return last traded TASE price normalized from agorot to ILS."""
-        for key in ("LastRate", "TradeRate", "LastTradedRate", "ClosingRate", "Price"):
-            value = payload.get(key)
-            if value in (None, ""):
-                continue
-            try:
-                parsed = Decimal(str(value))
-            except (InvalidOperation, ValueError):
-                continue
-            if parsed > 0:
-                return parsed / _AGOROT_PER_ILS
-        return None
+        return _extract_positive_decimal(
+            payload,
+            ("LastRate", "TradeRate", "LastTradedRate", "ClosingRate", "Price"),
+            divisor=_AGOROT_PER_ILS,
+        )
 
     def _extract_english_instrument_name(self, payload: Mapping[str, object]) -> str:
         """Return preferred English instrument display name, or empty string when unavailable."""
@@ -111,15 +143,13 @@ class _TaseMutualFundParser:
 
     def parse_lookup_result(self, raw_text: str) -> TickerLookupResult:
         """Parse one mutual-fund payload into found/not-found lookup result."""
-        normalized_text = raw_text.strip()
-        if not normalized_text or normalized_text == "null":
+        payload = _parse_json_mapping(
+            raw_text,
+            invalid_json_message="TASE mutual fund response is not valid JSON",
+            invalid_shape_message="TASE mutual fund response has an unexpected payload format",
+        )
+        if payload is None:
             return TickerLookupNotFound()
-        try:
-            payload = json.loads(normalized_text)
-        except json.JSONDecodeError as exc:
-            raise TickerLookupCommunicationError("TASE mutual fund response is not valid JSON") from exc
-        if not isinstance(payload, Mapping):
-            raise TickerLookupCommunicationError("TASE mutual fund response has an unexpected payload format")
 
         fund_id = payload.get("fundId")
         if fund_id in (None, ""):
@@ -133,7 +163,7 @@ class _TaseMutualFundParser:
                 canonical_ticker=key.canonical_ticker,
                 display_name=self._extract_display_name(payload),
                 last_traded_price=self._extract_last_traded_price(payload),
-                isin=self._extract_optional_string(payload, "isin"),
+                isin=_extract_optional_string(payload, "isin"),
                 currency=None,
                 provider_data=MappingProxyType(dict(payload)),
             )
@@ -141,35 +171,21 @@ class _TaseMutualFundParser:
 
     def _extract_display_name(self, payload: Mapping[str, object]) -> str:
         """Return preferred mutual-fund display name."""
-        short_name = self._extract_optional_string(payload, "name")
+        short_name = _extract_optional_string(payload, "name")
         if short_name is not None:
             return short_name
-        long_name = self._extract_optional_string(payload, "longName")
+        long_name = _extract_optional_string(payload, "longName")
         if long_name is not None:
             return long_name
         return ""
 
-    def _extract_optional_string(self, payload: Mapping[str, object], key: str) -> str | None:
-        """Return a stripped optional string value when present and non-empty."""
-        value = payload.get(key)
-        if not isinstance(value, str):
-            return None
-        normalized_value = value.strip()
-        return normalized_value or None
-
     def _extract_last_traded_price(self, payload: Mapping[str, object]) -> Decimal | None:
         """Return mutual-fund price normalized from agorot to ILS."""
-        for key in ("redemptionPrice", "purchasePrice"):
-            value = payload.get(key)
-            if value in (None, ""):
-                continue
-            try:
-                parsed = Decimal(str(value))
-            except (InvalidOperation, ValueError):
-                continue
-            if parsed > 0:
-                return parsed / _AGOROT_PER_ILS
-        return None
+        return _extract_positive_decimal(
+            payload,
+            ("redemptionPrice", "purchasePrice"),
+            divisor=_AGOROT_PER_ILS,
+        )
 
 
 class _TaseApiLookupProvider(_BaseHttpLookupProvider):
