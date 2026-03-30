@@ -236,7 +236,7 @@ class MainWindowWelcomeController:
         self._reset_startup_transition_state(pending=True)
         self._host._show_startup_loading_overlay()
         self._schedule_main_screen_transition()
-        self._start_startup_fx_fetch()
+        self._start_startup_market_data_fetch()
 
     def _complete_startup_transition_to_main(self) -> None:
         """Mark the min-delay timer complete and try finalizing transition."""
@@ -248,7 +248,7 @@ class MainWindowWelcomeController:
         """Schedule minimum-delay transition with a cancelable timer."""
         self._startup_transition_coordinator.schedule_min_delay()
 
-    def _start_startup_fx_fetch(self) -> None:
+    def _start_startup_market_data_fetch(self) -> None:
         """Start startup market-data fetch for FX and portfolio prices."""
         if not self._ensure_startup_cleanup_ready_for_restart():
             self._abort_startup_transition_cleanup_in_progress()
@@ -257,7 +257,7 @@ class MainWindowWelcomeController:
             parent=self._host_widget(),
             portfolio=self._pending_portfolio(),
             cached_quote=self._host.session.cached_usd_ils_quote,
-            on_finished=self._on_startup_fx_fetch_finished,
+            on_finished=self._on_startup_market_data_fetch_finished,
         )
         if not started:
             self._abort_startup_transition_cleanup_in_progress()
@@ -271,12 +271,14 @@ class MainWindowWelcomeController:
 
     def _ensure_startup_cleanup_ready_for_restart(self) -> bool:
         """Ensure startup fetch cleanup completed before creating a new worker."""
-        if self._cancel_startup_fx_fetch():
+        if self._cancel_startup_market_data_fetch():
             return True
         return False
 
     @Slot(object, object, object)
-    def _on_startup_fx_fetch_finished(self, quote_obj: object, portfolio_obj: object, error_obj: object) -> None:
+    def _on_startup_market_data_fetch_finished(
+        self, quote_obj: object, portfolio_obj: object, error_obj: object
+    ) -> None:
         """Store startup fetch result and finalize transition when ready."""
         payload = self._decode_startup_fetch_callback_payload(quote_obj, portfolio_obj, error_obj)
         resolution = self._resolve_startup_fetch_outcome(payload)
@@ -393,7 +395,9 @@ class MainWindowWelcomeController:
             return
         self.enter_main_screen()
 
-    def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
+    def _cancel_startup_market_data_fetch(
+        self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS
+    ) -> bool:
         """Stop and detach in-flight startup market-data worker, if any."""
         return self._startup_transition_coordinator.cancel_fetch(wait_timeout_ms=wait_timeout_ms)
 

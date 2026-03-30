@@ -47,12 +47,12 @@ def test_welcome_screen_load_different_button_signal_enters_main_on_success(
         return True
 
     def fake_start_fetch() -> None:
-        window._welcome_controller._on_startup_fx_fetch_finished(None, staged_portfolio, None)
+        window._welcome_controller._on_startup_market_data_fetch_finished(None, staged_portfolio, None)
 
     seed_session_usd_ils_cache(window)
     monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", window._welcome_controller._complete_startup_transition_to_main)
     monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_picker", fake_prepare_portfolio_from_picker)
-    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)
     assert window.stack.currentWidget() is window.screen_welcome
 
     window.screen_welcome.load_different_btn.click()

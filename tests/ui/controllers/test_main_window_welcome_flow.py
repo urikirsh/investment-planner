@@ -35,7 +35,7 @@ def _complete_startup_fetch_successfully(monkeypatch: pytest.MonkeyPatch, window
         window._welcome_controller._startup_transition.fx_fetch_completed = True
         window._welcome_controller._try_finalize_startup_transition()
 
-    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)
 
 
 def _make_staged_portfolio() -> Portfolio:
@@ -91,9 +91,9 @@ def _complete_startup_fetch_with_portfolio(
     error: str | None = None,
 ) -> None:
     def fake_start_fetch() -> None:
-        window._welcome_controller._on_startup_fx_fetch_finished(error, portfolio, None)
+        window._welcome_controller._on_startup_market_data_fetch_finished(error, portfolio, None)
 
-    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)
 
 
 @pytest.fixture()
@@ -319,11 +319,11 @@ def test_welcome_start_new_loads_default_and_enters_main(
 ) -> None:
     seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
-    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", lambda: None)
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", lambda: None)
     window._on_welcome_start_new_clicked()
     pending = window._welcome_controller._pending_startup_portfolio
     assert pending is not None
-    window._welcome_controller._on_startup_fx_fetch_finished(None, pending.portfolio, None)
+    window._welcome_controller._on_startup_market_data_fetch_finished(None, pending.portfolio, None)
 
     assert window.stack.currentWidget() is window.screen_main
     assert window.session.current_file_path is None
@@ -424,7 +424,7 @@ def test_welcome_fetch_failure_shows_back_dialog_and_keeps_welcome(
         window._welcome_controller._startup_transition.fx_fetch_completed = True
         window._welcome_controller._try_finalize_startup_transition()
 
-    monkeypatch.setattr(window._welcome_controller, "_start_startup_fx_fetch", fake_start_fetch)
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)
     monkeypatch.setattr(
         welcome_mod,
         "show_error_with_back",
@@ -439,13 +439,13 @@ def test_welcome_fetch_failure_shows_back_dialog_and_keeps_welcome(
     assert window._startup_loading_overlay.isHidden()
 
 
-def test_welcome_start_action_aborts_when_previous_startup_fx_cleanup_cannot_finish(
+def test_welcome_start_action_aborts_when_previous_startup_market_data_cleanup_cannot_finish(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     shown_calls = 0
     cancel_calls = 0
 
-    def fake_cancel_startup_fx_fetch(**_kwargs: object) -> bool:
+    def fake_cancel_startup_market_data_fetch(**_kwargs: object) -> bool:
         nonlocal cancel_calls
         cancel_calls += 1
         return cancel_calls != 1
@@ -455,7 +455,11 @@ def test_welcome_start_action_aborts_when_previous_startup_fx_cleanup_cannot_fin
         nonlocal shown_calls
         shown_calls += 1
 
-    monkeypatch.setattr(window._welcome_controller, "_cancel_startup_fx_fetch", fake_cancel_startup_fx_fetch)
+    monkeypatch.setattr(
+        window._welcome_controller,
+        "_cancel_startup_market_data_fetch",
+        fake_cancel_startup_market_data_fetch,
+    )
     monkeypatch.setattr(
         welcome_mod,
         "show_cleanup_in_progress",
