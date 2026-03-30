@@ -2,8 +2,12 @@ from __future__ import annotations
 
 """Wizard-screen flow extracted from the main window controller.
 
-This mixin encapsulates wizard screen wiring plus step calculation/save/advance
-behavior so `MainWindow` can remain focused on high-level orchestration.
+This mixin owns the per-step execution flow after planning summary review:
+- render current step context,
+- resolve startup-cached instrument prices into an ILS unit price,
+- prefill and validate whole-unit counts,
+- apply or skip the current step,
+- return to the main editor when the wizard ends.
 
 Wizard FX handling for USD-priced instruments is delegated to
 `ui.wizard_fx_coordinator.WizardFxCoordinator`, which reads startup-cached
@@ -37,14 +41,14 @@ _DISPLAY_PRICE_PRECISION = D("0.01")
 
 @dataclass(frozen=True)
 class _CachedStepPrice:
-    """Cached pricing context used to derive wizard trade calculations."""
+    """Cached unit price normalized to ILS for wizard trade calculations."""
 
     price_ils: D
 
 
 @dataclass(frozen=True)
 class _WizardCalculationContext:
-    """Immutable current-step context reused across wizard calculations/rendering."""
+    """Immutable current-step pricing/label context reused across recalculation."""
 
     step: PlanStep
     price: _CachedStepPrice
@@ -133,7 +137,12 @@ class MainWindowWizardMixin:
         self._recalculate_current_step_from_units()
 
     def _prefill_units_from_cached_price(self) -> None:
-        """Populate the units field from the cached startup lookup price."""
+        """Populate the spinner from the cached price-derived recommended units.
+
+        The UI caps the spinner to the recommendation, so the user can reduce
+        the trade amount (including to zero) but cannot increase it above the
+        startup-planned whole-unit quantity.
+        """
         try:
             context = self._current_wizard_calculation_context()
             with self._signal_blocker(self.units_edit):
@@ -170,7 +179,7 @@ class MainWindowWizardMixin:
         calc: BuyCalculation,
         validation_error: str,
     ) -> None:
-        """Render wizard UI state from one calculation result plus validation status."""
+        """Render summary/result rows plus save availability for one units value."""
         has_error = bool(validation_error)
         self.wizard_state.last_calc = None if has_error else calc
         self._set_save_continue_enabled(not has_error)
@@ -204,7 +213,12 @@ class MainWindowWizardMixin:
         )
 
     def _current_step_cached_price(self, step: PlanStep) -> _CachedStepPrice:
-        """Return cached startup lookup price for the active wizard step."""
+        """Return startup-cached per-unit price for the active wizard step.
+
+        TASE prices are already stored in ILS. NYSE prices are converted to ILS
+        using the wizard's startup-cached USD/ILS rate so unit calculations stay
+        in one currency.
+        """
         result = get_cached_ticker_lookup_in_exchange(exchange=step.exchange, ticker=step.ticker)
         if not isinstance(result, TickerLookupFound):
             raise ValueError(
@@ -390,7 +404,12 @@ class MainWindowWizardMixin:
         return normalized.rstrip("0").rstrip(".")
 
     def _current_wizard_calculation_context(self) -> _WizardCalculationContext:
-        """Return reusable current-step calculation/render context."""
+        """Return reusable current-step calculation/render context.
+
+        The recommended units value is the whole-unit result derived from the
+        planned step amount and cached unit price. The UI uses it both as the
+        initial spinner value and as the spinner's upper bound.
+        """
         step = self._current_step()
         price = self._current_step_cached_price(step)
         recommended_calc = calculate_buy_units_from_ils_price(

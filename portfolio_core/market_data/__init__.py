@@ -1,3 +1,5 @@
+"""Public market-data lookup surface used across startup, add flow, and wizard."""
+
 from portfolio_core.market_data.models import (
     TickerLookupCommunicationError,
     TickerLookupFound,

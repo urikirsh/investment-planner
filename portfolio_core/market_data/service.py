@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-"""Market-data lookup service for NYSE/TASE with app-session caching."""
+"""Market-data lookup service for NYSE/TASE with app-session caching.
+
+The default service instance is shared across the running app. That lets:
+- startup price refresh populate lookup cache entries,
+- add-instrument lookup reuse those entries when possible,
+- wizard steps read cached lookup results without triggering a fresh fetch.
+"""
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -176,7 +182,11 @@ class MarketDataService:
         exchange: Exchange,
         ticker: str,
     ) -> TickerLookupResult | None:
-        """Return cached lookup result for `(exchange, ticker)` without fetching."""
+        """Return cached lookup result for `(exchange, ticker)` without fetching.
+
+        This is intended for flows that must rely on startup/add-flow populated
+        lookup state and must not perform a network fetch during rendering.
+        """
         cache_key = self._build_lookup_cache_key(exchange=exchange, ticker=ticker)
         if cache_key is None:
             return None

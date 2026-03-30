@@ -5,6 +5,10 @@ from __future__ import annotations
 Current responsibility:
 - load startup-cached USD/ILS quote into wizard state for each run,
 - render USD-step FX panel state from cached values.
+
+The coordinator no longer gates a manual "calculate" action. The wizard
+always derives unit recommendations from startup-cached prices, so the FX
+panel is now purely explanatory state for USD-priced steps.
 """
 
 from typing import Any, Protocol
@@ -60,7 +64,7 @@ class WizardFxCoordinator:
 
         For non-USD steps, FX UI rows are hidden.
         For USD steps, this method is the single source of truth for cached
-        quote disclosure and rate-unavailable messaging.
+        quote disclosure and rate-unavailable messaging used by the units flow.
         """
         state = self._host.wizard_state
         s = self._host.planning_state.plan_steps[self._host.planning_state.step_index]

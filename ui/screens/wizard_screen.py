@@ -16,6 +16,7 @@ Action-row intent:
 Focused-row layout:
 - Summary row, units row, and result row are centered and width-synced.
 - Units input keeps a minimum visual width for at least 11 characters.
+- Units input is capped by flow logic to the recommended whole-unit amount.
 - `Save and continue` starts disabled and is enabled only after a successful
   calculation/validation by flow logic in `MainWindowWizardMixin`.
 
@@ -39,10 +40,12 @@ class WizardScreen(QWidget):
     """
     Wizard UI (screen 4).
 
-    Exposes controls so the coordinator can attach flow behavior.
-    Input units are intentionally explicit in labels to reduce trade-direction
-    mistakes during wizard execution.
-    The action row intentionally separates app-level and step-level actions
+        Exposes controls so the coordinator can attach flow behavior.
+        The screen itself stays presentation-only: cached-price lookup,
+        recommendation math, validation, and persistence all live outside it.
+        Input units are intentionally explicit in labels to reduce trade-direction
+        mistakes during wizard execution.
+        The action row intentionally separates app-level and step-level actions
     to reduce accidental exits during step execution.
     """
 
@@ -341,7 +344,11 @@ class WizardScreen(QWidget):
         self.units_error_label.setVisible(bool(normalized))
 
     def set_wizard_summary(self, text: str) -> None:
-        """Render the top summary text shown above the units input."""
+        """Render the top summary text shown above the units input.
+
+        The summary is kept as one compact line so width syncing can align it
+        visually with the units row and the result row.
+        """
         self.wiz_summary.setText(text)
 
     def set_units_limit(self, *, value: int) -> None:

@@ -5,7 +5,8 @@ from __future__ import annotations
 This file centralizes Qt test setup so individual tests can focus on widget
 behavior rather than process-level initialization details. It also provides
 shared helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`,
-`make_buy_calculation`, `add_instrument_row`) for common UI test object setup.
+`make_buy_calculation`, `add_instrument_row`, `make_cached_lookup`,
+`make_wizard_host`) for common UI test object setup.
 """
 
 import os
@@ -170,6 +171,8 @@ def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
 
 
 class _FakeLabel:
+    """Small label double for wizard tests that need text/visibility assertions."""
+
     def __init__(self) -> None:
         self.value = ""
         self.visible = True
@@ -185,6 +188,8 @@ class _FakeLabel:
 
 
 class _FakeSpinBox:
+    """Small integer-spinner double that enforces the configured maximum."""
+
     def __init__(self, value: int = 0) -> None:
         self._value = value
         self._maximum = 0
@@ -205,6 +210,8 @@ class _FakeSpinBox:
 
 
 class _FakeLineEdit:
+    """Small line-edit double used by fake wizard host wiring."""
+
     def __init__(self, text: str = "") -> None:
         self._text = text
 
@@ -216,6 +223,8 @@ class _FakeLineEdit:
 
 
 class _FakeButton:
+    """Small button double exposing only enabled-state mutation."""
+
     def __init__(self, enabled: bool = True) -> None:
         self._enabled = enabled
 
@@ -227,6 +236,8 @@ class _FakeButton:
 
 
 class _FakeWizardScreen:
+    """Presentation-only wizard screen double for mixin-focused tests."""
+
     def __init__(self, units_label: _FakeLabel, units_edit: _FakeSpinBox) -> None:
         self.units_label = units_label
         self.units_edit = units_edit
@@ -298,6 +309,8 @@ class _FakeWizardScreen:
 
 
 class _FakeStack:
+    """Minimal stacked-widget double capturing the last requested screen."""
+
     def __init__(self) -> None:
         self.current_widget: object | None = None
 
@@ -306,6 +319,8 @@ class _FakeStack:
 
 
 class _FakeWizardHost(MainWindowWizardMixin):
+    """Small host object for testing wizard mixin behavior without Qt widgets."""
+
     session: Any
     planning_state: Any
     wizard_state: Any
