@@ -227,7 +227,7 @@ class MainWindowWelcomeController:
 
     def _complete_startup_transition_to_main(self) -> None:
         """Mark the min-delay timer complete and try finalizing transition."""
-        decision = self._startup_transition_coordinator.on_min_delay_elapsed()
+        decision = self._startup_transition_coordinator.complete_min_delay()
         if decision is not None:
             self._finalize_startup_transition(decision)
 
@@ -270,7 +270,7 @@ class MainWindowWelcomeController:
         if resolution.already_finalized:
             return
 
-        decision = self._startup_transition_coordinator.record_fetch_outcome(
+        decision = self._startup_transition_coordinator.complete_fetch(
             error_message=resolution.transition_error
         )
         if decision is not None:
@@ -298,7 +298,7 @@ class MainWindowWelcomeController:
             )
 
         if not self._cache_startup_quote_if_available(payload.quote):
-            decision = self._startup_transition_coordinator.record_fetch_outcome(
+            decision = self._startup_transition_coordinator.complete_fetch(
                 error_message="Failed to fetch USD to ILS exchange rate."
             )
             if decision is not None:
@@ -346,7 +346,7 @@ class MainWindowWelcomeController:
 
     def _try_finalize_startup_transition(self) -> None:
         """Finalize welcome transition after both min-delay and startup fetch complete."""
-        decision = self._startup_transition_coordinator.record_fetch_outcome(
+        decision = self._startup_transition_coordinator.complete_fetch(
             error_message=self._startup_transition.fx_fetch_error
         )
         if decision is not None:

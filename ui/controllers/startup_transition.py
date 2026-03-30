@@ -190,12 +190,12 @@ class StartupTransitionCoordinator:
         """Ensure startup fetch cleanup completed before creating a new worker."""
         return self.cancel_fetch()
 
-    def on_min_delay_elapsed(self) -> StartupTransitionDecision | None:
+    def complete_min_delay(self) -> StartupTransitionDecision | None:
         """Mark the min-delay timer complete and resolve outcome when ready."""
         self.state.min_delay_elapsed = True
         return self._try_finalize()
 
-    def record_fetch_outcome(self, *, error_message: str | None) -> StartupTransitionDecision | None:
+    def complete_fetch(self, *, error_message: str | None) -> StartupTransitionDecision | None:
         """Store fetch completion state and resolve outcome when ready."""
         self.state.fx_fetch_error = error_message
         self.state.fx_fetch_completed = True
