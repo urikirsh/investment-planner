@@ -44,6 +44,7 @@ Do not report completion if either command fails.
 - If user-facing behavior changes, update `README.md` in the same task.
 - Keep `README.md` user-facing; put implementation details in `docs/ARCHITECTURE.md`.
 - In `README.md`, describe user outcomes and avoid implementation-specific details unless explicitly requested (for example: internal state flags, cache tiers, thread/worker lifecycle, or exact dialog button labels).
+- For `README.md` updates, prefer happy-path user outcomes; implementation details, edge-case handling, and internal lifecycle notes belong in architecture docs or code comments.
 - Prefer documenting behavior contracts over implementation details so docs remain stable across refactors.
 - Keep documentation concise and behavior-accurate; avoid broad background text when a precise statement is enough.
 - Be strict with absolutes in user-facing docs: verify `always` / `never` / `only` claims against current runtime paths before finishing.
@@ -61,6 +62,7 @@ Do not report completion if either command fails.
 
 - Prefer enum-driven behavior over hardcoded member checks (for example, use `exchange.currency` instead of branching on specific exchange names).
 - Use shared defaults/constants for fallbacks (for example, `DEFAULT_EXCHANGE`) instead of inline string literals.
+- When a component's responsibility expands, rename stale narrow identifiers in the same task when practical (types, methods, constants, and related docs/comments).
 - For schema or field renames, update all affected layers in the same task: model, JSON IO, validation, UI labels/tooltips, tests, and docs.
 - After intentional breaking changes, remove stale "legacy" compatibility wording unless backward compatibility is still implemented.
 - When introducing a canonical public API, migrate callers in the same task and remove or privatize legacy setters unless an explicit migration window is required.
