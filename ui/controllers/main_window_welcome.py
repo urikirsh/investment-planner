@@ -323,6 +323,8 @@ class MainWindowWelcomeController:
         if pending.file_path is None:
             self._host.session.mark_new_document(refreshed_portfolio)
         else:
+            # TODO: Startup-refreshed instrument values currently land in the loaded snapshot too.
+            # Revisit this when persisted instrument.value is removed in the planned follow-up.
             self._host.session.document.mark_loaded(refreshed_portfolio, pending.file_path)
             self._host.session.set_active_file_path(pending.file_path)
         self._host._render_main_editor_from_portfolio(refreshed_portfolio, switch_to_main=False)
