@@ -38,20 +38,12 @@ from ui.wizard_fx_coordinator import WizardFxCoordinator
 D = Decimal
 _DISPLAY_PRICE_PRECISION = D("0.01")
 
-
-@dataclass(frozen=True)
-class _CachedStepPrice:
-    """Cached unit price normalized to ILS for wizard trade calculations."""
-
-    price_ils: D
-
-
 @dataclass(frozen=True)
 class _WizardCalculationContext:
     """Immutable current-step pricing/label context reused across recalculation."""
 
     step: PlanStep
-    price: _CachedStepPrice
+    price_ils: D
     recommended_units: int
     total_label: str
 
@@ -191,11 +183,11 @@ class MainWindowWizardMixin:
     def _build_current_calc_for_units(self, *, context: _WizardCalculationContext, units: int) -> BuyCalculation:
         """Build calculation state for the current step and explicit units input."""
         planned_money = abs(context.step.planned_delta_money)
-        spent = context.price.price_ils * D(units)
+        spent = context.price_ils * D(units)
         leftover = planned_money - spent
         return BuyCalculation(
             instrument_id=context.step.instrument_id,
-            price=context.price.price_ils,
+            price=context.price_ils,
             planned_money=planned_money,
             units=units,
             spent=spent,
@@ -212,7 +204,7 @@ class MainWindowWizardMixin:
             f"{calc.spent} {DEFAULT_CURRENCY.value} > {calc.planned_money} {DEFAULT_CURRENCY.value}."
         )
 
-    def _current_step_cached_price(self, step: PlanStep) -> _CachedStepPrice:
+    def _current_step_cached_price_ils(self, step: PlanStep) -> D:
         """Return startup-cached per-unit price for the active wizard step.
 
         TASE prices are already stored in ILS. NYSE prices are converted to ILS
@@ -231,13 +223,8 @@ class MainWindowWizardMixin:
             )
         if step.exchange.currency == Currency.USD:
             usd_ils_rate = self._get_effective_usd_ils_rate()
-            price_ils = native_price * usd_ils_rate
-            return _CachedStepPrice(
-                price_ils=price_ils,
-            )
-        return _CachedStepPrice(
-            price_ils=native_price,
-        )
+            return native_price * usd_ils_rate
+        return native_price
 
     def _get_effective_usd_ils_rate(self) -> D:
         """Return startup-cached USD/ILS rate for current wizard run."""
@@ -328,7 +315,7 @@ class MainWindowWizardMixin:
         """Build the top summary line above the units input."""
         return (
             f"Planned: {self._format_decimal_for_display(calc.planned_money)} {DEFAULT_CURRENCY.value} | "
-            f"Price: {self._format_decimal_for_display(context.price.price_ils)} {DEFAULT_CURRENCY.value}/unit | "
+            f"Price: {self._format_decimal_for_display(context.price_ils)} {DEFAULT_CURRENCY.value}/unit | "
             f"Recommended: {context.recommended_units} units"
         )
 
@@ -411,16 +398,16 @@ class MainWindowWizardMixin:
         initial spinner value and as the spinner's upper bound.
         """
         step = self._current_step()
-        price = self._current_step_cached_price(step)
+        price_ils = self._current_step_cached_price_ils(step)
         recommended_calc = calculate_buy_units_from_ils_price(
             instrument_id=step.instrument_id,
             planned_money=abs(step.planned_delta_money),
-            price_ils=price.price_ils,
+            price_ils=price_ils,
         )
         _, money_label = self._wizard_step_direction_labels(step.planned_delta_money)
         return _WizardCalculationContext(
             step=step,
-            price=price,
+            price_ils=price_ils,
             recommended_units=recommended_calc.units,
             total_label="Total spend" if money_label.startswith("Spent") else "Total proceeds",
         )
