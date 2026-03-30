@@ -66,7 +66,6 @@ The application never executes trades automatically. All actions are explicit an
   - each step shows the cached unit price used for that instrument
   - the wizard pre-fills `Units bought` or `Units sold` from the planned amount and cached price
   - you can reduce the suggested unit count, including to `0`, before continuing
-  - if the entered units would exceed the planned step amount, `Save and continue` stays disabled with inline feedback
   - USD-priced steps use a USD/ILS rate prepared during startup
   - suggested unit amounts are rounded down to whole numbers
 - Wizard actions:
@@ -105,7 +104,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows), set when adding an instrument
-- Wizard displays the cached price, the units calculation, and all planned/spent/proceeds/leftover amounts explicitly
+- Wizard displays the cached price and all planned/spent/proceeds/leftover amounts explicitly
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket

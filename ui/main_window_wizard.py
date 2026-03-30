@@ -39,11 +39,7 @@ _DISPLAY_PRICE_PRECISION = D("0.01")
 class _CachedStepPrice:
     """Cached pricing context used to derive wizard trade calculations."""
 
-    native_price: D
-    native_currency: str
     price_ils: D
-    display_text: str
-    calculation_text: str
 
 
 @dataclass(frozen=True)
@@ -223,22 +219,10 @@ class MainWindowWizardMixin:
             usd_ils_rate = self._get_effective_usd_ils_rate()
             price_ils = native_price * usd_ils_rate
             return _CachedStepPrice(
-                native_price=native_price,
-                native_currency=step.exchange.currency.value,
                 price_ils=price_ils,
-                display_text=f"{self._format_decimal_for_display(native_price)} {step.exchange.currency.value}",
-                calculation_text=(
-                    f"{self._format_decimal_for_display(native_price)} {step.exchange.currency.value} x "
-                    f"{self._format_decimal_for_display(usd_ils_rate)} = "
-                    f"{self._format_decimal_for_display(price_ils)} {DEFAULT_CURRENCY.value}"
-                ),
             )
         return _CachedStepPrice(
-            native_price=native_price,
-            native_currency=DEFAULT_CURRENCY.value,
             price_ils=native_price,
-            display_text=f"{self._format_decimal_for_display(native_price)} {DEFAULT_CURRENCY.value}",
-            calculation_text=f"{self._format_decimal_for_display(native_price)} {DEFAULT_CURRENCY.value}",
         )
 
     def _get_effective_usd_ils_rate(self) -> D:

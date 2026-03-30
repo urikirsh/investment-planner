@@ -130,7 +130,7 @@ Startup/wizard market-data guards in this flow:
   - wizard step info card includes instrument name, ticker, exchange, asset group, and action amount context
   - reads per-instrument prices from the shared market-data lookup cache populated during startup/add-instrument lookups
   - pre-fills whole-unit buy/sell counts from cached prices, then recomputes totals from the user-editable units field
-  - invalid units input or over-budget totals invalidate cached `last_calc` and re-disable `Save and continue`
+  - invalid step state invalidates cached `last_calc` and re-disables `Save and continue`
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
