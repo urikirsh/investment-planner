@@ -137,6 +137,17 @@ class MarketDataService:
             }
         )
 
+    @staticmethod
+    def _build_lookup_cache_key(*, exchange: Exchange, ticker: str) -> _LookupCacheKey | None:
+        """Return canonical cache key for `(exchange, ticker)` or `None` when invalid."""
+        key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker)
+        if not key.canonical_ticker:
+            return None
+        return _LookupCacheKey(
+            exchange=exchange,
+            canonical_ticker=key.canonical_ticker,
+        )
+
     def lookup_ticker_in_exchange(
         self,
         *,
@@ -148,16 +159,13 @@ class MarketDataService:
         runtime = self._runtime_by_exchange.get(exchange)
         if runtime is None:
             return TickerLookupNotFound()
-        key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker)
-        if not key.canonical_ticker:
+        cache_key = self._build_lookup_cache_key(exchange=exchange, ticker=ticker)
+        if cache_key is None:
             return TickerLookupNotFound()
-        if not runtime.pre_validate(key.canonical_ticker):
+        if not runtime.pre_validate(cache_key.canonical_ticker):
             return TickerLookupNotFound()
         return self._lookup_store.get_or_load(
-            key=_LookupCacheKey(
-                exchange=exchange,
-                canonical_ticker=key.canonical_ticker,
-            ),
+            key=cache_key,
             timeout_seconds=timeout_seconds,
             result_loader=runtime.provider.lookup_ticker,
         )
@@ -169,15 +177,10 @@ class MarketDataService:
         ticker: str,
     ) -> TickerLookupResult | None:
         """Return cached lookup result for `(exchange, ticker)` without fetching."""
-        key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker)
-        if not key.canonical_ticker:
+        cache_key = self._build_lookup_cache_key(exchange=exchange, ticker=ticker)
+        if cache_key is None:
             return None
-        return self._lookup_store.get_cached(
-            key=_LookupCacheKey(
-                exchange=exchange,
-                canonical_ticker=key.canonical_ticker,
-            )
-        )
+        return self._lookup_store.get_cached(key=cache_key)
 
 
 _default_market_data_service = MarketDataService()
