@@ -201,36 +201,34 @@ class MainWindowWizardMixin:
         """Return inline validation error when entered units exceed the planned amount."""
         if calc.spent <= calc.planned_money:
             return ""
-        _, money_label = self._wizard_step_direction_labels(self._current_step().planned_delta_money)
-        action_word = "cost" if money_label.startswith("Spent") else "proceeds"
+        action_word = "cost" if self._current_step().planned_delta_money > 0 else "proceeds"
         return (
             f"Total {action_word} exceeds planned amount: "
             f"{calc.spent} {DEFAULT_CURRENCY.value} > {calc.planned_money} {DEFAULT_CURRENCY.value}."
         )
 
-    def _current_step_cached_price(self) -> _CachedStepPrice:
+    def _current_step_cached_price(self, step: PlanStep) -> _CachedStepPrice:
         """Return cached startup lookup price for the active wizard step."""
-        s = self._current_step()
-        result = get_cached_ticker_lookup_in_exchange(exchange=s.exchange, ticker=s.ticker)
+        result = get_cached_ticker_lookup_in_exchange(exchange=step.exchange, ticker=step.ticker)
         if not isinstance(result, TickerLookupFound):
             raise ValueError(
-                f"Cached price unavailable for {s.instrument_name}. Return to the welcome screen and try again."
+                f"Cached price unavailable for {step.instrument_name}. Return to the welcome screen and try again."
             )
         native_price = result.metadata.last_traded_price
         if native_price is None:
             raise ValueError(
-                f"Cached price unavailable for {s.instrument_name}. Return to the welcome screen and try again."
+                f"Cached price unavailable for {step.instrument_name}. Return to the welcome screen and try again."
             )
-        if s.exchange.currency == Currency.USD:
+        if step.exchange.currency == Currency.USD:
             usd_ils_rate = self._get_effective_usd_ils_rate()
             price_ils = native_price * usd_ils_rate
             return _CachedStepPrice(
                 native_price=native_price,
-                native_currency=s.exchange.currency.value,
+                native_currency=step.exchange.currency.value,
                 price_ils=price_ils,
-                display_text=f"{self._format_decimal_for_display(native_price)} {s.exchange.currency.value}",
+                display_text=f"{self._format_decimal_for_display(native_price)} {step.exchange.currency.value}",
                 calculation_text=(
-                    f"{self._format_decimal_for_display(native_price)} {s.exchange.currency.value} x "
+                    f"{self._format_decimal_for_display(native_price)} {step.exchange.currency.value} x "
                     f"{self._format_decimal_for_display(usd_ils_rate)} = "
                     f"{self._format_decimal_for_display(price_ils)} {DEFAULT_CURRENCY.value}"
                 ),
@@ -410,7 +408,7 @@ class MainWindowWizardMixin:
     def _current_wizard_calculation_context(self) -> _WizardCalculationContext:
         """Return reusable current-step calculation/render context."""
         step = self._current_step()
-        price = self._current_step_cached_price()
+        price = self._current_step_cached_price(step)
         recommended_calc = calculate_buy_units_from_ils_price(
             instrument_id=step.instrument_id,
             planned_money=abs(step.planned_delta_money),
