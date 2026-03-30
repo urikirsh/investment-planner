@@ -116,7 +116,10 @@ def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path: Path) -> Ite
     """Return a `MainWindow` with disk/UI side effects neutralized for tests."""
     _ = qapp
     monkeypatch.setattr(MainWindow, "_load_default_document", lambda self: None)
-    win = MainWindow(json_path=str(tmp_path / "portfolio.json"))
+    win = MainWindow(
+        json_path=str(tmp_path / "portfolio.json"),
+        config_path=tmp_path / "config.json",
+    )
     monkeypatch.setattr(win, "_cancel_wizard_fx_fetch", lambda **_kwargs: True)
     yield win
     win.close()

@@ -33,11 +33,11 @@ Main user flow:
 6. Wizard execution is managed by `MainWindowWizardMixin`.
 7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
 
-FX thread-safety guards in this flow:
-- Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
+Startup/wizard market-data guards in this flow:
+- Welcome->main transition includes async startup market-data refresh with a minimum 1-second loading overlay.
 - Wizard runs reuse startup-cached USD/ILS data from in-memory session cache.
 - Wizard flow never performs USD/ILS network fetches.
-- Window close cancels any active startup FX fetch before teardown.
+- Window close cancels any active startup market-data fetch before teardown.
 
 ## Controller composition rules
 - `MainWindow` is the composition root and owns long-lived controller instances.
@@ -49,9 +49,13 @@ FX thread-safety guards in this flow:
 
 ## UI module map
 - `ui/controllers/main_window_welcome.py`
-  - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, startup transitions
-  - successful startup actions show a blocking overlay for at least 1 second while fetching USD/ILS
+  - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, and UI-level startup decisions
+  - successful startup actions show a blocking overlay for at least 1 second while fetching startup market data
   - fetch failures show a Back-only error dialog and keep the user on the welcome screen
+  - commits the staged startup portfolio only after startup refresh succeeds, then delegates final enter-main / stay-on-welcome UI decisions
+- `ui/controllers/startup_transition.py`
+  - extracted startup transition state machine and startup market-data worker lifecycle
+  - owns the minimum-delay timer, worker-thread lifecycle, and transition gating
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
@@ -254,7 +258,7 @@ UI-focused tests:
 - `tests/ui/controllers/test_main_window_welcome_flow.py`
   - startup welcome behavior tests (button state and transition flows)
 - `tests/ui/controllers/test_main_window_welcome_lifecycle.py`
-  - focused lifecycle tests for startup FX fetch worker/thread ownership (`start`, `cancel`, `clear`)
+  - focused lifecycle tests for the extracted startup transition worker/thread ownership (`start`, `cancel`, `clear`)
 - `tests/ui/screens/test_add_instrument_wizard_dialog.py`
   - focused add-instrument wizard dialog tests (step flow, validation, Enter shortcut behavior, context text, and duplicate ticker/name guards)
   - covers the blocked step-2 path when lookup metadata is found but price is unavailable

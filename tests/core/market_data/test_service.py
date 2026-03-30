@@ -26,6 +26,7 @@ _STOOQ_BRKB_DOTTED_URL = "https://stooq.com/q/l/?s=brk.b.us"
 _STOOQ_BRKB_DASHED_URL = "https://stooq.com/q/l/?s=brk-b.us"
 _STOOQ_BRKB_PAGE_URL = "https://stooq.com/q/?s=brk-b.us"
 _TASE_URL = "https://api.tase.co.il/api/company/securitydata?securityId=1159094&lang=1"
+_TASE_MUTUAL_FUND_URL = "https://maya.tase.co.il/api/v1/funds/mutual/5139910"
 
 
 def _build_stooq_quote_payload(
@@ -196,7 +197,10 @@ def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
     payload = '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_TASE_URL: payload},
+        payloads_by_url={
+            _TASE_URL: payload,
+            "https://maya.tase.co.il/api/v1/funds/mutual/1159094": "null",
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -231,7 +235,10 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
     )
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=1234567&lang=1": payload},
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=1234567&lang=1": payload,
+            "https://maya.tase.co.il/api/v1/funds/mutual/1234567": "null",
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1234567")
@@ -245,12 +252,89 @@ def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
 ) -> None:
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=9999999&lang=1": "null"},
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=9999999&lang=1": "null",
+            "https://maya.tase.co.il/api/v1/funds/mutual/9999999": "null",
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="9999999")
 
     assert isinstance(result, TickerLookupNotFound)
+
+
+def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "null",
+            _TASE_MUTUAL_FUND_URL: (
+                '{"fundId":5139910,"name":"IBI MEHAKA S&P Bitcoin","longName":"I.B.I. MEHAKA (4D) S&P Bitcoin",'
+                '"isin":"IL0051399108","redemptionPrice":63.94,"purchasePrice":63.94,"ratesAsOf":"2026-03-25"}'
+            ),
+        },
+    )
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="5139910")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.metadata.exchange is Exchange.TASE
+    assert result.metadata.canonical_ticker == "5139910"
+    assert result.metadata.display_name == "IBI MEHAKA S&P Bitcoin"
+    assert result.metadata.last_traded_price == Decimal("0.6394")
+    assert result.metadata.isin == "IL0051399108"
+    assert result.metadata.provider_data.get("fundId") == 5139910
+    assert result.metadata.provider_data.get("ratesAsOf") == "2026-03-25"
+
+
+def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_when_primary_has_no_price(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": '{"Id":5139910,"Name":"Bitcoin P&S"}',
+            _TASE_MUTUAL_FUND_URL: '{"fundId":5139910,"name":"IBI MEHAKA S&P Bitcoin","redemptionPrice":63.94}',
+        },
+    )
+
+    result = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="5139910")
+
+    assert isinstance(result, TickerLookupFound)
+    assert result.metadata.display_name == "IBI MEHAKA S&P Bitcoin"
+    assert result.metadata.last_traded_price == Decimal("0.6394")
+
+
+def test_lookup_ticker_in_exchange_preserves_primary_tase_communication_error_when_mutual_fund_fallback_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "{invalid-json",
+            _TASE_MUTUAL_FUND_URL: "null",
+        },
+    )
+
+    with pytest.raises(TickerLookupCommunicationError, match="TASE security data response is not valid JSON"):
+        lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="5139910")
+
+
+def test_lookup_ticker_in_exchange_raises_mutual_fund_communication_error_when_primary_is_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "null",
+            _TASE_MUTUAL_FUND_URL: "{invalid-json",
+        },
+    )
+
+    with pytest.raises(TickerLookupCommunicationError, match="TASE mutual fund response is not valid JSON"):
+        lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="5139910")
 
 
 def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_tase_payload(
@@ -442,7 +526,7 @@ def test_lookup_ticker_in_exchange_uses_tase_per_ticker_cache_without_refetch(
     calls = {"count": 0}
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_TASE_URL: '{"Id":1159094,"Name":"ISH.FRF MSCIEUR"}'},
+        payloads_by_url={_TASE_URL: '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LastRate":123.45}'},
         calls=calls,
     )
 
@@ -460,7 +544,11 @@ def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_
     calls = {"count": 0}
     _install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={"https://api.tase.co.il/api/company/securitydata?securityId=312017&lang=1": '{"Id":312017,"Name":"SAMPLE"}'},
+        payloads_by_url={
+            "https://api.tase.co.il/api/company/securitydata?securityId=312017&lang=1": (
+                '{"Id":312017,"Name":"SAMPLE","LastRate":100.0}'
+            )
+        },
         calls=calls,
     )
 

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, Mapping
 
 from portfolio_core.planning.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.domain.models import AssetGroupPlanRow, Exchange, Instrument, Portfolio
+from portfolio_core.domain.models import AssetGroupPlanRow, Currency, Exchange, Instrument, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
+from portfolio_core.market_data import TickerLookupFound, lookup_ticker_in_exchange
 from portfolio_core.planning.planning import (
     compute_invest_budget,
     map_asset_group_deltas_to_instruments,
@@ -35,6 +36,7 @@ Design intent:
 """
 
 D = Decimal
+_TABLE_VALUE_PRECISION = Decimal("0.01")
 
 
 class InsufficientQuantityForSellError(ValueError):
@@ -51,6 +53,10 @@ class InsufficientQuantityForSellError(ValueError):
         self.instrument_name = instrument_name
         self.available_units = available_units
         self.requested_units = requested_units
+
+
+class StartupPortfolioPriceRefreshError(ValueError):
+    """Raised when startup cannot refresh all portfolio instrument prices."""
 
 
 @dataclass(frozen=True)
@@ -140,6 +146,83 @@ def create_new_default_document(session: PortfolioSession) -> Portfolio:
     portfolio = build_default_portfolio()
     session.mark_new_document(portfolio)
     return portfolio
+
+
+def refresh_portfolio_prices_for_startup(
+    portfolio: Portfolio,
+    *,
+    usd_ils_rate: Decimal,
+    lookup_timeout_seconds: float = 8.0,
+) -> Portfolio:
+    """Return a portfolio copy with instrument values refreshed from market data.
+
+    TASE values are refreshed directly in ILS. USD-priced instruments are first
+    refreshed from their exchange quote and then converted to ILS with the
+    supplied startup FX rate.
+
+    Raises
+    ------
+    StartupPortfolioPriceRefreshError
+        If any instrument cannot be refreshed to a usable priced value.
+    """
+    refreshed_instruments = [
+        _refresh_instrument_market_value(
+            instrument,
+            usd_ils_rate=usd_ils_rate,
+            lookup_timeout_seconds=lookup_timeout_seconds,
+        )
+        for instrument in portfolio.instruments
+    ]
+    return Portfolio(
+        cash=portfolio.cash,
+        asset_groups=portfolio.asset_groups,
+        instruments=refreshed_instruments,
+    )
+
+
+def _refresh_instrument_market_value(
+    instrument: Instrument,
+    *,
+    usd_ils_rate: Decimal,
+    lookup_timeout_seconds: float,
+) -> Instrument:
+    """Return one instrument with its market value recalculated in ILS.
+
+    The returned instrument preserves all source fields except ``value``, which
+    is replaced with the latest fetched total value for the tracked quantity.
+    """
+    try:
+        lookup_result = lookup_ticker_in_exchange(
+            exchange=instrument.exchange,
+            ticker=instrument.ticker,
+            timeout_seconds=lookup_timeout_seconds,
+        )
+    except Exception as exc:
+        detail = str(exc).strip()
+        suffix = f": {detail}" if detail else ""
+        raise StartupPortfolioPriceRefreshError(
+            f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker}){suffix}."
+        ) from exc
+
+    if not isinstance(lookup_result, TickerLookupFound):
+        raise StartupPortfolioPriceRefreshError(
+            f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+        )
+
+    last_traded_price = lookup_result.metadata.last_traded_price
+    if last_traded_price is None:
+        raise StartupPortfolioPriceRefreshError(
+            f"Fetched price is unavailable for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+        )
+
+    instrument_value = last_traded_price * D(instrument.quantity)
+    if instrument.exchange.currency is Currency.USD:
+        instrument_value *= usd_ils_rate
+
+    return replace(
+        instrument,
+        value=instrument_value.quantize(_TABLE_VALUE_PRECISION),
+    )
 
 
 def save_document_from_data(session: PortfolioSession, data: Mapping[str, Any], target_path: Path) -> Portfolio:

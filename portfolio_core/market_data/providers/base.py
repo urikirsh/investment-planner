@@ -28,4 +28,4 @@ class _BaseHttpLookupProvider:
                 timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
-            raise TickerLookupCommunicationError(error_message) from exc
+            raise TickerLookupCommunicationError(f"{error_message}: {exc}") from exc

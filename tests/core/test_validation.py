@@ -53,10 +53,10 @@ def test_parse_succeeds_with_valid_exchange_values():
     assert p.instruments[1].exchange.value == "TASE"
 
 
-def test_validation_cash_reserve_must_not_exceed_cash_value():
+def test_validation_allows_cash_reserve_to_exceed_cash_value() -> None:
     p = load_portfolio(make_valid_data(cash_value="100", cash_reserve="101"))
-    with pytest.raises(ValueError, match="cash.reserve must be <= cash.value"):
-        validate_portfolio(p)
+
+    validate_portfolio(p)
 
 
 @pytest.mark.parametrize("cash_value", ["0", "-1"])

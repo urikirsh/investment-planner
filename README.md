@@ -84,7 +84,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Start New File`
   - `Quit`
   - after choosing a startup action that opens the main editor, a brief blocking transition overlay appears while startup tasks complete
-  - if the USD/ILS rate is unavailable, the app keeps you on the welcome screen so you can retry
+  - startup refreshes portfolio prices before opening the main editor
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
@@ -179,6 +179,7 @@ Notes:
 - If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - The app reuses the latest successful USD/ILS quote across wizard runs in the current app session.
+- Opening or creating a portfolio refreshes portfolio prices during startup.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.

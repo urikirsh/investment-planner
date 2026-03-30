@@ -120,6 +120,29 @@ def test_run_planning_aborts_when_wizard_fx_reset_cannot_cancel(
     assert errors and errors[0][0] == "Please wait"
 
 
+def test_run_planning_shows_error_modal_when_budget_is_zero(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_plan_result = SimpleNamespace(
+        budget=D("0"),
+        steps=[],
+        portfolio=SimpleNamespace(),
+    )
+    errors: list[tuple[str, str]] = []
+    info_calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(window, "_save_current_or_save_as", lambda **_: True)
+    monkeypatch.setattr(main_window, "build_plan_for_current_document", lambda *_: fake_plan_result)
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+    monkeypatch.setattr(window, "_show_info", lambda title, message: info_calls.append((title, message)))
+
+    window._run_planning(PlanningMode.INVEST)
+
+    assert errors == [("No budget", "No investable cash")]
+    assert info_calls == []
+
+
 def test_save_flow_uses_resolved_target_and_action_methods_without_dialogs(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
@@ -233,3 +256,27 @@ def test_save_blocks_invalid_ticker_exchange_combination(
     assert errors[0][0] == "Validation / Save failed"
     assert "ticker for NYSE must be 1 to 14 uppercase letters/digits, optionally one dot" in errors[0][1]
     assert not target.exists()
+
+
+def test_save_allows_cash_below_minimum_reserve(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
+    target = tmp_path / "low-cash-save.json"
+    info_calls: list[tuple[str, str]] = []
+
+    window.cash_value_edit.setText("100")
+    window.cash_reserve_edit.setText("150")
+    window.future_tax_edit.setText("0")
+    add_instrument_row(tree=window.tree, ticker="1234567", exchange="TASE")
+
+    monkeypatch.setattr(window, "_resolve_save_target", lambda **_: target)
+    monkeypatch.setattr(window, "_show_info", lambda title, message: info_calls.append((title, message)))
+
+    saved = window._save_current_or_save_as(show_success=True)
+
+    assert saved is True
+    assert target.exists()
+    assert info_calls and info_calls[0][0] == "Saved"

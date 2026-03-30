@@ -18,8 +18,13 @@ from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QSta
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.session.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import PlanBuildResult, PlanStep, build_plan_for_current_document, load_document
+from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.use_cases import (
+    PlanBuildResult,
+    PlanStep,
+    build_plan_for_current_document,
+    load_document,
+)
 from ui.shared.constants import APP_NAME, CLOSE_EVENT_CLEANUP_WAIT_MS
 from ui.controllers import (
     MainWindowMainEditorController,
@@ -68,15 +73,13 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
     investable_balance_label: QLabel
     total_label: QLabel
 
-    def __init__(self, json_path: str = "portfolio.json"):
+    def __init__(self, json_path: str = "portfolio.json", *, config_path: Path | None = None):
         super().__init__()
         self._base_window_title = APP_NAME
         self.setWindowTitle(self._base_window_title)
 
-        app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
-        cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
-        config_path = cfg_dir / "config.json"
-        self.session = PortfolioSession(default_json_path=Path(json_path), config_path=config_path)
+        resolved_config_path = config_path or self._default_config_path()
+        self.session = PortfolioSession(default_json_path=Path(json_path), config_path=resolved_config_path)
         self.planning_state = PlanningState()
         self.wizard_state = WizardState()
         self._non_investable_bucket_id = NON_INVESTABLE_BUCKET_ID
@@ -109,6 +112,13 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
 
         self.tree.itemChanged.connect(self._table_editing_controller.on_item_changed_guard_and_recalc)
         self.tree.itemDoubleClicked.connect(self._table_editing_controller.on_item_double_clicked)
+
+    @staticmethod
+    def _default_config_path() -> Path:
+        """Return the default per-user config path used outside tests."""
+        app_cfg_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+        cfg_dir = Path(app_cfg_dir) if app_cfg_dir else Path.home() / ".investment_planner"
+        return cfg_dir / "config.json"
 
     # -------------------------
     # Main orchestrator behavior
@@ -153,6 +163,10 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
         self._render_main_editor_from_portfolio(p, switch_to_main=False)
         self._update_file_context_ui()
 
+    def _build_default_portfolio_for_startup(self) -> Portfolio:
+        """Build a new default startup portfolio without rendering it immediately."""
+        return build_default_portfolio()
+
     def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
         """Render a portfolio in screen 2 widgets and recompute all derived fields."""
         populate_main_editor_from_portfolio(
@@ -176,7 +190,7 @@ class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
                 return
             plan_result: PlanBuildResult = build_plan_for_current_document(self.session, mode)
             if plan_result.budget <= 0:
-                self._show_info("No budget", "No investable cash")
+                self._show_error("No budget", "No investable cash")
                 return
             self.planning_state.plan_steps = plan_result.steps
             self.planning_state.step_index = 0

@@ -76,8 +76,6 @@ def _validate_cash(p: Portfolio) -> None:
         raise ValueError("cash.reserve cannot be negative")
     if p.cash.future_tax < 0:
         raise ValueError("cash.future_tax cannot be negative")
-    if p.cash.min_reserve > p.cash.value:
-        raise ValueError("cash.reserve must be <= cash.value")
 
 
 def _validate_asset_groups(p: Portfolio) -> None:
