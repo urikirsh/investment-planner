@@ -30,19 +30,35 @@ class _FakeLabel:
         self.visible = visible
 
 
+class _FakeSpinBox:
+    def __init__(self, value: int = 0) -> None:
+        self._value = value
+        self._maximum = 0
+
+    def value(self) -> int:
+        return self._value
+
+    def setValue(self, value: int) -> None:
+        self._value = min(value, self._maximum)
+
+    def setMaximum(self, value: int) -> None:
+        self._maximum = value
+        if self._value > self._maximum:
+            self._value = self._maximum
+
+    def maximum(self) -> int:
+        return self._maximum
+
+
 class _FakeLineEdit:
     def __init__(self, text: str = "") -> None:
         self._text = text
-        self._placeholder = ""
 
     def text(self) -> str:
         return self._text
 
     def setText(self, text: str) -> None:
         self._text = text
-
-    def setPlaceholderText(self, text: str) -> None:
-        self._placeholder = text
 
 
 class _FakeButton:
@@ -57,7 +73,7 @@ class _FakeButton:
 
 
 class _FakeWizardScreen:
-    def __init__(self, units_label: _FakeLabel, units_edit: _FakeLineEdit) -> None:
+    def __init__(self, units_label: _FakeLabel, units_edit: _FakeSpinBox) -> None:
         self.units_label = units_label
         self.units_edit = units_edit
         self.step_progress = _FakeLabel()
@@ -120,6 +136,9 @@ class _FakeWizardScreen:
     def set_wizard_summary(self, text: str) -> None:
         self.wiz_summary.setText(text)
 
+    def set_units_limit(self, *, value: int) -> None:
+        self.units_edit.setMaximum(value)
+
     def sync_focus_row_widths(self) -> None:
         return None
 
@@ -172,7 +191,7 @@ class _FakeHost(MainWindowWizardMixin):
         self.cash_value_edit = object()
         self.cash_reserve_edit = object()
         self.future_tax_edit = object()
-        self.units_edit = _FakeLineEdit()
+        self.units_edit = _FakeSpinBox()
         self.units_label = _FakeLabel()
         self.manual_rate_edit = _FakeLineEdit()
         self.screen_wizard = _FakeWizardScreen(self.units_label, self.units_edit)
@@ -229,7 +248,8 @@ def test_show_current_wizard_step_prefills_buy_units_from_cached_price(
 
     assert host.screen_wizard.step_progress.value == "Step 1/1"
     assert host.units_label.value == "Units bought:"
-    assert host.units_edit.text() == "10"
+    assert host.units_edit.value() == 10
+    assert host.units_edit.maximum() == 10
     assert host.screen_wizard.wiz_summary.value == "Planned: 125 ILS | Price: 12.5 ILS/unit | Recommended: 10 units"
     assert host.wiz_result.value == "Total spend: 125 ILS | Leftover: 0 ILS"
     assert host.screen_wizard.save_continue_btn.isEnabled() is True
@@ -249,7 +269,8 @@ def test_show_current_wizard_step_prefills_sell_units_from_cached_price(
     host._show_current_wizard_step()
 
     assert host.units_label.value == "Units sold:"
-    assert host.units_edit.text() == "5"
+    assert host.units_edit.value() == 5
+    assert host.units_edit.maximum() == 5
     assert host.screen_wizard.wiz_summary.value == "Planned: 125 ILS | Price: 25 ILS/unit | Recommended: 5 units"
     assert host.wiz_result.value == "Total proceeds: 125 ILS | Leftover: 0 ILS"
 
@@ -268,12 +289,13 @@ def test_show_current_wizard_step_uses_cached_usd_price_and_fx_rate(
 
     host._show_current_wizard_step()
 
-    assert host.units_edit.text() == "1"
+    assert host.units_edit.value() == 1
+    assert host.units_edit.maximum() == 1
     assert host.screen_wizard.wiz_summary.value == "Planned: 50 ILS | Price: 31 ILS/unit | Recommended: 1 units"
     assert host.wiz_result.value == "Total spend: 31 ILS | Leftover: 19 ILS"
 
 
-def test_wizard_units_change_blocks_when_total_exceeds_plan(
+def test_wizard_units_change_clamps_to_recommended_limit(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
@@ -285,12 +307,13 @@ def test_wizard_units_change_blocks_when_total_exceeds_plan(
     )
 
     host._show_current_wizard_step()
-    host.units_edit.setText("3")
-    host._wizard_units_changed("3")
+    host.units_edit.setValue(3)
 
-    assert host.wizard_state.last_calc is None
-    assert host.screen_wizard.save_continue_btn.isEnabled() is False
-    assert "Total cost exceeds planned amount" in host.screen_wizard.units_error_label.value
+    assert host.units_edit.value() == 2
+    assert host.wizard_state.last_calc is not None
+    assert host.wizard_state.last_calc.units == 2
+    assert host.screen_wizard.save_continue_btn.isEnabled() is True
+    assert host.screen_wizard.units_error_label.value == ""
 
 
 def test_wizard_units_change_allows_zero_units(
@@ -305,8 +328,8 @@ def test_wizard_units_change_allows_zero_units(
     )
 
     host._show_current_wizard_step()
-    host.units_edit.setText("0")
-    host._wizard_units_changed("0")
+    host.units_edit.setValue(0)
+    host._wizard_units_changed(0)
 
     assert host.wizard_state.last_calc is not None
     assert host.wizard_state.last_calc.units == 0

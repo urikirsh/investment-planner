@@ -26,9 +26,7 @@ from __future__ import annotations
 
 from portfolio_core.domain.models import Exchange
 from PySide6.QtGui import QFontMetrics, QResizeEvent
-from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
-
-from ui.shared.decimal_input_delegate import build_non_negative_integer_validator
+from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QSpinBox, QVBoxLayout, QWidget
 
 
 USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/ILS rate:"
@@ -146,11 +144,14 @@ class WizardScreen(QWidget):
         self.units_label.setStyleSheet("font-size: 15px; font-weight: 600;")
         units_focus_layout.addWidget(self.units_label)
 
-        self.units_edit = QLineEdit()
-        self.units_edit.setPlaceholderText("Enter whole units")
-        self.units_edit.setMaxLength(11)
-        self.units_edit.setValidator(build_non_negative_integer_validator(allow_empty=True, parent=self.units_edit))
-        self.units_edit.setStyleSheet("font-size: 15px; padding: 5px 8px;")
+        self.units_edit = QSpinBox()
+        self.units_edit.setRange(0, 0)
+        self.units_edit.setSingleStep(1)
+        self.units_edit.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
+        self.units_edit.setStyleSheet(
+            "QSpinBox { font-size: 15px; padding: 5px 28px 5px 8px; min-height: 22px; }"
+            "QSpinBox::up-button, QSpinBox::down-button { width: 20px; }"
+        )
         units_focus_layout.addWidget(self.units_edit, 1)
         units_outer_layout.addWidget(self._units_focus_row)
         units_outer_layout.addStretch(1)
@@ -349,3 +350,7 @@ class WizardScreen(QWidget):
     def set_wizard_summary(self, text: str) -> None:
         """Render the top summary text shown above the units input."""
         self.wiz_summary.setText(text)
+
+    def set_units_limit(self, *, value: int) -> None:
+        """Clamp the units spinner to the recommended step limit."""
+        self.units_edit.setMaximum(max(value, 0))

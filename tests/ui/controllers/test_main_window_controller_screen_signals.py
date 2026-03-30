@@ -166,7 +166,7 @@ def test_wizard_units_text_changed_signal_runs_calculation_flow(
     )
     window._show_current_wizard_step()
 
-    window.units_edit.setText("1")
+    window.units_edit.setValue(1)
 
     assert window.wizard_state.last_calc is not None
     assert window.wizard_state.last_calc.units == 1
@@ -189,11 +189,11 @@ def test_wizard_units_text_changed_signal_disables_save_on_invalid_input(
     )
     window._show_current_wizard_step()
 
-    window.units_edit.setText("abc")
+    window.units_edit.setValue(1)
 
-    assert window.wizard_state.last_calc is None
-    assert not window.screen_wizard.save_continue_btn.isEnabled()
-    assert "must be a non-negative integer" in window.screen_wizard.units_error_label.text()
+    assert window.wizard_state.last_calc is not None
+    assert window.wizard_state.last_calc.units == 1
+    assert window.screen_wizard.save_continue_btn.isEnabled()
 
 
 def test_wizard_units_text_changed_signal_disables_save_on_empty_input(
@@ -211,14 +211,14 @@ def test_wizard_units_text_changed_signal_disables_save_on_empty_input(
     )
     window._show_current_wizard_step()
 
-    window.units_edit.setText("   ")
+    window.units_edit.setValue(0)
 
-    assert window.wizard_state.last_calc is None
-    assert not window.screen_wizard.save_continue_btn.isEnabled()
-    assert "is required" in window.screen_wizard.units_error_label.text()
+    assert window.wizard_state.last_calc is not None
+    assert window.wizard_state.last_calc.units == 0
+    assert window.screen_wizard.save_continue_btn.isEnabled()
 
 
-def test_wizard_units_text_changed_signal_disables_save_when_over_budget(
+def test_wizard_units_text_changed_signal_clamps_to_recommended_limit(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
@@ -233,11 +233,12 @@ def test_wizard_units_text_changed_signal_disables_save_when_over_budget(
     )
     window._show_current_wizard_step()
 
-    window.units_edit.setText("3")
+    window.units_edit.setValue(3)
 
-    assert window.wizard_state.last_calc is None
-    assert not window.screen_wizard.save_continue_btn.isEnabled()
-    assert "Total cost exceeds planned amount" in window.screen_wizard.units_error_label.text()
+    assert window.units_edit.value() == 2
+    assert window.wizard_state.last_calc is not None
+    assert window.wizard_state.last_calc.units == 2
+    assert window.screen_wizard.save_continue_btn.isEnabled()
 
 
 def test_wizard_back_to_portfolio_button_signal_runs_back_flow(

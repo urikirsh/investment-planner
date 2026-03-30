@@ -17,7 +17,7 @@ from typing import cast
 from contextlib import AbstractContextManager, nullcontext
 
 from PySide6.QtCore import QObject, QSignalBlocker
-from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
+from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.domain.models import Currency, Portfolio
 from portfolio_core.market_data import TickerLookupFound, get_cached_ticker_lookup_in_exchange
@@ -27,7 +27,7 @@ from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep,
 from ui.dialogs import show_error
 from ui.screens.wizard_screen import WizardScreen
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
-from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, normalize_and_validate_non_negative_integer_text
+from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY
 from ui.ui_state import PlanningState, WizardState
 from ui.wizard_fx_coordinator import WizardFxCoordinator
 
@@ -61,7 +61,7 @@ class MainWindowWizardMixin:
     screen_wizard: WizardScreen
     wiz_info: QLabel
     units_label: QLabel
-    units_edit: QLineEdit
+    units_edit: QSpinBox
     manual_rate_edit: QLineEdit
     wiz_result: QLabel
     _non_investable_bucket_id: str
@@ -88,7 +88,7 @@ class MainWindowWizardMixin:
         self.units_edit = self.screen_wizard.units_edit
         self.manual_rate_edit = self.screen_wizard.manual_rate_edit
         self.wiz_result = self.screen_wizard.wiz_result
-        self.units_edit.textChanged.connect(self._wizard_units_changed)
+        self.units_edit.valueChanged.connect(self._wizard_units_changed)
         self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
         self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._wizard_back_to_portfolio)
         self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
@@ -117,11 +117,12 @@ class MainWindowWizardMixin:
         self.screen_wizard.set_trade_mode(action=action)
         self._render_fx_panel_for_current_step()
         with self._signal_blocker(self.units_edit):
-            self.units_edit.setText("")
+            self.units_edit.setValue(0)
+            self.screen_wizard.set_units_limit(value=0)
         self._invalidate_current_calc(reset_result=True, sync_widths=False)
         self._prefill_units_from_cached_price()
 
-    def _wizard_units_changed(self, _text: str) -> None:
+    def _wizard_units_changed(self, _value: int) -> None:
         """Recalculate wizard totals whenever the entered units change."""
         self._recalculate_current_step_from_units()
 
@@ -136,7 +137,8 @@ class MainWindowWizardMixin:
                 price_ils=price.price_ils,
             )
             with self._signal_blocker(self.units_edit):
-                self.units_edit.setText(str(default_calc.units))
+                self.screen_wizard.set_units_limit(value=default_calc.units)
+                self.units_edit.setValue(default_calc.units)
             self._apply_current_units(default_calc.units)
         except Exception as exc:
             self._invalidate_current_calc(reset_result=True, sync_widths=True)
@@ -144,21 +146,7 @@ class MainWindowWizardMixin:
 
     def _recalculate_current_step_from_units(self) -> None:
         """Validate units input and update calculation/validation UI."""
-        raw_units = self.units_edit.text()
-        _, units, error = normalize_and_validate_non_negative_integer_text(
-            raw_units,
-            field_label=self.units_label.text().rstrip(":"),
-            required=True,
-        )
-        if error:
-            self._invalidate_current_calc(reset_result=True, sync_widths=True)
-            self.screen_wizard.set_units_error(error)
-            return
-        if units is None:
-            self._invalidate_current_calc(reset_result=True, sync_widths=True)
-            self.screen_wizard.set_units_error("Units are required.")
-            return
-        self._apply_current_units(units)
+        self._apply_current_units(self.units_edit.value())
 
     def _apply_current_units(self, units: int) -> None:
         """Apply current units input to wizard calculation and save-button state."""
@@ -315,6 +303,7 @@ class MainWindowWizardMixin:
         """Clear cached calculation and disable save for the current step."""
         self.wizard_state.last_calc = None
         self._set_save_continue_enabled(False)
+        self.screen_wizard.set_units_error("")
         if reset_result:
             self._set_wizard_result_placeholder_for_current_step()
         if sync_widths:

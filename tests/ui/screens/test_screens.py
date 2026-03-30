@@ -15,7 +15,7 @@ import tomllib
 import pytest
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import QModelIndex
-from PySide6.QtWidgets import QLabel, QLineEdit, QStyleOptionViewItem
+from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem
 from portfolio_core.domain.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -154,8 +154,10 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert screen.wiz_info.wordWrap()
     assert "font-size: 15px" in screen.wiz_info.styleSheet()
     assert screen.units_label.text() == "Units bought:"
-    assert screen.units_edit.placeholderText() == "Enter whole units"
-    assert screen.units_edit.maxLength() == 11
+    assert isinstance(screen.units_edit, QSpinBox)
+    assert screen.units_edit.minimum() == 0
+    assert screen.units_edit.maximum() == 0
+    assert screen.units_edit.singleStep() == 1
     assert screen.wiz_summary.text() == "Planned: - ILS | Price: - ILS/unit | Recommended: - units"
     assert not screen.wiz_summary.wordWrap()
     assert "font-size: 15px" in screen.wiz_summary.styleSheet()
