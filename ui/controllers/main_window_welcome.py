@@ -398,7 +398,7 @@ class MainWindowWelcomeController:
         return self._startup_transition_coordinator.cancel_fetch(wait_timeout_ms=wait_timeout_ms)
 
     def _abort_startup_transition_cleanup_in_progress(self) -> None:
-        """Abort transition when prior startup FX cleanup could not finish."""
+        """Abort transition when prior startup market-data cleanup could not finish."""
         if self._startup_transition_timer.isActive():
             self._startup_transition_timer.stop()
         self._reset_startup_transition_state(pending=False)
@@ -409,7 +409,7 @@ class MainWindowWelcomeController:
         self.refresh_last_portfolio_ui()
 
     def cancel_pending_startup_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
-        """Cancel startup transition and return whether FX worker cleanup completed."""
+        """Cancel startup transition and return whether market-data worker cleanup completed."""
         stopped = self._startup_transition_coordinator.cancel_pending_transition(wait_timeout_ms=wait_timeout_ms)
         self._pending_startup_portfolio = None
         self._host._hide_startup_loading_overlay()

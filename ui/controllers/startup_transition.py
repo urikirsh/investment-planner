@@ -12,7 +12,7 @@ from portfolio_core.domain.models import Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import StartupPortfolioPriceRefreshError, refresh_portfolio_prices_for_startup
-from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_FX_FETCH_TIMEOUT_SECONDS
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS
 
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
 
@@ -34,7 +34,7 @@ class StartupMarketDataWorker(QObject):
         *,
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
-        timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
+        timeout_seconds: float = STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS,
     ) -> None:
         super().__init__()
         self._portfolio = portfolio
@@ -98,7 +98,7 @@ class StartupMarketDataLifecycle:
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
         on_finished: Callable[[object, object, object], None],
-        timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
+        timeout_seconds: float = STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS,
     ) -> None:
         """Create, wire, and start the startup market-data worker thread."""
         thread = QThread(parent)
@@ -206,7 +206,7 @@ class StartupTransitionCoordinator:
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
         on_finished: Callable[[object, object, object], None],
-        timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
+        timeout_seconds: float = STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS,
     ) -> bool:
         """Start the startup market-data fetch worker for the current staged portfolio."""
         self._market_data_fetch.start(
@@ -234,11 +234,11 @@ class StartupTransitionCoordinator:
         return self._try_finalize()
 
     def cancel_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
-        """Stop and detach in-flight startup FX fetch worker, if any."""
+        """Stop and detach the in-flight startup market-data worker, if any."""
         return self._market_data_fetch.cancel(wait_timeout_ms=wait_timeout_ms)
 
     def cancel_pending_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
-        """Cancel startup transition and return whether FX worker cleanup completed."""
+        """Cancel startup transition and return whether market-data worker cleanup completed."""
         if self.timer.isActive():
             self.timer.stop()
         self.reset(pending=False)
