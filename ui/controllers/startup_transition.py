@@ -18,7 +18,14 @@ _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
 
 
 class StartupFxFetchWorker(QObject):
-    """Background startup market-data worker for welcome->main transition."""
+    """Background startup market-data worker for welcome->main transition.
+
+    The worker fetches a USD/ILS quote when no session-cached quote exists,
+    refreshes all instrument values for the staged portfolio, and emits exactly
+    one completion signal carrying either:
+    - a quote plus refreshed portfolio on success, or
+    - an error message on failure.
+    """
 
     finished = Signal(object, object, object)  # (UsdIlsRateQuote | None, Portfolio | None, error_text | None)
 
@@ -36,6 +43,7 @@ class StartupFxFetchWorker(QObject):
 
     @Slot()
     def run(self) -> None:
+        """Fetch startup market data and emit a normalized success/error payload."""
         try:
             if self._portfolio is None:
                 raise StartupPortfolioPriceRefreshError("No portfolio loaded for startup price refresh.")
@@ -72,7 +80,12 @@ class StartupFxFetchResultRelay(QObject):
 
 @dataclass
 class StartupFxFetchLifecycle:
-    """Mutable holder for startup FX worker/thread ownership."""
+    """Mutable holder for startup FX worker/thread ownership.
+
+    This wrapper centralizes thread creation, shutdown, and object detachment so
+    the welcome controller and coordinator can reason about startup cleanup in
+    one place.
+    """
 
     thread: QThread | None = None
     worker: StartupFxFetchWorker | None = None
@@ -108,7 +121,11 @@ class StartupFxFetchLifecycle:
         thread.start()
 
     def cancel(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
-        """Stop and detach in-flight worker/thread, if any."""
+        """Stop and detach in-flight worker/thread, if any.
+
+        Returns ``False`` only when the thread does not stop within the
+        requested wait timeout.
+        """
         if self.thread is not None and self.thread.isRunning():
             self.thread.quit()
             if not self.thread.wait(wait_timeout_ms):
@@ -122,6 +139,7 @@ class StartupFxFetchLifecycle:
         return True
 
     def clear(self) -> None:
+        """Drop tracked thread/worker references after shutdown or completion."""
         self.thread = None
         self.worker = None
         self.result_relay = None
@@ -129,7 +147,12 @@ class StartupFxFetchLifecycle:
 
 @dataclass
 class StartupTransitionState:
-    """Gate state for welcome->main transition completion conditions."""
+    """Gate state for welcome->main transition completion conditions.
+
+    A startup transition completes only after two independent gates finish:
+    - the minimum-delay timer for the blocking overlay
+    - the background startup fetch
+    """
 
     pending: bool = False
     min_delay_elapsed: bool = False
@@ -145,13 +168,22 @@ class StartupTransitionState:
 
 @dataclass(frozen=True)
 class StartupTransitionDecision:
-    """Resolved startup transition outcome once both gating conditions complete."""
+    """Resolved startup transition outcome once both gating conditions complete.
+
+    ``error_message`` is populated when the controller should stay on the
+    welcome screen and show a blocking startup failure dialog.
+    """
 
     error_message: str | None
 
 
 class StartupTransitionCoordinator:
-    """Own startup transition timing, fetch lifecycle, and state resolution."""
+    """Own startup transition timing, fetch lifecycle, and state resolution.
+
+    The coordinator is intentionally UI-agnostic: it tracks gate completion and
+    worker ownership, and returns a decision only when the welcome transition is
+    ready to be finalized by the controller.
+    """
 
     def __init__(self, parent: QWidget) -> None:
         self.timer = QTimer(parent)
@@ -176,7 +208,7 @@ class StartupTransitionCoordinator:
         on_finished: Callable[[object, object, object], None],
         timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> bool:
-        """Start startup market-data fetch if prior worker cleanup is complete."""
+        """Start the startup market-data fetch worker for the current staged portfolio."""
         self._fx_fetch.start(
             parent=parent,
             portfolio=portfolio,
@@ -191,12 +223,12 @@ class StartupTransitionCoordinator:
         return self.cancel_fetch()
 
     def complete_min_delay(self) -> StartupTransitionDecision | None:
-        """Mark the min-delay timer complete and resolve outcome when ready."""
+        """Mark the overlay minimum-delay gate as complete and resolve if ready."""
         self.state.min_delay_elapsed = True
         return self._try_finalize()
 
     def complete_fetch(self, *, error_message: str | None) -> StartupTransitionDecision | None:
-        """Store fetch completion state and resolve outcome when ready."""
+        """Mark the fetch gate as complete and resolve if both startup gates are done."""
         self.state.fx_fetch_error = error_message
         self.state.fx_fetch_completed = True
         return self._try_finalize()

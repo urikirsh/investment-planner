@@ -154,7 +154,17 @@ def refresh_portfolio_prices_for_startup(
     usd_ils_rate: Decimal,
     lookup_timeout_seconds: float = 8.0,
 ) -> Portfolio:
-    """Return a portfolio copy with instrument values refreshed from market data."""
+    """Return a portfolio copy with instrument values refreshed from market data.
+
+    TASE values are refreshed directly in ILS. USD-priced instruments are first
+    refreshed from their exchange quote and then converted to ILS with the
+    supplied startup FX rate.
+
+    Raises
+    ------
+    StartupPortfolioPriceRefreshError
+        If any instrument cannot be refreshed to a usable priced value.
+    """
     refreshed_instruments = [
         _refresh_instrument_market_value(
             instrument,
@@ -176,7 +186,11 @@ def _refresh_instrument_market_value(
     usd_ils_rate: Decimal,
     lookup_timeout_seconds: float,
 ) -> Instrument:
-    """Return one instrument with its market value recalculated in ILS."""
+    """Return one instrument with its market value recalculated in ILS.
+
+    The returned instrument preserves all source fields except ``value``, which
+    is replaced with the latest fetched total value for the tracked quantity.
+    """
     try:
         lookup_result = lookup_ticker_in_exchange(
             exchange=instrument.exchange,

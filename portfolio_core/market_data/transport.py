@@ -62,7 +62,12 @@ def _describe_http_error(*, url: str, exc: HTTPError) -> str:
 
 
 def _describe_transport_error(*, url: str, exc: OSError | TimeoutError | URLError) -> str:
-    """Return a concise transport message for non-HTTP response failures."""
+    """Return a concise transport message for non-HTTP response failures.
+
+    Timeout-like failures are normalized to a consistent "timed out" message so
+    higher layers can surface stable user-facing diagnostics across the
+    different exception types ``urllib`` may raise.
+    """
     if isinstance(exc, TimeoutError):
         return f"HTTP transport timed out for {url}"
     if isinstance(exc, URLError):

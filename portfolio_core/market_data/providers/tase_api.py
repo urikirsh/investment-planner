@@ -60,7 +60,11 @@ def _extract_positive_decimal(
     *,
     divisor: Decimal | None = None,
 ) -> Decimal | None:
-    """Return the first positive decimal value found under the provided keys."""
+    """Return the first positive decimal value found under the provided keys.
+
+    Non-numeric, empty, and non-positive candidates are ignored so providers
+    can probe several possible vendor field names without branching noise.
+    """
     for key in keys:
         value = payload.get(key)
         if value in (None, ""):
@@ -139,7 +143,11 @@ class _TaseSecurityDataParser:
 
 
 class _TaseMutualFundParser:
-    """Parser for Maya mutual-fund JSON payloads."""
+    """Parser for Maya mutual-fund JSON payloads.
+
+    The mutual-fund endpoint is used as a fallback when the primary TASE
+    security-data endpoint does not yield a usable priced security result.
+    """
 
     def parse_lookup_result(self, raw_text: str) -> TickerLookupResult:
         """Parse one mutual-fund payload into found/not-found lookup result."""
@@ -189,7 +197,13 @@ class _TaseMutualFundParser:
 
 
 class _TaseApiLookupProvider(_BaseHttpLookupProvider):
-    """TASE lookup provider backed by ``api.tase.co.il`` security-data endpoint."""
+    """TASE lookup provider backed by security-data plus mutual-fund endpoints.
+
+    Lookup order is:
+    1. TASE ``company/securitydata``
+    2. Maya mutual-fund fallback when the primary result is missing or lacks a
+       usable price
+    """
 
     def __init__(
         self,
@@ -204,7 +218,13 @@ class _TaseApiLookupProvider(_BaseHttpLookupProvider):
         self._mutual_fund_parser = mutual_fund_parser or _TaseMutualFundParser()
 
     def lookup_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Lookup one canonical TASE security number."""
+        """Lookup one canonical TASE security number.
+
+        Communication/parser errors from the primary endpoint take precedence.
+        If the primary result is merely not-found or price-less, mutual-fund
+        fallback errors are surfaced instead of being silently converted into a
+        not-found result.
+        """
         primary_error: TickerLookupCommunicationError | None = None
         primary_result: TickerLookupResult = TickerLookupNotFound()
         try:

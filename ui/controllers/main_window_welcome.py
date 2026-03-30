@@ -37,7 +37,11 @@ class WelcomeLastPortfolioStatus:
 
 @dataclass
 class _PendingStartupPortfolio:
-    """Staged portfolio context prepared before startup fetch succeeds."""
+    """Staged portfolio context prepared before startup fetch succeeds.
+
+    The portfolio is kept out of the live editor until startup refresh either
+    succeeds and is committed, or fails and is discarded.
+    """
 
     portfolio: Portfolio
     file_path: Path | None
@@ -45,7 +49,11 @@ class _PendingStartupPortfolio:
 
 @dataclass(frozen=True)
 class _StartupFetchCallbackPayload:
-    """Typed startup fetch callback payload decoded from Qt signal objects."""
+    """Typed startup fetch callback payload decoded from Qt signal objects.
+
+    This keeps the slot body free from repeated ``isinstance`` checks on the
+    relay's untyped ``object`` signal payloads.
+    """
 
     quote: UsdIlsRateQuote | None
     refreshed_portfolio: Portfolio | None
@@ -54,7 +62,12 @@ class _StartupFetchCallbackPayload:
 
 @dataclass(frozen=True)
 class _StartupFetchResolution:
-    """Resolved startup fetch outcome for transition recording/finalization."""
+    """Resolved startup fetch outcome for transition recording/finalization.
+
+    ``already_finalized`` is set only for the edge case where fetch completion
+    itself triggers immediate finalization before the caller would otherwise ask
+    the coordinator for a new decision.
+    """
 
     transition_error: str | None
     already_finalized: bool = False
@@ -290,7 +303,12 @@ class MainWindowWelcomeController:
         )
 
     def _resolve_startup_fetch_outcome(self, payload: _StartupFetchCallbackPayload) -> _StartupFetchResolution:
-        """Commit successful startup fetch results or return the transition error message."""
+        """Resolve one startup fetch payload into commit/failure transition state.
+
+        Successful payloads commit the refreshed staged portfolio into the live
+        session/editor state. Failed payloads clear staged state and return the
+        user-facing error that should be recorded with the transition gates.
+        """
         if payload.error_text or payload.refreshed_portfolio is None:
             self._pending_startup_portfolio = None
             return _StartupFetchResolution(
@@ -312,7 +330,11 @@ class MainWindowWelcomeController:
         return _StartupFetchResolution(transition_error=None)
 
     def _cache_startup_quote_if_available(self, quote: UsdIlsRateQuote | None) -> bool:
-        """Cache a fetched startup quote, or verify a session-cached quote already exists."""
+        """Cache a fetched startup quote, or verify a session-cached quote already exists.
+
+        Returns ``False`` only when neither the worker nor the session can
+        provide a USD/ILS rate for the current startup transition.
+        """
         if quote is not None:
             self._host.session.cache_usd_ils_quote(
                 rate=quote.rate,
@@ -323,7 +345,12 @@ class MainWindowWelcomeController:
         return self._host.session.cached_usd_ils_quote is not None
 
     def _commit_pending_startup_portfolio(self, refreshed_portfolio: Portfolio) -> None:
-        """Commit staged startup portfolio into session and main-editor UI."""
+        """Commit staged startup portfolio into session and main-editor UI.
+
+        This is the point where startup transitions from "prepared" to "live":
+        the session document/file context is updated first, then the main editor
+        widgets are rendered from the refreshed portfolio.
+        """
         pending = self._pending_startup_portfolio
         if pending is None:
             raise RuntimeError("No pending startup portfolio to commit.")
