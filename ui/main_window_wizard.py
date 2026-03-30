@@ -158,20 +158,30 @@ class MainWindowWizardMixin:
             context = self._current_wizard_calculation_context()
             calc = self._build_current_calc_for_units(context=context, units=units)
             validation_error = self._validate_calc_within_plan(calc)
-            if validation_error:
-                self.wizard_state.last_calc = None
-                self._set_save_continue_enabled(False)
-                self.screen_wizard.set_units_error(validation_error)
-            else:
-                self.wizard_state.last_calc = calc
-                self._set_save_continue_enabled(True)
-                self.screen_wizard.set_units_error("")
-            self.screen_wizard.set_wizard_summary(self._format_wizard_summary_text(context=context, calc=calc))
-            self.wiz_result.setText(self._format_wizard_result_text(calc=calc, total_label=context.total_label))
-            self._sync_wizard_focus_row_widths()
+            self._render_calculation_state(
+                context=context,
+                calc=calc,
+                validation_error=validation_error,
+            )
         except Exception as exc:
             self._invalidate_current_calc(reset_result=True, sync_widths=True)
             self.screen_wizard.set_units_error(str(exc))
+
+    def _render_calculation_state(
+        self,
+        *,
+        context: _WizardCalculationContext,
+        calc: BuyCalculation,
+        validation_error: str,
+    ) -> None:
+        """Render wizard UI state from one calculation result plus validation status."""
+        has_error = bool(validation_error)
+        self.wizard_state.last_calc = None if has_error else calc
+        self._set_save_continue_enabled(not has_error)
+        self.screen_wizard.set_units_error(validation_error)
+        self.screen_wizard.set_wizard_summary(self._format_wizard_summary_text(context=context, calc=calc))
+        self.wiz_result.setText(self._format_wizard_result_text(calc=calc, total_label=context.total_label))
+        self._sync_wizard_focus_row_widths()
 
     def _build_current_calc_for_units(self, *, context: _WizardCalculationContext, units: int) -> BuyCalculation:
         """Build calculation state for the current step and explicit units input."""
