@@ -3,7 +3,6 @@ from __future__ import annotations
 """Startup welcome-transition state machine and worker lifecycle helpers."""
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Final
 
@@ -17,18 +16,6 @@ from portfolio_core.use_cases import StartupPortfolioPriceRefreshError, refresh_
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_FX_FETCH_TIMEOUT_SECONDS
 
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
-_STARTUP_DEBUG_LOG_PATH: Final[Path] = Path(__file__).resolve().parents[2] / "startup_debug.log"
-
-
-def append_startup_debug_log(message: str) -> None:
-    """Best-effort startup trace logging for crash investigation."""
-    timestamp = datetime.now().isoformat(timespec="milliseconds")
-    try:
-        _STARTUP_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _STARTUP_DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(f"{timestamp} {message}\n")
-    except Exception:
-        return
 
 
 class StartupFxFetchWorker(QObject):
@@ -50,43 +37,24 @@ class StartupFxFetchWorker(QObject):
 
     @Slot()
     def run(self) -> None:
-        append_startup_debug_log(
-            "worker.run start "
-            f"portfolio_present={self._portfolio is not None} "
-            f"cached_quote_present={self._cached_quote is not None} "
-            f"timeout_seconds={self._timeout_seconds}"
-        )
         try:
             if self._portfolio is None:
                 raise StartupPortfolioPriceRefreshError("No portfolio loaded for startup price refresh.")
             quote = None
             if self._cached_quote is None:
-                append_startup_debug_log("worker.run fetching usd-ils quote")
                 quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
                 usd_ils_rate = quote.rate
-                append_startup_debug_log(
-                    "worker.run fetched usd-ils quote "
-                    f"rate={quote.rate} effective_date={quote.effective_date.isoformat()} "
-                    f"used_last_published={quote.used_last_published}"
-                )
             else:
                 usd_ils_rate = self._cached_quote.rate
-                append_startup_debug_log(f"worker.run using cached usd-ils rate={usd_ils_rate}")
             refreshed_portfolio = refresh_portfolio_prices_for_startup(
                 self._portfolio,
                 usd_ils_rate=usd_ils_rate,
                 lookup_timeout_seconds=self._timeout_seconds,
             )
-            append_startup_debug_log(
-                "worker.run refresh complete "
-                f"instrument_count={len(refreshed_portfolio.instruments)}"
-            )
             self.finished.emit(quote, refreshed_portfolio, None)
         except StartupPortfolioPriceRefreshError as exc:
-            append_startup_debug_log(f"worker.run startup refresh error={exc!r}")
             self.finished.emit(None, None, str(exc))
         except Exception as exc:
-            append_startup_debug_log(f"worker.run unexpected error={exc!r}")
             self.finished.emit(None, None, str(exc))
 
 
@@ -100,7 +68,6 @@ class StartupFxFetchResultRelay(QObject):
     @Slot(object, object, object)
     def dispatch(self, quote_obj: object, portfolio_obj: object, error_obj: object) -> None:
         """Forward worker results from the GUI thread to the controller callback."""
-        append_startup_debug_log("result_relay.dispatch on gui thread")
         self._on_finished(quote_obj, portfolio_obj, error_obj)
 
 
@@ -122,12 +89,6 @@ class StartupFxFetchLifecycle:
         timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> None:
         """Create, wire, and start the startup FX fetch worker thread."""
-        append_startup_debug_log(
-            "lifecycle.start "
-            f"portfolio_present={portfolio is not None} "
-            f"cached_quote_present={cached_quote is not None} "
-            f"timeout_seconds={timeout_seconds}"
-        )
         thread = QThread(parent)
         worker = StartupFxFetchWorker(
             portfolio=portfolio,
@@ -149,32 +110,19 @@ class StartupFxFetchLifecycle:
 
     def cancel(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Stop and detach in-flight worker/thread, if any."""
-        append_startup_debug_log(
-            "lifecycle.cancel "
-            f"thread_present={self.thread is not None} "
-            f"thread_running={self.thread.isRunning() if self.thread is not None else False} "
-            f"wait_timeout_ms={wait_timeout_ms}"
-        )
         if self.thread is not None and self.thread.isRunning():
             self.thread.quit()
             if not self.thread.wait(wait_timeout_ms):
-                append_startup_debug_log("lifecycle.cancel wait timed out")
                 return False
         if self.worker is not None:
             try:
                 self.worker.deleteLater()
             except RuntimeError:
-                append_startup_debug_log("lifecycle.cancel worker already deleted")
+                pass
         self.clear()
         return True
 
     def clear(self) -> None:
-        append_startup_debug_log(
-            "lifecycle.clear "
-            f"thread_present={self.thread is not None} "
-            f"worker_present={self.worker is not None} "
-            f"result_relay_present={self.result_relay is not None}"
-        )
         self.thread = None
         self.worker = None
         self.result_relay = None
@@ -218,7 +166,6 @@ class StartupTransitionCoordinator:
 
     def reset(self, *, pending: bool) -> None:
         """Reset startup-transition gate flags to a known baseline state."""
-        append_startup_debug_log(f"reset_startup_transition_state pending={pending}")
         self.state.reset(pending=pending)
 
     def start_fetch(
@@ -232,13 +179,6 @@ class StartupTransitionCoordinator:
         timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> bool:
         """Start startup market-data fetch if prior worker cleanup is complete."""
-        append_startup_debug_log(
-            "start_startup_fx_fetch "
-            f"pending_present={portfolio is not None} "
-            f"pending_file_path={pending_file_path} "
-            f"instrument_count={len(portfolio.instruments) if portfolio is not None else 0} "
-            f"cached_quote_present={cached_quote is not None}"
-        )
         self._fx_fetch.start(
             parent=parent,
             portfolio=portfolio,
@@ -250,12 +190,10 @@ class StartupTransitionCoordinator:
 
     def ensure_cleanup_ready_for_restart(self) -> bool:
         """Ensure startup fetch cleanup completed before creating a new worker."""
-        append_startup_debug_log("ensure_startup_cleanup_ready_for_restart")
         return self.cancel_fetch()
 
     def on_min_delay_elapsed(self) -> StartupTransitionDecision | None:
         """Mark the min-delay timer complete and resolve outcome when ready."""
-        append_startup_debug_log("complete_startup_transition timer elapsed")
         self.state.min_delay_elapsed = True
         return self._try_finalize()
 
@@ -271,7 +209,6 @@ class StartupTransitionCoordinator:
 
     def cancel_pending_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Cancel startup transition and return whether FX worker cleanup completed."""
-        append_startup_debug_log(f"cancel_pending_startup_transition wait_timeout_ms={wait_timeout_ms}")
         if self.timer.isActive():
             self.timer.stop()
         self.reset(pending=False)
@@ -280,13 +217,6 @@ class StartupTransitionCoordinator:
     def _try_finalize(self) -> StartupTransitionDecision | None:
         """Resolve final transition outcome once timer and fetch have both completed."""
         state = self.state
-        append_startup_debug_log(
-            "try_finalize_startup_transition "
-            f"pending={state.pending} "
-            f"min_delay_elapsed={state.min_delay_elapsed} "
-            f"fx_fetch_completed={state.fx_fetch_completed} "
-            f"fx_fetch_error={state.fx_fetch_error!r}"
-        )
         if not state.pending:
             return None
         if not state.min_delay_elapsed or not state.fx_fetch_completed:

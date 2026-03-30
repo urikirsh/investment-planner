@@ -56,7 +56,6 @@ FX thread-safety guards in this flow:
 - `ui/controllers/startup_transition.py`
   - extracted startup transition state machine and startup FX/price-fetch worker lifecycle
   - owns the minimum-delay timer, worker-thread lifecycle, and transition gating
-  - keeps startup debug logging alongside the fetch/thread lifecycle it describes
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
