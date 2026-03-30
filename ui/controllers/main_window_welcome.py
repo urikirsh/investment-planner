@@ -237,7 +237,6 @@ class MainWindowWelcomeController:
 
     def _start_startup_fx_fetch(self) -> None:
         """Start startup market-data fetch for FX and portfolio prices."""
-        pending = self._pending_startup_portfolio
         if not self._ensure_startup_cleanup_ready_for_restart():
             self._abort_startup_transition_cleanup_in_progress()
             return
@@ -246,7 +245,6 @@ class MainWindowWelcomeController:
             portfolio=self._pending_portfolio(),
             cached_quote=self._host.session.cached_usd_ils_quote,
             on_finished=self._on_startup_fx_fetch_finished,
-            pending_file_path=pending.file_path if pending is not None else None,
         )
         if not started:
             self._abort_startup_transition_cleanup_in_progress()

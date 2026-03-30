@@ -3,7 +3,6 @@ from __future__ import annotations
 """Startup welcome-transition state machine and worker lifecycle helpers."""
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable, Final
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
@@ -175,7 +174,6 @@ class StartupTransitionCoordinator:
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
         on_finished: Callable[[object, object, object], None],
-        pending_file_path: Path | None,
         timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> bool:
         """Start startup market-data fetch if prior worker cleanup is complete."""
