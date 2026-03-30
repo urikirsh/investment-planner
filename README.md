@@ -67,7 +67,6 @@ The application never executes trades automatically. All actions are explicit an
   - USD-priced steps use a USD/ILS rate prepared during startup
   - calculation can be triggered by button click, pressing `Enter`, or leaving the price field
   - unit amounts are rounded down to whole numbers
-  - when there is no investable cash, planning stops with an error message instead of opening the summary flow
 - Wizard actions:
   - `Save and continue` applies the current step and moves forward
   - `Save and continue` is enabled only after a valid calculation
@@ -85,9 +84,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Start New File`
   - `Quit`
   - after choosing a startup action that opens the main editor, a brief blocking transition overlay appears while startup tasks complete
-  - startup refreshes the latest value of every portfolio instrument before opening the main editor, including public TASE mutual funds when a public quote is available
-  - if the USD/ILS rate or any instrument price is unavailable, the app keeps you on the welcome screen so you can retry
-  - startup fetch failures include the underlying lookup reason when the provider exposes it, such as timeouts or HTTP-status failures
+  - startup refreshes portfolio prices before opening the main editor
 - Immediate validation with clear feedback for quantity/target percent edits
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
@@ -182,10 +179,9 @@ Notes:
 - If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - The app reuses the latest successful USD/ILS quote across wizard runs in the current app session.
-- Opening or creating a portfolio refreshes all instrument table values in memory during startup, including public TASE mutual funds when a public quote is available; the file on disk is updated only when you save.
+- Opening or creating a portfolio refreshes portfolio prices during startup.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
-- Saving remains available even when cash is currently below the configured minimal reserve.
 - `Open` loads an existing portfolio file.
 - `New` starts a fresh default portfolio.
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
