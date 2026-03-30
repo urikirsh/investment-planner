@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Focused lifecycle tests for welcome startup FX worker/thread management."""
+"""Focused lifecycle tests for welcome startup market-data worker/thread management."""
 
 from typing import Any, cast
 
@@ -74,12 +74,12 @@ class _FakeResultRelay:
         self.on_finished(quote_obj, portfolio_obj, error_obj)
 
 
-def test_startup_fx_lifecycle_start_wires_and_starts_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_startup_market_data_lifecycle_start_wires_and_starts_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(transition_mod, "QThread", _FakeThread)
-    monkeypatch.setattr(transition_mod, "StartupFxFetchWorker", _FakeWorker)
-    monkeypatch.setattr(transition_mod, "StartupFxFetchResultRelay", _FakeResultRelay)
+    monkeypatch.setattr(transition_mod, "StartupMarketDataWorker", _FakeWorker)
+    monkeypatch.setattr(transition_mod, "StartupMarketDataResultRelay", _FakeResultRelay)
 
-    lifecycle = transition_mod.StartupFxFetchLifecycle()
+    lifecycle = transition_mod.StartupMarketDataLifecycle()
     parent = object()
 
     def on_finished(_quote_obj: object, _portfolio_obj: object, _error_obj: object) -> None:
@@ -114,13 +114,13 @@ def test_startup_fx_lifecycle_start_wires_and_starts_thread(monkeypatch: pytest.
     assert any(getattr(cb, "__self__", None) is thread and getattr(cb, "__name__", "") == "deleteLater" for cb in thread.finished.callbacks)
 
 
-def test_startup_fx_lifecycle_cancel_returns_false_when_wait_times_out() -> None:
+def test_startup_market_data_lifecycle_cancel_returns_false_when_wait_times_out() -> None:
     thread = _FakeThread(parent=object())
     thread.running = True
     thread.wait_result = False
     worker = _FakeWorker(portfolio=None, cached_quote=None, timeout_seconds=1.0)
     result_relay = _FakeResultRelay(on_finished=lambda *_args: None, parent=object())
-    lifecycle = transition_mod.StartupFxFetchLifecycle(
+    lifecycle = transition_mod.StartupMarketDataLifecycle(
         thread=cast(Any, thread),
         worker=cast(Any, worker),
         result_relay=cast(Any, result_relay),
@@ -137,12 +137,12 @@ def test_startup_fx_lifecycle_cancel_returns_false_when_wait_times_out() -> None
     assert worker.delete_later_called is False
 
 
-def test_startup_fx_lifecycle_cancel_clears_refs_after_successful_stop() -> None:
+def test_startup_market_data_lifecycle_cancel_clears_refs_after_successful_stop() -> None:
     thread = _FakeThread(parent=object())
     thread.running = True
     thread.wait_result = True
     worker = _FakeWorker(portfolio=None, cached_quote=None, timeout_seconds=1.0)
-    lifecycle = transition_mod.StartupFxFetchLifecycle(
+    lifecycle = transition_mod.StartupMarketDataLifecycle(
         thread=cast(Any, thread),
         worker=cast(Any, worker),
         result_relay=cast(Any, _FakeResultRelay(on_finished=lambda *_args: None, parent=object())),
@@ -159,8 +159,8 @@ def test_startup_fx_lifecycle_cancel_clears_refs_after_successful_stop() -> None
     assert lifecycle.result_relay is None
 
 
-def test_startup_fx_lifecycle_clear_resets_thread_and_worker_refs() -> None:
-    lifecycle = transition_mod.StartupFxFetchLifecycle(
+def test_startup_market_data_lifecycle_clear_resets_thread_and_worker_refs() -> None:
+    lifecycle = transition_mod.StartupMarketDataLifecycle(
         thread=cast(Any, _FakeThread(parent=object())),
         worker=cast(Any, _FakeWorker(portfolio=None, cached_quote=None, timeout_seconds=2.0)),
         result_relay=cast(Any, _FakeResultRelay(on_finished=lambda *_args: None, parent=object())),

@@ -394,7 +394,7 @@ class MainWindowWelcomeController:
         self.enter_main_screen()
 
     def _cancel_startup_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
-        """Stop and detach in-flight startup FX fetch worker, if any."""
+        """Stop and detach in-flight startup market-data worker, if any."""
         return self._startup_transition_coordinator.cancel_fetch(wait_timeout_ms=wait_timeout_ms)
 
     def _abort_startup_transition_cleanup_in_progress(self) -> None:

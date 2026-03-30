@@ -17,7 +17,7 @@ from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_FX_FETCH_TIMEOU
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
 
 
-class StartupFxFetchWorker(QObject):
+class StartupMarketDataWorker(QObject):
     """Background startup market-data worker for welcome->main transition.
 
     The worker fetches a USD/ILS quote when no session-cached quote exists,
@@ -65,7 +65,7 @@ class StartupFxFetchWorker(QObject):
             self.finished.emit(None, None, str(exc))
 
 
-class StartupFxFetchResultRelay(QObject):
+class StartupMarketDataResultRelay(QObject):
     """GUI-thread relay for startup fetch completion results."""
 
     def __init__(self, *, on_finished: Callable[[object, object, object], None], parent: QWidget) -> None:
@@ -79,8 +79,8 @@ class StartupFxFetchResultRelay(QObject):
 
 
 @dataclass
-class StartupFxFetchLifecycle:
-    """Mutable holder for startup FX worker/thread ownership.
+class StartupMarketDataLifecycle:
+    """Mutable holder for startup market-data worker/thread ownership.
 
     This wrapper centralizes thread creation, shutdown, and object detachment so
     the welcome controller and coordinator can reason about startup cleanup in
@@ -88,8 +88,8 @@ class StartupFxFetchLifecycle:
     """
 
     thread: QThread | None = None
-    worker: StartupFxFetchWorker | None = None
-    result_relay: StartupFxFetchResultRelay | None = None
+    worker: StartupMarketDataWorker | None = None
+    result_relay: StartupMarketDataResultRelay | None = None
 
     def start(
         self,
@@ -100,14 +100,14 @@ class StartupFxFetchLifecycle:
         on_finished: Callable[[object, object, object], None],
         timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> None:
-        """Create, wire, and start the startup FX fetch worker thread."""
+        """Create, wire, and start the startup market-data worker thread."""
         thread = QThread(parent)
-        worker = StartupFxFetchWorker(
+        worker = StartupMarketDataWorker(
             portfolio=portfolio,
             cached_quote=cached_quote,
             timeout_seconds=timeout_seconds,
         )
-        result_relay = StartupFxFetchResultRelay(on_finished=on_finished, parent=parent)
+        result_relay = StartupMarketDataResultRelay(on_finished=on_finished, parent=parent)
         self.thread = thread
         self.worker = worker
         self.result_relay = result_relay
@@ -189,7 +189,7 @@ class StartupTransitionCoordinator:
         self.timer = QTimer(parent)
         self.timer.setSingleShot(True)
         self.state = StartupTransitionState()
-        self._fx_fetch = StartupFxFetchLifecycle()
+        self._market_data_fetch = StartupMarketDataLifecycle()
 
     def schedule_min_delay(self) -> None:
         """Start the minimum-delay timer for the welcome loading overlay."""
@@ -209,7 +209,7 @@ class StartupTransitionCoordinator:
         timeout_seconds: float = STARTUP_FX_FETCH_TIMEOUT_SECONDS,
     ) -> bool:
         """Start the startup market-data fetch worker for the current staged portfolio."""
-        self._fx_fetch.start(
+        self._market_data_fetch.start(
             parent=parent,
             portfolio=portfolio,
             cached_quote=cached_quote,
@@ -235,7 +235,7 @@ class StartupTransitionCoordinator:
 
     def cancel_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Stop and detach in-flight startup FX fetch worker, if any."""
-        return self._fx_fetch.cancel(wait_timeout_ms=wait_timeout_ms)
+        return self._market_data_fetch.cancel(wait_timeout_ms=wait_timeout_ms)
 
     def cancel_pending_transition(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Cancel startup transition and return whether FX worker cleanup completed."""
