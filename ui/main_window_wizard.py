@@ -46,6 +46,16 @@ class _CachedStepPrice:
     calculation_text: str
 
 
+@dataclass(frozen=True)
+class _WizardCalculationContext:
+    """Immutable current-step context reused across wizard calculations/rendering."""
+
+    step: PlanStep
+    price: _CachedStepPrice
+    recommended_units: int
+    total_label: str
+
+
 class MainWindowWizardMixin:
     """Mixin containing wizard screen setup and per-step execution flow."""
 
@@ -129,17 +139,11 @@ class MainWindowWizardMixin:
     def _prefill_units_from_cached_price(self) -> None:
         """Populate the units field from the cached startup lookup price."""
         try:
-            price = self._current_step_cached_price()
-            s = self._current_step()
-            default_calc = calculate_buy_units_from_ils_price(
-                instrument_id=s.instrument_id,
-                planned_money=abs(s.planned_delta_money),
-                price_ils=price.price_ils,
-            )
+            context = self._current_wizard_calculation_context()
             with self._signal_blocker(self.units_edit):
-                self.screen_wizard.set_units_limit(value=default_calc.units)
-                self.units_edit.setValue(default_calc.units)
-            self._apply_current_units(default_calc.units)
+                self.screen_wizard.set_units_limit(value=context.recommended_units)
+                self.units_edit.setValue(context.recommended_units)
+            self._apply_current_units(context.recommended_units)
         except Exception as exc:
             self._invalidate_current_calc(reset_result=True, sync_widths=True)
             self.screen_wizard.set_units_error(str(exc))
@@ -151,7 +155,8 @@ class MainWindowWizardMixin:
     def _apply_current_units(self, units: int) -> None:
         """Apply current units input to wizard calculation and save-button state."""
         try:
-            calc = self._build_current_calc_for_units(units)
+            context = self._current_wizard_calculation_context()
+            calc = self._build_current_calc_for_units(context=context, units=units)
             validation_error = self._validate_calc_within_plan(calc)
             if validation_error:
                 self.wizard_state.last_calc = None
@@ -161,23 +166,21 @@ class MainWindowWizardMixin:
                 self.wizard_state.last_calc = calc
                 self._set_save_continue_enabled(True)
                 self.screen_wizard.set_units_error("")
-            self.screen_wizard.set_wizard_summary(self._format_wizard_summary_text(calc=calc))
-            self.wiz_result.setText(self._format_wizard_result_text(calc=calc))
+            self.screen_wizard.set_wizard_summary(self._format_wizard_summary_text(context=context, calc=calc))
+            self.wiz_result.setText(self._format_wizard_result_text(calc=calc, total_label=context.total_label))
             self._sync_wizard_focus_row_widths()
         except Exception as exc:
             self._invalidate_current_calc(reset_result=True, sync_widths=True)
             self.screen_wizard.set_units_error(str(exc))
 
-    def _build_current_calc_for_units(self, units: int) -> BuyCalculation:
+    def _build_current_calc_for_units(self, *, context: _WizardCalculationContext, units: int) -> BuyCalculation:
         """Build calculation state for the current step and explicit units input."""
-        price = self._current_step_cached_price()
-        s = self._current_step()
-        planned_money = abs(s.planned_delta_money)
-        spent = price.price_ils * D(units)
+        planned_money = abs(context.step.planned_delta_money)
+        spent = context.price.price_ils * D(units)
         leftover = planned_money - spent
         return BuyCalculation(
-            instrument_id=s.instrument_id,
-            price=price.price_ils,
+            instrument_id=context.step.instrument_id,
+            price=context.price.price_ils,
             planned_money=planned_money,
             units=units,
             spent=spent,
@@ -315,19 +318,16 @@ class MainWindowWizardMixin:
             return ("BUY", f"Spent {BASE_CURRENCY_SUFFIX}")
         return ("SELL", f"Proceeds {BASE_CURRENCY_SUFFIX}")
 
-    def _format_wizard_summary_text(self, *, calc: BuyCalculation) -> str:
+    def _format_wizard_summary_text(self, *, context: _WizardCalculationContext, calc: BuyCalculation) -> str:
         """Build the top summary line above the units input."""
-        price = self._current_step_cached_price()
         return (
             f"Planned: {self._format_decimal_for_display(calc.planned_money)} {DEFAULT_CURRENCY.value} | "
-            f"Price: {self._format_decimal_for_display(price.price_ils)} {DEFAULT_CURRENCY.value}/unit | "
-            f"Recommended: {self._recommended_units_for_current_step()} units"
+            f"Price: {self._format_decimal_for_display(context.price.price_ils)} {DEFAULT_CURRENCY.value}/unit | "
+            f"Recommended: {context.recommended_units} units"
         )
 
-    def _format_wizard_result_text(self, *, calc: BuyCalculation) -> str:
+    def _format_wizard_result_text(self, *, calc: BuyCalculation, total_label: str) -> str:
         """Build the totals line shown below the units input."""
-        _, money_label = self._wizard_step_direction_labels(self._current_step().planned_delta_money)
-        total_label = "Total spend" if money_label.startswith("Spent") else "Total proceeds"
         return (
             f"{total_label}: {self._format_decimal_for_display(calc.spent)} {DEFAULT_CURRENCY.value} | "
             f"Leftover: {self._format_decimal_for_display(calc.leftover)} {DEFAULT_CURRENCY.value}"
@@ -397,16 +397,22 @@ class MainWindowWizardMixin:
             return normalized
         return normalized.rstrip("0").rstrip(".")
 
-    def _recommended_units_for_current_step(self) -> int:
-        """Return the recommended whole-unit count from the cached unit price."""
+    def _current_wizard_calculation_context(self) -> _WizardCalculationContext:
+        """Return reusable current-step calculation/render context."""
+        step = self._current_step()
         price = self._current_step_cached_price()
-        s = self._current_step()
-        default_calc = calculate_buy_units_from_ils_price(
-            instrument_id=s.instrument_id,
-            planned_money=abs(s.planned_delta_money),
+        recommended_calc = calculate_buy_units_from_ils_price(
+            instrument_id=step.instrument_id,
+            planned_money=abs(step.planned_delta_money),
             price_ils=price.price_ils,
         )
-        return default_calc.units
+        _, money_label = self._wizard_step_direction_labels(step.planned_delta_money)
+        return _WizardCalculationContext(
+            step=step,
+            price=price,
+            recommended_units=recommended_calc.units,
+            total_label="Total spend" if money_label.startswith("Spent") else "Total proceeds",
+        )
 
     @staticmethod
     def _signal_blocker(widget: object) -> AbstractContextManager[object]:
