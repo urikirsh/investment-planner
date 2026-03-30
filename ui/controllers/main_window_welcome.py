@@ -43,6 +43,23 @@ class _PendingStartupPortfolio:
     file_path: Path | None
 
 
+@dataclass(frozen=True)
+class _StartupFetchCallbackPayload:
+    """Typed startup fetch callback payload decoded from Qt signal objects."""
+
+    quote: UsdIlsRateQuote | None
+    refreshed_portfolio: Portfolio | None
+    error_text: str
+
+
+@dataclass(frozen=True)
+class _StartupFetchResolution:
+    """Resolved startup fetch outcome for transition recording/finalization."""
+
+    transition_error: str | None
+    already_finalized: bool = False
+
+
 class MainWindowWelcomeController:
     """Controller for welcome-screen setup and startup action flow."""
 
@@ -250,35 +267,62 @@ class MainWindowWelcomeController:
     @Slot(object, object, object)
     def _on_startup_fx_fetch_finished(self, quote_obj: object, portfolio_obj: object, error_obj: object) -> None:
         """Store startup fetch result and finalize transition when ready."""
-        quote = quote_obj if isinstance(quote_obj, UsdIlsRateQuote) else None
-        refreshed_portfolio = portfolio_obj if isinstance(portfolio_obj, Portfolio) else None
-        error_text = str(error_obj) if isinstance(error_obj, str) else ""
+        payload = self._decode_startup_fetch_callback_payload(quote_obj, portfolio_obj, error_obj)
+        resolution = self._resolve_startup_fetch_outcome(payload)
+        if resolution.already_finalized:
+            return
 
-        transition_error: str | None
-        if not error_text and refreshed_portfolio is not None:
-            cached_quote = self._host.session.cached_usd_ils_quote
-            if quote is not None:
-                self._host.session.cache_usd_ils_quote(
-                    rate=quote.rate,
-                    effective_date=quote.effective_date,
-                    used_last_published=quote.used_last_published,
-                )
-            elif cached_quote is None:
-                decision = self._startup_transition_coordinator.record_fetch_outcome(
-                    error_message="Failed to fetch USD to ILS exchange rate."
-                )
-                if decision is not None:
-                    self._finalize_startup_transition(decision)
-                return
-            self._commit_pending_startup_portfolio(refreshed_portfolio)
-            transition_error = None
-        else:
-            transition_error = self._build_startup_fetch_error_message(error_text)
-            self._pending_startup_portfolio = None
-
-        decision = self._startup_transition_coordinator.record_fetch_outcome(error_message=transition_error)
+        decision = self._startup_transition_coordinator.record_fetch_outcome(
+            error_message=resolution.transition_error
+        )
         if decision is not None:
             self._finalize_startup_transition(decision)
+
+    @staticmethod
+    def _decode_startup_fetch_callback_payload(
+        quote_obj: object,
+        portfolio_obj: object,
+        error_obj: object,
+    ) -> _StartupFetchCallbackPayload:
+        """Decode raw Qt callback objects into a typed startup fetch payload."""
+        return _StartupFetchCallbackPayload(
+            quote=quote_obj if isinstance(quote_obj, UsdIlsRateQuote) else None,
+            refreshed_portfolio=portfolio_obj if isinstance(portfolio_obj, Portfolio) else None,
+            error_text=str(error_obj) if isinstance(error_obj, str) else "",
+        )
+
+    def _resolve_startup_fetch_outcome(self, payload: _StartupFetchCallbackPayload) -> _StartupFetchResolution:
+        """Commit successful startup fetch results or return the transition error message."""
+        if payload.error_text or payload.refreshed_portfolio is None:
+            self._pending_startup_portfolio = None
+            return _StartupFetchResolution(
+                transition_error=self._build_startup_fetch_error_message(payload.error_text)
+            )
+
+        if not self._cache_startup_quote_if_available(payload.quote):
+            decision = self._startup_transition_coordinator.record_fetch_outcome(
+                error_message="Failed to fetch USD to ILS exchange rate."
+            )
+            if decision is not None:
+                self._finalize_startup_transition(decision)
+            return _StartupFetchResolution(
+                transition_error="Failed to fetch USD to ILS exchange rate.",
+                already_finalized=True,
+            )
+
+        self._commit_pending_startup_portfolio(payload.refreshed_portfolio)
+        return _StartupFetchResolution(transition_error=None)
+
+    def _cache_startup_quote_if_available(self, quote: UsdIlsRateQuote | None) -> bool:
+        """Cache a fetched startup quote, or verify a session-cached quote already exists."""
+        if quote is not None:
+            self._host.session.cache_usd_ils_quote(
+                rate=quote.rate,
+                effective_date=quote.effective_date,
+                used_last_published=quote.used_last_published,
+            )
+            return True
+        return self._host.session.cached_usd_ils_quote is not None
 
     def _commit_pending_startup_portfolio(self, refreshed_portfolio: Portfolio) -> None:
         """Commit staged startup portfolio into session and main-editor UI."""
