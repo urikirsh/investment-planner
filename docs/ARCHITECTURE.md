@@ -33,8 +33,8 @@ Main user flow:
 6. Wizard execution is managed by `MainWindowWizardMixin`.
 7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
 
-FX thread-safety guards in this flow:
-- Welcome->main transition includes async USD/ILS fetch with a minimum 1-second loading overlay.
+Startup/wizard market-data guards in this flow:
+- Welcome->main transition includes async startup market-data refresh with a minimum 1-second loading overlay.
 - Wizard runs reuse startup-cached USD/ILS data from in-memory session cache.
 - Wizard flow never performs USD/ILS network fetches.
 - Window close cancels any active startup market-data fetch before teardown.
@@ -50,7 +50,7 @@ FX thread-safety guards in this flow:
 ## UI module map
 - `ui/controllers/main_window_welcome.py`
   - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, and UI-level startup decisions
-  - successful startup actions show a blocking overlay for at least 1 second while fetching USD/ILS
+  - successful startup actions show a blocking overlay for at least 1 second while fetching startup market data
   - fetch failures show a Back-only error dialog and keep the user on the welcome screen
   - commits the staged startup portfolio only after startup refresh succeeds, then delegates final enter-main / stay-on-welcome UI decisions
 - `ui/controllers/startup_transition.py`
