@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable, cast
 
@@ -11,17 +10,8 @@ from ui.ui_state import PlanningState, WizardState
 from ui.wizard_fx_coordinator import WizardFxCoordinator, WizardFxHost
 
 
-@dataclass
-class _FakeButton:
-    enabled: bool = True
-
-    def setEnabled(self, value: bool) -> None:
-        self.enabled = value
-
-
 class _FakeScreen:
     def __init__(self) -> None:
-        self.calculate_btn = _FakeButton()
         self.panel_calls: list[dict[str, Any]] = []
 
     def set_fx_panel(
@@ -73,7 +63,6 @@ def test_render_fx_panel_hides_for_non_usd_steps(make_plan_step: Callable[..., P
 
     coordinator.render_fx_panel_for_current_step()
 
-    assert host.screen_wizard.calculate_btn.enabled is True
     assert host.screen_wizard.panel_calls
     last_panel = host.screen_wizard.panel_calls[-1]
     assert last_panel["visible"] is False

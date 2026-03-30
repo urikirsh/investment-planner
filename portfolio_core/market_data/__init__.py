@@ -5,7 +5,7 @@ from portfolio_core.market_data.models import (
     TickerLookupNotFound,
     TickerLookupResult,
 )
-from portfolio_core.market_data.service import MarketDataService, lookup_ticker_in_exchange
+from portfolio_core.market_data.service import MarketDataService, get_cached_ticker_lookup_in_exchange, lookup_ticker_in_exchange
 
 __all__ = [
     "MarketDataService",
@@ -14,5 +14,6 @@ __all__ = [
     "TickerLookupMetadata",
     "TickerLookupNotFound",
     "TickerLookupResult",
+    "get_cached_ticker_lookup_in_exchange",
     "lookup_ticker_in_exchange",
 ]

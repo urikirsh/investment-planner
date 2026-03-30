@@ -2,12 +2,13 @@ from __future__ import annotations
 
 """Screen-level integration tests for `MainWindow` signal wiring."""
 
+from decimal import Decimal
 from typing import Callable
 
 import pytest
 
-from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.io_json import load_portfolio
+from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.use_cases import PlanStep
 import ui.main_window_wizard as wizard_mod
 import ui.controllers.main_window_welcome as welcome_mod
@@ -139,115 +140,104 @@ def test_summary_next_button_signal_returns_to_main_when_no_steps(window: MainWi
     assert window.stack.currentWidget() is window.screen_main
 
 
-def test_wizard_calculate_button_signal_runs_calculation_flow(
+def _cached_lookup(*, step: PlanStep, price: str) -> TickerLookupFound:
+    return TickerLookupFound(
+        metadata=TickerLookupMetadata(
+            exchange=step.exchange,
+            canonical_ticker=step.ticker,
+            display_name=step.instrument_name,
+            last_traded_price=Decimal(price),
+        )
+    )
+
+
+def test_wizard_units_text_changed_signal_runs_calculation_flow(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
-    make_buy_calculation: Callable[..., BuyCalculation],
 ) -> None:
     step = make_plan_step(delta="20")
     window.planning_state.plan_steps = [step]
     window.planning_state.step_index = 0
-    window.price_edit.setText("10")
-
-    fake_calc = make_buy_calculation(
-        instrument_id=step.instrument_id,
-        price="10",
-        planned_money="20",
-        units=2,
-        spent="20",
-        leftover="0",
+    monkeypatch.setattr(
+        wizard_mod,
+        "get_cached_ticker_lookup_in_exchange",
+        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
     )
-    monkeypatch.setattr(wizard_mod, "calculate_buy_units", lambda **_kwargs: fake_calc)
+    window._show_current_wizard_step()
 
-    window.screen_wizard.calculate_btn.click()
+    window.units_edit.setText("1")
 
-    assert window.wizard_state.last_calc is fake_calc
+    assert window.wizard_state.last_calc is not None
+    assert window.wizard_state.last_calc.units == 1
     assert window.screen_wizard.save_continue_btn.isEnabled()
-    assert "Units: 2" in window.wiz_result.text()
+    assert window.wiz_result.text() == "Total spend: 10 ILS | Leftover: 10 ILS"
 
 
-def test_wizard_price_editing_finished_signal_runs_implicit_calculation_flow(
+def test_wizard_units_text_changed_signal_disables_save_on_invalid_input(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
-    make_buy_calculation: Callable[..., BuyCalculation],
 ) -> None:
     step = make_plan_step(delta="20")
     window.planning_state.plan_steps = [step]
     window.planning_state.step_index = 0
-    window.price_edit.setText("10")
-
-    fake_calc = make_buy_calculation(
-        instrument_id=step.instrument_id,
-        price="10",
-        planned_money="20",
-        units=2,
-        spent="20",
-        leftover="0",
+    monkeypatch.setattr(
+        wizard_mod,
+        "get_cached_ticker_lookup_in_exchange",
+        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
     )
-    monkeypatch.setattr(wizard_mod, "calculate_buy_units", lambda **_kwargs: fake_calc)
+    window._show_current_wizard_step()
 
-    window.price_edit.editingFinished.emit()
-
-    assert window.wizard_state.last_calc is fake_calc
-    assert window.screen_wizard.save_continue_btn.isEnabled()
-    assert "Units: 2" in window.wiz_result.text()
-
-
-def test_wizard_price_editing_finished_does_not_show_modal_error_on_invalid_input(
-    window: MainWindow,
-    monkeypatch: pytest.MonkeyPatch,
-    make_plan_step: Callable[..., PlanStep],
-    make_buy_calculation: Callable[..., BuyCalculation],
-) -> None:
-    step = make_plan_step(delta="20")
-    window.planning_state.plan_steps = [step]
-    window.planning_state.step_index = 0
-    window.wizard_state.last_calc = make_buy_calculation(
-        instrument_id=step.instrument_id,
-        price="10",
-        planned_money="20",
-        units=2,
-        spent="20",
-        leftover="0",
-    )
-    window.screen_wizard.save_continue_btn.setEnabled(True)
-    window.price_edit.setText("abc")
-    shown: list[tuple[str, str]] = []
-    monkeypatch.setattr(wizard_mod, "show_error", lambda _p, t, m: shown.append((t, m)))
-
-    window.price_edit.editingFinished.emit()
-
-    assert shown == []
-    assert window.wizard_state.last_calc is None
-    assert not window.screen_wizard.save_continue_btn.isEnabled()
-    assert "Calculation not updated:" in window.wiz_result.text()
-
-
-def test_wizard_price_editing_finished_with_empty_input_clears_calc_and_disables_save(
-    window: MainWindow,
-    make_plan_step: Callable[..., PlanStep],
-    make_buy_calculation: Callable[..., BuyCalculation],
-) -> None:
-    step = make_plan_step(delta="20")
-    window.planning_state.plan_steps = [step]
-    window.planning_state.step_index = 0
-    window.wizard_state.last_calc = make_buy_calculation(
-        instrument_id=step.instrument_id,
-        price="10",
-        planned_money="20",
-        units=2,
-        spent="20",
-        leftover="0",
-    )
-    window.screen_wizard.save_continue_btn.setEnabled(True)
-    window.price_edit.setText("   ")
-
-    window.price_edit.editingFinished.emit()
+    window.units_edit.setText("abc")
 
     assert window.wizard_state.last_calc is None
     assert not window.screen_wizard.save_continue_btn.isEnabled()
+    assert "must be a non-negative integer" in window.screen_wizard.units_error_label.text()
+
+
+def test_wizard_units_text_changed_signal_disables_save_on_empty_input(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+) -> None:
+    step = make_plan_step(delta="20")
+    window.planning_state.plan_steps = [step]
+    window.planning_state.step_index = 0
+    monkeypatch.setattr(
+        wizard_mod,
+        "get_cached_ticker_lookup_in_exchange",
+        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
+    )
+    window._show_current_wizard_step()
+
+    window.units_edit.setText("   ")
+
+    assert window.wizard_state.last_calc is None
+    assert not window.screen_wizard.save_continue_btn.isEnabled()
+    assert "is required" in window.screen_wizard.units_error_label.text()
+
+
+def test_wizard_units_text_changed_signal_disables_save_when_over_budget(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+) -> None:
+    step = make_plan_step(delta="20")
+    window.planning_state.plan_steps = [step]
+    window.planning_state.step_index = 0
+    monkeypatch.setattr(
+        wizard_mod,
+        "get_cached_ticker_lookup_in_exchange",
+        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
+    )
+    window._show_current_wizard_step()
+
+    window.units_edit.setText("3")
+
+    assert window.wizard_state.last_calc is None
+    assert not window.screen_wizard.save_continue_btn.isEnabled()
+    assert "Total cost exceeds planned amount" in window.screen_wizard.units_error_label.text()
 
 
 def test_wizard_back_to_portfolio_button_signal_runs_back_flow(

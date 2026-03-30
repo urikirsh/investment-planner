@@ -3,8 +3,8 @@ Wizard screen UI.
 
 This module defines `WizardScreen`, the per-instrument execution view
 (screen 4) used after summary review. It provides layout and widget creation
-for step information, price entry, FX status/override inputs, calculation
-feedback, and step actions.
+for step information, unit guidance, unit entry, calculation feedback, FX
+status/override inputs, and step actions.
 
 Action-row intent:
 - `Quit` is kept on the far left as an application-level action.
@@ -14,37 +14,27 @@ Action-row intent:
   in a centered row to keep attention on the decision point.
 
 Focused-row layout:
-- Price row (`Price + input + Calculate`) and result row
-  (`Units/Spent/Leftover + Save and continue`) are centered and width-synced.
-- Price input keeps a minimum visual width for at least 11 characters.
+- Summary row, units row, and result row are centered and width-synced.
+- Units input keeps a minimum visual width for at least 11 characters.
 - `Save and continue` starts disabled and is enabled only after a successful
-  calculation by flow logic in `MainWindowWizardMixin`.
-
-Price-entry semantics:
-- ILS steps use agorot input (`Price (Agorot)`), matching
-  `portfolio_core.planning.calc_stock_units.calculate_buy_units`.
-- USD steps use USD unit-price input (`Price (USD)`), with conversion handled
-  by the wizard FX coordinator before calculation.
+  calculation/validation by flow logic in `MainWindowWizardMixin`.
 
 All trade execution behavior is intentionally delegated to the coordinator.
 """
 
 from __future__ import annotations
 
-from portfolio_core.domain.models import Currency, Exchange
+from portfolio_core.domain.models import Exchange
 from PySide6.QtGui import QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
-from ui.shared.ui_utils import DEFAULT_CURRENCY
+from ui.shared.decimal_input_delegate import build_non_negative_integer_validator
 
 
-DEFAULT_PRICE_LABEL = "Price (Agorot):"
-USD_PRICE_LABEL = f"Price ({Exchange.NYSE.currency.value}):"
-USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/{DEFAULT_CURRENCY.value} rate:"
-# Neutral bootstrap text shown before the first step is rendered by
-# `MainWindowWizardMixin`, which then switches to action-specific labels
-# ("Spent" for buy / "Proceeds" for sell).
-DEFAULT_WIZARD_RESULT_TEXT = "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
+USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/ILS rate:"
+DEFAULT_UNITS_LABEL = "Units bought:"
+DEFAULT_WIZARD_SUMMARY_TEXT = "Planned: - ILS | Price: - ILS/unit | Recommended: - units"
+DEFAULT_WIZARD_RESULT_TEXT = "Total spend/proceeds: - ILS | Leftover: - ILS"
 
 
 class WizardScreen(QWidget):
@@ -52,8 +42,8 @@ class WizardScreen(QWidget):
     Wizard UI (screen 4).
 
     Exposes controls so the coordinator can attach flow behavior.
-    Input units are intentionally explicit in labels to reduce cross-unit
-    entry mistakes during wizard execution.
+    Input units are intentionally explicit in labels to reduce trade-direction
+    mistakes during wizard execution.
     The action row intentionally separates app-level and step-level actions
     to reduce accidental exits during step execution.
     """
@@ -80,7 +70,7 @@ class WizardScreen(QWidget):
         title.setStyleSheet("font-size: 20px; font-weight: 600;")
         layout.addWidget(title)
 
-        subtitle = QLabel("Review the step details, calculate units, then apply or skip this step.")
+        subtitle = QLabel("Review the step details, adjust units if needed, then apply or skip this step.")
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color: #4a4a4a;")
         layout.addWidget(subtitle)
@@ -104,45 +94,67 @@ class WizardScreen(QWidget):
         layout.addWidget(info_card)
 
     def _build_trade_cluster(self) -> QWidget:
-        """Build and return the center cluster with price, FX, and result rows."""
+        """Build and return the center cluster with summary, units, FX, and result rows."""
         trade_cluster = QWidget(self)
         trade_layout = QVBoxLayout(trade_cluster)
         trade_layout.setContentsMargins(0, 0, 0, 0)
         trade_layout.setSpacing(2)
 
-        trade_layout.addWidget(self._build_price_row())
+        trade_layout.addWidget(self._build_summary_row())
+        trade_layout.addWidget(self._build_units_row())
         trade_layout.addWidget(self._build_fx_panel())
         trade_layout.addWidget(self._build_result_row())
         return trade_cluster
 
-    def _build_price_row(self) -> QWidget:
-        """Build and return the centered price-entry row."""
-        price_outer_row = QWidget(self)
-        price_outer_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        price_outer_layout = QHBoxLayout(price_outer_row)
-        price_outer_layout.setContentsMargins(0, 0, 0, 0)
-        price_outer_layout.setSpacing(0)
-        price_outer_layout.addStretch(1)
+    def _build_summary_row(self) -> QWidget:
+        """Build and return the centered summary row above units input."""
+        summary_row = QWidget(self)
+        summary_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        summary_row_layout = QHBoxLayout(summary_row)
+        summary_row_layout.setContentsMargins(0, 0, 0, 0)
+        summary_row_layout.setSpacing(0)
+        summary_row_layout.addStretch(1)
 
-        self._price_focus_row = QWidget(self)
-        price_focus_layout = QHBoxLayout(self._price_focus_row)
-        price_focus_layout.setContentsMargins(0, 0, 0, 0)
-        price_focus_layout.setSpacing(6)
-        self.price_label = QLabel(DEFAULT_PRICE_LABEL)
-        self.price_label.setStyleSheet("font-size: 15px; font-weight: 600;")
-        price_focus_layout.addWidget(self.price_label)
+        self._summary_focus_row = QWidget(self)
+        summary_focus_layout = QHBoxLayout(self._summary_focus_row)
+        summary_focus_layout.setContentsMargins(0, 0, 0, 0)
+        summary_focus_layout.setSpacing(0)
 
-        self.price_edit = QLineEdit()
-        self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
-        self.price_edit.setMaxLength(11)
-        self.price_edit.setStyleSheet("font-size: 15px; padding: 5px 8px;")
-        price_focus_layout.addWidget(self.price_edit, 1)
-        self.calculate_btn = QPushButton("Calculate")
-        self.calculate_btn.setStyleSheet("font-size: 15px; padding: 5px 10px;")
-        price_focus_layout.addWidget(self.calculate_btn)
-        price_outer_layout.addWidget(self._price_focus_row)
-        price_outer_layout.addStretch(1)
-        return price_outer_row
+        self.wiz_summary = QLabel(DEFAULT_WIZARD_SUMMARY_TEXT)
+        self.wiz_summary.setWordWrap(False)
+        self.wiz_summary.setStyleSheet("font-size: 15px; font-weight: 600; color: #34495e;")
+        summary_focus_layout.addWidget(self.wiz_summary)
+
+        summary_row_layout.addWidget(self._summary_focus_row)
+        summary_row_layout.addStretch(1)
+        return summary_row
+
+    def _build_units_row(self) -> QWidget:
+        """Build and return the centered units-entry row."""
+        units_outer_row = QWidget(self)
+        units_outer_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        units_outer_layout = QHBoxLayout(units_outer_row)
+        units_outer_layout.setContentsMargins(0, 0, 0, 0)
+        units_outer_layout.setSpacing(0)
+        units_outer_layout.addStretch(1)
+
+        self._units_focus_row = QWidget(self)
+        units_focus_layout = QHBoxLayout(self._units_focus_row)
+        units_focus_layout.setContentsMargins(0, 0, 0, 0)
+        units_focus_layout.setSpacing(6)
+        self.units_label = QLabel(DEFAULT_UNITS_LABEL)
+        self.units_label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        units_focus_layout.addWidget(self.units_label)
+
+        self.units_edit = QLineEdit()
+        self.units_edit.setPlaceholderText("Enter whole units")
+        self.units_edit.setMaxLength(11)
+        self.units_edit.setValidator(build_non_negative_integer_validator(allow_empty=True, parent=self.units_edit))
+        self.units_edit.setStyleSheet("font-size: 15px; padding: 5px 8px;")
+        units_focus_layout.addWidget(self.units_edit, 1)
+        units_outer_layout.addWidget(self._units_focus_row)
+        units_outer_layout.addStretch(1)
+        return units_outer_row
 
     def _build_fx_panel(self) -> QWidget:
         """Build and return the FX status/override panel."""
@@ -162,6 +174,12 @@ class WizardScreen(QWidget):
         self.fx_error_label.setStyleSheet("color: #b00020;")
         self.fx_error_label.setVisible(False)
         form_layout.addRow(self.fx_error_label)
+
+        self.units_error_label = QLabel("")
+        self.units_error_label.setWordWrap(True)
+        self.units_error_label.setStyleSheet("color: #b00020;")
+        self.units_error_label.setVisible(False)
+        form_layout.addRow(self.units_error_label)
 
         self.manual_rate_label = QLabel(USD_ILS_MANUAL_RATE_LABEL)
         self.manual_rate_label.setVisible(False)
@@ -232,12 +250,7 @@ class WizardScreen(QWidget):
         action: str,
         planned_amount_text: str,
     ) -> None:
-        """Render a compact, readable summary block for the active wizard step.
-
-        The info card intentionally surfaces `ticker` and `exchange` alongside
-        instrument/group/action details so users can validate they are applying
-        the step to the intended traded symbol and market.
-        """
+        """Render a compact, readable summary block for the active wizard step."""
         self.step_progress.setText(f"Step {step_index}/{total_steps}")
         self.wiz_info.setText(
             f"Instrument: {instrument_name}\n"
@@ -248,34 +261,34 @@ class WizardScreen(QWidget):
         )
 
     def sync_focus_row_widths(self) -> None:
-        """Keep price row and result row visual widths aligned when feasible."""
+        """Keep summary, units, and result rows visually aligned when feasible."""
         spacing = 8
         max_qt_width = 16777215
-        input_metrics = QFontMetrics(self.price_edit.font())
+        input_metrics = QFontMetrics(self.units_edit.font())
         min_input_width = input_metrics.horizontalAdvance("0" * 11) + 24
-        self.price_edit.setMinimumWidth(min_input_width)
+        self.units_edit.setMinimumWidth(min_input_width)
 
+        summary_combo_width = self.wiz_summary.sizeHint().width()
         result_combo_width = self.wiz_result.sizeHint().width() + self.save_continue_btn.sizeHint().width() + spacing
-        price_combo_min_width = (
-            self.price_label.sizeHint().width() + min_input_width + self.calculate_btn.sizeHint().width() + spacing * 2
-        )
-        target_width = max(result_combo_width, price_combo_min_width)
+        units_combo_min_width = self.units_label.sizeHint().width() + min_input_width + spacing
+        target_width = max(summary_combo_width, result_combo_width, units_combo_min_width)
 
         margins = self.contentsMargins()
         available_width = max(self.width() - margins.left() - margins.right() - 24, 0)
 
-        # Reset any previously fixed width before deciding final sizing mode.
-        self._price_focus_row.setMinimumWidth(0)
-        self._price_focus_row.setMaximumWidth(max_qt_width)
+        self._summary_focus_row.setMinimumWidth(0)
+        self._summary_focus_row.setMaximumWidth(max_qt_width)
+        self._units_focus_row.setMinimumWidth(0)
+        self._units_focus_row.setMaximumWidth(max_qt_width)
         self._result_focus_row.setMinimumWidth(0)
         self._result_focus_row.setMaximumWidth(max_qt_width)
 
-        if available_width < price_combo_min_width:
-            # Window too narrow: avoid forcing horizontal overflow; let rows size naturally.
+        if available_width < units_combo_min_width:
             return
 
         clamped_width = min(target_width, available_width)
-        self._price_focus_row.setFixedWidth(clamped_width)
+        self._summary_focus_row.setFixedWidth(clamped_width)
+        self._units_focus_row.setFixedWidth(clamped_width)
         self._result_focus_row.setFixedWidth(clamped_width)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
@@ -283,16 +296,9 @@ class WizardScreen(QWidget):
         super().resizeEvent(event)
         self.sync_focus_row_widths()
 
-    def set_price_mode(self, exchange: Exchange) -> None:
-        """Configure price-label context for the current instrument exchange."""
-        if exchange.currency == Currency.USD:
-            self.price_label.setText(USD_PRICE_LABEL)
-            self.price_edit.setPlaceholderText(f"Enter unit price in {Exchange.NYSE.currency.value} (e.g. 12.34)")
-            self.sync_focus_row_widths()
-            return
-
-        self.price_label.setText(DEFAULT_PRICE_LABEL)
-        self.price_edit.setPlaceholderText("Enter unit price (e.g. 123.45)")
+    def set_trade_mode(self, *, action: str) -> None:
+        """Configure units label for the current step action."""
+        self.units_label.setText("Units sold:" if action == "SELL" else DEFAULT_UNITS_LABEL)
         self.sync_focus_row_widths()
 
     def set_fx_panel(
@@ -330,7 +336,16 @@ class WizardScreen(QWidget):
         self.fx_error_label.setText(error_text)
 
         if manual_visible:
-            # Always set explicitly while visible to avoid stale previous-run values.
             self.manual_rate_edit.setText(manual_value)
         else:
             self.manual_rate_edit.setText("")
+
+    def set_units_error(self, text: str) -> None:
+        """Render inline validation feedback for the units input."""
+        normalized = text.strip()
+        self.units_error_label.setText(normalized)
+        self.units_error_label.setVisible(bool(normalized))
+
+    def set_wizard_summary(self, text: str) -> None:
+        """Render the top summary text shown above the units input."""
+        self.wiz_summary.setText(text)

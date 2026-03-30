@@ -58,14 +58,13 @@ class WizardFxCoordinator:
     def render_fx_panel_for_current_step(self) -> None:
         """Render FX quote availability status for the active step.
 
-        For non-USD steps, FX UI rows are hidden and calculate is enabled.
+        For non-USD steps, FX UI rows are hidden.
         For USD steps, this method is the single source of truth for cached
         quote disclosure and rate-unavailable messaging.
         """
         state = self._host.wizard_state
         s = self._host.planning_state.plan_steps[self._host.planning_state.step_index]
         if s.exchange.currency != Currency.USD:
-            self._host.screen_wizard.calculate_btn.setEnabled(True)
             self._host.screen_wizard.set_fx_panel(
                 visible=False,
                 info_text="",
@@ -91,7 +90,6 @@ class WizardFxCoordinator:
         if state.usd_ils_rate is None:
             error_text = "USD/ILS rate unavailable. Return to welcome and try again."
 
-        self._host.screen_wizard.calculate_btn.setEnabled(state.usd_ils_rate is not None)
         self._host.screen_wizard.set_fx_panel(
             visible=True,
             info_text="\n".join(info_lines),

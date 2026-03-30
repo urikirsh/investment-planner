@@ -84,6 +84,11 @@ class _LookupCacheStore:
             self._cache[key] = result
             return result
 
+    def get_cached(self, *, key: _LookupCacheKey) -> TickerLookupResult | None:
+        """Return cached lookup result for `key` without triggering a load."""
+        with self._lock:
+            return self._cache.get(key)
+
     def clear_for_tests(self) -> None:
         """Reset cache state for deterministic tests."""
         with self._lock:
@@ -157,6 +162,23 @@ class MarketDataService:
             result_loader=runtime.provider.lookup_ticker,
         )
 
+    def get_cached_ticker_in_exchange(
+        self,
+        *,
+        exchange: Exchange,
+        ticker: str,
+    ) -> TickerLookupResult | None:
+        """Return cached lookup result for `(exchange, ticker)` without fetching."""
+        key = build_exchange_ticker_key(exchange=exchange, raw_ticker=ticker)
+        if not key.canonical_ticker:
+            return None
+        return self._lookup_store.get_cached(
+            key=_LookupCacheKey(
+                exchange=exchange,
+                canonical_ticker=key.canonical_ticker,
+            )
+        )
+
 
 _default_market_data_service = MarketDataService()
 
@@ -172,4 +194,16 @@ def lookup_ticker_in_exchange(
         exchange=exchange,
         ticker=ticker,
         timeout_seconds=timeout_seconds,
+    )
+
+
+def get_cached_ticker_lookup_in_exchange(
+    *,
+    exchange: Exchange,
+    ticker: str,
+) -> TickerLookupResult | None:
+    """Return cached lookup result for `(exchange, ticker)` without fetching."""
+    return _default_market_data_service.get_cached_ticker_in_exchange(
+        exchange=exchange,
+        ticker=ticker,
     )

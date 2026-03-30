@@ -97,11 +97,11 @@ Startup/wizard market-data guards in this flow:
   - exposes startup actions plus remembered-path status display
 - `ui/screens/wizard_screen.py`
   - screen 4 presentation/layout (per-instrument execution wizard)
-  - exposes price input, calculation feedback, and step action controls
+  - exposes units input, inline validation, calculation feedback, and step action controls
   - action layout keeps app-level `Quit` separated from right-aligned step navigation actions (`Exit Wizard`, `Skip Step`)
   - primary commit action (`Save and continue`) is colocated with the result row (`Units/Spent/Leftover`) for higher focus
-  - `Save and continue` is disabled by default and only enabled after a successful calculation for the active step
-  - centered price row and centered result row are width-aligned with a minimum 11-character input width guard
+  - `Save and continue` is disabled by default and only enabled after the active units value is valid for the planned step amount
+  - centered units row and centered result row are width-aligned with a minimum 11-character input width guard
   - row-width syncing is responsive: widths are clamped to available space and revert to natural sizing on narrow windows
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
@@ -125,12 +125,12 @@ Startup/wizard market-data guards in this flow:
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
-  - wizard screen wiring and per-step calculate/save/advance behavior
+  - wizard screen wiring and per-step cached-price lookup, units validation, save, and advance behavior
   - handles transition back to main editor when wizard execution completes or when user exits early via `Exit Wizard`
   - wizard step info card includes instrument name, ticker, exchange, asset group, and action amount context
-  - explicit calculate uses modal errors; implicit calculate (`Enter`/focus-out) writes non-modal inline status in the result row
-  - implicit inline calculation errors are shortened to keep the result row compact
-  - any calculation failure invalidates cached `last_calc` and re-disables `Save and continue` to prevent stale-step commits
+  - reads per-instrument prices from the shared market-data lookup cache populated during startup/add-instrument lookups
+  - pre-fills whole-unit buy/sell counts from cached prices, then recomputes totals from the user-editable units field
+  - invalid units input or over-budget totals invalidate cached `last_calc` and re-disable `Save and continue`
 - `ui/portfolio_editor_adapter.py`
   - UI/domain mapping layer for the main editor
   - converts between tree/cash widgets, `Portfolio`, and JSON-like use-case payloads
@@ -184,6 +184,7 @@ Startup/wizard market-data guards in this flow:
 - `portfolio_core/market_data/service.py`
   - routes lookups by exchange and owns NYSE/TASE cache policy
   - cache entries store the full typed lookup result, including fetched price metadata
+  - also exposes a cache-read path used by the wizard when it must not trigger a fresh fetch
 - `portfolio_core/market_data/transport.py`
   - defines the HTTP transport seam used by providers
 - `portfolio_core/market_data/providers/base.py`

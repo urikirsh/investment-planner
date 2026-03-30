@@ -153,14 +153,15 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert screen.wiz_info.text() == "-"
     assert screen.wiz_info.wordWrap()
     assert "font-size: 15px" in screen.wiz_info.styleSheet()
-    assert screen.price_edit.placeholderText() == "Enter unit price (e.g. 123.45)"
-    assert screen.price_edit.maxLength() == 11
-    assert screen.calculate_btn.text() == "Calculate"
-    assert screen.calculate_btn.parentWidget() is screen.price_edit.parentWidget()
-    assert "font-size: 15px" in screen.price_label.styleSheet()
-    assert "font-size: 15px" in screen.price_edit.styleSheet()
-    assert "font-size: 15px" in screen.calculate_btn.styleSheet()
-    assert screen.wiz_result.text() == "Units: - | Spent/Proceeds (ILS): - | Leftover vs plan (ILS): -"
+    assert screen.units_label.text() == "Units bought:"
+    assert screen.units_edit.placeholderText() == "Enter whole units"
+    assert screen.units_edit.maxLength() == 11
+    assert screen.wiz_summary.text() == "Planned: - ILS | Price: - ILS/unit | Recommended: - units"
+    assert not screen.wiz_summary.wordWrap()
+    assert "font-size: 15px" in screen.wiz_summary.styleSheet()
+    assert "font-size: 15px" in screen.units_label.styleSheet()
+    assert "font-size: 15px" in screen.units_edit.styleSheet()
+    assert screen.wiz_result.text() == "Total spend/proceeds: - ILS | Leftover: - ILS"
     assert not screen.wiz_result.wordWrap()
     assert "font-size: 15px" in screen.wiz_result.styleSheet()
     assert screen.quit_btn.text() == "Quit"
@@ -177,13 +178,16 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert btns_layout.indexOf(screen.quit_btn) < btns_layout.indexOf(screen.back_to_portfolio_btn)
     assert btns_layout.indexOf(screen.back_to_portfolio_btn) < btns_layout.indexOf(screen.continue_without_save_btn)
     assert btns_layout.indexOf(screen.save_continue_btn) == -1
-    price_row_parent = screen.price_label.parentWidget()
+    summary_row_parent = screen.wiz_summary.parentWidget()
+    units_row_parent = screen.units_label.parentWidget()
     result_row_parent = screen.wiz_result.parentWidget()
-    assert price_row_parent is not None
+    assert summary_row_parent is not None
+    assert units_row_parent is not None
     assert result_row_parent is not None
-    assert price_row_parent.width() == result_row_parent.width()
-    min_input_width = QFontMetrics(screen.price_edit.font()).horizontalAdvance("0" * 11) + 24
-    assert screen.price_edit.minimumWidth() >= min_input_width
+    assert summary_row_parent.width() == result_row_parent.width()
+    assert units_row_parent.width() == result_row_parent.width()
+    min_input_width = QFontMetrics(screen.units_edit.font()).horizontalAdvance("0" * 11) + 24
+    assert screen.units_edit.minimumWidth() >= min_input_width
 
 
 def test_wizard_screen_set_step_context_includes_ticker_and_exchange() -> None:
