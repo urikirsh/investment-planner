@@ -106,40 +106,22 @@ class WizardScreen(QWidget):
 
     def _build_summary_row(self) -> QWidget:
         """Build and return the centered summary row above units input."""
-        summary_row = QWidget(self)
-        summary_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        summary_row_layout = QHBoxLayout(summary_row)
-        summary_row_layout.setContentsMargins(0, 0, 0, 0)
-        summary_row_layout.setSpacing(0)
-        summary_row_layout.addStretch(1)
-
-        self._summary_focus_row = QWidget(self)
-        summary_focus_layout = QHBoxLayout(self._summary_focus_row)
-        summary_focus_layout.setContentsMargins(0, 0, 0, 0)
-        summary_focus_layout.setSpacing(0)
-
+        summary_row, self._summary_focus_row, summary_focus_layout = self._build_centered_focus_row(
+            outer_spacing=0,
+            focus_spacing=0,
+        )
         self.wiz_summary = QLabel(DEFAULT_WIZARD_SUMMARY_TEXT)
         self.wiz_summary.setWordWrap(False)
         self.wiz_summary.setStyleSheet("font-size: 15px; font-weight: 600; color: #34495e;")
         summary_focus_layout.addWidget(self.wiz_summary)
-
-        summary_row_layout.addWidget(self._summary_focus_row)
-        summary_row_layout.addStretch(1)
         return summary_row
 
     def _build_units_row(self) -> QWidget:
         """Build and return the centered units-entry row."""
-        units_outer_row = QWidget(self)
-        units_outer_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        units_outer_layout = QHBoxLayout(units_outer_row)
-        units_outer_layout.setContentsMargins(0, 0, 0, 0)
-        units_outer_layout.setSpacing(0)
-        units_outer_layout.addStretch(1)
-
-        self._units_focus_row = QWidget(self)
-        units_focus_layout = QHBoxLayout(self._units_focus_row)
-        units_focus_layout.setContentsMargins(0, 0, 0, 0)
-        units_focus_layout.setSpacing(6)
+        units_outer_row, self._units_focus_row, units_focus_layout = self._build_centered_focus_row(
+            outer_spacing=0,
+            focus_spacing=6,
+        )
         self.units_label = QLabel(DEFAULT_UNITS_LABEL)
         self.units_label.setStyleSheet("font-size: 15px; font-weight: 600;")
         units_focus_layout.addWidget(self.units_label)
@@ -153,8 +135,6 @@ class WizardScreen(QWidget):
             "QSpinBox::up-button, QSpinBox::down-button { width: 20px; }"
         )
         units_focus_layout.addWidget(self.units_edit, 1)
-        units_outer_layout.addWidget(self._units_focus_row)
-        units_outer_layout.addStretch(1)
         return units_outer_row
 
     def _build_fx_panel(self) -> QWidget:
@@ -192,18 +172,10 @@ class WizardScreen(QWidget):
 
     def _build_result_row(self) -> QWidget:
         """Build and return the centered result row with the primary commit action."""
-        result_row = QWidget(self)
-        result_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        result_row_layout = QHBoxLayout(result_row)
-        result_row_layout.setContentsMargins(0, 0, 0, 0)
-        result_row_layout.setSpacing(8)
-        result_row_layout.addStretch(1)
-
-        self._result_focus_row = QWidget(self)
-        result_focus_layout = QHBoxLayout(self._result_focus_row)
-        result_focus_layout.setContentsMargins(0, 0, 0, 0)
-        result_focus_layout.setSpacing(8)
-
+        result_row, self._result_focus_row, result_focus_layout = self._build_centered_focus_row(
+            outer_spacing=8,
+            focus_spacing=8,
+        )
         self.wiz_result = QLabel(DEFAULT_WIZARD_RESULT_TEXT)
         self.wiz_result.setWordWrap(False)
         self.wiz_result.setStyleSheet(
@@ -216,9 +188,30 @@ class WizardScreen(QWidget):
         self.save_continue_btn.setStyleSheet("font-size: 15px; padding: 8px 12px;")
         self.save_continue_btn.setEnabled(False)
         result_focus_layout.addWidget(self.save_continue_btn)
-        result_row_layout.addWidget(self._result_focus_row)
-        result_row_layout.addStretch(1)
         return result_row
+
+    def _build_centered_focus_row(
+        self,
+        *,
+        outer_spacing: int,
+        focus_spacing: int,
+    ) -> tuple[QWidget, QWidget, QHBoxLayout]:
+        """Build the shared centered-row shell and return outer/focus row plus focus layout."""
+        outer_row = QWidget(self)
+        outer_row.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        outer_layout = QHBoxLayout(outer_row)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(outer_spacing)
+        outer_layout.addStretch(1)
+
+        focus_row = QWidget(self)
+        focus_layout = QHBoxLayout(focus_row)
+        focus_layout.setContentsMargins(0, 0, 0, 0)
+        focus_layout.setSpacing(focus_spacing)
+
+        outer_layout.addWidget(focus_row)
+        outer_layout.addStretch(1)
+        return outer_row, focus_row, focus_layout
 
     def _build_bottom_actions(self) -> QWidget:
         """Build and return the bottom action row (`Quit`, `Exit Wizard`, `Skip Step`)."""
