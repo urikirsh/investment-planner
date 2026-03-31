@@ -35,9 +35,9 @@ The application never executes trades automatically. All actions are explicit an
   - `TASE`: 6 or 7 digits
   - `NYSE`: 1 to 14 uppercase letters/digits, optionally one dot (for example `BRK.B`)
 - Required per-instrument `quantity` field (non-negative integer)
-- Per-instrument `exchange` (`TASE` or `NYSE`) for wizard cached-price semantics
-  - `TASE` wizard steps use the cached ILS unit price
-  - `NYSE` wizard steps use the cached USD unit price plus the startup USD/ILS rate
+- Per-instrument `exchange` (`TASE` or `NYSE`) for wizard pricing semantics
+  - `TASE` wizard steps use the current ILS unit price
+  - `NYSE` wizard steps use the current USD unit price and convert it to ILS automatically
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
@@ -63,10 +63,10 @@ The application never executes trades automatically. All actions are explicit an
 - Step-by-step investment flow:
   - per-instrument allocation based on your target portfolio mix
   - wizard step info shows instrument name, ticker, exchange, asset group, and action amount
-  - each step shows the cached unit price used for that instrument
-  - the wizard pre-fills `Units bought` or `Units sold` from the planned amount and cached price
+  - each step fills in the current unit price automatically
+  - the wizard pre-fills `Units bought` or `Units sold` from the planned amount and current unit price
   - you can reduce the suggested unit count, including to `0`, before continuing
-  - USD-priced steps use a USD/ILS rate prepared during startup
+  - USD-priced steps are converted to ILS automatically
   - suggested unit amounts are rounded down to whole numbers
 - Wizard actions:
   - `Save and continue` applies the current step and moves forward
@@ -104,7 +104,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows), set when adding an instrument
-- Wizard displays the cached price and all planned/spent/proceeds/leftover amounts explicitly
+- Wizard displays the unit price and all planned/spent/proceeds/leftover amounts explicitly
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket
