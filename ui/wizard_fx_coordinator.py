@@ -6,9 +6,8 @@ Current responsibility:
 - load startup-cached USD/ILS quote into wizard state for each run,
 - render USD-step FX panel state from cached values.
 
-The coordinator no longer gates a manual "calculate" action. The wizard
-always derives unit recommendations from startup-cached prices, so the FX
-panel is now purely explanatory state for USD-priced steps.
+The wizard always derives unit recommendations from startup-cached prices, so
+the FX panel is now purely explanatory state for USD-priced steps.
 """
 
 from typing import Any, Protocol
@@ -30,7 +29,6 @@ class WizardFxHost(Protocol):
     planning_state: PlanningState
     wizard_state: WizardState
     screen_wizard: Any
-    manual_rate_edit: Any
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool: ...
 
@@ -51,7 +49,6 @@ class WizardFxCoordinator:
         state = self._host.wizard_state
         cached = self._host.session.cached_usd_ils_quote
         self._apply_cached_quote_to_wizard_state(state, cached)
-        self._host.manual_rate_edit.setText("")
         return True
 
     def cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
@@ -73,7 +70,6 @@ class WizardFxCoordinator:
                 visible=False,
                 info_text="",
                 error_text="",
-                manual_visible=False,
             )
             return
 
@@ -98,8 +94,6 @@ class WizardFxCoordinator:
             visible=True,
             info_text="\n".join(info_lines),
             error_text=error_text,
-            manual_visible=False,
-            manual_value="",
         )
 
     @staticmethod

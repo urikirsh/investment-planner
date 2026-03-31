@@ -4,7 +4,7 @@ Wizard screen UI.
 This module defines `WizardScreen`, the per-instrument execution view
 (screen 4) used after summary review. It provides layout and widget creation
 for step information, unit guidance, unit entry, calculation feedback, FX
-status/override inputs, and step actions.
+status, and step actions.
 
 Action-row intent:
 - `Quit` is kept on the far left as an application-level action.
@@ -27,10 +27,9 @@ from __future__ import annotations
 
 from portfolio_core.domain.models import Exchange
 from PySide6.QtGui import QFontMetrics, QResizeEvent
-from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QSpinBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QSpinBox, QVBoxLayout, QWidget
 
 
-USD_ILS_MANUAL_RATE_LABEL = f"Manual {Exchange.NYSE.currency.value}/ILS rate:"
 DEFAULT_UNITS_LABEL = "Units bought:"
 DEFAULT_WIZARD_SUMMARY_TEXT = "Planned: - ILS | Price: - ILS/unit | Recommended: - units"
 DEFAULT_WIZARD_RESULT_TEXT = "Total spend/proceeds: - ILS | Leftover: - ILS"
@@ -166,12 +165,6 @@ class WizardScreen(QWidget):
         self.units_error_label.setVisible(False)
         form_layout.addRow(self.units_error_label)
 
-        self.manual_rate_label = QLabel(USD_ILS_MANUAL_RATE_LABEL)
-        self.manual_rate_label.setVisible(False)
-        self.manual_rate_edit = QLineEdit()
-        self.manual_rate_edit.setPlaceholderText("e.g. 3.65")
-        self.manual_rate_edit.setVisible(False)
-        form_layout.addRow(self.manual_rate_label, self.manual_rate_edit)
         return form
 
     def _build_result_row(self) -> QWidget:
@@ -309,11 +302,9 @@ class WizardScreen(QWidget):
         visible: bool,
         info_text: str,
         error_text: str,
-        manual_visible: bool,
-        manual_value: str = "",
     ) -> None:
         """
-        Render USD FX status and manual-override controls.
+        Render USD FX status rows.
 
         Parameters
         ----------
@@ -323,24 +314,12 @@ class WizardScreen(QWidget):
             Informational FX text (rate/date/source and fallback notes).
         error_text:
             Error message displayed when official FX fetch fails.
-        manual_visible:
-            Whether manual USD/ILS override controls should be shown.
-        manual_value:
-            Optional prefilled override value. When controls are visible this
-            is always applied, including empty string, to avoid stale values.
         """
         self.fx_info_label.setVisible(visible)
         self.fx_error_label.setVisible(visible)
-        self.manual_rate_label.setVisible(visible and manual_visible)
-        self.manual_rate_edit.setVisible(visible and manual_visible)
 
         self.fx_info_label.setText(info_text)
         self.fx_error_label.setText(error_text)
-
-        if manual_visible:
-            self.manual_rate_edit.setText(manual_value)
-        else:
-            self.manual_rate_edit.setText("")
 
     def set_units_error(self, text: str) -> None:
         """Render inline validation feedback for the units input."""

@@ -65,7 +65,6 @@ class MainWindowWizardMixin:
     wiz_info: QLabel
     units_label: QLabel
     units_edit: QSpinBox
-    manual_rate_edit: QLineEdit
     wiz_result: QLabel
     _non_investable_bucket_id: str
     _non_investable_bucket_title: str
@@ -89,7 +88,6 @@ class MainWindowWizardMixin:
         self.wiz_info = self.screen_wizard.wiz_info
         self.units_label = self.screen_wizard.units_label
         self.units_edit = self.screen_wizard.units_edit
-        self.manual_rate_edit = self.screen_wizard.manual_rate_edit
         self.wiz_result = self.screen_wizard.wiz_result
         self.units_edit.valueChanged.connect(self._wizard_units_changed)
         self.screen_wizard.quit_btn.clicked.connect(self._quit_app)

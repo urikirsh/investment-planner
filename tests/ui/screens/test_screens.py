@@ -214,19 +214,17 @@ def test_wizard_screen_set_step_context_includes_ticker_and_exchange() -> None:
     assert "Action: BUY 500 (ILS)" in screen.wiz_info.text()
 
 
-def test_wizard_screen_set_fx_panel_clears_stale_manual_rate_when_visible_without_value() -> None:
+def test_wizard_screen_set_fx_panel_updates_labels_without_override_inputs() -> None:
     screen = WizardScreen()
-    screen.manual_rate_edit.setText("3.77")
 
     screen.set_fx_panel(
         visible=True,
-        info_text="",
+        info_text="USD/ILS rate: 3.77",
         error_text="fetch failed",
-        manual_visible=True,
-        manual_value="",
     )
 
-    assert screen.manual_rate_edit.text() == ""
+    assert screen.fx_info_label.text() == "USD/ILS rate: 3.77"
+    assert screen.fx_error_label.text() == "fetch failed"
 
 
 def test_main_editor_quantity_delegate_rejects_non_digit_input() -> None:

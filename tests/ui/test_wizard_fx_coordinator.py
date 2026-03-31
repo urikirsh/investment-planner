@@ -20,16 +20,12 @@ class _FakeScreen:
         visible: bool,
         info_text: str,
         error_text: str,
-        manual_visible: bool,
-        manual_value: str = "",
     ) -> None:
         self.panel_calls.append(
             {
                 "visible": visible,
                 "info_text": info_text,
                 "error_text": error_text,
-                "manual_visible": manual_visible,
-                "manual_value": manual_value,
             }
         )
 
@@ -49,7 +45,6 @@ class _FakeHost:
         self.planning_state = PlanningState(plan_steps=steps, step_index=0)
         self.wizard_state = WizardState()
         self.screen_wizard = _FakeScreen()
-        self.manual_rate_edit = SimpleNamespace(setText=lambda _value: None)
         self.cancel_returns = True
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = 1000) -> bool:
@@ -66,4 +61,3 @@ def test_render_fx_panel_hides_for_non_usd_steps(make_plan_step: Callable[..., P
     assert host.screen_wizard.panel_calls
     last_panel = host.screen_wizard.panel_calls[-1]
     assert last_panel["visible"] is False
-    assert last_panel["manual_visible"] is False

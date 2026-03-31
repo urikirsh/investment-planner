@@ -209,19 +209,6 @@ class _FakeSpinBox:
         return self._maximum
 
 
-class _FakeLineEdit:
-    """Small line-edit double used by fake wizard host wiring."""
-
-    def __init__(self, text: str = "") -> None:
-        self._text = text
-
-    def text(self) -> str:
-        return self._text
-
-    def setText(self, text: str) -> None:
-        self._text = text
-
-
 class _FakeButton:
     """Small button double exposing only enabled-state mutation."""
 
@@ -249,7 +236,6 @@ class _FakeWizardScreen:
         self.fx_visible = False
         self.fx_info_text = ""
         self.fx_error_text = ""
-        self.manual_visible = False
         self.save_continue_btn = _FakeButton(False)
         self.quit_btn = SimpleNamespace(clicked=SimpleNamespace(connect=lambda _cb: None))
         self.back_to_portfolio_btn = SimpleNamespace(clicked=SimpleNamespace(connect=lambda _cb: None))
@@ -264,14 +250,10 @@ class _FakeWizardScreen:
         visible: bool,
         info_text: str,
         error_text: str,
-        manual_visible: bool,
-        manual_value: str = "",
     ) -> None:
         self.fx_visible = visible
         self.fx_info_text = info_text
         self.fx_error_text = error_text
-        self.manual_visible = manual_visible
-        _ = manual_value
 
     def set_step_context(
         self,
@@ -333,7 +315,6 @@ class _FakeWizardHost(MainWindowWizardMixin):
     future_tax_edit: Any
     units_edit: Any
     units_label: Any
-    manual_rate_edit: Any
     wiz_info: Any
     wiz_result: Any
     _file_context_updates: int
@@ -362,7 +343,6 @@ class _FakeWizardHost(MainWindowWizardMixin):
         self.future_tax_edit = object()
         self.units_edit = _FakeSpinBox()
         self.units_label = _FakeLabel()
-        self.manual_rate_edit = _FakeLineEdit()
         self.screen_wizard = _FakeWizardScreen(self.units_label, self.units_edit)
         self.wiz_info = self.screen_wizard.wiz_info
         self.wiz_result = self.screen_wizard.wiz_result
