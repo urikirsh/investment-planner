@@ -5,6 +5,9 @@ from __future__ import annotations
 Current responsibility:
 - load startup-cached USD/ILS quote into wizard state for each run,
 - render USD-step FX panel state from cached values.
+
+The wizard always derives unit recommendations from startup-cached prices, so
+the FX panel is now purely explanatory state for USD-priced steps.
 """
 
 from typing import Any, Protocol
@@ -26,7 +29,6 @@ class WizardFxHost(Protocol):
     planning_state: PlanningState
     wizard_state: WizardState
     screen_wizard: Any
-    manual_rate_edit: Any
 
     def _cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool: ...
 
@@ -47,7 +49,6 @@ class WizardFxCoordinator:
         state = self._host.wizard_state
         cached = self._host.session.cached_usd_ils_quote
         self._apply_cached_quote_to_wizard_state(state, cached)
-        self._host.manual_rate_edit.setText("")
         return True
 
     def cancel_wizard_fx_fetch(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
@@ -58,19 +59,17 @@ class WizardFxCoordinator:
     def render_fx_panel_for_current_step(self) -> None:
         """Render FX quote availability status for the active step.
 
-        For non-USD steps, FX UI rows are hidden and calculate is enabled.
+        For non-USD steps, FX UI rows are hidden.
         For USD steps, this method is the single source of truth for cached
-        quote disclosure and rate-unavailable messaging.
+        quote disclosure and rate-unavailable messaging used by the units flow.
         """
         state = self._host.wizard_state
         s = self._host.planning_state.plan_steps[self._host.planning_state.step_index]
         if s.exchange.currency != Currency.USD:
-            self._host.screen_wizard.calculate_btn.setEnabled(True)
             self._host.screen_wizard.set_fx_panel(
                 visible=False,
                 info_text="",
                 error_text="",
-                manual_visible=False,
             )
             return
 
@@ -91,13 +90,10 @@ class WizardFxCoordinator:
         if state.usd_ils_rate is None:
             error_text = "USD/ILS rate unavailable. Return to welcome and try again."
 
-        self._host.screen_wizard.calculate_btn.setEnabled(state.usd_ils_rate is not None)
         self._host.screen_wizard.set_fx_panel(
             visible=True,
             info_text="\n".join(info_lines),
             error_text=error_text,
-            manual_visible=False,
-            manual_value="",
         )
 
     @staticmethod

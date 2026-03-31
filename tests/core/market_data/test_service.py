@@ -14,6 +14,7 @@ from portfolio_core.market_data import (
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
+    get_cached_ticker_result_in_exchange,
     lookup_ticker_in_exchange,
 )
 from portfolio_core.market_data.service import _LookupCacheKey
@@ -594,6 +595,28 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_tic
     cached_result = cache[expected_key]
     assert isinstance(cached_result, TickerLookupFound)
     assert cached_result.metadata.last_traded_price == Decimal("210.50")
+
+
+def test_get_cached_ticker_result_in_exchange_returns_cached_result_without_refetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"count": 0}
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url={
+            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
+            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+        },
+        calls=calls,
+    )
+
+    assert get_cached_ticker_result_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is None
+    loaded = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+    cached = get_cached_ticker_result_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(loaded, TickerLookupFound)
+    assert cached == loaded
+    assert calls["count"] == 2
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(

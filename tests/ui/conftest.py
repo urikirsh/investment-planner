@@ -5,7 +5,8 @@ from __future__ import annotations
 This file centralizes Qt test setup so individual tests can focus on widget
 behavior rather than process-level initialization details. It also provides
 shared helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`,
-`make_buy_calculation`, `add_instrument_row`) for common UI test object setup.
+`make_buy_calculation`, `add_instrument_row`, `make_cached_lookup`,
+`make_wizard_host`) for common UI test object setup.
 """
 
 import os
@@ -13,14 +14,17 @@ from collections.abc import Callable
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Iterator
+from types import SimpleNamespace
+from typing import Any, Iterator
 
 import pytest
 from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.planning.calc_stock_units import BuyCalculation
-from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.models import Exchange, Portfolio
+from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.use_cases import PlanStep
+from ui.main_window_wizard import MainWindowWizardMixin
 from ui.main_window import MainWindow
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
@@ -164,3 +168,240 @@ def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
         return child
 
     return _add_instrument_row
+
+
+class _FakeLabel:
+    """Small label double for wizard tests that need text/visibility assertions."""
+
+    def __init__(self) -> None:
+        self.value = ""
+        self.visible = True
+
+    def setText(self, text: str) -> None:
+        self.value = text
+
+    def text(self) -> str:
+        return self.value
+
+    def setVisible(self, visible: bool) -> None:
+        self.visible = visible
+
+
+class _FakeSpinBox:
+    """Small integer-spinner double that enforces the configured maximum."""
+
+    def __init__(self, value: int = 0) -> None:
+        self._value = value
+        self._maximum = 0
+
+    def value(self) -> int:
+        return self._value
+
+    def setValue(self, value: int) -> None:
+        self._value = min(value, self._maximum)
+
+    def setMaximum(self, value: int) -> None:
+        self._maximum = value
+        if self._value > self._maximum:
+            self._value = self._maximum
+
+    def maximum(self) -> int:
+        return self._maximum
+
+
+class _FakeButton:
+    """Small button double exposing only enabled-state mutation."""
+
+    def __init__(self, enabled: bool = True) -> None:
+        self._enabled = enabled
+
+    def setEnabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+
+    def isEnabled(self) -> bool:
+        return self._enabled
+
+
+class _FakeWizardScreen:
+    """Presentation-only wizard screen double for mixin-focused tests."""
+
+    def __init__(self, units_label: _FakeLabel, units_edit: _FakeSpinBox) -> None:
+        self.units_label = units_label
+        self.units_edit = units_edit
+        self.step_progress = _FakeLabel()
+        self.wiz_info = _FakeLabel()
+        self.wiz_summary = _FakeLabel()
+        self.wiz_result = _FakeLabel()
+        self.units_error_label = _FakeLabel()
+        self.fx_visible = False
+        self.fx_info_text = ""
+        self.fx_error_text = ""
+        self.save_continue_btn = _FakeButton(False)
+        self.quit_btn = SimpleNamespace(clicked=SimpleNamespace(connect=lambda _cb: None))
+        self.back_to_portfolio_btn = SimpleNamespace(clicked=SimpleNamespace(connect=lambda _cb: None))
+        self.continue_without_save_btn = SimpleNamespace(clicked=SimpleNamespace(connect=lambda _cb: None))
+
+    def set_trade_mode(self, *, action: str) -> None:
+        self.units_label.setText("Units sold:" if action == "SELL" else "Units bought:")
+
+    def set_fx_panel(
+        self,
+        *,
+        visible: bool,
+        info_text: str,
+        error_text: str,
+    ) -> None:
+        self.fx_visible = visible
+        self.fx_info_text = info_text
+        self.fx_error_text = error_text
+
+    def set_step_context(
+        self,
+        *,
+        step_index: int,
+        total_steps: int,
+        asset_group_name: str,
+        ticker: str,
+        exchange: Exchange,
+        instrument_name: str,
+        action: str,
+        planned_amount_text: str,
+    ) -> None:
+        self.step_progress.setText(f"Step {step_index}/{total_steps}")
+        self.wiz_info.setText(
+            f"Instrument: {instrument_name}\n"
+            f"Ticker: {ticker}\n"
+            f"Exchange: {exchange.value}\n"
+            f"Asset group: {asset_group_name}\n"
+            f"Action: {action} {planned_amount_text}"
+        )
+
+    def set_units_error(self, text: str) -> None:
+        self.units_error_label.setText(text)
+        self.units_error_label.setVisible(bool(text))
+
+    def set_wizard_summary(self, text: str) -> None:
+        self.wiz_summary.setText(text)
+
+    def set_units_limit(self, *, value: int) -> None:
+        self.units_edit.setMaximum(value)
+
+    def sync_focus_row_widths(self) -> None:
+        return None
+
+
+class _FakeStack:
+    """Minimal stacked-widget double capturing the last requested screen."""
+
+    def __init__(self) -> None:
+        self.current_widget: object | None = None
+
+    def setCurrentWidget(self, widget: object) -> None:
+        self.current_widget = widget
+
+
+class _FakeWizardHost(MainWindowWizardMixin):
+    """Small host object for testing wizard mixin behavior without Qt widgets."""
+
+    session: Any
+    planning_state: Any
+    wizard_state: Any
+    stack: Any
+    screen_main: Any
+    screen_wizard: Any
+    tree: Any
+    cash_value_edit: Any
+    cash_reserve_edit: Any
+    future_tax_edit: Any
+    units_edit: Any
+    units_label: Any
+    wiz_info: Any
+    wiz_result: Any
+    _file_context_updates: int
+    _refresh_data_calls: int
+    _render_main_editor_calls: list[dict[str, object]]
+
+    def __init__(self, *, steps: list[PlanStep], step_index: int = 0, current_portfolio: object | None = object()) -> None:
+        self.session = SimpleNamespace(
+            document=SimpleNamespace(current_portfolio=current_portfolio),
+            cached_usd_ils_quote=None,
+        )
+        self.planning_state = SimpleNamespace(plan_steps=steps, step_index=step_index)
+        self.wizard_state = SimpleNamespace(
+            last_calc=None,
+            usd_ils_rate=None,
+            usd_ils_rate_date=None,
+            usd_ils_used_last_published=False,
+            usd_ils_rate_from_cache=False,
+            usd_ils_rate_cached_at=None,
+        )
+        self.stack = _FakeStack()
+        self.screen_main = object()
+        self.tree = object()
+        self.cash_value_edit = object()
+        self.cash_reserve_edit = object()
+        self.future_tax_edit = object()
+        self.units_edit = _FakeSpinBox()
+        self.units_label = _FakeLabel()
+        self.screen_wizard = _FakeWizardScreen(self.units_label, self.units_edit)
+        self.wiz_info = self.screen_wizard.wiz_info
+        self.wiz_result = self.screen_wizard.wiz_result
+        self._non_investable_bucket_id = "non_investable_bucket"
+        self._non_investable_bucket_title = "Non-investable holdings (excluded from strategy)"
+        self._file_context_updates = 0
+        self._refresh_data_calls = 0
+        self._render_main_editor_calls = []
+
+    def _quit_app(self) -> None:
+        return None
+
+    def _update_file_context_ui(self) -> None:
+        self._file_context_updates += 1
+
+    def _update_future_tax_visual_state(self) -> None:
+        return None
+
+    def _refresh_data(self) -> None:
+        self._refresh_data_calls += 1
+
+    def _render_main_editor_from_portfolio(self, portfolio: Portfolio, *, switch_to_main: bool) -> None:
+        self._render_main_editor_calls.append({"portfolio": portfolio, "switch_to_main": switch_to_main})
+        self._refresh_data()
+        if switch_to_main:
+            self.stack.setCurrentWidget(self.screen_main)
+
+
+@pytest.fixture
+def make_cached_lookup() -> Callable[..., TickerLookupFound]:
+    """Return helper that builds cached ticker lookup results for wizard tests."""
+
+    def _make_cached_lookup(*, exchange: Exchange, ticker: str, price: Decimal) -> TickerLookupFound:
+        return TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=exchange,
+                canonical_ticker=ticker,
+                display_name=ticker,
+                last_traded_price=price,
+            )
+        )
+
+    return _make_cached_lookup
+
+
+@pytest.fixture
+def make_wizard_host() -> Callable[..., _FakeWizardHost]:
+    """Return helper that builds a lightweight wizard host with shared fake widgets."""
+
+    def _make_wizard_host(
+        *,
+        steps: list[PlanStep],
+        step_index: int = 0,
+        current_portfolio: object | None = object(),
+    ) -> _FakeWizardHost:
+        return _FakeWizardHost(
+            steps=steps,
+            step_index=step_index,
+            current_portfolio=current_portfolio,
+        )
+
+    return _make_wizard_host

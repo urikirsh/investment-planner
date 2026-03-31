@@ -35,9 +35,7 @@ The application never executes trades automatically. All actions are explicit an
   - `TASE`: 6 or 7 digits
   - `NYSE`: 1 to 14 uppercase letters/digits, optionally one dot (for example `BRK.B`)
 - Required per-instrument `quantity` field (non-negative integer)
-- Per-instrument `exchange` (`TASE` or `NYSE`) for wizard price-entry semantics
-  - `TASE` prices are treated as ILS (agorot entry in wizard)
-  - `NYSE` prices are treated as USD (USD entry + USD/ILS conversion in wizard)
+- Per-instrument `exchange` (`TASE` or `NYSE`)
 - Per-group instrument split using mandatory in-group target percentages (must sum to 100 per group)
 - Permanent non-investable bucket for holdings excluded from the strategy
 - Cash with:
@@ -63,17 +61,14 @@ The application never executes trades automatically. All actions are explicit an
 - Step-by-step investment flow:
   - per-instrument allocation based on your target portfolio mix
   - wizard step info shows instrument name, ticker, exchange, asset group, and action amount
-  - enter instrument price and calculate how many units to buy/sell
-  - USD-priced steps use a USD/ILS rate prepared during startup
-  - calculation can be triggered by button click, pressing `Enter`, or leaving the price field
-  - unit amounts are rounded down to whole numbers
+  - the wizard fills in the unit price automatically
+  - the wizard suggests `Units bought` or `Units sold` and lets you reduce the amount before continuing
+  - USD-priced steps are converted to ILS automatically
 - Wizard actions:
   - `Save and continue` applies the current step and moves forward
-  - `Save and continue` is enabled only after a valid calculation
   - `Skip Step` moves on without applying the current step
   - `Exit Wizard` returns to the portfolio screen without applying the current step
   - `Quit` exits the app
-  - if a sell step asks for more units than available, the app shows a clear error and skips that step
 - Partial execution supported (each instrument handled independently)
 
 ### UI and UX
@@ -103,7 +98,7 @@ The application never executes trades automatically. All actions are explicit an
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
   - `Exchange` column (instrument rows), set when adding an instrument
-- Wizard displays all planned/spent/proceeds/leftover amounts explicitly in ILS
+- Wizard displays the unit price and all planned/spent/proceeds/leftover amounts explicitly
 - Drag and drop to:
   - reorder groups and instruments
   - move instruments into or out of the non-investable bucket
@@ -178,8 +173,6 @@ Notes:
   - quit
 - If no remembered path exists yet, `Open Last Portfolio` is disabled and shows `No recent portfolio`.
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
-- The app reuses the latest successful USD/ILS quote across wizard runs in the current app session.
-- Opening or creating a portfolio refreshes portfolio prices during startup.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file.
