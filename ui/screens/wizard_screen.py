@@ -40,12 +40,13 @@ class WizardScreen(QWidget):
     """
     Wizard UI (screen 4).
 
-        Exposes controls so the coordinator can attach flow behavior.
-        The screen itself stays presentation-only: cached-price lookup,
-        recommendation math, validation, and persistence all live outside it.
-        Input units are intentionally explicit in labels to reduce trade-direction
-        mistakes during wizard execution.
-        The action row intentionally separates app-level and step-level actions
+
+    Exposes controls so the coordinator can attach flow behavior.
+    The screen itself stays presentation-only: cached-price lookup,
+    recommendation math, validation, and persistence all live outside it.
+    Input units are intentionally explicit in labels to reduce trade-direction
+    mistakes during wizard execution.
+    The action row intentionally separates app-level and step-level actions
     to reduce accidental exits during step execution.
     """
 
@@ -260,7 +261,6 @@ class WizardScreen(QWidget):
     def sync_focus_row_widths(self) -> None:
         """Keep summary, units, and result rows visually aligned when feasible."""
         spacing = 8
-        max_qt_width = 16777215
         input_metrics = QFontMetrics(self.units_edit.font())
         min_input_width = input_metrics.horizontalAdvance("0" * 11) + 24
         self.units_edit.setMinimumWidth(min_input_width)
@@ -273,12 +273,7 @@ class WizardScreen(QWidget):
         margins = self.contentsMargins()
         available_width = max(self.width() - margins.left() - margins.right() - 24, 0)
 
-        self._summary_focus_row.setMinimumWidth(0)
-        self._summary_focus_row.setMaximumWidth(max_qt_width)
-        self._units_focus_row.setMinimumWidth(0)
-        self._units_focus_row.setMaximumWidth(max_qt_width)
-        self._result_focus_row.setMinimumWidth(0)
-        self._result_focus_row.setMaximumWidth(max_qt_width)
+        self._reset_focus_row_width_constraints()
 
         if available_width < units_combo_min_width:
             return
@@ -287,6 +282,16 @@ class WizardScreen(QWidget):
         self._summary_focus_row.setFixedWidth(clamped_width)
         self._units_focus_row.setFixedWidth(clamped_width)
         self._result_focus_row.setFixedWidth(clamped_width)
+
+    def _reset_focus_row_width_constraints(self) -> None:
+        """Clear fixed-width alignment so rows can fall back to natural sizing."""
+        max_qt_width = 16777215
+        self._summary_focus_row.setMinimumWidth(0)
+        self._summary_focus_row.setMaximumWidth(max_qt_width)
+        self._units_focus_row.setMinimumWidth(0)
+        self._units_focus_row.setMaximumWidth(max_qt_width)
+        self._result_focus_row.setMinimumWidth(0)
+        self._result_focus_row.setMaximumWidth(max_qt_width)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Recompute aligned row widths on window resize to keep layout responsive."""
