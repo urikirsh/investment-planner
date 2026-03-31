@@ -38,6 +38,7 @@ from ui.wizard_fx_coordinator import WizardFxCoordinator
 D = Decimal
 _DISPLAY_PRICE_PRECISION = D("0.01")
 
+
 @dataclass(frozen=True)
 class _WizardCalculationContext:
     """Immutable current-step pricing/label context reused across recalculation."""
@@ -213,18 +214,19 @@ class MainWindowWizardMixin:
         """
         result = get_cached_ticker_lookup_in_exchange(exchange=step.exchange, ticker=step.ticker)
         if not isinstance(result, TickerLookupFound):
-            raise ValueError(
-                f"Cached price unavailable for {step.instrument_name}. Return to the welcome screen and try again."
-            )
+            raise ValueError(self._cached_price_unavailable_message(step))
         native_price = result.metadata.last_traded_price
         if native_price is None:
-            raise ValueError(
-                f"Cached price unavailable for {step.instrument_name}. Return to the welcome screen and try again."
-            )
+            raise ValueError(self._cached_price_unavailable_message(step))
         if step.exchange.currency == Currency.USD:
             usd_ils_rate = self._get_effective_usd_ils_rate()
             return native_price * usd_ils_rate
         return native_price
+
+    @staticmethod
+    def _cached_price_unavailable_message(step: PlanStep) -> str:
+        """Return the standard user-facing message for missing cached step prices."""
+        return f"Cached price unavailable for {step.instrument_name}. Return to the welcome screen and try again."
 
     def _get_effective_usd_ils_rate(self) -> D:
         """Return startup-cached USD/ILS rate for current wizard run."""
