@@ -23,7 +23,7 @@ def test_show_current_wizard_step_prefills_buy_units_from_cached_price(
     host = make_wizard_host(steps=[make_plan_step(delta="125")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("12.5")),
     )
 
@@ -47,7 +47,7 @@ def test_show_current_wizard_step_prefills_sell_units_from_cached_price(
     host = make_wizard_host(steps=[make_plan_step(delta="-125")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("25")),
     )
 
@@ -70,7 +70,7 @@ def test_show_current_wizard_step_uses_cached_usd_price_and_fx_rate(
     host.wizard_state.usd_ils_rate = Decimal("3.1")
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("10")),
     )
 
@@ -91,7 +91,7 @@ def test_wizard_units_change_clamps_to_recommended_limit(
     host = make_wizard_host(steps=[make_plan_step(delta="50")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("20")),
     )
 
@@ -114,7 +114,7 @@ def test_wizard_units_change_allows_zero_units(
     host = make_wizard_host(steps=[make_plan_step(delta="50")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("20")),
     )
 
@@ -136,7 +136,7 @@ def test_show_current_wizard_step_requires_cached_price(
     host = make_wizard_host(steps=[make_plan_step(delta="50")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: None,
     )
 

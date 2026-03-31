@@ -161,7 +161,7 @@ def test_wizard_units_text_changed_signal_runs_calculation_flow(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
     )
     window._show_current_wizard_step()
@@ -184,7 +184,7 @@ def test_wizard_units_text_changed_signal_disables_save_on_invalid_input(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
     )
     window._show_current_wizard_step()
@@ -206,7 +206,7 @@ def test_wizard_units_text_changed_signal_disables_save_on_empty_input(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
     )
     window._show_current_wizard_step()
@@ -228,7 +228,7 @@ def test_wizard_units_text_changed_signal_clamps_to_recommended_limit(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_lookup_in_exchange",
+        "get_cached_ticker_result_in_exchange",
         lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
     )
     window._show_current_wizard_step()

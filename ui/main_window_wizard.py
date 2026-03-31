@@ -24,7 +24,7 @@ from PySide6.QtCore import QObject, QSignalBlocker
 from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.domain.models import Currency, Portfolio
-from portfolio_core.market_data import TickerLookupFound, get_cached_ticker_lookup_in_exchange
+from portfolio_core.market_data import TickerLookupFound, get_cached_ticker_result_in_exchange
 from portfolio_core.planning.calc_stock_units import BuyCalculation, calculate_buy_units_from_ils_price
 from portfolio_core.session.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
@@ -212,7 +212,7 @@ class MainWindowWizardMixin:
         using the wizard's startup-cached USD/ILS rate so unit calculations stay
         in one currency.
         """
-        result = get_cached_ticker_lookup_in_exchange(exchange=step.exchange, ticker=step.ticker)
+        result = get_cached_ticker_result_in_exchange(exchange=step.exchange, ticker=step.ticker)
         if not isinstance(result, TickerLookupFound):
             raise ValueError(self._cached_price_unavailable_message(step))
         native_price = result.metadata.last_traded_price

@@ -210,7 +210,7 @@ def lookup_ticker_in_exchange(
     )
 
 
-def get_cached_ticker_lookup_in_exchange(
+def get_cached_ticker_result_in_exchange(
     *,
     exchange: Exchange,
     ticker: str,
