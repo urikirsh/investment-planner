@@ -39,7 +39,6 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
             "ticker": "1234567",
             "name": "SPX 500",
             "quantity": 1,
-            "value": "1",
             "exchange": Exchange.TASE.value,
             "investable": True,
             "groupId": "sp500",

@@ -233,6 +233,7 @@ Startup/wizard market-data guards in this flow:
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
   - requires instrument `exchange`, `ticker`, and `quantity`
+  - persisted portfolio JSON omits instrument market `value`; missing values load as `0` until startup refresh repopulates live totals
 - `portfolio_core/use_cases.py`
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data

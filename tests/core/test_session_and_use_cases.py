@@ -68,9 +68,36 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     save_portfolio_file(p1, p1_path)
 
     loaded = session.load_document_from_path(p1_path)
-    assert loaded == p1
+    assert loaded.cash == p1.cash
+    assert loaded.asset_groups == p1.asset_groups
+    assert [ins.value for ins in loaded.instruments] == [D("0"), D("0"), D("0")]
+    assert [
+        (
+            ins.id,
+            ins.ticker,
+            ins.name,
+            ins.quantity,
+            ins.exchange,
+            ins.investable,
+            ins.asset_group_id,
+            ins.target_in_group_pct,
+        )
+        for ins in loaded.instruments
+    ] == [
+        (
+            ins.id,
+            ins.ticker,
+            ins.name,
+            ins.quantity,
+            ins.exchange,
+            ins.investable,
+            ins.asset_group_id,
+            ins.target_in_group_pct,
+        )
+        for ins in p1.instruments
+    ]
     assert session.current_file_path == tmp_path / "p1.json"
-    assert session.document.current_portfolio == p1
+    assert session.document.current_portfolio == loaded
     assert session.document.is_dirty() is False
 
     session.document.set_current(p2)
@@ -173,11 +200,13 @@ def test_use_case_save_document_from_data_persists_and_tracks_snapshot(tmp_path)
     session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
     target = tmp_path / "saved.json"
     saved = save_document_from_data(session, make_valid_data(), target)
+    persisted = json.loads(target.read_text(encoding="utf-8"))
     assert target.exists()
     assert session.current_file_path == target
     assert session.document.current_portfolio == saved
     assert session.document.saved_snapshot == saved
     assert session.document.is_dirty() is False
+    assert all("value" not in instrument for instrument in persisted["instruments"])
 
 
 def test_use_case_sync_document_from_data_marks_dirty_against_saved_snapshot(tmp_path):

@@ -93,9 +93,9 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     - "cash": object with "value", "min_reserve", and "future_tax"
       (all parsed as Decimal, in ILS)
     - "groups": list of asset group objects containing id, name, targetPercentage
-    - "instruments": list of instrument objects containing id, ticker, name, value, investable,
-      required "exchange" ("TASE"/"NYSE"), group reference ("groupId" or legacy "assetGroupId"), and required
-      "targetInGroupPercentage"
+    - "instruments": list of instrument objects containing id, ticker, name, optional value,
+      investable, required "exchange" ("TASE"/"NYSE"), group reference ("groupId" or legacy
+      "assetGroupId"), and required "targetInGroupPercentage"
     - required instrument "quantity" as a non-negative integer
 
     This function performs structural/type validation and raises ValueError with a
@@ -168,7 +168,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
                 id=str(ins.get("id", "")).strip(),
                 ticker=_parse_required_text(ins.get("ticker"), f"instruments[{i}].ticker"),
                 name=str(ins.get("name", "")).strip(),
-                value=_parse_decimal(ins.get("value"), f"instruments[{i}].value"),
+                value=_parse_decimal(ins.get("value", "0"), f"instruments[{i}].value"),
                 exchange=_parse_exchange(ins.get("exchange"), f"instruments[{i}].exchange"),
                 investable=bool(ins.get("investable")),
                 asset_group_id=asset_group_id,
@@ -224,6 +224,7 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
     - Uses ``groups`` as the asset-group key.
     - Decimal fields are serialized as strings to preserve precision.
     - Instrument ``quantity`` is serialized as required integer.
+    - Instrument market ``value`` is intentionally omitted because it is refreshed from market data.
     - ``groupId`` is omitted for non-investable instruments.
 
     Parameters
@@ -255,7 +256,6 @@ def dump_portfolio(p: Portfolio) -> Dict[str, Any]:
                 "id": ins.id,
                 "ticker": ins.ticker,
                 "name": ins.name,
-                "value": str(ins.value),
                 "exchange": ins.exchange.value,
                 "investable": bool(ins.investable),
                 "targetInGroupPercentage": str(ins.target_in_group_pct),
