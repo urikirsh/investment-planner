@@ -163,7 +163,7 @@ def test_load_default_document_uses_refreshed_default_portfolio(
 
     monkeypatch.setattr(
         controller_mod,
-        "create_new_default_document_with_price_refresh",
+        "create_new_default_document",
         lambda session: session.mark_new_document(refreshed) or refreshed,
     )
     monkeypatch.setattr(

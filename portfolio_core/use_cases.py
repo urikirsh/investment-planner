@@ -172,7 +172,7 @@ def load_document_with_price_refresh(
     return refreshed_portfolio
 
 
-def create_new_default_document_with_price_refresh(
+def create_new_default_document(
     session: PortfolioSession,
     *,
     lookup_timeout_seconds: float = 8.0,
@@ -205,20 +205,6 @@ def create_new_default_document_with_price_refresh(
     )
     session.mark_new_document(refreshed_portfolio)
     return refreshed_portfolio
-
-
-def create_new_default_document(session: PortfolioSession) -> Portfolio:
-    """
-    Create a new default portfolio and mark it as an unsaved document.
-
-    Side effects
-    ------------
-    - Sets current and saved snapshot to default portfolio.
-    - Clears the active file path in session without changing the remembered startup file.
-    """
-    portfolio = build_default_portfolio()
-    session.mark_new_document(portfolio)
-    return portfolio
 
 
 def get_or_fetch_session_usd_ils_rate(
