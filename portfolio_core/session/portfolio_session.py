@@ -36,8 +36,8 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
     "instruments": [
         {
             "id": "spx_a",
-            "ticker": "1234567",
-            "name": "SPX 500",
+            "ticker": "1183441",
+            "name": "Invesco S&P 500",
             "quantity": 1,
             "exchange": Exchange.TASE.value,
             "investable": True,
