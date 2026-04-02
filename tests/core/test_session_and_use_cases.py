@@ -12,7 +12,7 @@ import json
 from datetime import date, datetime, timezone
 
 from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
-from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.models import Exchange, Instrument, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.session.portfolio_document import PortfolioDocument
 from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
@@ -23,6 +23,7 @@ from portfolio_core.use_cases import (
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
+    load_document_with_price_refresh,
     refresh_portfolio_prices_for_startup,
     save_document_from_data,
     sync_document_from_data,
@@ -123,6 +124,89 @@ def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
 
     loaded = load_portfolio_file(target)
     assert loaded == load_portfolio(payload)
+
+
+def test_load_document_with_price_refresh_uses_cached_fx_and_updates_document(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    session.cache_usd_ils_quote(
+        rate=D("3.25"),
+        effective_date=date.fromisoformat("2026-03-11"),
+        used_last_published=False,
+    )
+    target = tmp_path / "portfolio.json"
+    save_portfolio_file(load_portfolio(make_valid_data()), target)
+
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+        _ = usd_ils_rate
+        _ = lookup_timeout_seconds
+        refreshed_instruments = list(portfolio.instruments)
+        first = refreshed_instruments[0]
+        refreshed_instruments[0] = Instrument(
+            id=first.id,
+            ticker=first.ticker,
+            name=first.name,
+            value=D("111.11"),
+            exchange=first.exchange,
+            investable=first.investable,
+            asset_group_id=first.asset_group_id,
+            target_in_group_pct=first.target_in_group_pct,
+            quantity=first.quantity,
+        )
+        return Portfolio(
+            cash=portfolio.cash,
+            asset_groups=portfolio.asset_groups,
+            instruments=refreshed_instruments,
+        )
+
+    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+
+    loaded = load_document_with_price_refresh(session, target)
+
+    assert loaded.instruments[0].value == D("111.11")
+    assert session.document.current_portfolio == loaded
+    assert session.document.saved_snapshot == loaded
+    assert session.current_file_path == target
+
+
+def test_load_document_with_price_refresh_fetches_and_caches_fx_when_missing(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target = tmp_path / "portfolio.json"
+    save_portfolio_file(load_portfolio(make_valid_data()), target)
+
+    fake_quote = type(
+        "FakeQuote",
+        (),
+        {
+            "rate": D("3.40"),
+            "effective_date": date.fromisoformat("2026-03-12"),
+            "used_last_published": True,
+        },
+    )()
+    seen_rates: list[D] = []
+
+    monkeypatch.setattr("portfolio_core.use_cases.fetch_latest_usd_ils_rate", lambda timeout_seconds=8.0: fake_quote)
+
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+        _ = lookup_timeout_seconds
+        seen_rates.append(usd_ils_rate)
+        return portfolio
+
+    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+
+    load_document_with_price_refresh(session, target)
+
+    assert seen_rates == [D("3.40")]
+    cached_quote = session.cached_usd_ils_quote
+    assert cached_quote is not None
+    assert cached_quote.rate == D("3.40")
+    assert cached_quote.effective_date == date.fromisoformat("2026-03-12")
+    assert cached_quote.used_last_published is True
 
 
 def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):

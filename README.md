@@ -175,7 +175,7 @@ Notes:
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
-- `Open` loads an existing portfolio file.
+- `Open` loads an existing portfolio file and refreshes instrument prices before showing it.
 - `New` starts a fresh default portfolio.
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
 - In the step-by-step wizard:
