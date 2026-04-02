@@ -93,7 +93,7 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     - "cash": object with "value", "min_reserve", and "future_tax"
       (all parsed as Decimal, in ILS)
     - "groups": list of asset group objects containing id, name, targetPercentage
-    - "instruments": list of instrument objects containing id, ticker, name, optional value,
+    - "instruments": list of instrument objects containing id, ticker, name, value,
       investable, required "exchange" ("TASE"/"NYSE"), group reference ("groupId" or legacy
       "assetGroupId"), and required "targetInGroupPercentage"
     - required instrument "quantity" as a non-negative integer
@@ -183,6 +183,33 @@ def load_portfolio(data: Mapping[str, Any]) -> Portfolio:
     return Portfolio(cash=cash, asset_groups=asset_groups, instruments=instruments)
 
 
+def _normalize_persisted_portfolio_data(data: Any) -> Any:
+    """Return persisted JSON payload normalized to the supported on-disk schema.
+
+    Persisted portfolio files intentionally omit instrument `value`. When older
+    files still include that field, treat it as an ignored extra field rather
+    than as part of the file schema.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    normalized = dict(data)
+    instruments_raw = normalized.get("instruments")
+    if not isinstance(instruments_raw, list):
+        return normalized
+
+    normalized_instruments: list[Any] = []
+    for instrument in instruments_raw:
+        if not isinstance(instrument, dict):
+            normalized_instruments.append(instrument)
+            continue
+        normalized_instrument = dict(instrument)
+        normalized_instrument.pop("value", None)
+        normalized_instruments.append(normalized_instrument)
+    normalized["instruments"] = normalized_instruments
+    return normalized
+
+
 def load_portfolio_file(path: str | Path) -> Portfolio:
     """
     Load a portfolio from a JSON file path.
@@ -211,7 +238,7 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
     path = Path(path)
     # Accept optional UTF-8 BOM to support files saved by some Windows editors.
     with path.open("r", encoding="utf-8-sig") as f:
-        data = json.load(f)
+        data = _normalize_persisted_portfolio_data(json.load(f))
     return load_portfolio(data)
 
 

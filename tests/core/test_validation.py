@@ -7,12 +7,13 @@ These tests verify portfolio invariants and serialization behavior without
 Qt/UI involvement.
 """
 
+import json
 from decimal import Decimal
 from typing import cast
 
 import pytest
 
-from portfolio_core.io_json import dump_portfolio, load_portfolio
+from portfolio_core.io_json import dump_portfolio, load_portfolio, load_portfolio_file
 from portfolio_core.domain.models import AssetGroup, Cash, Exchange, Instrument, Portfolio
 from portfolio_core.domain.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
@@ -223,6 +224,18 @@ def test_parse_missing_instrument_value_defaults_to_zero() -> None:
     data["instruments"][0].pop("value", None)
 
     portfolio = load_portfolio(data)
+
+    assert portfolio.instruments[0].value == Decimal("0")
+
+
+def test_load_portfolio_file_ignores_legacy_instrument_value_field(tmp_path) -> None:
+    target = tmp_path / "legacy_value_portfolio.json"
+    payload = make_valid_data()
+    payload["instruments"][0]["value"] = "999999"
+
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    portfolio = load_portfolio_file(target)
 
     assert portfolio.instruments[0].value == Decimal("0")
 

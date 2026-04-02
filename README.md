@@ -156,6 +156,7 @@ Notes:
   - `TASE` tickers must be 6 or 7 digits.
   - `NYSE` tickers must be 1 to 14 uppercase letters/digits, optionally one dot.
 - `instruments[*].quantity` is required and must be a non-negative integer.
+- Persisted portfolio files do not use `instruments[*].value`; if present in an older file, it is ignored on load.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.
