@@ -165,7 +165,7 @@ Notes:
 
 ## Saving your work
 
-- The app remembers the last portfolio file you worked on and shows it on startup.
+- The app remembers the last saved or opened portfolio file and shows it on startup.
 - Startup always opens a welcome screen where you can choose to:
   - open the remembered portfolio
   - load a different file
@@ -177,6 +177,7 @@ Notes:
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file and refreshes instrument prices before showing it.
 - `New` starts a fresh default portfolio and refreshes its instrument prices before showing it.
+- Starting a new unsaved portfolio does not forget the last remembered file for the next app launch.
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
 - In the step-by-step wizard:
   - `Save and continue` writes progress after that step.

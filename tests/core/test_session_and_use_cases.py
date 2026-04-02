@@ -116,6 +116,7 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     assert session.document.current_portfolio == p1
     assert session.document.saved_snapshot == p1
     assert session.document.is_dirty() is False
+    assert session.get_remembered_portfolio_path() == p2_path
 
 
 def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
@@ -311,6 +312,7 @@ def test_use_case_create_new_default_document_clears_active_path(tmp_path):
     created = create_new_default_document(session)
     assert created == build_default_portfolio()
     assert session.current_file_path is None
+    assert session.get_remembered_portfolio_path() == existing
     assert session.document.current_portfolio == created
     assert session.document.is_dirty() is False
 
@@ -359,9 +361,26 @@ def test_use_case_create_new_default_document_with_price_refresh_marks_unsaved_r
     assert seen_rates == [D("3.25")]
     assert created.instruments[0].value == D("111.11")
     assert session.current_file_path is None
+    assert session.get_remembered_portfolio_path() == existing
     assert session.document.current_portfolio == created
     assert session.document.saved_snapshot == created
     assert session.document.is_dirty() is False
+
+
+def test_mark_new_document_preserves_remembered_portfolio_path_for_next_startup(tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    remembered = tmp_path / "remembered.json"
+    remembered.write_text("{}", encoding="utf-8")
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+    session.set_active_file_path(remembered)
+
+    session.mark_new_document(build_default_portfolio())
+
+    assert session.current_file_path is None
+    assert session.get_remembered_portfolio_path() == remembered
+
+    reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+    assert reloaded.resolve_startup_path() == remembered
 
 
 def test_use_case_build_plan_for_current_document_returns_steps(tmp_path):
