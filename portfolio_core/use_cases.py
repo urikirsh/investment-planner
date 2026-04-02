@@ -191,7 +191,7 @@ def create_new_default_document_with_price_refresh(
     ------------
     - Updates the session USD/ILS cache when a fresh quote is fetched.
     - Sets current and saved snapshot to the refreshed default portfolio.
-    - Clears active file path in session and persisted config.
+    - Clears the active file path in session without changing the remembered startup file.
     """
     portfolio = build_default_portfolio()
     usd_ils_rate = get_or_fetch_session_usd_ils_rate(
@@ -214,7 +214,7 @@ def create_new_default_document(session: PortfolioSession) -> Portfolio:
     Side effects
     ------------
     - Sets current and saved snapshot to default portfolio.
-    - Clears active file path in session and persisted config.
+    - Clears the active file path in session without changing the remembered startup file.
     """
     portfolio = build_default_portfolio()
     session.mark_new_document(portfolio)
