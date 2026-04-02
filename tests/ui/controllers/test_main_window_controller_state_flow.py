@@ -203,7 +203,7 @@ def test_load_portfolio_from_file_renders_refreshed_portfolio(
         }
     )
 
-    monkeypatch.setattr(main_window, "load_document_with_price_refresh", lambda session, path: refreshed)
+    monkeypatch.setattr(main_window, "load_document", lambda session, path: refreshed)
 
     window._load_portfolio_from_file(target)
 

@@ -23,7 +23,7 @@ from portfolio_core.use_cases import (
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
-    load_document_with_price_refresh,
+    load_document,
     refresh_portfolio_prices_for_startup,
     save_document_from_data,
     sync_document_from_data,
@@ -127,7 +127,7 @@ def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
     assert loaded == load_portfolio(payload)
 
 
-def test_load_document_with_price_refresh_uses_cached_fx_and_updates_document(
+def test_load_document_uses_cached_fx_and_updates_document(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -164,7 +164,7 @@ def test_load_document_with_price_refresh_uses_cached_fx_and_updates_document(
 
     monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
 
-    loaded = load_document_with_price_refresh(session, target)
+    loaded = load_document(session, target)
 
     assert loaded.instruments[0].value == D("111.11")
     assert session.document.current_portfolio == loaded
@@ -172,7 +172,7 @@ def test_load_document_with_price_refresh_uses_cached_fx_and_updates_document(
     assert session.current_file_path == target
 
 
-def test_load_document_with_price_refresh_fetches_and_caches_fx_when_missing(
+def test_load_document_fetches_and_caches_fx_when_missing(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -200,7 +200,7 @@ def test_load_document_with_price_refresh_fetches_and_caches_fx_when_missing(
 
     monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
 
-    load_document_with_price_refresh(session, target)
+    load_document(session, target)
 
     assert seen_rates == [D("3.40")]
     cached_quote = session.cached_usd_ils_quote

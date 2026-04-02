@@ -123,19 +123,7 @@ def parse_portfolio_data(data: Mapping[str, Any]) -> Portfolio:
     return load_portfolio(data)
 
 
-def load_document(session: PortfolioSession, path: Path) -> Portfolio:
-    """
-    Load a portfolio file and update session document state.
-
-    Side effects
-    ------------
-    - Updates `session.document` current/snapshot/active path.
-    - Persists active path through session config behavior.
-    """
-    return session.load_document_from_path(path)
-
-
-def load_document_with_price_refresh(
+def load_document(
     session: PortfolioSession,
     path: Path,
     *,
