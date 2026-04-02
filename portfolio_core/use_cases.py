@@ -157,17 +157,10 @@ def load_document_with_price_refresh(
     - Updates `session.document` current/snapshot/active path.
     """
     portfolio = load_portfolio_file(path)
-    cached_quote = session.cached_usd_ils_quote
-    if cached_quote is None:
-        quote = fetch_latest_usd_ils_rate(timeout_seconds=lookup_timeout_seconds)
-        session.cache_usd_ils_quote(
-            rate=quote.rate,
-            effective_date=quote.effective_date,
-            used_last_published=quote.used_last_published,
-        )
-        usd_ils_rate = quote.rate
-    else:
-        usd_ils_rate = cached_quote.rate
+    usd_ils_rate = get_or_fetch_session_usd_ils_rate(
+        session,
+        lookup_timeout_seconds=lookup_timeout_seconds,
+    )
 
     refreshed_portfolio = refresh_portfolio_prices_for_startup(
         portfolio,
@@ -176,6 +169,41 @@ def load_document_with_price_refresh(
     )
     session.document.mark_loaded(refreshed_portfolio, path)
     session.set_active_file_path(path)
+    return refreshed_portfolio
+
+
+def create_new_default_document_with_price_refresh(
+    session: PortfolioSession,
+    *,
+    lookup_timeout_seconds: float = 8.0,
+) -> Portfolio:
+    """
+    Create a refreshed default portfolio and mark it as a new unsaved document.
+
+    Cache behavior
+    --------------
+    - Reuses the session-cached USD/ILS quote when available.
+    - Fetches and caches a USD/ILS quote only when the session cache is empty.
+    - Reuses the app-level instrument lookup cache via market-data lookups and
+      fetches only the missing instrument prices.
+
+    Side effects
+    ------------
+    - Updates the session USD/ILS cache when a fresh quote is fetched.
+    - Sets current and saved snapshot to the refreshed default portfolio.
+    - Clears active file path in session and persisted config.
+    """
+    portfolio = build_default_portfolio()
+    usd_ils_rate = get_or_fetch_session_usd_ils_rate(
+        session,
+        lookup_timeout_seconds=lookup_timeout_seconds,
+    )
+    refreshed_portfolio = refresh_portfolio_prices_for_startup(
+        portfolio,
+        usd_ils_rate=usd_ils_rate,
+        lookup_timeout_seconds=lookup_timeout_seconds,
+    )
+    session.mark_new_document(refreshed_portfolio)
     return refreshed_portfolio
 
 
@@ -191,6 +219,25 @@ def create_new_default_document(session: PortfolioSession) -> Portfolio:
     portfolio = build_default_portfolio()
     session.mark_new_document(portfolio)
     return portfolio
+
+
+def get_or_fetch_session_usd_ils_rate(
+    session: PortfolioSession,
+    *,
+    lookup_timeout_seconds: float = 8.0,
+) -> Decimal:
+    """Return session-cached USD/ILS rate, fetching and caching it when absent."""
+    cached_quote = session.cached_usd_ils_quote
+    if cached_quote is not None:
+        return cached_quote.rate
+
+    quote = fetch_latest_usd_ils_rate(timeout_seconds=lookup_timeout_seconds)
+    session.cache_usd_ils_quote(
+        rate=quote.rate,
+        effective_date=quote.effective_date,
+        used_last_published=quote.used_last_published,
+    )
+    return quote.rate
 
 
 def refresh_portfolio_prices_for_startup(

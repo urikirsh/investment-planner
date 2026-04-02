@@ -162,7 +162,10 @@ class MainWindowActionsMixin:
         """Handle `New` action by loading default portfolio after confirmation."""
         if not self._confirm_continue_with_unsaved_changes("creating a new portfolio"):
             return
-        self._load_default_document()
+        try:
+            self._load_default_document()
+        except Exception as e:
+            self._show_error("New failed", str(e))
 
     def _has_unsaved_main_changes(self) -> bool:
         """Compare current UI state against the last loaded/saved snapshot."""

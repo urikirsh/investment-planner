@@ -15,7 +15,7 @@ from portfolio_core.domain.ticker_rules import (
     ExchangeTickerLocationIndex,
     build_exchange_ticker_key,
 )
-from portfolio_core.use_cases import create_new_default_document
+from portfolio_core.use_cases import create_new_default_document_with_price_refresh
 from ui.controllers.protocols import MainWindowMainEditorHost
 from ui.dialogs import show_warning
 from ui.shared.loading_overlay import LoadingOverlay
@@ -242,7 +242,7 @@ class MainWindowMainEditorController:
     def load_default_document(self) -> None:
         """Load default portfolio into main editor as a new unsaved document."""
         host = self._host
-        p = create_new_default_document(host.session)
+        p = create_new_default_document_with_price_refresh(host.session)
         host._render_main_editor_from_portfolio(p, switch_to_main=False)
         host._update_file_context_ui()
 

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QDialog, QTreeWidgetItem
 
 import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.domain.models import Exchange
+from portfolio_core.io_json import load_portfolio
 from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
@@ -132,3 +133,52 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
     assert isinstance(index, ExchangeTickerLocationIndex)
     key = build_exchange_ticker_key(exchange=Exchange.NYSE, raw_ticker="AB12")
     assert index.find_location(key=key) == "Equity"
+
+
+def test_load_default_document_uses_refreshed_default_portfolio(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    refreshed = load_portfolio(
+        {
+            "cash": {"value": "12000", "min_reserve": "2000", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1234567",
+                    "name": "ETF",
+                    "quantity": 1,
+                    "value": "150",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+    rendered: list[tuple[object, bool]] = []
+    updated_file_context: list[bool] = []
+
+    monkeypatch.setattr(
+        controller_mod,
+        "create_new_default_document_with_price_refresh",
+        lambda session: session.mark_new_document(refreshed) or refreshed,
+    )
+    monkeypatch.setattr(
+        MainWindow,
+        "_render_main_editor_from_portfolio",
+        lambda self, portfolio, *, switch_to_main: rendered.append((portfolio, switch_to_main)),
+    )
+    monkeypatch.setattr(
+        MainWindow,
+        "_update_file_context_ui",
+        lambda self: updated_file_context.append(True),
+    )
+
+    window._main_editor_controller.load_default_document()
+
+    assert rendered == [(refreshed, False)]
+    assert updated_file_context == [True]
+    assert window.session.current_file_path is None

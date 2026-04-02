@@ -176,7 +176,7 @@ Notes:
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
 - `Open` loads an existing portfolio file and refreshes instrument prices before showing it.
-- `New` starts a fresh default portfolio.
+- `New` starts a fresh default portfolio and refreshes its instrument prices before showing it.
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
 - In the step-by-step wizard:
   - `Save and continue` writes progress after that step.

@@ -230,6 +230,27 @@ def test_open_clicked_stays_on_current_screen_when_price_refresh_fails(
     assert window.stack.currentWidget() is window.screen_main
 
 
+def test_new_clicked_shows_error_modal_when_default_price_refresh_fails(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    errors: list[tuple[str, str]] = []
+    window.stack.setCurrentWidget(window.screen_main)
+
+    monkeypatch.setattr(window, "_confirm_continue_with_unsaved_changes", lambda _action: True)
+    monkeypatch.setattr(
+        window,
+        "_load_default_document",
+        lambda: (_ for _ in ()).throw(ValueError("price fetch failed")),
+    )
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+
+    window._on_new_clicked()
+
+    assert errors == [("New failed", "price fetch failed")]
+    assert window.stack.currentWidget() is window.screen_main
+
+
 def test_confirm_unsaved_changes_splits_decision_prompt_from_action_resolution(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:

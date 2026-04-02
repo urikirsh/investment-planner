@@ -23,6 +23,7 @@ from portfolio_core.use_cases import (
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
+    create_new_default_document_with_price_refresh,
     load_document_with_price_refresh,
     refresh_portfolio_prices_for_startup,
     save_document_from_data,
@@ -311,6 +312,55 @@ def test_use_case_create_new_default_document_clears_active_path(tmp_path):
     assert created == build_default_portfolio()
     assert session.current_file_path is None
     assert session.document.current_portfolio == created
+    assert session.document.is_dirty() is False
+
+
+def test_use_case_create_new_default_document_with_price_refresh_marks_unsaved_refreshed_document(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    existing = tmp_path / "existing.json"
+    existing.write_text("{}", encoding="utf-8")
+    session.set_active_file_path(existing)
+    session.cache_usd_ils_quote(
+        rate=D("3.25"),
+        effective_date=date.fromisoformat("2026-03-11"),
+        used_last_published=False,
+    )
+    seen_rates: list[D] = []
+
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+        _ = lookup_timeout_seconds
+        seen_rates.append(usd_ils_rate)
+        refreshed_instruments = list(portfolio.instruments)
+        first = refreshed_instruments[0]
+        refreshed_instruments[0] = Instrument(
+            id=first.id,
+            ticker=first.ticker,
+            name=first.name,
+            value=D("111.11"),
+            exchange=first.exchange,
+            investable=first.investable,
+            asset_group_id=first.asset_group_id,
+            target_in_group_pct=first.target_in_group_pct,
+            quantity=first.quantity,
+        )
+        return Portfolio(
+            cash=portfolio.cash,
+            asset_groups=portfolio.asset_groups,
+            instruments=refreshed_instruments,
+        )
+
+    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+
+    created = create_new_default_document_with_price_refresh(session)
+
+    assert seen_rates == [D("3.25")]
+    assert created.instruments[0].value == D("111.11")
+    assert session.current_file_path is None
+    assert session.document.current_portfolio == created
+    assert session.document.saved_snapshot == created
     assert session.document.is_dirty() is False
 
 
