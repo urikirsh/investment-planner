@@ -51,13 +51,13 @@ class MainWindowMetricsController:
 
     def refresh_data(self) -> None:
         """Refresh all derived editor values that depend on current table/cash inputs."""
-        self.refresh_instrument_values_from_cache()
+        self._recompute_instrument_row_values()
         self.refresh_total_portfolio()
         self.update_investable_balance_visual_state()
         self.update_future_tax_visual_state()
         self.recalc_totals_and_pcts()
 
-    def refresh_instrument_values_from_cache(self) -> None:
+    def _recompute_instrument_row_values(self) -> None:
         """Recompute every instrument row value from cached fetched prices only."""
         host = self._host
         host._suppress_item_changed = True
