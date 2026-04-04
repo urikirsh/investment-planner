@@ -156,7 +156,6 @@ Notes:
   - `TASE` tickers must be 6 or 7 digits.
   - `NYSE` tickers must be 1 to 14 uppercase letters/digits, optionally one dot.
 - `instruments[*].quantity` is required and must be a non-negative integer.
-- Persisted portfolio files do not use `instruments[*].value`; if present in an older file, it is ignored on load.
 - `groups[*].targetPercentage` must sum to exactly `100`.
 - For each investable group, `targetInGroupPercentage` across its instruments must sum to exactly `100`.
 - Non-investable instruments must not have `groupId`, and their `targetInGroupPercentage` must be `0`.
@@ -176,9 +175,8 @@ Notes:
 - If the remembered file is missing, the welcome screen marks it as `Not found` and disables direct open.
 - `Save` updates the current file.
 - `Save As` lets you choose a new file name/location.
-- `Open` loads an existing portfolio file and refreshes instrument prices before showing it.
-- `New` starts a fresh default portfolio and refreshes its instrument prices before showing it.
-- Starting a new unsaved portfolio does not forget the last remembered file for the next app launch.
+- `Open` loads an existing portfolio file.
+- `New` starts a fresh default portfolio.
 - If you try to `Open`, `New`, or `Quit` with unsaved changes, the app asks whether to save first.
 - In the step-by-step wizard:
   - `Save and continue` writes progress after that step.
