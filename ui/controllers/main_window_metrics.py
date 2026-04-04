@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Derived-value refresh and metrics projection for the main editor."""
 
+from collections.abc import Iterator
 from decimal import Decimal, InvalidOperation
 
 from PySide6.QtWidgets import QTreeWidgetItem
@@ -61,14 +62,8 @@ class MainWindowMetricsController:
         host = self._host
         host._suppress_item_changed = True
         try:
-            for i in range(host.tree.topLevelItemCount()):
-                top = host.tree.topLevelItem(i)
-                if top is None:
-                    continue
-                for j in range(top.childCount()):
-                    child = top.child(j)
-                    if child is None:
-                        continue
+            for _top_key, _top, instrument_rows in self._iter_top_rows_with_instruments():
+                for _child_key, child in instrument_rows:
                     child.setText(
                         Col.TOT_VALUE.value,
                         str(self._compute_instrument_total_value_ils(child)),
@@ -167,6 +162,26 @@ class MainWindowMetricsController:
         else:
             host.investable_balance_label.setStyleSheet("color: #777777;")
 
+    def _iter_top_rows_with_instruments(
+        self,
+    ) -> Iterator[tuple[str, QTreeWidgetItem, tuple[tuple[str, QTreeWidgetItem], ...]]]:
+        """Yield top-level tree rows with stable keys and their child instrument rows."""
+        host = self._host
+        for i in range(host.tree.topLevelItemCount()):
+            top = host.tree.topLevelItem(i)
+            if top is None:
+                continue
+
+            top_key = f"top:{i}"
+            child_rows: list[tuple[str, QTreeWidgetItem]] = []
+            for j in range(top.childCount()):
+                child = top.child(j)
+                if child is None:
+                    continue
+                child_rows.append((f"top:{i}:child:{j}", child))
+
+            yield top_key, top, tuple(child_rows)
+
     def build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
         """Build metrics input snapshot and UI item index for write-back.
 
@@ -188,22 +203,12 @@ class MainWindowMetricsController:
         groups: list[MetricGroupRow] = []
         item_by_key: dict[str, QTreeWidgetItem] = {}
 
-        for i in range(host.tree.topLevelItemCount()):
-            top = host.tree.topLevelItem(i)
-            if top is None:
-                continue
-
-            top_key = f"top:{i}"
+        for top_key, top, instrument_rows in self._iter_top_rows_with_instruments():
             item_by_key[top_key] = top
             top_kind = get_item_kind(top)
 
             instruments: list[MetricInstrumentRow] = []
-            for j in range(top.childCount()):
-                child = top.child(j)
-                if child is None:
-                    continue
-
-                child_key = f"top:{i}:child:{j}"
+            for child_key, child in instrument_rows:
                 item_by_key[child_key] = child
                 instruments.append(
                     MetricInstrumentRow(
