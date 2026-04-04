@@ -291,7 +291,7 @@ UI-focused tests:
 Core/domain tests:
 - `tests/core/helpers.py`
   - shared builders (`make_valid_data`, `make_portfolio`)
-- `tests/core/market_data/test_service.py`
+- `tests/core/market_data/test_lookup_service.py`
   - NYSE/TASE market-data lookup parsing/matching, cache behavior, and communication-failure behavior
 - `tests/core/test_budget.py`
   - invest-budget and future-tax-aware unit calculations
@@ -301,7 +301,7 @@ Core/domain tests:
   - BOI USD/ILS payload parsing and "last published day" detection behavior
 - `tests/core/test_planning.py`
   - invest/rebalance planning and group-to-instrument split behavior
-- `tests/core/test_session_and_use_cases.py`
+- `tests/core/test_session_and_workflows.py`
   - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
 - `tests/core/test_ticker_rules.py`
   - shared ticker normalization/shape-validation rules plus canonical exchange+ticker key/index behavior
