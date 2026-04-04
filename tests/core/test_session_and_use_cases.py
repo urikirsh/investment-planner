@@ -16,7 +16,7 @@ from portfolio_core.domain.models import Exchange, Instrument, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.session.portfolio_document import PortfolioDocument
 from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
-from portfolio_core.use_cases import (
+from portfolio_core.workflows import (
     InsufficientQuantityForSellError,
     PlanStep,
     StartupPortfolioPriceRefreshError,
@@ -165,7 +165,7 @@ def test_load_document_uses_cached_fx_and_updates_document(
             instruments=refreshed_instruments,
         )
 
-    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+    monkeypatch.setattr("portfolio_core.workflows.refresh_portfolio_prices_for_startup", fake_refresh)
 
     loaded = load_document(session, target)
 
@@ -194,14 +194,14 @@ def test_load_document_fetches_and_caches_fx_when_missing(
     )()
     seen_rates: list[D] = []
 
-    monkeypatch.setattr("portfolio_core.use_cases.fetch_latest_usd_ils_rate", lambda timeout_seconds=8.0: fake_quote)
+    monkeypatch.setattr("portfolio_core.workflows.fetch_latest_usd_ils_rate", lambda timeout_seconds=8.0: fake_quote)
 
     def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
         _ = lookup_timeout_seconds
         seen_rates.append(usd_ils_rate)
         return portfolio
 
-    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+    monkeypatch.setattr("portfolio_core.workflows.refresh_portfolio_prices_for_startup", fake_refresh)
 
     load_document(session, target)
 
@@ -343,7 +343,7 @@ def test_use_case_create_new_default_document_marks_unsaved_refreshed_document(
             instruments=refreshed_instruments,
         )
 
-    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+    monkeypatch.setattr("portfolio_core.workflows.refresh_portfolio_prices_for_startup", fake_refresh)
 
     created = create_new_default_document(session)
 
@@ -601,7 +601,7 @@ def test_refresh_portfolio_prices_for_startup_raises_detailed_error_when_lookup_
             )
         raise AssertionError(f"Unexpected lookup: {exchange.value}:{ticker}")
 
-    monkeypatch.setattr("portfolio_core.use_cases.lookup_ticker_in_exchange", fake_lookup_ticker_in_exchange)
+    monkeypatch.setattr("portfolio_core.workflows.lookup_ticker_in_exchange", fake_lookup_ticker_in_exchange)
 
     with pytest.raises(StartupPortfolioPriceRefreshError, match="HTTP transport timed out"):
         refresh_portfolio_prices_for_startup(
@@ -648,7 +648,7 @@ def test_refresh_portfolio_prices_for_startup_converts_successful_nyse_lookup_to
             )
         )
 
-    monkeypatch.setattr("portfolio_core.use_cases.lookup_ticker_in_exchange", fake_lookup_ticker_in_exchange)
+    monkeypatch.setattr("portfolio_core.workflows.lookup_ticker_in_exchange", fake_lookup_ticker_in_exchange)
 
     refreshed = refresh_portfolio_prices_for_startup(
         portfolio,

@@ -28,7 +28,7 @@ Main user flow:
 1. Welcome screen handles startup choices (`open last`, `load`, `start new`, `quit`).
 2. Main editor captures current portfolio values.
 3. Save/Open/New actions go through `MainWindowActionsMixin`.
-4. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
+4. Planning (`invest`/`rebalance`) is built in `portfolio_core.workflows`.
 5. Summary screen presents generated plan steps.
 6. Wizard execution is managed by `MainWindowWizardMixin`.
 7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
@@ -234,7 +234,7 @@ Startup/wizard market-data guards in this flow:
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
   - requires instrument `exchange`, `ticker`, and `quantity`
-- `portfolio_core/use_cases.py`
+- `portfolio_core/workflows.py`
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data
   - builds plan results and applies wizard steps with persistence behavior

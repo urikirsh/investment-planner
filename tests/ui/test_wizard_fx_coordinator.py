@@ -5,7 +5,7 @@ from typing import Any, Callable, cast
 
 from portfolio_core.domain.models import Exchange
 from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.workflows import PlanStep
 from ui.ui_state import PlanningState, WizardState
 from ui.wizard_fx_coordinator import WizardFxCoordinator, WizardFxHost
 

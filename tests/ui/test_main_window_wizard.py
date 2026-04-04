@@ -9,7 +9,7 @@ from typing import Any, Callable
 import pytest
 
 from portfolio_core.domain.models import Exchange
-from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep
+from portfolio_core.workflows import InsufficientQuantityForSellError, PlanStep
 import ui.main_window_wizard as wizard_mod
 
 

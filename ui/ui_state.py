@@ -35,7 +35,7 @@ from enum import Enum
 
 from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.workflows import PlanStep
 
 
 class UnsavedChangesDecision(str, Enum):

@@ -26,7 +26,7 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStackedWidget, QTree
 from portfolio_core.domain.models import Currency, Portfolio
 from portfolio_core.planning.calc_stock_units import BuyCalculation, calculate_buy_units_from_ils_price
 from portfolio_core.session.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
+from portfolio_core.workflows import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
 from ui.dialogs import show_error
 from ui.screens.wizard_screen import WizardScreen
 from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils

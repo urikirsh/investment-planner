@@ -12,7 +12,7 @@ from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
-from portfolio_core.use_cases import StartupPortfolioPriceRefreshError, refresh_portfolio_prices_for_startup
+from portfolio_core.workflows import StartupPortfolioPriceRefreshError, refresh_portfolio_prices_for_startup
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000

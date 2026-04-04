@@ -14,7 +14,7 @@ from portfolio_core.domain.ticker_rules import (
     ExchangeTickerLocationIndex,
     build_exchange_ticker_key,
 )
-from portfolio_core.use_cases import create_new_default_document
+from portfolio_core.workflows import create_new_default_document
 from ui.controllers.protocols import MainWindowMainEditorHost, suppress_item_changed
 from ui.dialogs import show_warning
 from ui.shared.loading_overlay import LoadingOverlay

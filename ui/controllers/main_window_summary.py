@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QWidget
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.workflows import PlanStep
 from ui.controllers.protocols import MainWindowSummaryHost
 from ui.screens.summary_screen import SummaryScreen
 

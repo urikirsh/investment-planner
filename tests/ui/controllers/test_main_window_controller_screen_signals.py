@@ -8,7 +8,7 @@ from typing import Callable
 import pytest
 
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window_wizard as wizard_mod
 import ui.controllers.main_window_welcome as welcome_mod
