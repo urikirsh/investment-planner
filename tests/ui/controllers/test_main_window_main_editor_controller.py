@@ -60,6 +60,7 @@ def test_add_instrument_creates_row_from_wizard_result(
 
     monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
     monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+    monkeypatch.setattr(window, "_refresh_data", lambda: None)
 
     window._main_editor_controller.add_instrument()
 

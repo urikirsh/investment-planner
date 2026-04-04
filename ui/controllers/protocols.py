@@ -107,6 +107,7 @@ class MainWindowMetricsHost(Protocol):
     """Host contract consumed by ``MainWindowMetricsController``."""
     # state
     _suppress_item_changed: bool
+    session: PortfolioSession
 
     # widgets
     tree: QTreeWidget

@@ -48,7 +48,6 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert screen.tree.headerItem().text(Col.DRIFT_PP.value) == "Drift (pp)"
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
 
-    assert isinstance(screen.tree.itemDelegateForColumn(Col.TOT_VALUE.value), DecimalInputDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.QUANTITY.value), NonNegativeIntegerInputDelegate)
 
@@ -125,6 +124,7 @@ def test_main_editor_screen_sets_header_tooltips() -> None:
     assert "non-negative integer" in screen.tree.headerItem().toolTip(Col.QUANTITY.value).lower()
     total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)
     assert DEFAULT_CURRENCY.value in total_value_tooltip
+    assert "read-only" in total_value_tooltip.lower()
     exchange_tooltip = screen.tree.headerItem().toolTip(Col.EXCHANGE.value)
     assert "wizard" in exchange_tooltip.lower()
     for exchange_code in exchange_choices():

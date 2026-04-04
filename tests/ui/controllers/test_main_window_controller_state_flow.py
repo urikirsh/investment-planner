@@ -15,7 +15,9 @@ from typing import Callable
 import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
+from portfolio_core.domain.models import Exchange
 from portfolio_core.io_json import load_portfolio
+from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
@@ -204,10 +206,22 @@ def test_load_portfolio_from_file_renders_refreshed_portfolio(
     )
 
     monkeypatch.setattr(main_window, "load_document", lambda session, path: refreshed)
+    monkeypatch.setattr(
+        metrics_mod,
+        "get_cached_ticker_result_in_exchange",
+        lambda *, exchange, ticker: TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange(exchange),
+                canonical_ticker=ticker,
+                display_name=ticker,
+                last_traded_price=D("150"),
+            )
+        ),
+    )
 
     window._load_portfolio_from_file(target)
 
-    assert window.total_label.text() == "Total portfolio (ILS): 250"
+    assert window.total_label.text() == "Total portfolio (ILS): 250.00"
 
 
 def test_open_clicked_stays_on_current_screen_when_price_refresh_fails(

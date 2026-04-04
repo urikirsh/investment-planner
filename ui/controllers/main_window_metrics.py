@@ -6,6 +6,8 @@ from decimal import Decimal, InvalidOperation
 
 from PySide6.QtWidgets import QTreeWidgetItem
 
+from portfolio_core.domain.models import Currency, Exchange
+from portfolio_core.market_data import TickerLookupFound, get_cached_ticker_result_in_exchange
 from ui.controllers.protocols import MainWindowMetricsHost
 from ui.portfolio_editor_adapter import PortfolioPayload, build_portfolio_data_from_main_editor
 from ui.portfolio_metrics import (
@@ -15,10 +17,17 @@ from ui.portfolio_metrics import (
     compute_portfolio_metrics,
 )
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, apply_drift_color, get_item_kind, parse_value_cell
+from ui.shared.ui_utils import (
+    BASE_CURRENCY_SUFFIX,
+    apply_drift_color,
+    get_item_exchange,
+    get_item_kind,
+    parse_value_cell,
+)
 
 D = Decimal
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
+_TABLE_VALUE_PRECISION = D("0.01")
 
 
 class MainWindowMetricsController:
@@ -41,10 +50,63 @@ class MainWindowMetricsController:
 
     def refresh_data(self) -> None:
         """Refresh all derived editor values that depend on current table/cash inputs."""
+        self.refresh_instrument_values_from_cache()
         self.refresh_total_portfolio()
         self.update_investable_balance_visual_state()
         self.update_future_tax_visual_state()
         self.recalc_totals_and_pcts()
+
+    def refresh_instrument_values_from_cache(self) -> None:
+        """Recompute every instrument row value from cached fetched prices only."""
+        host = self._host
+        host._suppress_item_changed = True
+        try:
+            for i in range(host.tree.topLevelItemCount()):
+                top = host.tree.topLevelItem(i)
+                if top is None:
+                    continue
+                for j in range(top.childCount()):
+                    child = top.child(j)
+                    if child is None:
+                        continue
+                    child.setText(
+                        Col.TOT_VALUE.value,
+                        str(self._compute_instrument_total_value_ils(child)),
+                    )
+        finally:
+            host._suppress_item_changed = False
+
+    def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
+        """Return one instrument row's total value in ILS from cached market data."""
+        quantity_text = item.text(Col.QUANTITY.value).strip()
+        if quantity_text == "":
+            quantity = 0
+        else:
+            quantity = int(quantity_text)
+        if quantity == 0:
+            return D("0.00")
+
+        exchange = Exchange(get_item_exchange(item))
+        ticker = item.text(Col.TICKER.value).strip()
+        instrument_name = item.text(Col.NAME.value).strip() or ticker or "instrument"
+        cached_result = get_cached_ticker_result_in_exchange(exchange=exchange, ticker=ticker)
+        if not isinstance(cached_result, TickerLookupFound):
+            raise ValueError(
+                f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again."
+            )
+        unit_price = cached_result.metadata.last_traded_price
+        if unit_price is None:
+            raise ValueError(
+                f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again."
+            )
+
+        value_ils = unit_price * D(quantity)
+        if exchange.currency is Currency.USD:
+            cached_quote = self._host.session.cached_usd_ils_quote
+            if cached_quote is None:
+                raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
+            value_ils *= cached_quote.rate
+        return value_ils.quantize(_TABLE_VALUE_PRECISION)
 
     def refresh_total_portfolio(self) -> None:
         """Recompute and render total portfolio label, tolerating partial/invalid input."""

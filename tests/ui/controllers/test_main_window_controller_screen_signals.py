@@ -7,9 +7,11 @@ from typing import Callable
 
 import pytest
 
+from portfolio_core.domain.models import Exchange
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.use_cases import PlanStep
+import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window_wizard as wizard_mod
 import ui.controllers.main_window_welcome as welcome_mod
 from ui.main_window import MainWindow
@@ -51,6 +53,18 @@ def test_welcome_screen_load_different_button_signal_enters_main_on_success(
         window._welcome_controller._on_startup_market_data_fetch_finished(None, staged_portfolio, None)
 
     seed_session_usd_ils_cache(window)
+    monkeypatch.setattr(
+        metrics_mod,
+        "get_cached_ticker_result_in_exchange",
+        lambda *, exchange, ticker: TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange(exchange),
+                canonical_ticker=ticker,
+                display_name=ticker,
+                last_traded_price=Decimal("100"),
+            )
+        ),
+    )
     monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", window._welcome_controller._complete_startup_transition_to_main)
     monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_picker", fake_prepare_portfolio_from_picker)
     monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)

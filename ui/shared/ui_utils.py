@@ -162,9 +162,9 @@ def style_group_row(item: QTreeWidgetItem) -> None:
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
     """Apply computed/fixed visual styling for instrument rows."""
-    for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
+    for c in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
         set_cell_readonly_look(item, c)
-    for c in (Col.TICKER.value, Col.EXCHANGE.value):
+    for c in (Col.TICKER.value, Col.TOT_VALUE.value, Col.EXCHANGE.value):
         if not is_item_cell_editable(item, c):
             set_cell_fixed_look(item, c)
 
@@ -354,6 +354,5 @@ def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
     return col in (
         Col.NAME.value,
         Col.QUANTITY.value,
-        Col.TOT_VALUE.value,
         Col.TARGET_PCT.value,
     )
