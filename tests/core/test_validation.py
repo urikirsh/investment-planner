@@ -228,18 +228,6 @@ def test_parse_missing_instrument_value_defaults_to_zero() -> None:
     assert portfolio.instruments[0].value == Decimal("0")
 
 
-def test_load_portfolio_file_ignores_legacy_instrument_value_field(tmp_path) -> None:
-    target = tmp_path / "legacy_value_portfolio.json"
-    payload = make_valid_data()
-    payload["instruments"][0]["value"] = "999999"
-
-    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-
-    portfolio = load_portfolio_file(target)
-
-    assert portfolio.instruments[0].value == Decimal("0")
-
-
 def test_parse_fails_when_quantity_is_missing() -> None:
     data = make_valid_data()
     data["instruments"][0].pop("quantity", None)

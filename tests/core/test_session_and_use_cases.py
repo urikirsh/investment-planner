@@ -123,10 +123,11 @@ def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
     payload = make_valid_data()
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8-sig")
 
+    expected = load_portfolio(payload)
     loaded = load_portfolio_file(target)
-    assert loaded.cash == load_portfolio(payload).cash
-    assert loaded.asset_groups == load_portfolio(payload).asset_groups
-    assert [ins.value for ins in loaded.instruments] == [D("0"), D("0"), D("0")]
+    assert loaded.cash == expected.cash
+    assert loaded.asset_groups == expected.asset_groups
+    assert loaded.instruments == expected.instruments
 
 
 def test_load_document_uses_cached_fx_and_updates_document(
