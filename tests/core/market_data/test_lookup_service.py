@@ -17,7 +17,7 @@ from portfolio_core.market_data import (
     get_cached_ticker_result_in_exchange,
     lookup_ticker_in_exchange,
 )
-from portfolio_core.market_data.service import _LookupCacheKey
+from portfolio_core.market_data.lookup_service import _LookupCacheKey
 from portfolio_core.domain.ticker_rules import canonicalize_ticker_for_exchange
 
 
@@ -72,7 +72,7 @@ def _install_default_lookup_service_with_url_payloads(
     )()
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
-        "portfolio_core.market_data.service._default_market_data_service",
+        "portfolio_core.market_data.lookup_service._default_market_data_service",
         service,
     )
     return service
@@ -95,7 +95,7 @@ def _install_default_lookup_service_with_failing_transport(
     )()
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
-        "portfolio_core.market_data.service._default_market_data_service",
+        "portfolio_core.market_data.lookup_service._default_market_data_service",
         service,
     )
     return service
@@ -434,7 +434,7 @@ def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_page_f
     )()
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
-        "portfolio_core.market_data.service._default_market_data_service",
+        "portfolio_core.market_data.lookup_service._default_market_data_service",
         service,
     )
 

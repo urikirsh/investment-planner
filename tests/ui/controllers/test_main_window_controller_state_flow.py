@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QTreeWidgetItem
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window as main_window
 from ui.main_window import MainWindow

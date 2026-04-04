@@ -28,7 +28,7 @@ Main user flow:
 1. Welcome screen handles startup choices (`open last`, `load`, `start new`, `quit`).
 2. Main editor captures current portfolio values.
 3. Save/Open/New actions go through `MainWindowActionsMixin`.
-4. Planning (`invest`/`rebalance`) is built in `portfolio_core.use_cases`.
+4. Planning (`invest`/`rebalance`) is built in `portfolio_core.workflows`.
 5. Summary screen presents generated plan steps.
 6. Wizard execution is managed by `MainWindowWizardMixin`.
 7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
@@ -180,7 +180,7 @@ Startup/wizard market-data guards in this flow:
 - `portfolio_core/market_data/models.py`
   - defines lookup result/metadata contracts and immutable provider-data freezing
   - lookup metadata now carries optional `last_traded_price` alongside display fields
-- `portfolio_core/market_data/service.py`
+- `portfolio_core/market_data/lookup_service.py`
   - routes lookups by exchange and owns NYSE/TASE cache policy
   - cache entries store the full typed lookup result, including fetched price metadata
   - also exposes a cache-read path used by the wizard when it must not trigger a fresh fetch
@@ -234,7 +234,7 @@ Startup/wizard market-data guards in this flow:
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
   - requires instrument `exchange`, `ticker`, and `quantity`
-- `portfolio_core/use_cases.py`
+- `portfolio_core/workflows.py`
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data
   - builds plan results and applies wizard steps with persistence behavior
@@ -291,7 +291,7 @@ UI-focused tests:
 Core/domain tests:
 - `tests/core/helpers.py`
   - shared builders (`make_valid_data`, `make_portfolio`)
-- `tests/core/market_data/test_service.py`
+- `tests/core/market_data/test_lookup_service.py`
   - NYSE/TASE market-data lookup parsing/matching, cache behavior, and communication-failure behavior
 - `tests/core/test_budget.py`
   - invest-budget and future-tax-aware unit calculations
@@ -301,8 +301,8 @@ Core/domain tests:
   - BOI USD/ILS payload parsing and "last published day" detection behavior
 - `tests/core/test_planning.py`
   - invest/rebalance planning and group-to-instrument split behavior
-- `tests/core/test_session_and_use_cases.py`
-  - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
+- `tests/core/test_session_and_workflows.py`
+  - `PortfolioSession`/`PortfolioDocument` behavior and workflow orchestration
 - `tests/core/test_ticker_rules.py`
   - shared ticker normalization/shape-validation rules plus canonical exchange+ticker key/index behavior
 - `tests/core/test_validation.py`

@@ -12,7 +12,7 @@ from typing import Optional, cast
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QWidget
 
 from portfolio_core.session.portfolio_session import PortfolioSession
-from portfolio_core.use_cases import save_document_from_data, sync_document_from_data
+from portfolio_core.workflows import save_document_from_data, sync_document_from_data
 from ui.dialogs import choose_open_path, choose_save_path, confirm_unsaved_changes, show_error, show_info
 from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor
 from ui.ui_state import UnsavedChangesDecision

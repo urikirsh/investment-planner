@@ -24,7 +24,7 @@ from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem
 from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.models import Currency, Exchange, Portfolio
 from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
-from portfolio_core.use_cases import PlanStep
+from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.main_window import MainWindow

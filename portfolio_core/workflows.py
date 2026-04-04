@@ -22,7 +22,7 @@ from portfolio_core.session.portfolio_session import PortfolioSession, build_def
 from portfolio_core.domain.validation import validate_portfolio
 
 """
-use_cases.py
+workflows.py
 
 Application-level portfolio workflows ("use-cases").
 
