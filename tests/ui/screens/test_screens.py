@@ -125,6 +125,7 @@ def test_main_editor_screen_sets_header_tooltips() -> None:
     total_value_tooltip = screen.tree.headerItem().toolTip(Col.TOT_VALUE.value)
     assert DEFAULT_CURRENCY.value in total_value_tooltip
     assert "read-only" in total_value_tooltip.lower()
+    assert "cache" not in total_value_tooltip.lower()
     exchange_tooltip = screen.tree.headerItem().toolTip(Col.EXCHANGE.value)
     assert "wizard" in exchange_tooltip.lower()
     for exchange_code in exchange_choices():

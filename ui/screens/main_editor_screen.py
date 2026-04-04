@@ -167,7 +167,7 @@ class MainEditorScreen(QWidget):
         header_item.setToolTip(
             Col.TOT_VALUE.value,
             f"Current value for this row in {DEFAULT_CURRENCY.value}.\n"
-            "For an instrument: computed from the cached fetched price and quantity.\n"
+            "For an instrument: computed from the current price and quantity.\n"
             "For an asset group: sum of its instruments.\n"
             "This column is read-only.",
         )
