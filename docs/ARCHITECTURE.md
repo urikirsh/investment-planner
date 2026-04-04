@@ -180,7 +180,7 @@ Startup/wizard market-data guards in this flow:
 - `portfolio_core/market_data/models.py`
   - defines lookup result/metadata contracts and immutable provider-data freezing
   - lookup metadata now carries optional `last_traded_price` alongside display fields
-- `portfolio_core/market_data/service.py`
+- `portfolio_core/market_data/lookup_service.py`
   - routes lookups by exchange and owns NYSE/TASE cache policy
   - cache entries store the full typed lookup result, including fetched price metadata
   - also exposes a cache-read path used by the wizard when it must not trigger a fresh fetch
