@@ -6,6 +6,7 @@ This file centralizes Qt test setup so individual tests can focus on widget
 behavior rather than process-level initialization details. It also provides
 shared helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`,
 `make_buy_calculation`, `add_instrument_row`, `make_cached_lookup`,
+`stub_cached_prices_for_portfolio`,
 `make_wizard_host`) for common UI test object setup.
 """
 
@@ -21,11 +22,13 @@ import pytest
 from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.planning.calc_stock_units import BuyCalculation
-from portfolio_core.domain.models import Exchange, Portfolio
+from portfolio_core.domain.models import Currency, Exchange, Portfolio
 from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.use_cases import PlanStep
+import ui.controllers.main_window_metrics as metrics_mod
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.main_window import MainWindow
+from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
@@ -116,6 +119,36 @@ def seed_session_usd_ils_cache() -> Callable[[MainWindow], None]:
 
 
 @pytest.fixture
+def stub_cached_prices_for_portfolio() -> Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None]:
+    """Return helper that stubs metrics price resolution for a portfolio."""
+
+    def _seed(monkeypatch: pytest.MonkeyPatch, window: MainWindow, portfolio: Portfolio) -> None:
+        cached_quote = window.session.cached_usd_ils_quote
+        prices_by_key: dict[tuple[Exchange, str], Decimal] = {}
+        for instrument in portfolio.instruments:
+            quantity = instrument.quantity
+            if quantity == 0:
+                native_price = Decimal("0")
+            else:
+                native_price = instrument.value / quantity
+                if instrument.exchange.currency is Currency.USD and cached_quote is not None:
+                    native_price /= cached_quote.rate
+            prices_by_key[(instrument.exchange, instrument.ticker)] = native_price
+
+        monkeypatch.setattr(
+            metrics_mod,
+            "resolve_cached_instrument_price_ils",
+            lambda *, exchange, ticker, instrument_name, usd_ils_rate=None: prices_by_key[(exchange, ticker)]
+            if (exchange, ticker) in prices_by_key
+            else (_ for _ in ()).throw(
+                ValueError(f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again.")
+            ),
+        )
+
+    return _seed
+
+
+@pytest.fixture
 def window(monkeypatch: pytest.MonkeyPatch, qapp: object, tmp_path: Path) -> Iterator[MainWindow]:
     """Return a `MainWindow` with disk/UI side effects neutralized for tests."""
     _ = qapp
@@ -158,13 +191,13 @@ def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
             ticker,
             instrument_name,
             quantity,
-            value,
             target_in_group_pct,
             instrument_id,
             exchange,
         )
         child = group.child(group.childCount() - 1)
         assert child is not None
+        child.setText(Col.TOT_VALUE.value, value)
         return child
 
     return _add_instrument_row

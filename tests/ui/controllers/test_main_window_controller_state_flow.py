@@ -204,10 +204,15 @@ def test_load_portfolio_from_file_renders_refreshed_portfolio(
     )
 
     monkeypatch.setattr(main_window, "load_document", lambda session, path: refreshed)
+    monkeypatch.setattr(
+        metrics_mod,
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: D("150"),
+    )
 
     window._load_portfolio_from_file(target)
 
-    assert window.total_label.text() == "Total portfolio (ILS): 250"
+    assert window.total_label.text() == "Total portfolio (ILS): 250.00"
 
 
 def test_open_clicked_stays_on_current_screen_when_price_refresh_fails(

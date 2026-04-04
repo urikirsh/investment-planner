@@ -136,10 +136,6 @@ class MainEditorScreen(QWidget):
         tree.headerItem().setTextAlignment(Col.QUANTITY.value, Qt.AlignmentFlag.AlignCenter)
         tree.headerItem().setTextAlignment(Col.EXCHANGE.value, Qt.AlignmentFlag.AlignCenter)
         tree.setItemDelegateForColumn(
-            Col.TOT_VALUE.value,
-            DecimalInputDelegate(allow_empty=False, parent=tree),
-        )
-        tree.setItemDelegateForColumn(
             Col.TARGET_PCT.value,
             DecimalInputDelegate(allow_empty=False, parent=tree),
         )
@@ -171,8 +167,9 @@ class MainEditorScreen(QWidget):
         header_item.setToolTip(
             Col.TOT_VALUE.value,
             f"Current value for this row in {DEFAULT_CURRENCY.value}.\n"
+            "For an instrument: computed from the current price and quantity.\n"
             "For an asset group: sum of its instruments.\n"
-            "For an instrument: the instrument's own value.",
+            "This column is read-only.",
         )
         header_item.setToolTip(
             Col.EXCHANGE.value,

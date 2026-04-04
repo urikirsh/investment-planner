@@ -9,8 +9,10 @@ from PySide6.QtWidgets import QDialog, QTreeWidgetItem
 
 import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.domain.models import Exchange
-from portfolio_core.io_json import load_portfolio
 from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
+from portfolio_core.io_json import load_portfolio
+import ui.controllers.main_window_metrics as metrics_mod
+from ui.controllers.protocols import suppress_item_changed
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
@@ -60,6 +62,7 @@ def test_add_instrument_creates_row_from_wizard_result(
 
     monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
     monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("425.17"))
 
     window._main_editor_controller.add_instrument()
 
@@ -69,9 +72,72 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TICKER.value) == "AB12"
     assert child.text(Col.NAME.value) == "World ETF"
     assert child.text(Col.QUANTITY.value) == "12"
-    assert child.text(Col.TOT_VALUE.value) == "425.17"
+    assert child.text(Col.TOT_VALUE.value) == "5102.04"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
     assert child.text(Col.TARGET_PCT.value) == "25"
+
+
+def test_add_instrument_suppresses_item_changed_during_row_creation(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Equity", "100", "grp_equity")
+    window.tree.setCurrentItem(group)
+    suppress_states: list[bool] = []
+
+    class _FakeWizard:
+        def __init__(self, **kwargs: object) -> None:
+            _ = kwargs
+            self.result_data = SimpleNamespace(
+                exchange=Exchange.TASE,
+                ticker="1234567",
+                name="Local ETF",
+                last_traded_price=Decimal("10"),
+                target_in_group_pct="25",
+                units=2,
+            )
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+    def _recording_add(
+        gitem: QTreeWidgetItem,
+        ticker: str,
+        name: str,
+        quantity: int,
+        in_group_pct: str,
+        id_str: str = "",
+        exchange: str | Exchange = "TASE",
+    ) -> None:
+        suppress_states.append(window._suppress_item_changed)
+        add_instrument_item_to_group(gitem, ticker, name, quantity, in_group_pct, id_str, exchange)
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+    monkeypatch.setattr(controller_mod, "add_instrument_item_to_group", _recording_add)
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("10"))
+
+    window._main_editor_controller.add_instrument()
+
+    assert suppress_states == [True]
+    assert window._suppress_item_changed is False
+
+
+def test_suppress_item_changed_restores_flag_after_exception() -> None:
+    class _Host:
+        _suppress_item_changed = False
+
+    host = _Host()
+
+    try:
+        with suppress_item_changed(host):
+            assert host._suppress_item_changed is True
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+
+    assert host._suppress_item_changed is False
 
 
 def test_add_instrument_noop_when_wizard_is_canceled(
@@ -102,6 +168,7 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("1"))
     group = QTreeWidgetItem(window.tree)
     set_group_tree_item(group, "Equity", "100", "grp_equity")
     add_instrument_item_to_group(
@@ -109,7 +176,6 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
         "ab12",
         "World ETF",
         10,
-        "1",
         "100",
         exchange=Exchange.NYSE,
     )

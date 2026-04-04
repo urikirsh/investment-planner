@@ -24,12 +24,12 @@ from PySide6.QtCore import QObject, QSignalBlocker
 from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.domain.models import Currency, Portfolio
-from portfolio_core.market_data import TickerLookupFound, get_cached_ticker_result_in_exchange
 from portfolio_core.planning.calc_stock_units import BuyCalculation, calculate_buy_units_from_ils_price
 from portfolio_core.session.portfolio_session import PortfolioSession
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep, apply_wizard_step
 from ui.dialogs import show_error
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY
 from ui.ui_state import PlanningState, WizardState
@@ -210,21 +210,13 @@ class MainWindowWizardMixin:
         using the wizard's startup-cached USD/ILS rate so unit calculations stay
         in one currency.
         """
-        result = get_cached_ticker_result_in_exchange(exchange=step.exchange, ticker=step.ticker)
-        if not isinstance(result, TickerLookupFound):
-            raise ValueError(self._cached_price_unavailable_message(step))
-        native_price = result.metadata.last_traded_price
-        if native_price is None:
-            raise ValueError(self._cached_price_unavailable_message(step))
-        if step.exchange.currency == Currency.USD:
-            usd_ils_rate = self._get_effective_usd_ils_rate()
-            return native_price * usd_ils_rate
-        return native_price
-
-    @staticmethod
-    def _cached_price_unavailable_message(step: PlanStep) -> str:
-        """Return the standard user-facing message for missing cached step prices."""
-        return f"Cached price unavailable for {step.instrument_name}. Return to the welcome screen and try again."
+        usd_ils_rate = self._get_effective_usd_ils_rate() if step.exchange.currency == Currency.USD else None
+        return resolve_cached_instrument_price_ils(
+            exchange=step.exchange,
+            ticker=step.ticker,
+            instrument_name=step.instrument_name,
+            usd_ils_rate=usd_ils_rate,
+        )
 
     def _get_effective_usd_ils_rate(self) -> D:
         """Return startup-cached USD/ILS rate for current wizard run."""

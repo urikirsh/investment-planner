@@ -2,6 +2,8 @@ from __future__ import annotations
 
 """Typing contracts for composed main-window controllers."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Protocol
 
@@ -15,6 +17,22 @@ from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.ui_state import PlanningState
+
+
+class SupportsItemChangedSuppression(Protocol):
+    """Protocol for hosts that temporarily suppress item-changed reactions."""
+
+    _suppress_item_changed: bool
+
+
+@contextmanager
+def suppress_item_changed(host: SupportsItemChangedSuppression) -> Iterator[None]:
+    """Temporarily suppress item-changed reactions on a controller host."""
+    host._suppress_item_changed = True
+    try:
+        yield
+    finally:
+        host._suppress_item_changed = False
 
 
 class MainWindowWelcomeHost(Protocol):
@@ -55,6 +73,7 @@ class MainWindowMainEditorHost(Protocol):
     """Host contract consumed by ``MainWindowMainEditorController``."""
     # state
     session: PortfolioSession
+    _suppress_item_changed: bool
     _non_investable_bucket_id: str
     _non_investable_bucket_title: str
 
@@ -107,6 +126,7 @@ class MainWindowMetricsHost(Protocol):
     """Host contract consumed by ``MainWindowMetricsController``."""
     # state
     _suppress_item_changed: bool
+    session: PortfolioSession
 
     # widgets
     tree: QTreeWidget

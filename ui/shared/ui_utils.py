@@ -162,9 +162,9 @@ def style_group_row(item: QTreeWidgetItem) -> None:
 
 def style_instrument_row(item: QTreeWidgetItem) -> None:
     """Apply computed/fixed visual styling for instrument rows."""
-    for c in (Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
+    for c in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
         set_cell_readonly_look(item, c)
-    for c in (Col.TICKER.value, Col.EXCHANGE.value):
+    for c in (Col.TICKER.value, Col.TOT_VALUE.value, Col.EXCHANGE.value):
         if not is_item_cell_editable(item, c):
             set_cell_fixed_look(item, c)
 
@@ -240,13 +240,12 @@ def add_instrument_item_to_group(
         ticker: str,
         name: str,
         quantity: int,
-        value: str,
         in_group_pct: str,
         id_str: str = "",
         exchange: str = DEFAULT_EXCHANGE.value,
 ) \
         -> None:
-    """Create and initialize an instrument child row under the given parent group."""
+    """Create an instrument child row with default computed-cell values."""
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()
@@ -254,7 +253,7 @@ def add_instrument_item_to_group(
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
-    item.setText(Col.TOT_VALUE.value, value)
+    item.setText(Col.TOT_VALUE.value, "0")
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
@@ -354,6 +353,5 @@ def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
     return col in (
         Col.NAME.value,
         Col.QUANTITY.value,
-        Col.TOT_VALUE.value,
         Col.TARGET_PCT.value,
     )

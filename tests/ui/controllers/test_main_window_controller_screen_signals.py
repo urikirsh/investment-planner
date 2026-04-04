@@ -8,8 +8,8 @@ from typing import Callable
 import pytest
 
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.use_cases import PlanStep
+import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window_wizard as wizard_mod
 import ui.controllers.main_window_welcome as welcome_mod
 from ui.main_window import MainWindow
@@ -51,6 +51,11 @@ def test_welcome_screen_load_different_button_signal_enters_main_on_success(
         window._welcome_controller._on_startup_market_data_fetch_finished(None, staged_portfolio, None)
 
     seed_session_usd_ils_cache(window)
+    monkeypatch.setattr(
+        metrics_mod,
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("100"),
+    )
     monkeypatch.setattr(window._welcome_controller, "_schedule_main_screen_transition", window._welcome_controller._complete_startup_transition_to_main)
     monkeypatch.setattr(window._welcome_controller, "_prepare_portfolio_from_picker", fake_prepare_portfolio_from_picker)
     monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)
@@ -138,19 +143,6 @@ def test_summary_next_button_signal_returns_to_main_when_no_steps(window: MainWi
     window.screen_summary.next_btn.click()
 
     assert window.stack.currentWidget() is window.screen_main
-
-
-def _cached_lookup(*, step: PlanStep, price: str) -> TickerLookupFound:
-    return TickerLookupFound(
-        metadata=TickerLookupMetadata(
-            exchange=step.exchange,
-            canonical_ticker=step.ticker,
-            display_name=step.instrument_name,
-            last_traded_price=Decimal(price),
-        )
-    )
-
-
 def test_wizard_units_text_changed_signal_runs_calculation_flow(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
@@ -161,8 +153,8 @@ def test_wizard_units_text_changed_signal_runs_calculation_flow(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("10"),
     )
     window._show_current_wizard_step()
 
@@ -184,8 +176,8 @@ def test_wizard_units_text_changed_signal_disables_save_on_invalid_input(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("10"),
     )
     window._show_current_wizard_step()
 
@@ -206,8 +198,8 @@ def test_wizard_units_text_changed_signal_disables_save_on_empty_input(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("10"),
     )
     window._show_current_wizard_step()
 
@@ -228,8 +220,8 @@ def test_wizard_units_text_changed_signal_clamps_to_recommended_limit(
     window.planning_state.step_index = 0
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: _cached_lookup(step=step, price="10"),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("10"),
     )
     window._show_current_wizard_step()
 

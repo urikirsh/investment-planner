@@ -148,11 +148,13 @@ def populate_main_editor_from_portfolio(
                     ins_row["ticker"],
                     ins_row["name"],
                     ins_row["quantity"],
-                    ins_row["value"],
                     ins_row["targetInGroupPercentage"],
                     ins_row["id"],
                     ins_row["exchange"],
                 )
+                child = group_item.child(group_item.childCount() - 1)
+                if child is not None:
+                    child.setText(Col.TOT_VALUE.value, ins_row["value"])
 
         non_investable_bucket = QTreeWidgetItem(tree)
         set_group_tree_item(
@@ -168,11 +170,13 @@ def populate_main_editor_from_portfolio(
                 non_investable_row["ticker"],
                 non_investable_row["name"],
                 non_investable_row["quantity"],
-                non_investable_row["value"],
                 "",
                 non_investable_row["id"],
                 non_investable_row["exchange"],
             )
+            child = non_investable_bucket.child(non_investable_bucket.childCount() - 1)
+            if child is not None:
+                child.setText(Col.TOT_VALUE.value, non_investable_row["value"])
 
         tree.expandAll()
     finally:

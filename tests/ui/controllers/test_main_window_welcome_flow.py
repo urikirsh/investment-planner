@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Callable
 from pathlib import Path
+from typing import Callable
+
 import pytest
 
 from portfolio_core.domain.models import Portfolio
@@ -170,6 +171,7 @@ def test_welcome_open_last_transitions_to_main_on_success(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
     seed_session_usd_ils_cache: Callable[[MainWindow], None],
+    stub_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
 ) -> None:
     remembered_path = tmp_path / "remembered.json"
     remembered_path.write_text("{}", encoding="utf-8")
@@ -184,6 +186,7 @@ def test_welcome_open_last_transitions_to_main_on_success(
         seen_paths=seen_paths,
     )
     seed_session_usd_ils_cache(window)
+    stub_cached_prices_for_portfolio(monkeypatch, window, staged_portfolio)
     _run_welcome_transition_immediately(monkeypatch, window)
     _complete_startup_fetch_with_portfolio(monkeypatch, window, portfolio=staged_portfolio)
 
@@ -316,6 +319,7 @@ def test_welcome_start_new_loads_default_and_enters_main(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     seed_session_usd_ils_cache: Callable[[MainWindow], None],
+    stub_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
 ) -> None:
     seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
@@ -323,6 +327,7 @@ def test_welcome_start_new_loads_default_and_enters_main(
     window._on_welcome_start_new_clicked()
     pending = window._welcome_controller._pending_startup_portfolio
     assert pending is not None
+    stub_cached_prices_for_portfolio(monkeypatch, window, pending.portfolio)
     window._welcome_controller._on_startup_market_data_fetch_finished(None, pending.portfolio, None)
 
     assert window.stack.currentWidget() is window.screen_main
@@ -335,6 +340,7 @@ def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
     seed_session_usd_ils_cache: Callable[[MainWindow], None],
+    stub_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
 ) -> None:
     remembered_path = tmp_path / "remembered.json"
     remembered_path.write_text("{}", encoding="utf-8")
@@ -362,13 +368,14 @@ def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
     _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
     _mock_prepare_staged_portfolio(monkeypatch, window, portfolio=staged_portfolio)
     seed_session_usd_ils_cache(window)
+    stub_cached_prices_for_portfolio(monkeypatch, window, refreshed_portfolio)
     _run_welcome_transition_immediately(monkeypatch, window)
     _complete_startup_fetch_with_portfolio(monkeypatch, window, portfolio=refreshed_portfolio)
 
     window._on_welcome_open_last_clicked()
 
     assert window.stack.currentWidget() is window.screen_main
-    assert window.total_label.text() == "Total portfolio (ILS): 250"
+    assert window.total_label.text() == "Total portfolio (ILS): 250.00"
 
 
 def test_welcome_success_action_shows_overlay_before_delayed_main_transition(

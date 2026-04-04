@@ -2,11 +2,13 @@ from __future__ import annotations
 
 """Derived-value refresh and metrics projection for the main editor."""
 
+from collections.abc import Iterator
 from decimal import Decimal, InvalidOperation
 
 from PySide6.QtWidgets import QTreeWidgetItem
 
-from ui.controllers.protocols import MainWindowMetricsHost
+from portfolio_core.domain.models import Exchange
+from ui.controllers.protocols import MainWindowMetricsHost, suppress_item_changed
 from ui.portfolio_editor_adapter import PortfolioPayload, build_portfolio_data_from_main_editor
 from ui.portfolio_metrics import (
     MetricGroupRow,
@@ -15,10 +17,18 @@ from ui.portfolio_metrics import (
     compute_portfolio_metrics,
 )
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, apply_drift_color, get_item_kind, parse_value_cell
+from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils
+from ui.shared.ui_utils import (
+    BASE_CURRENCY_SUFFIX,
+    apply_drift_color,
+    get_item_exchange,
+    get_item_kind,
+    parse_value_cell,
+)
 
 D = Decimal
 MIN_INVESTABLE_AMOUNT_ILS = D("100")
+_TABLE_VALUE_PRECISION = D("0.01")
 
 
 class MainWindowMetricsController:
@@ -41,10 +51,44 @@ class MainWindowMetricsController:
 
     def refresh_data(self) -> None:
         """Refresh all derived editor values that depend on current table/cash inputs."""
+        self._recompute_instrument_row_values()
         self.refresh_total_portfolio()
         self.update_investable_balance_visual_state()
         self.update_future_tax_visual_state()
         self.recalc_totals_and_pcts()
+
+    def _recompute_instrument_row_values(self) -> None:
+        """Recompute every instrument row value from cached prices."""
+        with suppress_item_changed(self._host):
+            for _top_key, _top, instrument_rows in self._iter_top_rows_with_instruments():
+                for _child_key, child in instrument_rows:
+                    child.setText(
+                        Col.TOT_VALUE.value,
+                        str(self._compute_instrument_total_value_ils(child)),
+                    )
+
+    def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
+        """Return one instrument row's total value in ILS from cached market data."""
+        quantity_text = item.text(Col.QUANTITY.value).strip()
+        if quantity_text == "":
+            quantity = 0
+        else:
+            quantity = int(quantity_text)
+        if quantity == 0:
+            return D("0.00")
+
+        exchange = Exchange(get_item_exchange(item))
+        ticker = item.text(Col.TICKER.value).strip()
+        instrument_name = item.text(Col.NAME.value).strip() or ticker or "instrument"
+        cached_quote = self._host.session.cached_usd_ils_quote
+        unit_price_ils = resolve_cached_instrument_price_ils(
+            exchange=exchange,
+            ticker=ticker,
+            instrument_name=instrument_name,
+            usd_ils_rate=None if cached_quote is None else cached_quote.rate,
+        )
+        value_ils = unit_price_ils * D(quantity)
+        return value_ils.quantize(_TABLE_VALUE_PRECISION)
 
     def refresh_total_portfolio(self) -> None:
         """Recompute and render total portfolio label, tolerating partial/invalid input."""
@@ -64,9 +108,7 @@ class MainWindowMetricsController:
 
     def recalc_totals_and_pcts(self) -> None:
         """Recompute group/instrument metrics and write them back to table cells."""
-        host = self._host
-        host._suppress_item_changed = True
-        try:
+        with suppress_item_changed(self._host):
             snapshot, item_by_key = self.build_metrics_snapshot()
             metrics = compute_portfolio_metrics(snapshot)
 
@@ -82,8 +124,6 @@ class MainWindowMetricsController:
                 item_by_key[key].setText(Col.TARGET_PCT.value, text)
             for key, drift in metrics.drift_value_by_key.items():
                 apply_drift_color(item_by_key[key], Col.DRIFT_PP.value, drift)
-        finally:
-            host._suppress_item_changed = False
 
     def normalize_future_tax_input(self) -> None:
         """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""
@@ -114,6 +154,26 @@ class MainWindowMetricsController:
         else:
             host.investable_balance_label.setStyleSheet("color: #777777;")
 
+    def _iter_top_rows_with_instruments(
+        self,
+    ) -> Iterator[tuple[str, QTreeWidgetItem, tuple[tuple[str, QTreeWidgetItem], ...]]]:
+        """Yield top-level tree rows with stable keys and child rows in UI order."""
+        host = self._host
+        for i in range(host.tree.topLevelItemCount()):
+            top = host.tree.topLevelItem(i)
+            if top is None:
+                continue
+
+            top_key = f"top:{i}"
+            child_rows: list[tuple[str, QTreeWidgetItem]] = []
+            for j in range(top.childCount()):
+                child = top.child(j)
+                if child is None:
+                    continue
+                child_rows.append((f"top:{i}:child:{j}", child))
+
+            yield top_key, top, tuple(child_rows)
+
     def build_metrics_snapshot(self) -> tuple[MetricsSnapshot, dict[str, QTreeWidgetItem]]:
         """Build metrics input snapshot and UI item index for write-back.
 
@@ -135,22 +195,12 @@ class MainWindowMetricsController:
         groups: list[MetricGroupRow] = []
         item_by_key: dict[str, QTreeWidgetItem] = {}
 
-        for i in range(host.tree.topLevelItemCount()):
-            top = host.tree.topLevelItem(i)
-            if top is None:
-                continue
-
-            top_key = f"top:{i}"
+        for top_key, top, instrument_rows in self._iter_top_rows_with_instruments():
             item_by_key[top_key] = top
             top_kind = get_item_kind(top)
 
             instruments: list[MetricInstrumentRow] = []
-            for j in range(top.childCount()):
-                child = top.child(j)
-                if child is None:
-                    continue
-
-                child_key = f"top:{i}:child:{j}"
+            for child_key, child in instrument_rows:
                 item_by_key[child_key] = child
                 instruments.append(
                     MetricInstrumentRow(
