@@ -6,8 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from PySide6.QtWidgets import QTreeWidgetItem
 
-from portfolio_core.domain.models import Currency, Exchange
-from portfolio_core.market_data import TickerLookupFound, get_cached_ticker_result_in_exchange
+from portfolio_core.domain.models import Exchange
 from ui.controllers.protocols import MainWindowMetricsHost
 from ui.portfolio_editor_adapter import PortfolioPayload, build_portfolio_data_from_main_editor
 from ui.portfolio_metrics import (
@@ -17,6 +16,7 @@ from ui.portfolio_metrics import (
     compute_portfolio_metrics,
 )
 from ui.shared.ui_types import Col
+from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils
 from ui.shared.ui_utils import (
     BASE_CURRENCY_SUFFIX,
     apply_drift_color,
@@ -89,23 +89,14 @@ class MainWindowMetricsController:
         exchange = Exchange(get_item_exchange(item))
         ticker = item.text(Col.TICKER.value).strip()
         instrument_name = item.text(Col.NAME.value).strip() or ticker or "instrument"
-        cached_result = get_cached_ticker_result_in_exchange(exchange=exchange, ticker=ticker)
-        if not isinstance(cached_result, TickerLookupFound):
-            raise ValueError(
-                f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again."
-            )
-        unit_price = cached_result.metadata.last_traded_price
-        if unit_price is None:
-            raise ValueError(
-                f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again."
-            )
-
-        value_ils = unit_price * D(quantity)
-        if exchange.currency is Currency.USD:
-            cached_quote = self._host.session.cached_usd_ils_quote
-            if cached_quote is None:
-                raise ValueError("USD/ILS rate unavailable. Return to the welcome screen and try again.")
-            value_ils *= cached_quote.rate
+        cached_quote = self._host.session.cached_usd_ils_quote
+        unit_price_ils = resolve_cached_instrument_price_ils(
+            exchange=exchange,
+            ticker=ticker,
+            instrument_name=instrument_name,
+            usd_ils_rate=None if cached_quote is None else cached_quote.rate,
+        )
+        value_ils = unit_price_ils * D(quantity)
         return value_ils.quantize(_TABLE_VALUE_PRECISION)
 
     def refresh_total_portfolio(self) -> None:

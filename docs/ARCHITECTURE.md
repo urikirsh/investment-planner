@@ -105,6 +105,7 @@ Startup/wizard market-data guards in this flow:
   - row-width syncing is responsive: widths are clamped to available space and revert to natural sizing on narrow windows
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
+  - `cached_instrument_pricing.py`: shared cached-price resolution helper that reads the market-data lookup cache and converts per-unit prices to ILS
   - `constants.py`: shared static UI constants used by multiple UI modules
     - cleanup timing knobs are defined here so wait policy stays centralized
   - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
@@ -125,10 +126,10 @@ Startup/wizard market-data guards in this flow:
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
 - `ui/main_window_wizard.py`
-  - wizard screen wiring and per-step cached-price lookup, units validation, save, and advance behavior
+  - wizard screen wiring and per-step cached-price resolution, units validation, save, and advance behavior
   - handles transition back to main editor when wizard execution completes or when user exits early via `Exit Wizard`
   - wizard step info card includes instrument name, ticker, exchange, asset group, and action amount context
-  - reads per-instrument prices from the shared market-data lookup cache populated during startup/add-instrument lookups
+  - resolves per-instrument prices through the shared cached-instrument-pricing helper backed by the market-data lookup cache populated during startup/add-instrument lookups
   - pre-fills whole-unit buy/sell counts from cached prices, then recomputes totals from the user-editable units field
   - invalid step state invalidates cached `last_calc` and re-disables `Save and continue`
 - `ui/portfolio_editor_adapter.py`

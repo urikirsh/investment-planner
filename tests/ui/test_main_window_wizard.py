@@ -9,7 +9,6 @@ from typing import Any, Callable
 import pytest
 
 from portfolio_core.domain.models import Exchange
-from portfolio_core.market_data import TickerLookupFound
 from portfolio_core.use_cases import InsufficientQuantityForSellError, PlanStep
 import ui.main_window_wizard as wizard_mod
 
@@ -18,13 +17,12 @@ def test_show_current_wizard_step_prefills_buy_units_from_cached_price(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
     make_wizard_host: Callable[..., Any],
-    make_cached_lookup: Callable[..., TickerLookupFound],
 ) -> None:
     host = make_wizard_host(steps=[make_plan_step(delta="125")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("12.5")),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("12.5"),
     )
 
     host._show_current_wizard_step()
@@ -42,13 +40,12 @@ def test_show_current_wizard_step_prefills_sell_units_from_cached_price(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
     make_wizard_host: Callable[..., Any],
-    make_cached_lookup: Callable[..., TickerLookupFound],
 ) -> None:
     host = make_wizard_host(steps=[make_plan_step(delta="-125")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("25")),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("25"),
     )
 
     host._show_current_wizard_step()
@@ -64,14 +61,13 @@ def test_show_current_wizard_step_uses_cached_usd_price_and_fx_rate(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
     make_wizard_host: Callable[..., Any],
-    make_cached_lookup: Callable[..., TickerLookupFound],
 ) -> None:
     host = make_wizard_host(steps=[make_plan_step(delta="50", exchange=Exchange.NYSE)])
     host.wizard_state.usd_ils_rate = Decimal("3.1")
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("10")),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("31"),
     )
 
     host._show_current_wizard_step()
@@ -86,13 +82,12 @@ def test_wizard_units_change_clamps_to_recommended_limit(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
     make_wizard_host: Callable[..., Any],
-    make_cached_lookup: Callable[..., TickerLookupFound],
 ) -> None:
     host = make_wizard_host(steps=[make_plan_step(delta="50")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("20")),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("20"),
     )
 
     host._show_current_wizard_step()
@@ -109,13 +104,12 @@ def test_wizard_units_change_allows_zero_units(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],
     make_wizard_host: Callable[..., Any],
-    make_cached_lookup: Callable[..., TickerLookupFound],
 ) -> None:
     host = make_wizard_host(steps=[make_plan_step(delta="50")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: make_cached_lookup(exchange=exchange, ticker=ticker, price=Decimal("20")),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("20"),
     )
 
     host._show_current_wizard_step()
@@ -136,8 +130,8 @@ def test_show_current_wizard_step_requires_cached_price(
     host = make_wizard_host(steps=[make_plan_step(delta="50")])
     monkeypatch.setattr(
         wizard_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: None,
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: (_ for _ in ()).throw(ValueError("Cached price unavailable for 'ETF A'. Return to the welcome screen and try again.")),
     )
 
     host._show_current_wizard_step()

@@ -84,12 +84,8 @@ def test_item_changed_quantity_recomputes_total_value_from_cached_price(
 
     monkeypatch.setattr(
         metrics_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: make_cached_lookup(
-            exchange=exchange,
-            ticker=ticker,
-            price=metrics_mod.D("12.5"),
-        ),
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: metrics_mod.D("12.5"),
     )
 
     window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)

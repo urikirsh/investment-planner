@@ -9,7 +9,6 @@ import pytest
 
 from portfolio_core.domain.models import Currency, Portfolio
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 import portfolio_core.session.portfolio_session as session_mod
 import ui.controllers.main_window_metrics as metrics_mod
 import ui.controllers.main_window_welcome as welcome_mod
@@ -120,18 +119,11 @@ def _mock_cached_prices_for_portfolio(
 
     monkeypatch.setattr(
         metrics_mod,
-        "get_cached_ticker_result_in_exchange",
-        lambda *, exchange, ticker: (
-            TickerLookupFound(
-                metadata=TickerLookupMetadata(
-                    exchange=exchange,
-                    canonical_ticker=ticker,
-                    display_name=ticker,
-                    last_traded_price=prices_by_key[(exchange, ticker)],
-                )
-            )
-            if (exchange, ticker) in prices_by_key
-            else None
+        "resolve_cached_instrument_price_ils",
+        lambda *, exchange, ticker, instrument_name, usd_ils_rate=None: prices_by_key[(exchange, ticker)]
+        if (exchange, ticker) in prices_by_key
+        else (_ for _ in ()).throw(
+            ValueError(f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again.")
         ),
     )
 
