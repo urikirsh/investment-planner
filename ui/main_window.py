@@ -36,7 +36,7 @@ from ui.controllers import (
 )
 from ui.dialogs import show_cleanup_in_progress
 from ui.main_window_actions import MainWindowActionsMixin
-from ui.main_window_wizard import MainWindowWizardMixin
+from ui.plan_execution_wizard import MainWindowPlanExecutionMixin
 from ui.portfolio_editor_adapter import populate_main_editor_from_portfolio
 from ui.portfolio_metrics import MetricsSnapshot
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -52,7 +52,7 @@ D = Decimal
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
 
-class MainWindow(MainWindowWizardMixin, MainWindowActionsMixin, QMainWindow):
+class MainWindow(MainWindowPlanExecutionMixin, MainWindowActionsMixin, QMainWindow):
     """
     4-screen flow:
       1) welcome/startup

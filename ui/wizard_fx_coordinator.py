@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""FX-specific wizard orchestration extracted from ``MainWindowWizardMixin``.
+"""FX-specific wizard orchestration extracted from ``MainWindowPlanExecutionMixin``.
 
 Current responsibility:
 - load startup-cached USD/ILS quote into wizard state for each run,

@@ -10,7 +10,7 @@ import pytest
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
-import ui.main_window_wizard as wizard_mod
+import ui.plan_execution_wizard as wizard_mod
 import ui.controllers.main_window_welcome as welcome_mod
 from ui.main_window import MainWindow
 
@@ -156,7 +156,7 @@ def test_wizard_units_text_changed_signal_runs_calculation_flow(
         "resolve_cached_instrument_price_ils",
         lambda **_kwargs: Decimal("10"),
     )
-    window._show_current_wizard_step()
+    window._show_current_plan_execution_step()
 
     window.units_edit.setValue(1)
 
@@ -179,7 +179,7 @@ def test_wizard_units_text_changed_signal_disables_save_on_invalid_input(
         "resolve_cached_instrument_price_ils",
         lambda **_kwargs: Decimal("10"),
     )
-    window._show_current_wizard_step()
+    window._show_current_plan_execution_step()
 
     window.units_edit.setValue(1)
 
@@ -201,7 +201,7 @@ def test_wizard_units_text_changed_signal_disables_save_on_empty_input(
         "resolve_cached_instrument_price_ils",
         lambda **_kwargs: Decimal("10"),
     )
-    window._show_current_wizard_step()
+    window._show_current_plan_execution_step()
 
     window.units_edit.setValue(0)
 
@@ -223,7 +223,7 @@ def test_wizard_units_text_changed_signal_clamps_to_recommended_limit(
         "resolve_cached_instrument_price_ils",
         lambda **_kwargs: Decimal("10"),
     )
-    window._show_current_wizard_step()
+    window._show_current_plan_execution_step()
 
     window.units_edit.setValue(3)
 
@@ -233,11 +233,11 @@ def test_wizard_units_text_changed_signal_clamps_to_recommended_limit(
     assert window.screen_wizard.save_continue_btn.isEnabled()
 
 
-def test_wizard_back_to_portfolio_button_signal_runs_back_flow(
+def test_exit_plan_execution_button_signal_runs_back_flow(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[bool] = []
-    monkeypatch.setattr(window, "_wizard_back_to_portfolio", lambda: calls.append(True))
+    monkeypatch.setattr(window, "_exit_plan_execution_to_portfolio", lambda: calls.append(True))
 
     window.screen_wizard.back_to_portfolio_btn.click()
 

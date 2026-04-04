@@ -26,7 +26,7 @@ from portfolio_core.domain.models import Currency, Exchange, Portfolio
 from portfolio_core.market_data import TickerLookupFound, TickerLookupMetadata
 from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
-from ui.main_window_wizard import MainWindowWizardMixin
+from ui.plan_execution_wizard import MainWindowPlanExecutionMixin
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
@@ -333,7 +333,7 @@ class _FakeStack:
         self.current_widget = widget
 
 
-class _FakeWizardHost(MainWindowWizardMixin):
+class _FakeWizardHost(MainWindowPlanExecutionMixin):
     """Small host object for testing wizard mixin behavior without Qt widgets."""
 
     session: Any

@@ -87,13 +87,13 @@ def test_wizard_state_and_step_index_flow_across_planning_and_wizard_methods(
     assert window.wizard_state.last_calc is None
 
     window.wizard_state.last_calc = calc
-    window._show_current_wizard_step()
+    window._show_current_plan_execution_step()
     assert window.planning_state.step_index == 0
     assert window.wizard_state.last_calc is None
     assert window.screen_wizard.step_progress.text() == "Step 1/2"
 
     window.wizard_state.last_calc = calc
-    window._advance_wizard_step()
+    window._advance_plan_execution_step()
     assert window.planning_state.step_index == 1
     assert window.wizard_state.last_calc is None
     assert window.screen_wizard.step_progress.text() == "Step 2/2"
