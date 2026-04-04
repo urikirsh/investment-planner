@@ -15,7 +15,7 @@ from portfolio_core.domain.ticker_rules import (
     build_exchange_ticker_key,
 )
 from portfolio_core.use_cases import create_new_default_document
-from ui.controllers.protocols import MainWindowMainEditorHost
+from ui.controllers.protocols import MainWindowMainEditorHost, suppress_item_changed
 from ui.dialogs import show_warning
 from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_types import Col
@@ -192,8 +192,7 @@ class MainWindowMainEditorController:
             return
 
         in_group_pct = default_in_group_pct if result.target_in_group_pct is None else str(result.target_in_group_pct)
-        host._suppress_item_changed = True
-        try:
+        with suppress_item_changed(host):
             add_instrument_item_to_group(
                 parent,
                 result.ticker,
@@ -202,8 +201,6 @@ class MainWindowMainEditorController:
                 in_group_pct,
                 exchange=result.exchange,
             )
-        finally:
-            host._suppress_item_changed = False
         host.tree.expandAll()
         host._refresh_data()
 

@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.domain.models import Exchange
-from ui.controllers.protocols import MainWindowMetricsHost
+from ui.controllers.protocols import MainWindowMetricsHost, suppress_item_changed
 from ui.portfolio_editor_adapter import PortfolioPayload, build_portfolio_data_from_main_editor
 from ui.portfolio_metrics import (
     MetricGroupRow,
@@ -59,17 +59,13 @@ class MainWindowMetricsController:
 
     def _recompute_instrument_row_values(self) -> None:
         """Recompute every instrument row value from cached prices."""
-        host = self._host
-        host._suppress_item_changed = True
-        try:
+        with suppress_item_changed(self._host):
             for _top_key, _top, instrument_rows in self._iter_top_rows_with_instruments():
                 for _child_key, child in instrument_rows:
                     child.setText(
                         Col.TOT_VALUE.value,
                         str(self._compute_instrument_total_value_ils(child)),
                     )
-        finally:
-            host._suppress_item_changed = False
 
     def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
         """Return one instrument row's total value in ILS from cached market data."""
@@ -112,9 +108,7 @@ class MainWindowMetricsController:
 
     def recalc_totals_and_pcts(self) -> None:
         """Recompute group/instrument metrics and write them back to table cells."""
-        host = self._host
-        host._suppress_item_changed = True
-        try:
+        with suppress_item_changed(self._host):
             snapshot, item_by_key = self.build_metrics_snapshot()
             metrics = compute_portfolio_metrics(snapshot)
 
@@ -130,8 +124,6 @@ class MainWindowMetricsController:
                 item_by_key[key].setText(Col.TARGET_PCT.value, text)
             for key, drift in metrics.drift_value_by_key.items():
                 apply_drift_color(item_by_key[key], Col.DRIFT_PP.value, drift)
-        finally:
-            host._suppress_item_changed = False
 
     def normalize_future_tax_input(self) -> None:
         """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""

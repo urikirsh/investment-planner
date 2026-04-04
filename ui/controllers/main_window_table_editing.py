@@ -8,7 +8,7 @@ from typing import cast
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
-from ui.controllers.protocols import MainWindowTableEditingHost
+from ui.controllers.protocols import MainWindowTableEditingHost, suppress_item_changed
 from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
 from ui.shared.ui_utils import (
@@ -124,23 +124,17 @@ class MainWindowTableEditingController:
             self.warn_and_revert(item, col, raw, prev, error)
             return False
         if normalized_text != raw:
-            host._suppress_item_changed = True
-            try:
+            with suppress_item_changed(host):
                 item.setText(col, normalized_text)
-            finally:
-                host._suppress_item_changed = False
         return True
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:
         """Show warning and revert edited cell to previous value under change guard."""
         host = self._host
-        host._suppress_item_changed = True
-        try:
+        with suppress_item_changed(host):
             show_warning(
                 self._host_widget(),
                 "Invalid input",
                 f"{msg}\n\nYou entered: {bad}\nReverting to previous value: {prev}",
             )
             item.setText(col, prev if prev is not None else "")
-        finally:
-            host._suppress_item_changed = False

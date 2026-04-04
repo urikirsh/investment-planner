@@ -9,9 +9,10 @@ from PySide6.QtWidgets import QDialog, QTreeWidgetItem
 
 import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.domain.models import Exchange
-from portfolio_core.io_json import load_portfolio
 from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
+from portfolio_core.io_json import load_portfolio
 import ui.controllers.main_window_metrics as metrics_mod
+from ui.controllers.protocols import suppress_item_changed
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
@@ -121,6 +122,22 @@ def test_add_instrument_suppresses_item_changed_during_row_creation(
 
     assert suppress_states == [True]
     assert window._suppress_item_changed is False
+
+
+def test_suppress_item_changed_restores_flag_after_exception() -> None:
+    class _Host:
+        _suppress_item_changed = False
+
+    host = _Host()
+
+    try:
+        with suppress_item_changed(host):
+            assert host._suppress_item_changed is True
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+
+    assert host._suppress_item_changed is False
 
 
 def test_add_instrument_noop_when_wizard_is_canceled(
