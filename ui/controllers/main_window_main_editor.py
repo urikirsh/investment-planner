@@ -192,14 +192,18 @@ class MainWindowMainEditorController:
             return
 
         in_group_pct = default_in_group_pct if result.target_in_group_pct is None else str(result.target_in_group_pct)
-        add_instrument_item_to_group(
-            parent,
-            result.ticker,
-            result.name,
-            result.units,
-            in_group_pct,
-            exchange=result.exchange,
-        )
+        host._suppress_item_changed = True
+        try:
+            add_instrument_item_to_group(
+                parent,
+                result.ticker,
+                result.name,
+                result.units,
+                in_group_pct,
+                exchange=result.exchange,
+            )
+        finally:
+            host._suppress_item_changed = False
         host.tree.expandAll()
         host._refresh_data()
 

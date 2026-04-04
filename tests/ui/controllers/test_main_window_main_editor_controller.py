@@ -76,6 +76,53 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TARGET_PCT.value) == "25"
 
 
+def test_add_instrument_suppresses_item_changed_during_row_creation(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Equity", "100", "grp_equity")
+    window.tree.setCurrentItem(group)
+    suppress_states: list[bool] = []
+
+    class _FakeWizard:
+        def __init__(self, **kwargs: object) -> None:
+            _ = kwargs
+            self.result_data = SimpleNamespace(
+                exchange=Exchange.TASE,
+                ticker="1234567",
+                name="Local ETF",
+                last_traded_price=Decimal("10"),
+                target_in_group_pct="25",
+                units=2,
+            )
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+    def _recording_add(
+        gitem: QTreeWidgetItem,
+        ticker: str,
+        name: str,
+        quantity: int,
+        in_group_pct: str,
+        id_str: str = "",
+        exchange: str | Exchange = "TASE",
+    ) -> None:
+        suppress_states.append(window._suppress_item_changed)
+        add_instrument_item_to_group(gitem, ticker, name, quantity, in_group_pct, id_str, exchange)
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+    monkeypatch.setattr(controller_mod, "add_instrument_item_to_group", _recording_add)
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("10"))
+
+    window._main_editor_controller.add_instrument()
+
+    assert suppress_states == [True]
+    assert window._suppress_item_changed is False
+
+
 def test_add_instrument_noop_when_wizard_is_canceled(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

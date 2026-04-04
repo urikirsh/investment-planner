@@ -55,6 +55,7 @@ class MainWindowMainEditorHost(Protocol):
     """Host contract consumed by ``MainWindowMainEditorController``."""
     # state
     session: PortfolioSession
+    _suppress_item_changed: bool
     _non_investable_bucket_id: str
     _non_investable_bucket_title: str
 
