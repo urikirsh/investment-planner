@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from decimal import Decimal
 from pathlib import Path
 from typing import Callable
 
 import pytest
 
-from portfolio_core.domain.models import Currency, Portfolio
+from portfolio_core.domain.models import Portfolio
 from portfolio_core.io_json import load_portfolio
 import portfolio_core.session.portfolio_session as session_mod
-import ui.controllers.main_window_metrics as metrics_mod
 import ui.controllers.main_window_welcome as welcome_mod
 from ui.main_window import MainWindow
 
@@ -99,35 +97,6 @@ def _complete_startup_fetch_with_portfolio(
     monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", fake_start_fetch)
 
 
-def _mock_cached_prices_for_portfolio(
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    window: MainWindow,
-    portfolio: Portfolio,
-) -> None:
-    cached_quote = window.session.cached_usd_ils_quote
-    prices_by_key = {}
-    for instrument in portfolio.instruments:
-        quantity = instrument.quantity
-        if quantity == 0:
-            native_price = Decimal("0")
-        else:
-            native_price = instrument.value / quantity
-            if instrument.exchange.currency is Currency.USD and cached_quote is not None:
-                native_price /= cached_quote.rate
-        prices_by_key[(instrument.exchange, instrument.ticker)] = native_price
-
-    monkeypatch.setattr(
-        metrics_mod,
-        "resolve_cached_instrument_price_ils",
-        lambda *, exchange, ticker, instrument_name, usd_ils_rate=None: prices_by_key[(exchange, ticker)]
-        if (exchange, ticker) in prices_by_key
-        else (_ for _ in ()).throw(
-            ValueError(f"Cached price unavailable for '{instrument_name}'. Return to the welcome screen and try again.")
-        ),
-    )
-
-
 @pytest.fixture()
 def window(qapp: object, monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[MainWindow]:
     _ = qapp
@@ -202,6 +171,7 @@ def test_welcome_open_last_transitions_to_main_on_success(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
     seed_session_usd_ils_cache: Callable[[MainWindow], None],
+    seed_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
 ) -> None:
     remembered_path = tmp_path / "remembered.json"
     remembered_path.write_text("{}", encoding="utf-8")
@@ -216,7 +186,7 @@ def test_welcome_open_last_transitions_to_main_on_success(
         seen_paths=seen_paths,
     )
     seed_session_usd_ils_cache(window)
-    _mock_cached_prices_for_portfolio(monkeypatch, window=window, portfolio=staged_portfolio)
+    seed_cached_prices_for_portfolio(monkeypatch, window, staged_portfolio)
     _run_welcome_transition_immediately(monkeypatch, window)
     _complete_startup_fetch_with_portfolio(monkeypatch, window, portfolio=staged_portfolio)
 
@@ -349,6 +319,7 @@ def test_welcome_start_new_loads_default_and_enters_main(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
     seed_session_usd_ils_cache: Callable[[MainWindow], None],
+    seed_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
 ) -> None:
     seed_session_usd_ils_cache(window)
     _run_welcome_transition_immediately(monkeypatch, window)
@@ -356,7 +327,7 @@ def test_welcome_start_new_loads_default_and_enters_main(
     window._on_welcome_start_new_clicked()
     pending = window._welcome_controller._pending_startup_portfolio
     assert pending is not None
-    _mock_cached_prices_for_portfolio(monkeypatch, window=window, portfolio=pending.portfolio)
+    seed_cached_prices_for_portfolio(monkeypatch, window, pending.portfolio)
     window._welcome_controller._on_startup_market_data_fetch_finished(None, pending.portfolio, None)
 
     assert window.stack.currentWidget() is window.screen_main
@@ -369,6 +340,7 @@ def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
     seed_session_usd_ils_cache: Callable[[MainWindow], None],
+    seed_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
 ) -> None:
     remembered_path = tmp_path / "remembered.json"
     remembered_path.write_text("{}", encoding="utf-8")
@@ -396,7 +368,7 @@ def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
     _mock_remembered_portfolio_path(monkeypatch, path=remembered_path, window=window)
     _mock_prepare_staged_portfolio(monkeypatch, window, portfolio=staged_portfolio)
     seed_session_usd_ils_cache(window)
-    _mock_cached_prices_for_portfolio(monkeypatch, window=window, portfolio=refreshed_portfolio)
+    seed_cached_prices_for_portfolio(monkeypatch, window, refreshed_portfolio)
     _run_welcome_transition_immediately(monkeypatch, window)
     _complete_startup_fetch_with_portfolio(monkeypatch, window, portfolio=refreshed_portfolio)
 
