@@ -302,7 +302,7 @@ Core/domain tests:
 - `tests/core/test_planning.py`
   - invest/rebalance planning and group-to-instrument split behavior
 - `tests/core/test_session_and_workflows.py`
-  - `PortfolioSession`/`PortfolioDocument` behavior and use-case orchestration
+  - `PortfolioSession`/`PortfolioDocument` behavior and workflow orchestration
 - `tests/core/test_ticker_rules.py`
   - shared ticker normalization/shape-validation rules plus canonical exchange+ticker key/index behavior
 - `tests/core/test_validation.py`
