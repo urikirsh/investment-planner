@@ -18,7 +18,7 @@ Focused-row layout:
 - Units input keeps a minimum visual width for at least 11 characters.
 - Units input is capped by flow logic to the recommended whole-unit amount.
 - `Save and continue` starts disabled and is enabled only after a successful
-  calculation/validation by flow logic in `MainWindowWizardMixin`.
+  calculation/validation by flow logic in `MainWindowPlanExecutionMixin`.
 
 All trade execution behavior is intentionally delegated to the coordinator.
 """

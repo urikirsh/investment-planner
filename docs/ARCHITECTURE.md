@@ -15,7 +15,7 @@ High-level dependency direction:
 1. `ui/screens/*` provides widget composition only.
 2. `ui/main_window.py` composes screens and delegates per-screen logic.
 3. `ui/controllers/*` contains focused composed controller objects by concern.
-4. `ui/main_window_actions.py` and `ui/main_window_wizard.py` handle focused
+4. `ui/main_window_actions.py` and `ui/plan_execution_wizard.py` handle focused
    action/wizard flows.
 5. `ui/portfolio_editor_adapter.py` maps between widgets and domain payloads.
 6. `portfolio_core/*` performs validation, planning, persistence, and calculations.
@@ -30,7 +30,7 @@ Main user flow:
 3. Save/Open/New actions go through `MainWindowActionsMixin`.
 4. Planning (`invest`/`rebalance`) is built in `portfolio_core.workflows`.
 5. Summary screen presents generated plan steps.
-6. Wizard execution is managed by `MainWindowWizardMixin`.
+6. Wizard execution is managed by `MainWindowPlanExecutionMixin`.
 7. Wizard returns to screen 2 either after completion or via explicit "Exit Wizard"; both paths repopulate the main editor from current session state and run a full metrics refresh before showing screen 2.
 
 Startup/wizard market-data guards in this flow:
@@ -43,7 +43,7 @@ Startup/wizard market-data guards in this flow:
 - `MainWindow` is the composition root and owns long-lived controller instances.
 - Prefer direct signal wiring to composed controller methods for single-hop UI actions.
 - Keep `MainWindow` wrappers only when they are required by:
-  - `MainWindowActionsMixin` / `MainWindowWizardMixin` host-method contracts, or
+  - `MainWindowActionsMixin` / `MainWindowPlanExecutionMixin` host-method contracts, or
   - stable test seams for cross-controller orchestration points.
 - New screen behavior should be added to a dedicated controller object under `ui/controllers/*`, not as inline `MainWindow` logic.
 
@@ -123,7 +123,7 @@ Startup/wizard market-data guards in this flow:
 - `ui/main_window_actions.py`
   - save/open/new action flows and unsaved-changes decision handling
   - wraps dialog interactions behind typed helper methods to keep action logic testable
-- `ui/main_window_wizard.py`
+- `ui/plan_execution_wizard.py`
   - wizard screen wiring and per-step cached-price resolution, units validation, save, and advance behavior
   - handles transition back to main editor when wizard execution completes or when user exits early via `Exit Wizard`
   - wizard step info card includes instrument name, ticker, exchange, asset group, and action amount context
@@ -150,7 +150,7 @@ Startup/wizard market-data guards in this flow:
   - `PlanningState`: generated steps, active wizard index, and planning mode
   - `WizardState`: per-step transient calculation cache plus startup-cached USD/ILS display state
 - `ui/wizard_fx_coordinator.py`
-  - extracted FX-only coordinator used by `MainWindowWizardMixin`
+  - extracted FX-only coordinator used by `MainWindowPlanExecutionMixin`
   - owns USD-step FX panel rendering and reset behavior for wizard runs
   - reads session-cached USD/ILS quote; wizard does not trigger BOI fetch
 - `ui/ticker_lookup_coordinator.py`
@@ -274,7 +274,7 @@ UI-focused tests:
   - focused dialog wrapper behavior and signal outcomes
 - `tests/ui/test_main_window_actions.py`
   - focused tests for save-target resolution and unsaved-changes action decisions
-- `tests/ui/test_main_window_wizard.py`
+- `tests/ui/test_plan_execution_wizard.py`
   - focused tests for wizard step rendering, calculation flow, and step advancement behavior
 - `tests/ui/test_portfolio_editor_adapter.py`
   - adapter mapping behavior and partial/strict input handling

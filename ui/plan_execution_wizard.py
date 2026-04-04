@@ -49,7 +49,7 @@ class _WizardCalculationContext:
     total_label: str
 
 
-class MainWindowWizardMixin:
+class MainWindowPlanExecutionMixin:
     """Mixin containing wizard screen setup and per-step execution flow."""
 
     session: PortfolioSession
@@ -91,13 +91,13 @@ class MainWindowWizardMixin:
         self.wiz_result = self.screen_wizard.wiz_result
         self.units_edit.valueChanged.connect(self._wizard_units_changed)
         self.screen_wizard.quit_btn.clicked.connect(self._quit_app)
-        self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._wizard_back_to_portfolio)
-        self.screen_wizard.save_continue_btn.clicked.connect(self._wizard_save_continue)
-        self.screen_wizard.continue_without_save_btn.clicked.connect(self._wizard_continue_without_saving)
+        self.screen_wizard.back_to_portfolio_btn.clicked.connect(self._exit_plan_execution_to_portfolio)
+        self.screen_wizard.save_continue_btn.clicked.connect(self._save_and_continue_plan_execution_step)
+        self.screen_wizard.continue_without_save_btn.clicked.connect(self._skip_plan_execution_step)
         self._invalidate_current_calc(reset_result=False, sync_widths=False)
         self._wizard_fx = WizardFxCoordinator(self)
 
-    def _show_current_wizard_step(self) -> None:
+    def _show_current_plan_execution_step(self) -> None:
         """Render current wizard step details and prefill units from cached price."""
         s = self._current_step()
         idx = self.planning_state.step_index + 1
@@ -253,7 +253,7 @@ class MainWindowWizardMixin:
         )
         return False
 
-    def _wizard_save_continue(self) -> None:
+    def _save_and_continue_plan_execution_step(self) -> None:
         """Apply current step trade, persist if applied, then advance."""
         try:
             self._require_current_portfolio()
@@ -268,7 +268,7 @@ class MainWindowWizardMixin:
             if applied:
                 self._update_file_context_ui()
 
-            self._advance_wizard_step()
+            self._advance_plan_execution_step()
         except InsufficientQuantityForSellError as exc:
             show_error(
                 cast(QWidget, self),
@@ -279,7 +279,7 @@ class MainWindowWizardMixin:
                     "This step was skipped. Update the instrument quantity in the main screen if needed."
                 ),
             )
-            self._advance_wizard_step()
+            self._advance_plan_execution_step()
         except Exception as exc:
             show_error(cast(QWidget, self), "Save failed", str(exc))
 
@@ -336,15 +336,15 @@ class MainWindowWizardMixin:
         if self.session.document.current_portfolio is None:
             raise ValueError("No portfolio loaded")
 
-    def _wizard_continue_without_saving(self) -> None:
+    def _skip_plan_execution_step(self) -> None:
         """Skip current step without mutating portfolio and move forward."""
         try:
             self._require_current_portfolio()
-            self._advance_wizard_step()
+            self._advance_plan_execution_step()
         except Exception as exc:
             show_error(cast(QWidget, self), "Continue failed", str(exc))
 
-    def _wizard_back_to_portfolio(self) -> None:
+    def _exit_plan_execution_to_portfolio(self) -> None:
         """Exit wizard early and return to main editor without applying the active step."""
         try:
             self._require_current_portfolio()
@@ -362,7 +362,7 @@ class MainWindowWizardMixin:
             return
         self._render_main_editor_from_portfolio(current, switch_to_main=True)
 
-    def _advance_wizard_step(self) -> None:
+    def _advance_plan_execution_step(self) -> None:
         """Move to next step, or repopulate main editor and return when complete."""
         self.planning_state.step_index += 1
         if self.planning_state.step_index >= len(self.planning_state.plan_steps):
@@ -371,7 +371,7 @@ class MainWindowWizardMixin:
                 return
             self._return_to_main_editor_from_current_portfolio()
         else:
-            self._show_current_wizard_step()
+            self._show_current_plan_execution_step()
 
     @staticmethod
     def _format_decimal_for_display(value: D) -> str:

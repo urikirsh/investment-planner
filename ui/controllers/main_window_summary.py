@@ -77,7 +77,7 @@ class MainWindowSummaryController:
         if not host.planning_state.plan_steps:
             host.stack.setCurrentWidget(host.screen_main)
             return
-        host._show_current_wizard_step()
+        host._show_current_plan_execution_step()
         host.stack.setCurrentWidget(host.screen_wizard)
 
     def summary_back(self) -> None:
