@@ -245,7 +245,7 @@ def add_instrument_item_to_group(
         exchange: str = DEFAULT_EXCHANGE.value,
 ) \
         -> None:
-    """Create and initialize an instrument child row under the given parent group."""
+    """Create an instrument child row with default computed-cell values."""
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()

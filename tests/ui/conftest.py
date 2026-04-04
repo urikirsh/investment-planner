@@ -120,7 +120,7 @@ def seed_session_usd_ils_cache() -> Callable[[MainWindow], None]:
 
 @pytest.fixture
 def seed_cached_prices_for_portfolio() -> Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None]:
-    """Return helper that seeds cached ILS unit prices for a portfolio's instruments."""
+    """Return helper that patches metrics price resolution for a portfolio."""
 
     def _seed(monkeypatch: pytest.MonkeyPatch, window: MainWindow, portfolio: Portfolio) -> None:
         cached_quote = window.session.cached_usd_ils_quote

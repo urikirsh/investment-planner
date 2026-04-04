@@ -207,6 +207,7 @@ def load_portfolio_file(path: str | Path) -> Portfolio:
         If file contents are not valid JSON.
     ValueError
         If JSON structure/types are invalid for portfolio parsing.
+
     """
     path = Path(path)
     # Accept optional UTF-8 BOM to support files saved by some Windows editors.

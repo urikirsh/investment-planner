@@ -17,11 +17,7 @@ def resolve_cached_instrument_price_ils(
     instrument_name: str,
     usd_ils_rate: D | None = None,
 ) -> D:
-    """Return cached per-unit price in ILS for one instrument identity.
-
-    TASE prices are already quoted in ILS. NYSE prices require a supplied
-    ``usd_ils_rate`` and are converted before returning.
-    """
+    """Return cached per-unit price in ILS for one instrument identity."""
     cached_result = get_cached_ticker_result_in_exchange(exchange=exchange, ticker=ticker)
     if not isinstance(cached_result, TickerLookupFound):
         raise ValueError(_cached_price_unavailable_message(instrument_name))

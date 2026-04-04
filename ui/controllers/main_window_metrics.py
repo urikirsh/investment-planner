@@ -58,7 +58,7 @@ class MainWindowMetricsController:
         self.recalc_totals_and_pcts()
 
     def _recompute_instrument_row_values(self) -> None:
-        """Recompute every instrument row value from cached fetched prices only."""
+        """Recompute every instrument row value from cached prices."""
         host = self._host
         host._suppress_item_changed = True
         try:
@@ -165,7 +165,7 @@ class MainWindowMetricsController:
     def _iter_top_rows_with_instruments(
         self,
     ) -> Iterator[tuple[str, QTreeWidgetItem, tuple[tuple[str, QTreeWidgetItem], ...]]]:
-        """Yield top-level tree rows with stable keys and their child instrument rows."""
+        """Yield top-level tree rows with stable keys and child rows in UI order."""
         host = self._host
         for i in range(host.tree.topLevelItemCount()):
             top = host.tree.topLevelItem(i)
