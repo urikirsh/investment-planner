@@ -14,6 +14,7 @@ from threading import Lock
 from typing import Protocol
 from types import MappingProxyType
 
+from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
 from portfolio_core.domain.models import Exchange
 from portfolio_core.domain.ticker_rules import build_exchange_ticker_key, is_complete_nyse_ticker
 
@@ -159,7 +160,7 @@ class MarketDataService:
         *,
         exchange: Exchange,
         ticker: str,
-        timeout_seconds: float = 8.0,
+        timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
     ) -> TickerLookupResult:
         """Route ticker lookup to exchange-specific provider flow."""
         runtime = self._runtime_by_exchange.get(exchange)
@@ -200,7 +201,7 @@ def lookup_ticker_in_exchange(
     *,
     exchange: Exchange,
     ticker: str,
-    timeout_seconds: float = 8.0,
+    timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> TickerLookupResult:
     """Route ticker lookup through the default app-level market-data service."""
     return _default_market_data_service.lookup_ticker_in_exchange(

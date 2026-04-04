@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, Mapping
 
+from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
 from portfolio_core.fx_service import fetch_latest_usd_ils_rate
 from portfolio_core.planning.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio, load_portfolio_file
@@ -127,7 +128,7 @@ def load_document(
     session: PortfolioSession,
     path: Path,
     *,
-    lookup_timeout_seconds: float = 8.0,
+    lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Portfolio:
     """
     Load a portfolio file, refresh instrument prices, and update session state.
@@ -163,7 +164,7 @@ def load_document(
 def create_new_default_document(
     session: PortfolioSession,
     *,
-    lookup_timeout_seconds: float = 8.0,
+    lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Portfolio:
     """
     Create a refreshed default portfolio and mark it as a new unsaved document.
@@ -198,7 +199,7 @@ def create_new_default_document(
 def get_or_fetch_session_usd_ils_rate(
     session: PortfolioSession,
     *,
-    lookup_timeout_seconds: float = 8.0,
+    lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Decimal:
     """Return session-cached USD/ILS rate, fetching and caching it when absent."""
     cached_quote = session.cached_usd_ils_quote
@@ -218,7 +219,7 @@ def refresh_portfolio_prices_for_startup(
     portfolio: Portfolio,
     *,
     usd_ils_rate: Decimal,
-    lookup_timeout_seconds: float = 8.0,
+    lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Portfolio:
     """Return a portfolio copy with instrument values refreshed from market data.
 

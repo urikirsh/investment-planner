@@ -8,11 +8,12 @@ from typing import Callable, Final
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
+from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
 from portfolio_core.use_cases import StartupPortfolioPriceRefreshError, refresh_portfolio_prices_for_startup
-from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS, STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS
+from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
 
@@ -34,7 +35,7 @@ class StartupMarketDataWorker(QObject):
         *,
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
-        timeout_seconds: float = STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS,
+        timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
     ) -> None:
         super().__init__()
         self._portfolio = portfolio
@@ -98,7 +99,7 @@ class StartupMarketDataLifecycle:
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
         on_finished: Callable[[object, object, object], None],
-        timeout_seconds: float = STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS,
+        timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
     ) -> None:
         """Create, wire, and start the startup market-data worker thread."""
         thread = QThread(parent)
@@ -206,7 +207,7 @@ class StartupTransitionCoordinator:
         portfolio: Portfolio | None,
         cached_quote: CachedUsdIlsQuote | None,
         on_finished: Callable[[object, object, object], None],
-        timeout_seconds: float = STARTUP_MARKET_DATA_FETCH_TIMEOUT_SECONDS,
+        timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
     ) -> bool:
         """Start the startup market-data fetch worker for the current staged portfolio."""
         self._market_data_fetch.start(
