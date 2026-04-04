@@ -6,7 +6,7 @@ This file centralizes Qt test setup so individual tests can focus on widget
 behavior rather than process-level initialization details. It also provides
 shared helpers/builders (`seed_session_usd_ils_cache`, `make_plan_step`,
 `make_buy_calculation`, `add_instrument_row`, `make_cached_lookup`,
-`seed_cached_prices_for_portfolio`,
+`stub_cached_prices_for_portfolio`,
 `make_wizard_host`) for common UI test object setup.
 """
 
@@ -119,8 +119,8 @@ def seed_session_usd_ils_cache() -> Callable[[MainWindow], None]:
 
 
 @pytest.fixture
-def seed_cached_prices_for_portfolio() -> Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None]:
-    """Return helper that patches metrics price resolution for a portfolio."""
+def stub_cached_prices_for_portfolio() -> Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None]:
+    """Return helper that stubs metrics price resolution for a portfolio."""
 
     def _seed(monkeypatch: pytest.MonkeyPatch, window: MainWindow, portfolio: Portfolio) -> None:
         cached_quote = window.session.cached_usd_ils_quote
