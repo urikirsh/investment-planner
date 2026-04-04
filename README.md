@@ -30,7 +30,7 @@ The application never executes trades automatically. All actions are explicit an
 
 ### Portfolio structure
 - Asset groups with decimal target percentages
-- Instruments with current market value in ILS, computed from fetched prices
+- Instruments with current market value in ILS
 - Required per-instrument `ticker` field
   - `TASE`: 6 or 7 digits
   - `NYSE`: 1 to 14 uppercase letters/digits, optionally one dot (for example `BRK.B`)
@@ -97,7 +97,6 @@ The application never executes trades automatically. All actions are explicit an
   - instrument `ticker` is set when adding an instrument
   - `Quantity` column (instrument rows), required non-negative integer
   - empty quantity input is normalized immediately to `0`
-  - `Total value` column (instrument rows), read-only and recalculated from the cached fetched instrument price when quantity changes
   - `Exchange` column (instrument rows), set when adding an instrument
 - Wizard displays the unit price and all planned/spent/proceeds/leftover amounts explicitly
 - Drag and drop to:
