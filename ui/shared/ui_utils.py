@@ -240,7 +240,6 @@ def add_instrument_item_to_group(
         ticker: str,
         name: str,
         quantity: int,
-        value: str,
         in_group_pct: str,
         id_str: str = "",
         exchange: str = DEFAULT_EXCHANGE.value,
@@ -254,7 +253,7 @@ def add_instrument_item_to_group(
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
-    item.setText(Col.TOT_VALUE.value, value)
+    item.setText(Col.TOT_VALUE.value, "0")
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)

@@ -28,6 +28,7 @@ from portfolio_core.use_cases import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.main_window_wizard import MainWindowWizardMixin
 from ui.main_window import MainWindow
+from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
@@ -190,13 +191,13 @@ def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
             ticker,
             instrument_name,
             quantity,
-            value,
             target_in_group_pct,
             instrument_id,
             exchange,
         )
         child = group.child(group.childCount() - 1)
         assert child is not None
+        child.setText(Col.TOT_VALUE.value, value)
         return child
 
     return _add_instrument_row

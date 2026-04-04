@@ -61,9 +61,7 @@ Startup/wizard market-data guards in this flow:
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
   - controller keeps add flow orchestration-focused by running wizard execution (overlay + accept/result checks) in a dedicated helper
   - add flow builds case-insensitive portfolio-wide name locations and exchange+ticker locations so duplicate keys are blocked before row creation
-  - accepted add-flow results now include fetched lookup price; the controller seeds the new row `Total value` from `price * quantity`
-  - seeded add-flow values are rounded to 2 decimal places before writing the table cell
-  - NYSE seeded values are converted to ILS with the session-cached startup USD/ILS quote
+  - accepted add-flow results append a new instrument row, then the standard metrics refresh recomputes derived table values
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
 - `ui/controllers/main_window_metrics.py`

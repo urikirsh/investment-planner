@@ -32,7 +32,7 @@ def test_get_item_exchange_defaults_to_tase_when_text_is_invalid() -> None:
 
 def test_add_instrument_item_keeps_empty_ticker_without_implicit_fallback() -> None:
     parent = QTreeWidgetItem()
-    add_instrument_item_to_group(parent, "", "Instrument", 0, "0", "100")
+    add_instrument_item_to_group(parent, "", "Instrument", 0, "100")
 
     child = parent.child(0)
     assert child is not None
@@ -42,7 +42,7 @@ def test_add_instrument_item_keeps_empty_ticker_without_implicit_fallback() -> N
 def test_is_item_cell_editable_allows_investable_instrument_target_pct() -> None:
     parent = QTreeWidgetItem()
     set_group_tree_item(parent, "Group", "100")
-    add_instrument_item_to_group(parent, "1234567", "Instrument", 0, "0", "100")
+    add_instrument_item_to_group(parent, "1234567", "Instrument", 0, "100")
     child = parent.child(0)
     assert child is not None
 
@@ -52,7 +52,7 @@ def test_is_item_cell_editable_allows_investable_instrument_target_pct() -> None
 def test_is_item_cell_editable_blocks_non_investable_instrument_target_pct() -> None:
     bucket = QTreeWidgetItem()
     set_group_tree_item(bucket, "Bucket", "0", NON_INVESTABLE_BUCKET_ID)
-    add_instrument_item_to_group(bucket, "1234567", "Instrument", 0, "0", "")
+    add_instrument_item_to_group(bucket, "1234567", "Instrument", 0, "")
     child = bucket.child(0)
     assert child is not None
 
@@ -62,7 +62,7 @@ def test_is_item_cell_editable_blocks_non_investable_instrument_target_pct() -> 
 def test_fixed_cells_use_tinted_background_on_instrument_rows() -> None:
     parent = QTreeWidgetItem()
     set_group_tree_item(parent, "Group", "100")
-    add_instrument_item_to_group(parent, "1234567", "Instrument", 0, "0", "100")
+    add_instrument_item_to_group(parent, "1234567", "Instrument", 0, "100")
     child = parent.child(0)
     assert child is not None
 
@@ -74,7 +74,7 @@ def test_fixed_cells_use_tinted_background_on_instrument_rows() -> None:
 def test_non_investable_target_pct_does_not_use_fixed_tint() -> None:
     bucket = QTreeWidgetItem()
     set_group_tree_item(bucket, "Bucket", "0", NON_INVESTABLE_BUCKET_ID)
-    add_instrument_item_to_group(bucket, "1234567", "Instrument", 0, "0", "")
+    add_instrument_item_to_group(bucket, "1234567", "Instrument", 0, "")
     child = bucket.child(0)
     assert child is not None
 

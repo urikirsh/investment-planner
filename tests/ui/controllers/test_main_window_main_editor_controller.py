@@ -11,6 +11,7 @@ import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.domain.models import Exchange
 from portfolio_core.io_json import load_portfolio
 from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
+import ui.controllers.main_window_metrics as metrics_mod
 from ui.main_window import MainWindow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
@@ -60,7 +61,7 @@ def test_add_instrument_creates_row_from_wizard_result(
 
     monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
     monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
-    monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("425.17"))
 
     window._main_editor_controller.add_instrument()
 
@@ -70,7 +71,7 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TICKER.value) == "AB12"
     assert child.text(Col.NAME.value) == "World ETF"
     assert child.text(Col.QUANTITY.value) == "12"
-    assert child.text(Col.TOT_VALUE.value) == "425.17"
+    assert child.text(Col.TOT_VALUE.value) == "5102.04"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
     assert child.text(Col.TARGET_PCT.value) == "25"
 
@@ -103,6 +104,7 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("1"))
     group = QTreeWidgetItem(window.tree)
     set_group_tree_item(group, "Equity", "100", "grp_equity")
     add_instrument_item_to_group(
@@ -110,7 +112,6 @@ def test_add_instrument_passes_existing_exchange_ticker_locations_to_wizard(
         "ab12",
         "World ETF",
         10,
-        "1",
         "100",
         exchange=Exchange.NYSE,
     )
