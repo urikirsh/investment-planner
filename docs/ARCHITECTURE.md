@@ -106,7 +106,7 @@ Startup/wizard market-data guards in this flow:
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
   - `constants.py`: shared static UI constants used by multiple UI modules
-    - startup/cleanup timing knobs are defined here so transition delay and cleanup wait policy stay centralized
+    - cleanup timing knobs are defined here so wait policy stays centralized
   - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
@@ -226,6 +226,8 @@ Startup/wizard market-data guards in this flow:
   - app-level metadata helpers shared across layers
   - lazily resolves app version from `pyproject.toml` (`[project].version`)
   - returns `None` when metadata is unavailable (welcome screen hides version label)
+- `portfolio_core/constants.py`
+  - shared core-level constants used by market-data services and startup/open document workflows
 - `portfolio_core/fx_service.py`
   - Bank of Israel USD/ILS fetch boundary and response parsing
   - normalizes BOI payload into a typed quote object used by wizard flow

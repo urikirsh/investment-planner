@@ -15,6 +15,7 @@ from typing import Callable
 import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
+from portfolio_core.io_json import load_portfolio
 from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.use_cases import PlanStep
@@ -174,6 +175,80 @@ def test_open_from_picker_delegates_prompt_result_to_open_action(
 
     assert window._open_portfolio_from_picker() is True
     assert received == [target]
+
+
+def test_load_portfolio_from_file_renders_refreshed_portfolio(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    target = tmp_path / "to_open.json"
+    refreshed = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1234567",
+                    "name": "ETF",
+                    "quantity": 1,
+                    "value": "150",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+
+    monkeypatch.setattr(main_window, "load_document", lambda session, path: refreshed)
+
+    window._load_portfolio_from_file(target)
+
+    assert window.total_label.text() == "Total portfolio (ILS): 250"
+
+
+def test_open_clicked_stays_on_current_screen_when_price_refresh_fails(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    target = tmp_path / "to_open.json"
+    errors: list[tuple[str, str]] = []
+    window.stack.setCurrentWidget(window.screen_main)
+
+    monkeypatch.setattr(window, "_confirm_continue_with_unsaved_changes", lambda _action: True)
+    monkeypatch.setattr(window, "_prompt_select_open_path", lambda: target)
+    monkeypatch.setattr(window, "_load_portfolio_from_file", lambda path: (_ for _ in ()).throw(ValueError("price fetch failed")))
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+
+    window._on_open_clicked()
+
+    assert errors == [("Load failed", "Failed loading JSON:\nprice fetch failed")]
+    assert window.stack.currentWidget() is window.screen_main
+
+
+def test_new_clicked_shows_error_modal_when_default_price_refresh_fails(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    errors: list[tuple[str, str]] = []
+    window.stack.setCurrentWidget(window.screen_main)
+
+    monkeypatch.setattr(window, "_confirm_continue_with_unsaved_changes", lambda _action: True)
+    monkeypatch.setattr(
+        window,
+        "_load_default_document",
+        lambda: (_ for _ in ()).throw(ValueError("price fetch failed")),
+    )
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+
+    window._on_new_clicked()
+
+    assert errors == [("New failed", "price fetch failed")]
+    assert window.stack.currentWidget() is window.screen_main
 
 
 def test_confirm_unsaved_changes_splits_decision_prompt_from_action_resolution(

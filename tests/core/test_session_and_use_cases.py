@@ -12,7 +12,7 @@ import json
 from datetime import date, datetime, timezone
 
 from portfolio_core.io_json import load_portfolio, load_portfolio_file, save_portfolio_file
-from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.models import Exchange, Instrument, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.session.portfolio_document import PortfolioDocument
 from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
@@ -23,6 +23,7 @@ from portfolio_core.use_cases import (
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
+    load_document,
     refresh_portfolio_prices_for_startup,
     save_document_from_data,
     sync_document_from_data,
@@ -68,9 +69,36 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     save_portfolio_file(p1, p1_path)
 
     loaded = session.load_document_from_path(p1_path)
-    assert loaded == p1
+    assert loaded.cash == p1.cash
+    assert loaded.asset_groups == p1.asset_groups
+    assert [ins.value for ins in loaded.instruments] == [D("0"), D("0"), D("0")]
+    assert [
+        (
+            ins.id,
+            ins.ticker,
+            ins.name,
+            ins.quantity,
+            ins.exchange,
+            ins.investable,
+            ins.asset_group_id,
+            ins.target_in_group_pct,
+        )
+        for ins in loaded.instruments
+    ] == [
+        (
+            ins.id,
+            ins.ticker,
+            ins.name,
+            ins.quantity,
+            ins.exchange,
+            ins.investable,
+            ins.asset_group_id,
+            ins.target_in_group_pct,
+        )
+        for ins in p1.instruments
+    ]
     assert session.current_file_path == tmp_path / "p1.json"
-    assert session.document.current_portfolio == p1
+    assert session.document.current_portfolio == loaded
     assert session.document.is_dirty() is False
 
     session.document.set_current(p2)
@@ -87,6 +115,7 @@ def test_portfolio_document_load_save_and_dirty_state_tracking(tmp_path):
     assert session.document.current_portfolio == p1
     assert session.document.saved_snapshot == p1
     assert session.document.is_dirty() is False
+    assert session.get_remembered_portfolio_path() == p2_path
 
 
 def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
@@ -95,7 +124,92 @@ def test_load_portfolio_file_accepts_utf8_bom(tmp_path):
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8-sig")
 
     loaded = load_portfolio_file(target)
-    assert loaded == load_portfolio(payload)
+    assert loaded.cash == load_portfolio(payload).cash
+    assert loaded.asset_groups == load_portfolio(payload).asset_groups
+    assert [ins.value for ins in loaded.instruments] == [D("0"), D("0"), D("0")]
+
+
+def test_load_document_uses_cached_fx_and_updates_document(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    session.cache_usd_ils_quote(
+        rate=D("3.25"),
+        effective_date=date.fromisoformat("2026-03-11"),
+        used_last_published=False,
+    )
+    target = tmp_path / "portfolio.json"
+    save_portfolio_file(load_portfolio(make_valid_data()), target)
+
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+        _ = usd_ils_rate
+        _ = lookup_timeout_seconds
+        refreshed_instruments = list(portfolio.instruments)
+        first = refreshed_instruments[0]
+        refreshed_instruments[0] = Instrument(
+            id=first.id,
+            ticker=first.ticker,
+            name=first.name,
+            value=D("111.11"),
+            exchange=first.exchange,
+            investable=first.investable,
+            asset_group_id=first.asset_group_id,
+            target_in_group_pct=first.target_in_group_pct,
+            quantity=first.quantity,
+        )
+        return Portfolio(
+            cash=portfolio.cash,
+            asset_groups=portfolio.asset_groups,
+            instruments=refreshed_instruments,
+        )
+
+    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+
+    loaded = load_document(session, target)
+
+    assert loaded.instruments[0].value == D("111.11")
+    assert session.document.current_portfolio == loaded
+    assert session.document.saved_snapshot == loaded
+    assert session.current_file_path == target
+
+
+def test_load_document_fetches_and_caches_fx_when_missing(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target = tmp_path / "portfolio.json"
+    save_portfolio_file(load_portfolio(make_valid_data()), target)
+
+    fake_quote = type(
+        "FakeQuote",
+        (),
+        {
+            "rate": D("3.40"),
+            "effective_date": date.fromisoformat("2026-03-12"),
+            "used_last_published": True,
+        },
+    )()
+    seen_rates: list[D] = []
+
+    monkeypatch.setattr("portfolio_core.use_cases.fetch_latest_usd_ils_rate", lambda timeout_seconds=8.0: fake_quote)
+
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+        _ = lookup_timeout_seconds
+        seen_rates.append(usd_ils_rate)
+        return portfolio
+
+    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+
+    load_document(session, target)
+
+    assert seen_rates == [D("3.40")]
+    cached_quote = session.cached_usd_ils_quote
+    assert cached_quote is not None
+    assert cached_quote.rate == D("3.40")
+    assert cached_quote.effective_date == date.fromisoformat("2026-03-12")
+    assert cached_quote.used_last_published is True
 
 
 def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
@@ -173,11 +287,13 @@ def test_use_case_save_document_from_data_persists_and_tracks_snapshot(tmp_path)
     session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
     target = tmp_path / "saved.json"
     saved = save_document_from_data(session, make_valid_data(), target)
+    persisted = json.loads(target.read_text(encoding="utf-8"))
     assert target.exists()
     assert session.current_file_path == target
     assert session.document.current_portfolio == saved
     assert session.document.saved_snapshot == saved
     assert session.document.is_dirty() is False
+    assert all("value" not in instrument for instrument in persisted["instruments"])
 
 
 def test_use_case_sync_document_from_data_marks_dirty_against_saved_snapshot(tmp_path):
@@ -189,16 +305,70 @@ def test_use_case_sync_document_from_data_marks_dirty_against_saved_snapshot(tmp
     assert session.document.is_dirty() is True
 
 
-def test_use_case_create_new_default_document_clears_active_path(tmp_path):
+def test_use_case_create_new_default_document_marks_unsaved_refreshed_document(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
     existing = tmp_path / "existing.json"
     existing.write_text("{}", encoding="utf-8")
     session.set_active_file_path(existing)
+    session.cache_usd_ils_quote(
+        rate=D("3.25"),
+        effective_date=date.fromisoformat("2026-03-11"),
+        used_last_published=False,
+    )
+    seen_rates: list[D] = []
+
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+        _ = lookup_timeout_seconds
+        seen_rates.append(usd_ils_rate)
+        refreshed_instruments = list(portfolio.instruments)
+        first = refreshed_instruments[0]
+        refreshed_instruments[0] = Instrument(
+            id=first.id,
+            ticker=first.ticker,
+            name=first.name,
+            value=D("111.11"),
+            exchange=first.exchange,
+            investable=first.investable,
+            asset_group_id=first.asset_group_id,
+            target_in_group_pct=first.target_in_group_pct,
+            quantity=first.quantity,
+        )
+        return Portfolio(
+            cash=portfolio.cash,
+            asset_groups=portfolio.asset_groups,
+            instruments=refreshed_instruments,
+        )
+
+    monkeypatch.setattr("portfolio_core.use_cases.refresh_portfolio_prices_for_startup", fake_refresh)
+
     created = create_new_default_document(session)
-    assert created == build_default_portfolio()
+
+    assert seen_rates == [D("3.25")]
+    assert created.instruments[0].value == D("111.11")
     assert session.current_file_path is None
+    assert session.get_remembered_portfolio_path() == existing
     assert session.document.current_portfolio == created
+    assert session.document.saved_snapshot == created
     assert session.document.is_dirty() is False
+
+
+def test_mark_new_document_preserves_remembered_portfolio_path_for_next_startup(tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    remembered = tmp_path / "remembered.json"
+    remembered.write_text("{}", encoding="utf-8")
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+    session.set_active_file_path(remembered)
+
+    session.mark_new_document(build_default_portfolio())
+
+    assert session.current_file_path is None
+    assert session.get_remembered_portfolio_path() == remembered
+
+    reloaded = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=config_path)
+    assert reloaded.resolve_startup_path() == remembered
 
 
 def test_use_case_build_plan_for_current_document_returns_steps(tmp_path):

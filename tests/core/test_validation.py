@@ -7,12 +7,13 @@ These tests verify portfolio invariants and serialization behavior without
 Qt/UI involvement.
 """
 
+import json
 from decimal import Decimal
 from typing import cast
 
 import pytest
 
-from portfolio_core.io_json import dump_portfolio, load_portfolio
+from portfolio_core.io_json import dump_portfolio, load_portfolio, load_portfolio_file
 from portfolio_core.domain.models import AssetGroup, Cash, Exchange, Instrument, Portfolio
 from portfolio_core.domain.validation import validate_portfolio
 from tests.core.helpers import make_valid_data
@@ -140,7 +141,34 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
     dumped = dump_portfolio(p1)
     p2 = load_portfolio(dumped)
 
-    assert p2 == p1
+    assert p2.cash == p1.cash
+    assert p2.asset_groups == p1.asset_groups
+    assert [ins.value for ins in p2.instruments] == [Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")]
+    assert [
+        (
+            ins.id,
+            ins.ticker,
+            ins.name,
+            ins.quantity,
+            ins.exchange,
+            ins.investable,
+            ins.asset_group_id,
+            ins.target_in_group_pct,
+        )
+        for ins in p2.instruments
+    ] == [
+        (
+            ins.id,
+            ins.ticker,
+            ins.name,
+            ins.quantity,
+            ins.exchange,
+            ins.investable,
+            ins.asset_group_id,
+            ins.target_in_group_pct,
+        )
+        for ins in p1.instruments
+    ]
     assert dumped == {
         "cash": {"value": "12345.67", "min_reserve": "2345.67", "future_tax": "123.45"},
         "groups": [
@@ -153,7 +181,6 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "ticker": "1234567",
                 "name": "Inst 1",
                 "quantity": 12,
-                "value": "6000.25",
                 "exchange": "TASE",
                 "investable": True,
                 "targetInGroupPercentage": "70",
@@ -164,7 +191,6 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "ticker": "AB12",
                 "name": "Inst 2",
                 "quantity": 0,
-                "value": "2575.42",
                 "exchange": "NYSE",
                 "investable": True,
                 "targetInGroupPercentage": "30",
@@ -175,7 +201,6 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "ticker": "2345678",
                 "name": "Inst 3",
                 "quantity": 4,
-                "value": "3500.00",
                 "exchange": "TASE",
                 "investable": True,
                 "targetInGroupPercentage": "100",
@@ -186,13 +211,33 @@ def test_json_round_trip_preserves_portfolio_structure_and_values():
                 "ticker": "3456789",
                 "name": "Parking",
                 "quantity": 0,
-                "value": "1000",
                 "exchange": "TASE",
                 "investable": False,
                 "targetInGroupPercentage": "0",
             },
         ],
     }
+
+
+def test_parse_missing_instrument_value_defaults_to_zero() -> None:
+    data = make_valid_data()
+    data["instruments"][0].pop("value", None)
+
+    portfolio = load_portfolio(data)
+
+    assert portfolio.instruments[0].value == Decimal("0")
+
+
+def test_load_portfolio_file_ignores_legacy_instrument_value_field(tmp_path) -> None:
+    target = tmp_path / "legacy_value_portfolio.json"
+    payload = make_valid_data()
+    payload["instruments"][0]["value"] = "999999"
+
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    portfolio = load_portfolio_file(target)
+
+    assert portfolio.instruments[0].value == Decimal("0")
 
 
 def test_parse_fails_when_quantity_is_missing() -> None:

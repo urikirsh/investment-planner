@@ -36,10 +36,9 @@ DEFAULT_PORTFOLIO_DATA: Dict[str, Any] = {
     "instruments": [
         {
             "id": "spx_a",
-            "ticker": "1234567",
-            "name": "SPX 500",
+            "ticker": "1183441",
+            "name": "Invesco S&P 500",
             "quantity": 1,
-            "value": "1",
             "exchange": Exchange.TASE.value,
             "investable": True,
             "groupId": "sp500",
@@ -170,9 +169,11 @@ class PortfolioSession:
         self._session_cached_usd_ils_quote = quote
         return quote
 
-    def set_active_file_path(self, path: Optional[Path]) -> None:
-        """Update active file path in-memory and best-effort persist it to config."""
+    def set_active_file_path(self, path: Optional[Path], *, remember: bool = True) -> None:
+        """Update active file path and optionally persist it as the remembered file."""
         self.document.active_path = path
+        if not remember:
+            return
         try:
             self._write_last_loaded_path_to_config(path)
         except Exception:
@@ -207,9 +208,9 @@ class PortfolioSession:
         self.set_active_file_path(path)
 
     def mark_new_document(self, portfolio: Portfolio) -> None:
-        """Initialize a new unsaved document and clear active path in config."""
+        """Initialize a new unsaved document without forgetting the last saved/opened file."""
         self.document.mark_new_unsaved(portfolio)
-        self.set_active_file_path(None)
+        self.set_active_file_path(None, remember=False)
 
 
 @dataclass(frozen=True)

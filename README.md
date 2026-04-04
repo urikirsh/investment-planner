@@ -165,7 +165,7 @@ Notes:
 
 ## Saving your work
 
-- The app remembers the last portfolio file you worked on and shows it on startup.
+- The app remembers the last saved or opened portfolio file and shows it on startup.
 - Startup always opens a welcome screen where you can choose to:
   - open the remembered portfolio
   - load a different file
