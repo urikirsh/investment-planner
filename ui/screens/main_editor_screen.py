@@ -19,6 +19,8 @@ navigation flow control. Those concerns stay in
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFocusEvent
 from PySide6.QtWidgets import (
@@ -44,7 +46,8 @@ from ui.shared.ui_utils import (
     DEFAULT_CURRENCY,
     exchange_choices,
     fmt_decimal_grouped,
-    parse_display_decimal,
+    get_decimal_line_edit_raw_text,
+    set_decimal_line_edit_raw_text,
 )
 
 
@@ -54,18 +57,20 @@ class _FormattedDecimalLineEdit(QLineEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setValidator(build_decimal_validator(allow_empty=True, parent=self))
+        self._updating_display = False
+        set_decimal_line_edit_raw_text(self, "")
+        self.textChanged.connect(self._sync_raw_text_from_editor)
         self.editingFinished.connect(self._format_for_display)
 
     def setText(self, text: str | None) -> None:
         """Render programmatic values using the non-editing display format."""
-        formatted = self._format_text(text)
-        super().setText(formatted)
+        normalized = "" if text is None else text.strip()
+        set_decimal_line_edit_raw_text(self, normalized)
+        self._set_display_text(self._format_raw_text(normalized))
 
     def focusInEvent(self, event: QFocusEvent) -> None:
         """Strip grouping separators so the user edits a plain numeric value."""
-        current = self.text()
-        if current:
-            super().setText(current.replace(",", ""))
+        self._set_display_text(get_decimal_line_edit_raw_text(self))
         super().focusInEvent(event)
 
     def focusOutEvent(self, event: QFocusEvent) -> None:
@@ -73,38 +78,31 @@ class _FormattedDecimalLineEdit(QLineEdit):
         self._format_for_display()
         super().focusOutEvent(event)
 
+    def _set_display_text(self, text: str) -> None:
+        self._updating_display = True
+        try:
+            super().setText(text)
+        finally:
+            self._updating_display = False
+
+    def _sync_raw_text_from_editor(self, text: str) -> None:
+        """Track raw numeric text independently from grouped display rendering."""
+        if self._updating_display:
+            return
+        set_decimal_line_edit_raw_text(self, text.strip())
+
     def _format_for_display(self) -> None:
         """Apply grouped display formatting to the current field text."""
-        formatted = self._format_text(self.text())
+        formatted = self._format_raw_text(get_decimal_line_edit_raw_text(self))
         if formatted != self.text():
-            super().setText(formatted)
+            self._set_display_text(formatted)
 
     @staticmethod
-    def _format_text(text: str | None) -> str:
-        normalized = "" if text is None else text.strip()
-        if not normalized:
+    def _format_raw_text(raw_text: str) -> str:
+        if not raw_text:
             return ""
-        if not _FormattedDecimalLineEdit._is_plain_or_grouped_decimal(normalized):
-            return normalized
-        value = parse_display_decimal(normalized)
+        value = Decimal(raw_text)
         return fmt_decimal_grouped(value)
-
-    @staticmethod
-    def _is_plain_or_grouped_decimal(text: str) -> bool:
-        no_grouping = text.replace(",", "")
-        if "," in text and fmt_decimal_grouped(parse_display_decimal(text)) != text:
-            return False
-        if no_grouping.count(".") > 1:
-            return False
-        integer_part, dot, fractional_part = no_grouping.partition(".")
-        if integer_part.startswith(("+", "-")):
-            sign, integer_part = integer_part[0], integer_part[1:]
-            _ = sign
-        if not integer_part.isdigit():
-            return False
-        if dot and not fractional_part.isdigit():
-            return False
-        return True
 
 
 class MainEditorScreen(QWidget):

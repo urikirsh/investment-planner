@@ -245,3 +245,27 @@ def test_build_data_normalizes_grouped_total_value_text(qapp) -> None:
     )
 
     assert built["instruments"][0]["value"] == "12345.67"
+
+
+def test_build_data_uses_raw_cash_state_instead_of_grouped_display_text(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+    screen.show()
+
+    screen.cash_value_edit.setText("12345.67")
+    screen.cash_reserve_edit.setText("500")
+    screen.future_tax_edit.setText("25")
+    screen.cash_value_edit.editingFinished.emit()
+    screen.cash_reserve_edit.editingFinished.emit()
+    screen.future_tax_edit.editingFinished.emit()
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=False,
+    )
+
+    assert screen.cash_value_edit.text() == "12,345.67"
+    assert built["cash"] == {"value": "12345.67", "min_reserve": "500", "future_tax": "25"}

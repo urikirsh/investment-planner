@@ -25,12 +25,12 @@ from portfolio_core.domain.models import Portfolio
 from ui.shared.ui_types import Col, RowKind
 from ui.shared.ui_utils import (
     add_instrument_item_to_group,
+    get_decimal_line_edit_raw_text,
     get_item_exchange,
     get_item_id,
     get_item_kind,
     get_item_total_value,
     new_id,
-    parse_display_decimal,
     parse_display_non_negative_integer,
     set_group_tree_item,
     set_item_meta,
@@ -234,16 +234,16 @@ def build_portfolio_data_from_main_editor(
       ticker format validation is enforced later by the save/planning validation layer.
     - Instrument `quantity` is emitted as `int` and normalized to `0` when empty.
     """
-    cash_value = cash_value_edit.text().strip()
-    cash_reserve = cash_reserve_edit.text().strip()
-    future_tax = future_tax_edit.text().strip()
+    cash_value = get_decimal_line_edit_raw_text(cash_value_edit)
+    cash_reserve = get_decimal_line_edit_raw_text(cash_reserve_edit)
+    future_tax = get_decimal_line_edit_raw_text(future_tax_edit)
 
     if not allow_partial and (not cash_value or not cash_reserve):
         raise ValueError("Cash value and reserve must be filled")
 
-    cash_value = "0" if not cash_value else str(parse_display_decimal(cash_value))
-    cash_reserve = "0" if not cash_reserve else str(parse_display_decimal(cash_reserve))
-    future_tax = "0" if not future_tax else str(parse_display_decimal(future_tax))
+    cash_value = "0" if not cash_value else cash_value
+    cash_reserve = "0" if not cash_reserve else cash_reserve
+    future_tax = "0" if not future_tax else future_tax
 
     groups: list[GroupPayload] = []
     instruments: list[InstrumentPayload] = []

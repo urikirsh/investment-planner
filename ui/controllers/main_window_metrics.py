@@ -22,10 +22,11 @@ from ui.shared.ui_utils import (
     BASE_CURRENCY_SUFFIX,
     apply_drift_color,
     fmt_decimal_grouped,
+    get_decimal_line_edit_raw_text,
+    get_decimal_line_edit_value,
     get_item_exchange,
     get_item_kind,
     get_item_total_value,
-    parse_display_decimal,
     parse_display_non_negative_integer,
     parse_value_cell,
     set_item_total_value,
@@ -128,12 +129,12 @@ class MainWindowMetricsController:
 
     def normalize_future_tax_input(self) -> None:
         """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""
-        if not self._host.future_tax_edit.text().strip():
+        if not get_decimal_line_edit_raw_text(self._host.future_tax_edit):
             self._host.future_tax_edit.setText("0")
 
     def update_future_tax_visual_state(self) -> None:
         """Apply warning color when future tax is positive, clear style otherwise."""
-        future_tax = parse_display_decimal(self._host.future_tax_edit.text())
+        future_tax = get_decimal_line_edit_value(self._host.future_tax_edit)
         if future_tax > 0:
             self._host.future_tax_edit.setStyleSheet("color: #b00020;")
         else:
@@ -142,9 +143,9 @@ class MainWindowMetricsController:
     def update_investable_balance_visual_state(self) -> None:
         """Recompute investable balance text and color by minimum-investable threshold."""
         host = self._host
-        cash_value = parse_display_decimal(host.cash_value_edit.text())
-        cash_reserve = parse_display_decimal(host.cash_reserve_edit.text())
-        future_tax = parse_display_decimal(host.future_tax_edit.text())
+        cash_value = get_decimal_line_edit_value(host.cash_value_edit)
+        cash_reserve = get_decimal_line_edit_value(host.cash_reserve_edit)
+        future_tax = get_decimal_line_edit_value(host.future_tax_edit)
         investable_balance = cash_value - cash_reserve - future_tax
         if investable_balance < 0:
             investable_balance = D("0")
@@ -225,7 +226,7 @@ class MainWindowMetricsController:
 
         snapshot = MetricsSnapshot(
             groups=tuple(groups),
-            cash_value_text=str(parse_display_decimal(host.cash_value_edit.text())),
-            future_tax_text=str(parse_display_decimal(host.future_tax_edit.text())),
+            cash_value_text=str(get_decimal_line_edit_value(host.cash_value_edit)),
+            future_tax_text=str(get_decimal_line_edit_value(host.future_tax_edit)),
         )
         return snapshot, item_by_key

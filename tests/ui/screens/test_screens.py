@@ -24,7 +24,7 @@ from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
+from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices, get_decimal_line_edit_raw_text
 
 
 @pytest.fixture(autouse=True)
@@ -292,4 +292,5 @@ def test_main_editor_cash_inputs_format_with_grouping_after_editing_finishes() -
     screen.cash_value_edit.editingFinished.emit()
 
     assert screen.cash_value_edit.text() == "12,345.67"
+    assert get_decimal_line_edit_raw_text(screen.cash_value_edit) == "12345.67"
     assert screen.cash_value_edit.hasAcceptableInput() is False
