@@ -239,9 +239,9 @@ def build_portfolio_data_from_main_editor(
     if not allow_partial and (not cash_value or not cash_reserve):
         raise ValueError("Cash value and reserve must be filled")
 
-    cash_value = "0" if not cash_value else cash_value
-    cash_reserve = "0" if not cash_reserve else cash_reserve
-    future_tax = "0" if not future_tax else future_tax
+    cash_value = cash_value or "0"
+    cash_reserve = cash_reserve or "0"
+    future_tax = future_tax or "0"
 
     groups: list[GroupPayload] = []
     instruments: list[InstrumentPayload] = []
