@@ -31,6 +31,8 @@ class StartupMarketDataWorker(QObject):
     completion signal carrying either:
     - a quote plus refreshed portfolio on success, or
     - an error message on failure.
+
+    ILS-only portfolios therefore complete successfully with ``quote=None``.
     """
 
     finished = Signal(object, object, object)  # (UsdIlsRateQuote | None, Portfolio | None, error_text | None)
@@ -49,7 +51,11 @@ class StartupMarketDataWorker(QObject):
 
     @Slot()
     def run(self) -> None:
-        """Fetch startup market data and emit a normalized success/error payload."""
+        """Fetch startup market data and emit a normalized success/error payload.
+
+        The emitted quote is optional because startup can refresh an ILS-only
+        portfolio without consulting the FX service.
+        """
         try:
             if self._portfolio is None:
                 raise StartupPortfolioPriceRefreshError("No portfolio loaded for startup price refresh.")

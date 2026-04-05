@@ -210,7 +210,12 @@ def maybe_get_or_fetch_session_usd_ils_rate(
     portfolio: Portfolio,
     lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Decimal | None:
-    """Return the session USD/ILS rate only when `portfolio` contains USD instruments."""
+    """Return a USD/ILS rate only when startup refresh actually needs one.
+
+    Portfolios that contain only ILS-priced instruments skip FX entirely and
+    return ``None`` so callers can reuse the same refresh workflow without
+    forcing an unnecessary BOI fetch.
+    """
     if not portfolio_requires_usd_ils_rate(portfolio):
         return None
     return get_or_fetch_session_usd_ils_rate(
@@ -224,7 +229,11 @@ def get_or_fetch_session_usd_ils_rate(
     *,
     lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Decimal:
-    """Return session-cached USD/ILS rate, fetching and caching it when absent."""
+    """Return the session USD/ILS rate, fetching and caching it when absent.
+
+    This helper assumes the caller has already established that a USD-priced
+    instrument requires FX for the current workflow.
+    """
     cached_quote = session.cached_usd_ils_quote
     if cached_quote is not None:
         return cached_quote.rate
@@ -248,7 +257,8 @@ def refresh_portfolio_prices_for_startup(
 
     TASE values are refreshed directly in ILS. USD-priced instruments are first
     refreshed from their exchange quote and then converted to ILS with the
-    supplied startup FX rate when one is needed.
+    supplied startup FX rate when one is needed. Callers may pass ``None`` for
+    ``usd_ils_rate`` when the portfolio contains only ILS-priced instruments.
 
     Raises
     ------
@@ -280,6 +290,8 @@ def _refresh_instrument_market_value(
 
     The returned instrument preserves all source fields except ``value``, which
     is replaced with the latest fetched total value for the tracked quantity.
+    USD-priced instruments require ``usd_ils_rate``; ILS-priced instruments do
+    not consult it.
     """
     try:
         lookup_result = lookup_ticker_in_exchange(

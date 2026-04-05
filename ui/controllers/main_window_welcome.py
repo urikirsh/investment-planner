@@ -250,7 +250,7 @@ class MainWindowWelcomeController:
         self._startup_transition_coordinator.schedule_min_delay()
 
     def _start_startup_market_data_fetch(self) -> None:
-        """Start startup market-data fetch for FX and portfolio prices."""
+        """Start startup market-data fetch for needed FX and portfolio prices."""
         if not self._ensure_startup_cleanup_ready_for_restart():
             self._abort_startup_transition_cleanup_in_progress()
             return
@@ -341,10 +341,11 @@ class MainWindowWelcomeController:
         quote: UsdIlsRateQuote | None,
         refreshed_portfolio: Portfolio,
     ) -> bool:
-        """Cache a fetched startup quote, or verify a session-cached quote already exists.
+        """Accept startup FX state, caching a fetched quote when one is supplied.
 
-        Returns ``False`` only when neither the worker nor the session can
-        provide a USD/ILS rate for the current startup transition.
+        ILS-only portfolios succeed without any FX quote. Portfolios with
+        USD-priced instruments require either a newly fetched quote from the
+        worker or an already-populated session cache.
         """
         if not portfolio_requires_usd_ils_rate(refreshed_portfolio):
             return True
