@@ -63,3 +63,22 @@ def test_build_summary_action_lines_trim_trailing_zeros_for_display(
         "Planned actions (split per instrument by in-group target percentages):",
         "- BUY 12,345 in [Equity] via [World ETF]",
     ]
+
+
+def test_build_summary_action_lines_limits_display_to_two_decimals(
+    make_plan_step: Callable[..., PlanStep],
+) -> None:
+    steps = [
+        make_plan_step(
+            delta="12345.6789",
+            group_name="Equity",
+            instrument_name="World ETF",
+        )
+    ]
+
+    lines = MainWindowSummaryController._build_summary_action_lines(steps)
+
+    assert lines == [
+        "Planned actions (split per instrument by in-group target percentages):",
+        "- BUY 12,345.68 in [Equity] via [World ETF]",
+    ]

@@ -105,7 +105,7 @@ class MainWindowPlanExecutionMixin:
 
         action, _ = self._wizard_step_direction_labels(s.planned_delta_money)
         planned_amount_text = (
-            f"{fmt_decimal_grouped(abs(s.planned_delta_money), trim_trailing_zeros=True)} {BASE_CURRENCY_SUFFIX}"
+            f"{fmt_decimal_grouped(abs(s.planned_delta_money), places=2, trim_trailing_zeros=True)} {BASE_CURRENCY_SUFFIX}"
         )
         self.screen_wizard.set_step_context(
             step_index=idx,
