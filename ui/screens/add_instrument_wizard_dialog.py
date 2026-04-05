@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from PySide6.QtCore import QRegularExpression, QSignalBlocker, Qt, Slot
-from PySide6.QtGui import QCloseEvent, QRegularExpressionValidator
+from PySide6.QtGui import QCloseEvent, QFocusEvent, QRegularExpressionValidator
 from collections.abc import Callable
 from enum import Enum, IntEnum
 
@@ -62,7 +62,9 @@ from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_utils import (
     DEFAULT_EXCHANGE,
     exchange_choices,
+    fmt_non_negative_integer_grouped,
     normalize_and_validate_non_negative_integer_text,
+    parse_display_non_negative_integer,
 )
 from ui.ticker_lookup_coordinator import (
     TickerLookupCoordinator,
@@ -184,6 +186,48 @@ class _WizardDisplayContext:
     instrument_group_name: str
     exchange_text: str
     ticker_text: str
+
+
+class _FormattedIntegerLineEdit(QLineEdit):
+    """Line edit that edits plain digits and shows grouped integers when idle."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setValidator(build_non_negative_integer_validator(allow_empty=True, parent=self))
+        self.editingFinished.connect(self._format_for_display)
+
+    def setText(self, text: str | None) -> None:
+        """Render programmatic values using grouped display format when valid."""
+        super().setText(self._format_text(text))
+
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        """Strip grouping separators so editing stays digit-only."""
+        current = self.text()
+        if current:
+            super().setText(current.replace(",", ""))
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        """Restore grouped display formatting after editing ends."""
+        self._format_for_display()
+        super().focusOutEvent(event)
+
+    def _format_for_display(self) -> None:
+        formatted = self._format_text(self.text())
+        if formatted != self.text():
+            super().setText(formatted)
+
+    @staticmethod
+    def _format_text(text: str | None) -> str:
+        normalized = "" if text is None else text.strip()
+        if not normalized:
+            return ""
+        if "," in normalized:
+            parsed = parse_display_non_negative_integer(normalized)
+            return normalized if fmt_non_negative_integer_grouped(parsed) != normalized else normalized
+        if not normalized.isdigit():
+            return normalized
+        return fmt_non_negative_integer_grouped(int(normalized))
 
 
 class AddInstrumentWizardDialog(QDialog):
@@ -344,7 +388,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.target_pct_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Strategy percentage:", self.target_pct_edit)
 
-        self.units_edit = QLineEdit(page)
+        self.units_edit = _FormattedIntegerLineEdit(page)
         self.units_edit.setPlaceholderText("Non-negative integer")
         self.units_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Units:", self.units_edit)
@@ -722,6 +766,10 @@ class AddInstrumentWizardDialog(QDialog):
     @staticmethod
     def _validate_units_input(units_text: str) -> _UnitsValidationResult:
         """Validate units as a required non-negative integer."""
+        if units_text.strip():
+            grouped_units = parse_display_non_negative_integer(units_text)
+            if fmt_non_negative_integer_grouped(grouped_units) == units_text.strip():
+                return _UnitsValidationResult(error="", units=grouped_units)
         _normalized_text, units, error = normalize_and_validate_non_negative_integer_text(
             units_text,
             field_label="Units",

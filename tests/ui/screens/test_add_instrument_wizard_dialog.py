@@ -309,6 +309,35 @@ def test_add_instrument_wizard_units_field_rejects_non_digit_input(
     assert dialog.units_edit.hasAcceptableInput()
 
 
+def test_add_instrument_wizard_units_field_formats_with_grouping_after_editing_finishes(
+    wizard_dialog_factory: WizardDialogFactory,
+) -> None:
+    dialog = _open_add_instrument_wizard_step_3(wizard_dialog_factory)
+    dialog.show()
+
+    dialog.units_edit.clear()
+    dialog.units_edit.insert("12345")
+    assert dialog.units_edit.text() == "12345"
+
+    dialog.units_edit.editingFinished.emit()
+
+    assert dialog.units_edit.text() == "12,345"
+
+
+def test_add_instrument_wizard_validate_step_3_accepts_grouped_display_units() -> None:
+    result = AddInstrumentWizardDialog._validate_step_3(
+        name_text="ETF A",
+        target_text="25",
+        units_text="12,345",
+        is_non_investable_group=False,
+    )
+
+    assert result.is_valid is True
+    assert result.units_error == ""
+    assert result.payload is not None
+    assert result.payload.units == 12345
+
+
 def test_add_instrument_wizard_target_pct_field_rejects_non_decimal_input(
     wizard_dialog_factory: WizardDialogFactory,
 ) -> None:
