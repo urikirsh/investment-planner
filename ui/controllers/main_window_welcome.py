@@ -318,7 +318,7 @@ class MainWindowWelcomeController:
                 transition_error=self._build_startup_fetch_error_message(payload.error_text)
             )
 
-        if not self._cache_startup_quote_if_available(
+        if not self._accept_or_cache_startup_fx_result(
             quote=payload.quote,
             refreshed_portfolio=payload.refreshed_portfolio,
         ):
@@ -335,7 +335,7 @@ class MainWindowWelcomeController:
         self._commit_pending_startup_portfolio(payload.refreshed_portfolio)
         return _StartupFetchResolution(transition_error=None)
 
-    def _cache_startup_quote_if_available(
+    def _accept_or_cache_startup_fx_result(
         self,
         *,
         quote: UsdIlsRateQuote | None,
