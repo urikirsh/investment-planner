@@ -29,6 +29,12 @@ class QuantityCell:
         return raw_value if isinstance(raw_value, int) and raw_value >= 0 else 0
 
     @staticmethod
+    def clear(item: QTreeWidgetItem) -> None:
+        """Clear quantity display while keeping raw metadata normalized to zero."""
+        item.setData(Col.QUANTITY.value, _ROLE_QUANTITY, 0)
+        item.setText(Col.QUANTITY.value, "")
+
+    @staticmethod
     def read_raw_text_from_index(index: QModelIndex | QPersistentModelIndex) -> str:
         """Return plain-digit quantity text for editor population."""
         raw_value = index.data(_ROLE_QUANTITY)

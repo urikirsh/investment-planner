@@ -22,13 +22,12 @@ from ui.portfolio_editor_adapter import (
     populate_main_editor_from_portfolio,
 )
 from ui.screens.main_editor_screen import MainEditorScreen
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
     NON_INVESTABLE_BUCKET_ID,
     add_instrument_item_to_group,
-    get_item_quantity,
     set_group_tree_item,
-    set_item_total_value,
 )
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
@@ -239,7 +238,7 @@ def test_build_data_normalizes_grouped_total_value_text(qapp) -> None:
     add_instrument_item_to_group(group, "1234567", "ETF", 1, "100", "i1", "TASE")
     child = group.child(0)
     assert child is not None
-    set_item_total_value(child, Decimal("12345.67"))
+    PortfolioTreeRow(child).set_total_value(Decimal("12345.67"))
     child.setText(Col.TOT_VALUE.value, "12,345.67")
 
     built = build_portfolio_data_from_main_editor(
@@ -286,7 +285,7 @@ def test_build_data_uses_raw_quantity_state_instead_of_grouped_display_text(qapp
     add_instrument_item_to_group(group, "1234567", "ETF", 12345, "100", "i1", "TASE")
     child = group.child(0)
     assert child is not None
-    assert get_item_quantity(child) == 12345
+    assert PortfolioTreeRow(child).quantity() == 12345
     child.setText(Col.QUANTITY.value, "not a number")
 
     built = build_portfolio_data_from_main_editor(

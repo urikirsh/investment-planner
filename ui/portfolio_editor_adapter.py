@@ -22,6 +22,7 @@ from typing import Callable, NotRequired, TypedDict
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.domain.models import Portfolio
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col, RowKind
 from ui.shared.ui_utils import (
     add_instrument_item_to_group,
@@ -29,12 +30,9 @@ from ui.shared.ui_utils import (
     get_item_exchange,
     get_item_id,
     get_item_kind,
-    get_item_quantity,
-    get_item_total_value,
     new_id,
     set_group_tree_item,
     set_item_meta,
-    set_item_total_value,
 )
 
 D = Decimal
@@ -161,7 +159,7 @@ def populate_main_editor_from_portfolio(
                 )
                 child = group_item.child(group_item.childCount() - 1)
                 if child is not None:
-                    set_item_total_value(child, D(ins_row["value"]))
+                    PortfolioTreeRow(child).set_total_value(D(ins_row["value"]))
 
         non_investable_bucket = QTreeWidgetItem(tree)
         set_group_tree_item(
@@ -183,7 +181,7 @@ def populate_main_editor_from_portfolio(
             )
             child = non_investable_bucket.child(non_investable_bucket.childCount() - 1)
             if child is not None:
-                set_item_total_value(child, D(non_investable_row["value"]))
+                PortfolioTreeRow(child).set_total_value(D(non_investable_row["value"]))
 
         tree.expandAll()
     finally:
@@ -277,8 +275,9 @@ def build_portfolio_data_from_main_editor(
 
             instrument_name = ins.text(Col.NAME.value).strip()
             instrument_ticker = ins.text(Col.TICKER.value).strip()
-            quantity = get_item_quantity(ins)
-            total_value = str(get_item_total_value(ins))
+            row = PortfolioTreeRow(ins)
+            quantity = row.quantity()
+            total_value = str(row.total_value())
 
             if is_non_investable_bucket:
                 instrument: InstrumentPayload = {

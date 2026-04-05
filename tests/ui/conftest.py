@@ -28,8 +28,9 @@ from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.plan_execution_wizard import MainWindowPlanExecutionMixin
 from ui.main_window import MainWindow
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item, set_item_total_value
+from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
 # headless environments (e.g., CI runners without an active display server).
@@ -197,7 +198,7 @@ def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
         )
         child = group.child(group.childCount() - 1)
         assert child is not None
-        set_item_total_value(child, Decimal(value))
+        PortfolioTreeRow(child).set_total_value(Decimal(value))
         return child
 
     return _add_instrument_row

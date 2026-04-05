@@ -114,6 +114,7 @@ Startup/wizard market-data guards in this flow:
   - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
   - `formatted_numeric_line_edit.py`: shared base and concrete grouped-number `QLineEdit` widgets used by main-editor cash fields and wizard units input
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
+  - `portfolio_tree_row.py`: row-level API for managed numeric tree cells so callers update quantity/total values without touching raw item-data role details directly
   - `quantity_cell.py`: encapsulates raw/display storage for the tree quantity column so editors, metrics, and save logic read raw units without reparsing grouped text
   - `total_value_cell.py`: encapsulates raw/display storage for the tree total-value column so callers do not depend on Qt item-data role details directly
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics

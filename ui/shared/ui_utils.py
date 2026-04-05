@@ -11,8 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.domain.models import Currency, Exchange
-from ui.shared.quantity_cell import QuantityCell
-from ui.shared.total_value_cell import TotalValueCell
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
 """Shared UI helpers for formatting, lightweight widget state, and tree metadata.
@@ -126,26 +125,6 @@ def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
 def get_item_id(item: QTreeWidgetItem) -> str:
     """Return stored internal id string, or empty string if missing."""
     return item.data(0, ROLE_ID) or ""
-
-
-def set_item_total_value(item: QTreeWidgetItem, value: D) -> None:
-    """Store one row's computed total via the total-value cell adapter."""
-    TotalValueCell.write(item, D(value))
-
-
-def get_item_total_value(item: QTreeWidgetItem) -> D:
-    """Return a row's raw total from typed item metadata, or ``0`` when missing."""
-    return TotalValueCell.read(item)
-
-
-def set_item_quantity(item: QTreeWidgetItem, value: int) -> None:
-    """Store one row's quantity via the quantity-cell adapter."""
-    QuantityCell.write(item, value)
-
-
-def get_item_quantity(item: QTreeWidgetItem) -> int:
-    """Return a row's raw quantity from typed item metadata, or ``0`` when missing."""
-    return QuantityCell.read(item)
 
 
 def set_decimal_line_edit_raw_text(edit: QLineEdit, text: str | D | None) -> None:
@@ -267,8 +246,9 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     )
     gitem.setText(Col.TICKER.value, "")
     gitem.setText(Col.NAME.value, name)
-    gitem.setText(Col.QUANTITY.value, "")
-    set_item_total_value(gitem, D("0"))  # will be recalculated anyway
+    row = PortfolioTreeRow(gitem)
+    row.clear_quantity()
+    row.set_total_value(D("0"))  # will be recalculated anyway
     gitem.setText(Col.EXCHANGE.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
@@ -297,10 +277,11 @@ def add_instrument_item_to_group(
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()
+    row = PortfolioTreeRow(item)
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
-    set_item_quantity(item, quantity)
-    set_item_total_value(item, D("0"))
+    row.set_quantity(quantity)
+    row.set_total_value(D("0"))
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
