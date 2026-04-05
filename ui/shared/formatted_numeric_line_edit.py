@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+"""Shared numeric line edits that keep raw input separate from grouped display text.
+
+These widgets centralize the shared lifecycle for numeric fields that:
+- accept plain numeric text while focused
+- preserve a raw numeric value on the widget itself
+- render comma-grouped display text when editing finishes
+
+Concrete subclasses define the numeric contract for one field type, such as
+unsigned decimals or non-negative integers.
+"""
+
 from decimal import Decimal
 
 from PySide6.QtGui import QFocusEvent, QValidator
@@ -82,7 +93,7 @@ class _FormattedNumericLineEdit(QLineEdit):
 
 
 class FormattedDecimalLineEdit(_FormattedNumericLineEdit):
-    """Line edit that shows grouped decimal values when not actively being edited."""
+    """Line edit for unsigned decimals with grouped idle display formatting."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(validator=build_decimal_validator(allow_empty=True, parent=parent), parent=parent)
@@ -104,7 +115,7 @@ class FormattedDecimalLineEdit(_FormattedNumericLineEdit):
 
 
 class FormattedIntegerLineEdit(_FormattedNumericLineEdit):
-    """Line edit that shows grouped integer values when not actively being edited."""
+    """Line edit for non-negative integers with grouped idle display formatting."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(

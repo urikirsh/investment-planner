@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Helpers for the tree total-value column's raw/display split.
+
+The total-value column is rendered as formatted text for the UI, but computed
+totals are stored separately in item metadata so calculations and persistence
+do not need to reparse visible text.
+"""
+
 from decimal import Decimal, InvalidOperation
 
 from PySide6.QtCore import Qt

@@ -15,16 +15,16 @@ from portfolio_core.domain.models import Currency, Exchange
 from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
-"""
-ui_utils.py
+"""Shared UI helpers for formatting, lightweight widget state, and tree metadata.
 
-Reusable helper functions for the UI layer.
+This module contains small UI-facing helpers that are reused across screens and
+controllers, including:
+- display formatting for decimals, percentages, and grouped integers
+- raw-value helpers for grouped numeric line edits
+- tree item metadata and total-value cell adapters
+- styling/alignment utilities for portfolio tree rows
 
-This module contains small, focused utilities used by UI components,
-such as styling helpers, formatting functions, and minor UI-related
-logic that does not belong in widget classes themselves.
-
-No business logic or persistence logic belongs in this module.
+Business rules and persistence workflows stay outside this module.
 """
 
 D = Decimal
@@ -157,29 +157,29 @@ def get_item_id(item: QTreeWidgetItem) -> str:
 
 
 def set_item_total_value(item: QTreeWidgetItem, value: D) -> None:
-    """Store and render one row's computed total value."""
+    """Store one row's computed total via the total-value cell adapter."""
     TotalValueCell.write(item, D(value))
 
 
 def get_item_total_value(item: QTreeWidgetItem) -> D:
-    """Return a row's raw total value from typed item metadata, or ``0`` when missing."""
+    """Return a row's raw total from typed item metadata, or ``0`` when missing."""
     return TotalValueCell.read(item)
 
 
 def set_decimal_line_edit_raw_text(edit: QLineEdit, text: str | D | None) -> None:
-    """Store normalized raw decimal text on a line edit."""
+    """Store normalized raw decimal text for a grouped-display decimal line edit."""
     normalized = "" if text is None else str(text).strip()
     edit.setProperty(_RAW_DECIMAL_TEXT_PROPERTY, normalized)
 
 
 def get_decimal_line_edit_raw_text(edit: QLineEdit) -> str:
-    """Return stored raw decimal text from a line edit, or empty string."""
+    """Return stored raw decimal text from a grouped-display decimal line edit."""
     raw = edit.property(_RAW_DECIMAL_TEXT_PROPERTY)
     return raw if isinstance(raw, str) else ""
 
 
 def get_decimal_line_edit_value(edit: QLineEdit) -> D:
-    """Return one line edit's raw decimal value, defaulting to ``0`` when blank."""
+    """Return one grouped-display decimal line edit's raw value, defaulting to ``0``."""
     raw = get_decimal_line_edit_raw_text(edit)
     if not raw:
         return D("0")
