@@ -5,6 +5,7 @@ from decimal import Decimal
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLineEdit, QTreeWidgetItem
 
+from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
     FIXED_CELL_BG_COLOR,
@@ -58,6 +59,13 @@ def test_set_item_total_value_updates_raw_value_and_display_text() -> None:
 
     assert get_item_total_value(item) == Decimal("12345.67")
     assert item.text(Col.TOT_VALUE.value) == "12,345.67"
+
+
+def test_total_value_cell_reads_zero_when_metadata_is_missing() -> None:
+    item = QTreeWidgetItem()
+    item.setText(Col.TOT_VALUE.value, "12,345.67")
+
+    assert TotalValueCell.read(item) == Decimal("0")
 
 
 def test_get_item_total_value_prefers_raw_metadata_over_visible_text() -> None:

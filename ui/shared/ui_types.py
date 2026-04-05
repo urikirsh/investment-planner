@@ -23,7 +23,6 @@ D = Decimal
 # These extend Qt.UserRole to avoid collisions with built-in Qt roles.
 ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
 ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
-ROLE_TOTAL_VALUE = int(Qt.ItemDataRole.UserRole) + 3 # raw Decimal-compatible total value
 ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
 
 class RowKind(StrEnum):

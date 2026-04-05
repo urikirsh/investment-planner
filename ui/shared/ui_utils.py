@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.domain.models import Currency, Exchange
-from ui.shared.ui_types import ROLE_KIND, ROLE_ID, ROLE_TOTAL_VALUE, RowKind, Col
+from ui.shared.total_value_cell import TotalValueCell
+from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
 """
 ui_utils.py
@@ -157,20 +158,12 @@ def get_item_id(item: QTreeWidgetItem) -> str:
 
 def set_item_total_value(item: QTreeWidgetItem, value: D) -> None:
     """Store and render one row's computed total value."""
-    normalized = D(value)
-    item.setData(Col.TOT_VALUE.value, ROLE_TOTAL_VALUE, str(normalized))
-    item.setText(Col.TOT_VALUE.value, fmt_decimal_grouped(normalized))
+    TotalValueCell.write(item, D(value))
 
 
 def get_item_total_value(item: QTreeWidgetItem) -> D:
     """Return a row's raw total value from typed item metadata, or ``0`` when missing."""
-    raw_value = item.data(Col.TOT_VALUE.value, ROLE_TOTAL_VALUE)
-    if isinstance(raw_value, str):
-        try:
-            return D(raw_value)
-        except (InvalidOperation, ValueError):
-            pass
-    return D("0")
+    return TotalValueCell.read(item)
 
 
 def set_decimal_line_edit_raw_text(edit: QLineEdit, text: str | D | None) -> None:
