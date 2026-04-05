@@ -7,7 +7,7 @@ strings plus numeric drift values for caller-managed styling.
 
 Design notes
 ------------
-- Input uses plain dataclasses and text values to mirror current UI cell state.
+ - Input uses plain dataclasses and typed numeric totals extracted from UI state.
 - Output is render-oriented and includes both formatted strings and raw drift
   decimals so callers can style cells consistently without recomputing values.
 - Behavior for non-investable rows is encoded here to keep UI orchestration
@@ -36,7 +36,7 @@ class MetricInstrumentRow:
 
     key: str
     kind: RowKind | None
-    value_text: str
+    value: D
     target_pct_text: str
 
 
@@ -118,7 +118,7 @@ def compute_portfolio_metrics(snapshot: MetricsSnapshot) -> MetricsResult:
         for child in top.instruments:
             if child.kind != RowKind.INSTRUMENT:
                 continue
-            child_value = parse_value_cell(child.value_text)
+            child_value = child.value
             total += child_value
             row_values[child.key] = child_value
             portfolio_instruments_total += child_value

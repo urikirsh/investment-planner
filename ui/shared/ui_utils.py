@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.domain.models import Currency, Exchange
-from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
+from ui.shared.ui_types import ROLE_KIND, ROLE_ID, ROLE_TOTAL_VALUE, RowKind, Col
 
 """
 ui_utils.py
@@ -123,6 +123,24 @@ def get_item_id(item: QTreeWidgetItem) -> str:
     return item.data(0, ROLE_ID) or ""
 
 
+def set_item_total_value(item: QTreeWidgetItem, value: D) -> None:
+    """Store and render one row's computed total value."""
+    normalized = D(value)
+    item.setData(Col.TOT_VALUE.value, ROLE_TOTAL_VALUE, str(normalized))
+    item.setText(Col.TOT_VALUE.value, fmt_decimal_grouped(normalized))
+
+
+def get_item_total_value(item: QTreeWidgetItem) -> D:
+    """Return a row's raw total value, preferring typed item metadata over display text."""
+    raw_value = item.data(Col.TOT_VALUE.value, ROLE_TOTAL_VALUE)
+    if isinstance(raw_value, str):
+        try:
+            return D(raw_value)
+        except (InvalidOperation, ValueError):
+            pass
+    return parse_value_cell(item.text(Col.TOT_VALUE.value))
+
+
 def get_item_exchange(item: QTreeWidgetItem) -> str:
     """
     Return a valid instrument exchange code from visible text, defaulting to TASE.
@@ -220,7 +238,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     gitem.setText(Col.TICKER.value, "")
     gitem.setText(Col.NAME.value, name)
     gitem.setText(Col.QUANTITY.value, "")
-    gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
+    set_item_total_value(gitem, D("0"))  # will be recalculated anyway
     gitem.setText(Col.EXCHANGE.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
@@ -253,7 +271,7 @@ def add_instrument_item_to_group(
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
-    item.setText(Col.TOT_VALUE.value, "0")
+    set_item_total_value(item, D("0"))
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)

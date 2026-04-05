@@ -24,7 +24,9 @@ from ui.shared.ui_utils import (
     fmt_decimal_grouped,
     get_item_exchange,
     get_item_kind,
+    get_item_total_value,
     parse_value_cell,
+    set_item_total_value,
 )
 
 D = Decimal
@@ -63,10 +65,7 @@ class MainWindowMetricsController:
         with suppress_item_changed(self._host):
             for _top_key, _top, instrument_rows in self._iter_top_rows_with_instruments():
                 for _child_key, child in instrument_rows:
-                    child.setText(
-                        Col.TOT_VALUE.value,
-                        fmt_decimal_grouped(self._compute_instrument_total_value_ils(child)),
-                    )
+                    set_item_total_value(child, self._compute_instrument_total_value_ils(child))
 
     def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
         """Return one instrument row's total value in ILS from cached market data."""
@@ -116,7 +115,7 @@ class MainWindowMetricsController:
             metrics = compute_portfolio_metrics(snapshot)
 
             for key, total in metrics.top_total_by_key.items():
-                item_by_key[key].setText(Col.TOT_VALUE.value, fmt_decimal_grouped(total))
+                set_item_total_value(item_by_key[key], total)
             for key, text in metrics.portfolio_pct_text_by_key.items():
                 item_by_key[key].setText(Col.PORTFOLIO_PCT.value, text)
             for key, text in metrics.strategy_pct_text_by_key.items():
@@ -211,7 +210,7 @@ class MainWindowMetricsController:
                     MetricInstrumentRow(
                         key=child_key,
                         kind=get_item_kind(child),
-                        value_text=child.text(Col.TOT_VALUE.value),
+                        value=get_item_total_value(child),
                         target_pct_text=child.text(Col.TARGET_PCT.value),
                     )
                 )

@@ -33,7 +33,7 @@ def test_compute_portfolio_metrics_group_and_non_investable_rows() -> None:
                     MetricInstrumentRow(
                         key="i1",
                         kind=RowKind.INSTRUMENT,
-                        value_text="600",
+                        value=D("600"),
                         target_pct_text="100",
                     ),
                 ),
@@ -46,7 +46,7 @@ def test_compute_portfolio_metrics_group_and_non_investable_rows() -> None:
                     MetricInstrumentRow(
                         key="i2",
                         kind=RowKind.INSTRUMENT,
-                        value_text="400",
+                        value=D("400"),
                         target_pct_text="",
                     ),
                 ),
@@ -98,7 +98,7 @@ def test_compute_portfolio_metrics_handles_zero_denominators() -> None:
                     MetricInstrumentRow(
                         key="i1",
                         kind=RowKind.INSTRUMENT,
-                        value_text="0",
+                        value=D("0"),
                         target_pct_text="100",
                     ),
                 ),
@@ -122,8 +122,8 @@ def test_compute_portfolio_metrics_handles_zero_denominators() -> None:
     assert result.drift_value_by_key["i1"] == D("0")
 
 
-def test_compute_portfolio_metrics_parses_grouped_value_text() -> None:
-    """Ensure grouped total-value text still participates in metric computation."""
+def test_compute_portfolio_metrics_uses_raw_decimal_values() -> None:
+    """Ensure metrics computation depends on typed totals, not display formatting."""
     snapshot = MetricsSnapshot(
         groups=(
             MetricGroupRow(
@@ -134,13 +134,13 @@ def test_compute_portfolio_metrics_parses_grouped_value_text() -> None:
                     MetricInstrumentRow(
                         key="i1",
                         kind=RowKind.INSTRUMENT,
-                        value_text="12,345.67",
+                        value=D("12345.67"),
                         target_pct_text="100",
                     ),
                 ),
             ),
         ),
-        cash_value_text="1,000",
+        cash_value_text="1000",
         future_tax_text="0",
     )
 

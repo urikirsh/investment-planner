@@ -16,6 +16,7 @@ Why this module exists
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Callable, NotRequired, TypedDict
 
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
@@ -27,11 +28,14 @@ from ui.shared.ui_utils import (
     get_item_exchange,
     get_item_id,
     get_item_kind,
+    get_item_total_value,
     new_id,
-    parse_value_cell,
     set_group_tree_item,
     set_item_meta,
+    set_item_total_value,
 )
+
+D = Decimal
 
 
 class CashPayload(TypedDict):
@@ -155,7 +159,7 @@ def populate_main_editor_from_portfolio(
                 )
                 child = group_item.child(group_item.childCount() - 1)
                 if child is not None:
-                    child.setText(Col.TOT_VALUE.value, ins_row["value"])
+                    set_item_total_value(child, D(ins_row["value"]))
 
         non_investable_bucket = QTreeWidgetItem(tree)
         set_group_tree_item(
@@ -177,7 +181,7 @@ def populate_main_editor_from_portfolio(
             )
             child = non_investable_bucket.child(non_investable_bucket.childCount() - 1)
             if child is not None:
-                child.setText(Col.TOT_VALUE.value, non_investable_row["value"])
+                set_item_total_value(child, D(non_investable_row["value"]))
 
         tree.expandAll()
     finally:
@@ -272,7 +276,7 @@ def build_portfolio_data_from_main_editor(
             instrument_name = ins.text(Col.NAME.value).strip()
             instrument_ticker = ins.text(Col.TICKER.value).strip()
             quantity = int(ins.text(Col.QUANTITY.value).strip() or "0")
-            total_value = str(parse_value_cell(ins.text(Col.TOT_VALUE.value)))
+            total_value = str(get_item_total_value(ins))
 
             if is_non_investable_bucket:
                 instrument: InstrumentPayload = {
