@@ -181,7 +181,26 @@ def test_load_document_fetches_and_caches_fx_when_missing(
 ) -> None:
     session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
     target = tmp_path / "portfolio.json"
-    save_portfolio_file(load_portfolio(make_valid_data()), target)
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "NYSE Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "SPY",
+                    "name": "NYSE ETF",
+                    "quantity": 2,
+                    "value": "0.00",
+                    "exchange": "NYSE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+    save_portfolio_file(portfolio, target)
 
     fake_quote = type(
         "FakeQuote",
@@ -211,6 +230,58 @@ def test_load_document_fetches_and_caches_fx_when_missing(
     assert cached_quote.rate == D("3.40")
     assert cached_quote.effective_date == date.fromisoformat("2026-03-12")
     assert cached_quote.used_last_published is True
+
+
+def test_load_document_skips_fx_fetch_when_portfolio_has_no_usd_instruments(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default_portfolio", config_path=tmp_path / "config.json")
+    target = tmp_path / "portfolio.json"
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "TASE Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1159094",
+                    "name": "TASE ETF",
+                    "quantity": 2,
+                    "value": "0.00",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+    save_portfolio_file(portfolio, target)
+    seen_rates: list[D | None] = []
+
+    def fail_fetch_latest_usd_ils_rate(*, timeout_seconds: float = 8.0):
+        _ = timeout_seconds
+        raise AssertionError("USD/ILS fetch should be skipped for ILS-only portfolios.")
+
+    def fake_refresh(
+        refreshed_portfolio: Portfolio,
+        *,
+        usd_ils_rate: D | None,
+        lookup_timeout_seconds: float = 8.0,
+    ) -> Portfolio:
+        _ = lookup_timeout_seconds
+        seen_rates.append(usd_ils_rate)
+        return refreshed_portfolio
+
+    monkeypatch.setattr("portfolio_core.workflows.fetch_latest_usd_ils_rate", fail_fetch_latest_usd_ils_rate)
+    monkeypatch.setattr("portfolio_core.workflows.refresh_portfolio_prices_for_startup", fake_refresh)
+
+    loaded = load_document(session, target)
+
+    assert loaded == portfolio
+    assert seen_rates == [None]
+    assert session.cached_usd_ils_quote is None
 
 
 def test_portfolio_document_save_to_path_requires_current_portfolio(tmp_path):
@@ -319,9 +390,9 @@ def test_use_case_create_new_default_document_marks_unsaved_refreshed_document(
         effective_date=date.fromisoformat("2026-03-11"),
         used_last_published=False,
     )
-    seen_rates: list[D] = []
+    seen_rates: list[D | None] = []
 
-    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D, lookup_timeout_seconds: float = 8.0) -> Portfolio:
+    def fake_refresh(portfolio: Portfolio, *, usd_ils_rate: D | None, lookup_timeout_seconds: float = 8.0) -> Portfolio:
         _ = lookup_timeout_seconds
         seen_rates.append(usd_ils_rate)
         refreshed_instruments = list(portfolio.instruments)
@@ -347,7 +418,7 @@ def test_use_case_create_new_default_document_marks_unsaved_refreshed_document(
 
     created = create_new_default_document(session)
 
-    assert seen_rates == [D("3.25")]
+    assert seen_rates == [None]
     assert created.instruments[0].value == D("111.11")
     assert session.current_file_path is None
     assert session.get_remembered_portfolio_path() == existing

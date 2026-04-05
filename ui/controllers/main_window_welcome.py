@@ -13,6 +13,7 @@ from portfolio_core.app_metadata import get_app_version
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote
 from portfolio_core.io_json import load_portfolio_file
+from portfolio_core.workflows import portfolio_requires_usd_ils_rate
 from ui.controllers.protocols import MainWindowWelcomeHost
 from ui.controllers.startup_transition import (
     StartupTransitionCoordinator,
@@ -249,7 +250,7 @@ class MainWindowWelcomeController:
         self._startup_transition_coordinator.schedule_min_delay()
 
     def _start_startup_market_data_fetch(self) -> None:
-        """Start startup market-data fetch for FX and portfolio prices."""
+        """Start startup market-data fetch for needed FX and portfolio prices."""
         if not self._ensure_startup_cleanup_ready_for_restart():
             self._abort_startup_transition_cleanup_in_progress()
             return
@@ -317,7 +318,10 @@ class MainWindowWelcomeController:
                 transition_error=self._build_startup_fetch_error_message(payload.error_text)
             )
 
-        if not self._cache_startup_quote_if_available(payload.quote):
+        if not self._accept_or_cache_startup_fx_result(
+            quote=payload.quote,
+            refreshed_portfolio=payload.refreshed_portfolio,
+        ):
             decision = self._startup_transition_coordinator.complete_fetch(
                 error_message="Failed to fetch USD to ILS exchange rate."
             )
@@ -331,12 +335,20 @@ class MainWindowWelcomeController:
         self._commit_pending_startup_portfolio(payload.refreshed_portfolio)
         return _StartupFetchResolution(transition_error=None)
 
-    def _cache_startup_quote_if_available(self, quote: UsdIlsRateQuote | None) -> bool:
-        """Cache a fetched startup quote, or verify a session-cached quote already exists.
+    def _accept_or_cache_startup_fx_result(
+        self,
+        *,
+        quote: UsdIlsRateQuote | None,
+        refreshed_portfolio: Portfolio,
+    ) -> bool:
+        """Accept startup FX state, caching a fetched quote when one is supplied.
 
-        Returns ``False`` only when neither the worker nor the session can
-        provide a USD/ILS rate for the current startup transition.
+        ILS-only portfolios succeed without any FX quote. Portfolios with
+        USD-priced instruments require either a newly fetched quote from the
+        worker or an already-populated session cache.
         """
+        if not portfolio_requires_usd_ils_rate(refreshed_portfolio):
+            return True
         if quote is not None:
             self._host.session.cache_usd_ils_quote(
                 rate=quote.rate,

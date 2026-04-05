@@ -35,6 +35,7 @@ Main user flow:
 
 Startup/wizard market-data guards in this flow:
 - Welcome->main transition includes async startup market-data refresh with a minimum 1-second loading overlay.
+- Startup fetches USD/ILS only when the staged portfolio contains a USD-priced instrument and the session cache is empty.
 - Wizard runs reuse startup-cached USD/ILS data from in-memory session cache.
 - Wizard flow never performs USD/ILS network fetches.
 - Window close cancels any active startup market-data fetch before teardown.
@@ -51,11 +52,13 @@ Startup/wizard market-data guards in this flow:
 - `ui/controllers/main_window_welcome.py`
   - `MainWindowWelcomeController`: welcome setup, remembered-path status rendering, and UI-level startup decisions
   - successful startup actions show a blocking overlay for at least 1 second while fetching startup market data
+  - accepts ILS-only startup refreshes without requiring an FX quote, while still caching a fetched quote for USD-priced portfolios
   - fetch failures show a Back-only error dialog and keep the user on the welcome screen
   - commits the staged startup portfolio only after startup refresh succeeds, then delegates final enter-main / stay-on-welcome UI decisions
 - `ui/controllers/startup_transition.py`
   - extracted startup transition state machine and startup market-data worker lifecycle
   - owns the minimum-delay timer, worker-thread lifecycle, and transition gating
+  - startup worker fetches USD/ILS lazily and may complete successfully with no quote for ILS-only portfolios
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
@@ -237,6 +240,7 @@ Startup/wizard market-data guards in this flow:
 - `portfolio_core/workflows.py`
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data
+  - startup/open workflows fetch and cache USD/ILS only when the portfolio being refreshed contains USD-priced instruments
   - builds plan results and applies wizard steps with persistence behavior
 
 ## Test map

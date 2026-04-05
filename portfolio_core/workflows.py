@@ -135,25 +135,26 @@ def load_document(
 
     Cache behavior
     --------------
-    - Reuses the session-cached USD/ILS quote when available.
-    - Fetches and caches a USD/ILS quote only when the session cache is empty.
+    - Reuses the session-cached USD/ILS quote when a USD-priced instrument needs it.
+    - Fetches and caches a USD/ILS quote only when a USD-priced instrument needs it
+      and the session cache is empty.
     - Reuses the app-level instrument lookup cache via market-data lookups and
       fetches only the missing instrument prices.
 
     Side effects
     ------------
-    - Updates the session USD/ILS cache when a fresh quote is fetched.
+    - Updates the session USD/ILS cache when a fresh quote is fetched for a
+      USD-priced instrument.
     - Updates `session.document` current/snapshot/active path.
     """
     portfolio = load_portfolio_file(path)
-    usd_ils_rate = get_or_fetch_session_usd_ils_rate(
-        session,
-        lookup_timeout_seconds=lookup_timeout_seconds,
-    )
-
     refreshed_portfolio = refresh_portfolio_prices_for_startup(
         portfolio,
-        usd_ils_rate=usd_ils_rate,
+        usd_ils_rate=maybe_get_or_fetch_session_usd_ils_rate(
+            session,
+            portfolio=portfolio,
+            lookup_timeout_seconds=lookup_timeout_seconds,
+        ),
         lookup_timeout_seconds=lookup_timeout_seconds,
     )
     session.document.mark_loaded(refreshed_portfolio, path)
@@ -171,29 +172,56 @@ def create_new_default_document(
 
     Cache behavior
     --------------
-    - Reuses the session-cached USD/ILS quote when available.
-    - Fetches and caches a USD/ILS quote only when the session cache is empty.
+    - Reuses the session-cached USD/ILS quote when a USD-priced instrument needs it.
+    - Fetches and caches a USD/ILS quote only when a USD-priced instrument needs it
+      and the session cache is empty.
     - Reuses the app-level instrument lookup cache via market-data lookups and
       fetches only the missing instrument prices.
 
     Side effects
     ------------
-    - Updates the session USD/ILS cache when a fresh quote is fetched.
+    - Updates the session USD/ILS cache when a fresh quote is fetched for a
+      USD-priced instrument.
     - Sets current and saved snapshot to the refreshed default portfolio.
     - Clears the active file path in session without changing the remembered startup file.
     """
     portfolio = build_default_portfolio()
-    usd_ils_rate = get_or_fetch_session_usd_ils_rate(
-        session,
-        lookup_timeout_seconds=lookup_timeout_seconds,
-    )
     refreshed_portfolio = refresh_portfolio_prices_for_startup(
         portfolio,
-        usd_ils_rate=usd_ils_rate,
+        usd_ils_rate=maybe_get_or_fetch_session_usd_ils_rate(
+            session,
+            portfolio=portfolio,
+            lookup_timeout_seconds=lookup_timeout_seconds,
+        ),
         lookup_timeout_seconds=lookup_timeout_seconds,
     )
     session.mark_new_document(refreshed_portfolio)
     return refreshed_portfolio
+
+
+def portfolio_requires_usd_ils_rate(portfolio: Portfolio) -> bool:
+    """Return whether any instrument in `portfolio` is priced in USD."""
+    return any(instrument.exchange.currency is Currency.USD for instrument in portfolio.instruments)
+
+
+def maybe_get_or_fetch_session_usd_ils_rate(
+    session: PortfolioSession,
+    *,
+    portfolio: Portfolio,
+    lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
+) -> Decimal | None:
+    """Return a USD/ILS rate only when startup refresh actually needs one.
+
+    Portfolios that contain only ILS-priced instruments skip FX entirely and
+    return ``None`` so callers can reuse the same refresh workflow without
+    forcing an unnecessary BOI fetch.
+    """
+    if not portfolio_requires_usd_ils_rate(portfolio):
+        return None
+    return get_or_fetch_session_usd_ils_rate(
+        session,
+        lookup_timeout_seconds=lookup_timeout_seconds,
+    )
 
 
 def get_or_fetch_session_usd_ils_rate(
@@ -201,7 +229,11 @@ def get_or_fetch_session_usd_ils_rate(
     *,
     lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Decimal:
-    """Return session-cached USD/ILS rate, fetching and caching it when absent."""
+    """Return the session USD/ILS rate, fetching and caching it when absent.
+
+    This helper assumes the caller has already established that a USD-priced
+    instrument requires FX for the current workflow.
+    """
     cached_quote = session.cached_usd_ils_quote
     if cached_quote is not None:
         return cached_quote.rate
@@ -218,14 +250,15 @@ def get_or_fetch_session_usd_ils_rate(
 def refresh_portfolio_prices_for_startup(
     portfolio: Portfolio,
     *,
-    usd_ils_rate: Decimal,
+    usd_ils_rate: Decimal | None,
     lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> Portfolio:
     """Return a portfolio copy with instrument values refreshed from market data.
 
     TASE values are refreshed directly in ILS. USD-priced instruments are first
     refreshed from their exchange quote and then converted to ILS with the
-    supplied startup FX rate.
+    supplied startup FX rate when one is needed. Callers may pass ``None`` for
+    ``usd_ils_rate`` when the portfolio contains only ILS-priced instruments.
 
     Raises
     ------
@@ -250,13 +283,15 @@ def refresh_portfolio_prices_for_startup(
 def _refresh_instrument_market_value(
     instrument: Instrument,
     *,
-    usd_ils_rate: Decimal,
+    usd_ils_rate: Decimal | None,
     lookup_timeout_seconds: float,
 ) -> Instrument:
     """Return one instrument with its market value recalculated in ILS.
 
     The returned instrument preserves all source fields except ``value``, which
     is replaced with the latest fetched total value for the tracked quantity.
+    USD-priced instruments require ``usd_ils_rate``; ILS-priced instruments do
+    not consult it.
     """
     try:
         lookup_result = lookup_ticker_in_exchange(
@@ -284,6 +319,10 @@ def _refresh_instrument_market_value(
 
     instrument_value = last_traded_price * D(instrument.quantity)
     if instrument.exchange.currency is Currency.USD:
+        if usd_ils_rate is None:
+            raise StartupPortfolioPriceRefreshError(
+                f"USD/ILS rate is unavailable for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+            )
         instrument_value *= usd_ils_rate
 
     return replace(

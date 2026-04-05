@@ -6,6 +6,8 @@ from typing import Any, cast
 
 import pytest
 
+from portfolio_core.io_json import load_portfolio
+from tests.core.helpers import D
 import ui.controllers.startup_transition as transition_mod
 
 
@@ -171,3 +173,117 @@ def test_startup_market_data_lifecycle_clear_resets_thread_and_worker_refs() -> 
     assert lifecycle.thread is None
     assert lifecycle.worker is None
     assert lifecycle.result_relay is None
+
+
+def test_startup_market_data_worker_skips_fx_fetch_for_ils_only_portfolio(
+    qapp: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = qapp
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "TASE Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1159094",
+                    "name": "TASE ETF",
+                    "quantity": 2,
+                    "value": "0.00",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+    seen: list[tuple[object, object, object]] = []
+
+    def fail_fetch_latest_usd_ils_rate(*, timeout_seconds: float = 8.0):
+        _ = timeout_seconds
+        raise AssertionError("USD/ILS fetch should be skipped for ILS-only startup portfolios.")
+
+    def fake_refresh_portfolio_prices_for_startup(
+        refreshed_portfolio: object,
+        *,
+        usd_ils_rate: object,
+        lookup_timeout_seconds: float,
+    ) -> object:
+        assert refreshed_portfolio is portfolio
+        assert usd_ils_rate is None
+        assert lookup_timeout_seconds == 7.5
+        return portfolio
+
+    monkeypatch.setattr(transition_mod, "fetch_latest_usd_ils_rate", fail_fetch_latest_usd_ils_rate)
+    monkeypatch.setattr(transition_mod, "refresh_portfolio_prices_for_startup", fake_refresh_portfolio_prices_for_startup)
+
+    worker = transition_mod.StartupMarketDataWorker(
+        portfolio=portfolio,
+        cached_quote=None,
+        timeout_seconds=7.5,
+    )
+    worker.finished.connect(lambda quote, refreshed, error: seen.append((quote, refreshed, error)))
+
+    worker.run()
+
+    assert seen == [(None, portfolio, None)]
+
+
+def test_startup_market_data_worker_fetches_fx_for_usd_portfolio_when_cache_missing(
+    qapp: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = qapp
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "NYSE Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "SPY",
+                    "name": "NYSE ETF",
+                    "quantity": 2,
+                    "value": "0.00",
+                    "exchange": "NYSE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+    fake_quote = type("FakeQuote", (), {"rate": D("3.55")})()
+    seen: list[tuple[object, object, object]] = []
+
+    monkeypatch.setattr(
+        transition_mod,
+        "fetch_latest_usd_ils_rate",
+        lambda *, timeout_seconds=8.0: fake_quote,
+    )
+
+    def fake_refresh_portfolio_prices_for_startup(
+        refreshed_portfolio: object,
+        *,
+        usd_ils_rate: object,
+        lookup_timeout_seconds: float,
+    ) -> object:
+        assert refreshed_portfolio is portfolio
+        assert usd_ils_rate == D("3.55")
+        assert lookup_timeout_seconds == 6.0
+        return portfolio
+
+    monkeypatch.setattr(transition_mod, "refresh_portfolio_prices_for_startup", fake_refresh_portfolio_prices_for_startup)
+
+    worker = transition_mod.StartupMarketDataWorker(
+        portfolio=portfolio,
+        cached_quote=None,
+        timeout_seconds=6.0,
+    )
+    worker.finished.connect(lambda quote, refreshed, error: seen.append((quote, refreshed, error)))
+
+    worker.run()
+
+    assert seen == [(fake_quote, portfolio, None)]
