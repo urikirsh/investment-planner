@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.market_data import TickerLookupFound
+from tests.ui.conftest import assert_portfolio_tree_managed_cells_consistent
 import ui.controllers.main_window_table_editing as table_editing
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.main_window import MainWindow
@@ -108,6 +109,7 @@ def test_item_changed_quantity_formats_grouped_display(
     window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
 
     assert child.text(Col.QUANTITY.value) == "12,345"
+    assert_portfolio_tree_managed_cells_consistent(window.tree)
 
 
 def test_item_double_clicked_restores_editable_flag_when_editing_raises(

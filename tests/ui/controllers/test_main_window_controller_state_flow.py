@@ -19,6 +19,7 @@ from portfolio_core.io_json import load_portfolio
 from portfolio_core.planning.calc_stock_units import BuyCalculation
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.workflows import PlanStep
+from tests.ui.conftest import assert_portfolio_tree_managed_cells_consistent
 import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window as main_window
 from ui.main_window import MainWindow
@@ -245,6 +246,7 @@ def test_refresh_data_formats_grouped_main_screen_amounts(
     assert child.text(Col.TOT_VALUE.value) == "12,345.67"
     assert window.investable_balance_label.text() == "Investable balance (ILS): 13,765.44"
     assert window.total_label.text() == "Total portfolio (ILS): 31,111.11"
+    assert_portfolio_tree_managed_cells_consistent(window.tree)
 
 
 def test_open_clicked_stays_on_current_screen_when_price_refresh_fails(

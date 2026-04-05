@@ -30,6 +30,7 @@ from ui.plan_execution_wizard import MainWindowPlanExecutionMixin
 from ui.main_window import MainWindow
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
+from ui.shared.ui_utils import fmt_decimal_grouped, fmt_non_negative_integer_grouped
 from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 
 # Qt requires a platform plugin. `offscreen` allows QApplication startup in
@@ -202,6 +203,28 @@ def add_instrument_row() -> Callable[..., QTreeWidgetItem]:
         return child
 
     return _add_instrument_row
+
+
+def assert_portfolio_tree_managed_cells_consistent(tree: QTreeWidget) -> None:
+    """Assert managed quantity/total cells stay synchronized with raw row state."""
+
+    def _assert_item(item: QTreeWidgetItem) -> None:
+        row = PortfolioTreeRow(item)
+        if item.childCount() > 0:
+            assert item.text(Col.QUANTITY.value) == ""
+            assert row.quantity() == 0
+        else:
+            assert item.text(Col.QUANTITY.value) == fmt_non_negative_integer_grouped(row.quantity())
+        assert item.text(Col.TOT_VALUE.value) == fmt_decimal_grouped(row.total_value())
+        for idx in range(item.childCount()):
+            child = item.child(idx)
+            assert child is not None
+            _assert_item(child)
+
+    for idx in range(tree.topLevelItemCount()):
+        item = tree.topLevelItem(idx)
+        assert item is not None
+        _assert_item(item)
 
 
 class _FakeLabel:

@@ -20,7 +20,7 @@ This module contains small UI-facing helpers that are reused across screens and
 controllers, including:
 - display formatting for decimals, percentages, and grouped integers
 - raw-value helpers for grouped numeric line edits
-- tree item metadata and total-value cell adapters
+- tree item metadata and tree-building helpers
 - styling/alignment utilities for portfolio tree rows
 
 Business rules and persistence workflows stay outside this module.
@@ -59,6 +59,7 @@ def parse_exchange_code(raw: object) -> str | None:
 def currency_for_exchange(exchange_code: str) -> Currency:
     """Resolve currency for a validated exchange code."""
     return Exchange(exchange_code).currency
+
 
 def d_from_text(txt: str, field: str) -> D:
     """Parse a required Decimal from text and include field name in errors."""
@@ -113,6 +114,7 @@ def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     item.setData(0, ROLE_KIND, kind)
     item.setData(0, ROLE_ID, _id)
 
+
 def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
     """
     Return stored row kind as typed enum.
@@ -121,6 +123,7 @@ def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
     in UI paths instead of throwing during enum conversion.
     """
     return RowKind.from_raw(item.data(0, ROLE_KIND))
+
 
 def get_item_id(item: QTreeWidgetItem) -> str:
     """Return stored internal id string, or empty string if missing."""
@@ -187,6 +190,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
     ):
         set_cell_readonly_look(item, c)
 
+
 def style_instrument_row(item: QTreeWidgetItem) -> None:
     """Apply computed/fixed visual styling for instrument rows."""
     for c in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
@@ -194,6 +198,7 @@ def style_instrument_row(item: QTreeWidgetItem) -> None:
     for c in (Col.TICKER.value, Col.TOT_VALUE.value, Col.EXCHANGE.value):
         if not is_item_cell_editable(item, c):
             set_cell_fixed_look(item, c)
+
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
     """Apply per-column alignment conventions for group/instrument rows."""
@@ -345,6 +350,7 @@ def fmt_non_negative_integer_grouped(value: int) -> str:
     """Format a non-negative integer with comma grouping."""
     return f"{value:,}"
 
+
 def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""
     return f"{value:.1f}%"
@@ -359,6 +365,7 @@ def safe_pct(numer: D, denom: D) -> D | None:
     if denom == 0:
         return None
     return (numer * D("100")) / denom
+
 
 def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) -> None:
     """
@@ -377,6 +384,7 @@ def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) 
         # Neutral -> default
         set_cell_readonly_look(item, col_index)
 
+
 def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
@@ -385,6 +393,7 @@ def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
 def set_cell_fixed_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply subtle background tint for user-visible fixed cells."""
     item.setBackground(col, QBrush(QColor(FIXED_CELL_BG_COLOR)))
+
 
 def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
     """Return whether an item's cell is editable, including parent-context rules."""

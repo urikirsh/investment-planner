@@ -17,6 +17,7 @@ import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.io_json import load_portfolio
+from tests.ui.conftest import assert_portfolio_tree_managed_cells_consistent
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
     populate_main_editor_from_portfolio,
@@ -112,6 +113,7 @@ def test_adapter_populate_and_build_round_trip(qapp) -> None:
     assert callback_calls == 1
     assert built == payload
     assert screen.tree.topLevelItemCount() == 3
+    assert_portfolio_tree_managed_cells_consistent(screen.tree)
 
 
 def test_build_data_partial_mode_defaults_empty_cash_fields(qapp) -> None:
