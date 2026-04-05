@@ -12,7 +12,11 @@ from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
-from portfolio_core.workflows import StartupPortfolioPriceRefreshError, refresh_portfolio_prices_for_startup
+from portfolio_core.workflows import (
+    StartupPortfolioPriceRefreshError,
+    portfolio_requires_usd_ils_rate,
+    refresh_portfolio_prices_for_startup,
+)
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
 
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
@@ -21,9 +25,10 @@ _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
 class StartupMarketDataWorker(QObject):
     """Background startup market-data worker for welcome->main transition.
 
-    The worker fetches a USD/ILS quote when no session-cached quote exists,
-    refreshes all instrument values for the staged portfolio, and emits exactly
-    one completion signal carrying either:
+    The worker fetches a USD/ILS quote only when the staged portfolio contains
+    a USD-priced instrument and no session-cached quote exists, refreshes all
+    instrument values for the staged portfolio, and emits exactly one
+    completion signal carrying either:
     - a quote plus refreshed portfolio on success, or
     - an error message on failure.
     """
@@ -49,11 +54,13 @@ class StartupMarketDataWorker(QObject):
             if self._portfolio is None:
                 raise StartupPortfolioPriceRefreshError("No portfolio loaded for startup price refresh.")
             quote = None
-            if self._cached_quote is None:
-                quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
-                usd_ils_rate = quote.rate
-            else:
-                usd_ils_rate = self._cached_quote.rate
+            usd_ils_rate = None
+            if portfolio_requires_usd_ils_rate(self._portfolio):
+                if self._cached_quote is None:
+                    quote = fetch_latest_usd_ils_rate(timeout_seconds=self._timeout_seconds)
+                    usd_ils_rate = quote.rate
+                else:
+                    usd_ils_rate = self._cached_quote.rate
             refreshed_portfolio = refresh_portfolio_prices_for_startup(
                 self._portfolio,
                 usd_ils_rate=usd_ils_rate,
