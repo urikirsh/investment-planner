@@ -27,6 +27,7 @@ No business logic or persistence logic belongs in this module.
 
 D = Decimal
 _GROUPED_DECIMAL_RE = re.compile(r"^[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$")
+_GROUPED_INTEGER_RE = re.compile(r"^\d{1,3}(?:,\d{3})+$")
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
@@ -269,7 +270,7 @@ def add_instrument_item_to_group(
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()
-    quantity_text = str(quantity)
+    quantity_text = fmt_non_negative_integer_grouped(quantity)
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
     item.setText(Col.QUANTITY.value, quantity_text)
@@ -344,6 +345,23 @@ def fmt_decimal_grouped(value: D, *, places: int | None = None, trim_trailing_ze
     if not dot:
         return grouped_integer
     return f"{grouped_integer}.{fractional_part}"
+
+
+def fmt_non_negative_integer_grouped(value: int) -> str:
+    """Format a non-negative integer with comma grouping."""
+    return f"{value:,}"
+
+
+def parse_display_non_negative_integer(text: str) -> int:
+    """Parse a grouped or plain non-negative integer from display text."""
+    normalized = text.strip()
+    if not normalized:
+        return 0
+    if "," in normalized and not _GROUPED_INTEGER_RE.fullmatch(normalized):
+        return 0
+    if "," not in normalized and not normalized.isdigit():
+        return 0
+    return int(normalized.replace(",", ""))
 
 def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""

@@ -12,9 +12,11 @@ from ui.controllers.protocols import MainWindowTableEditingHost, suppress_item_c
 from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
 from ui.shared.ui_utils import (
+    fmt_non_negative_integer_grouped,
     get_item_kind,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
+    parse_display_non_negative_integer,
 )
 
 
@@ -114,6 +116,10 @@ class MainWindowTableEditingController:
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
+        if "," in raw:
+            grouped_quantity = parse_display_non_negative_integer(raw)
+            if fmt_non_negative_integer_grouped(grouped_quantity) == raw:
+                return True
         normalized_text, _parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
             raw,
             field_label="Quantity",
@@ -123,9 +129,10 @@ class MainWindowTableEditingController:
         if error:
             self.warn_and_revert(item, col, raw, prev, error)
             return False
-        if normalized_text != raw:
+        formatted_text = "0" if _parsed_quantity is None else fmt_non_negative_integer_grouped(_parsed_quantity)
+        if formatted_text != raw:
             with suppress_item_changed(host):
-                item.setText(col, normalized_text)
+                item.setText(col, formatted_text)
         return True
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:

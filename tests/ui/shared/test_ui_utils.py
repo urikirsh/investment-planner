@@ -15,6 +15,7 @@ from ui.shared.ui_utils import (
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
     parse_display_decimal,
+    parse_display_non_negative_integer,
     parse_value_cell,
     set_item_total_value,
     set_group_tree_item,
@@ -73,6 +74,19 @@ def test_parse_value_cell_rejects_invalid_comma_grouping() -> None:
 
 def test_parse_display_decimal_accepts_properly_grouped_decimal() -> None:
     assert parse_display_decimal("12,345.67") == Decimal("12345.67")
+
+
+def test_parse_display_non_negative_integer_accepts_grouped_text() -> None:
+    assert parse_display_non_negative_integer("12,345") == 12345
+
+
+def test_add_instrument_item_formats_quantity_with_grouping() -> None:
+    parent = QTreeWidgetItem()
+    add_instrument_item_to_group(parent, "1234567", "Instrument", 12345, "100")
+
+    child = parent.child(0)
+    assert child is not None
+    assert child.text(Col.QUANTITY.value) == "12,345"
 
 
 def test_is_item_cell_editable_allows_investable_instrument_target_pct() -> None:

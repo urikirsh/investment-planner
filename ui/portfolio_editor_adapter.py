@@ -30,6 +30,8 @@ from ui.shared.ui_utils import (
     get_item_kind,
     get_item_total_value,
     new_id,
+    parse_display_decimal,
+    parse_display_non_negative_integer,
     set_group_tree_item,
     set_item_meta,
     set_item_total_value,
@@ -239,9 +241,9 @@ def build_portfolio_data_from_main_editor(
     if not allow_partial and (not cash_value or not cash_reserve):
         raise ValueError("Cash value and reserve must be filled")
 
-    cash_value = cash_value or "0"
-    cash_reserve = cash_reserve or "0"
-    future_tax = future_tax or "0"
+    cash_value = "0" if not cash_value else str(parse_display_decimal(cash_value))
+    cash_reserve = "0" if not cash_reserve else str(parse_display_decimal(cash_reserve))
+    future_tax = "0" if not future_tax else str(parse_display_decimal(future_tax))
 
     groups: list[GroupPayload] = []
     instruments: list[InstrumentPayload] = []
@@ -275,7 +277,7 @@ def build_portfolio_data_from_main_editor(
 
             instrument_name = ins.text(Col.NAME.value).strip()
             instrument_ticker = ins.text(Col.TICKER.value).strip()
-            quantity = int(ins.text(Col.QUANTITY.value).strip() or "0")
+            quantity = parse_display_non_negative_integer(ins.text(Col.QUANTITY.value))
             total_value = str(get_item_total_value(ins))
 
             if is_non_investable_bucket:

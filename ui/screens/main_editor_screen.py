@@ -20,6 +20,7 @@ navigation flow control. Those concerns stay in
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFocusEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -38,7 +39,72 @@ from ui.shared.decimal_input_delegate import (
 )
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
+from ui.shared.ui_utils import (
+    BASE_CURRENCY_SUFFIX,
+    DEFAULT_CURRENCY,
+    exchange_choices,
+    fmt_decimal_grouped,
+    parse_display_decimal,
+)
+
+
+class _FormattedDecimalLineEdit(QLineEdit):
+    """Line edit that shows grouped decimals when not actively being edited."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setValidator(build_decimal_validator(allow_empty=True, parent=self))
+        self.editingFinished.connect(self._format_for_display)
+
+    def setText(self, text: str | None) -> None:
+        """Render programmatic values using the non-editing display format."""
+        formatted = self._format_text(text)
+        super().setText(formatted)
+
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        """Strip grouping separators so the user edits a plain numeric value."""
+        current = self.text()
+        if current:
+            super().setText(current.replace(",", ""))
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        """Restore grouped display formatting after editing ends."""
+        self._format_for_display()
+        super().focusOutEvent(event)
+
+    def _format_for_display(self) -> None:
+        """Apply grouped display formatting to the current field text."""
+        formatted = self._format_text(self.text())
+        if formatted != self.text():
+            super().setText(formatted)
+
+    @staticmethod
+    def _format_text(text: str | None) -> str:
+        normalized = "" if text is None else text.strip()
+        if not normalized:
+            return ""
+        if not _FormattedDecimalLineEdit._is_plain_or_grouped_decimal(normalized):
+            return normalized
+        value = parse_display_decimal(normalized)
+        return fmt_decimal_grouped(value)
+
+    @staticmethod
+    def _is_plain_or_grouped_decimal(text: str) -> bool:
+        no_grouping = text.replace(",", "")
+        if "," in text and fmt_decimal_grouped(parse_display_decimal(text)) != text:
+            return False
+        if no_grouping.count(".") > 1:
+            return False
+        integer_part, dot, fractional_part = no_grouping.partition(".")
+        if integer_part.startswith(("+", "-")):
+            sign, integer_part = integer_part[0], integer_part[1:]
+            _ = sign
+        if not integer_part.isdigit():
+            return False
+        if dot and not fractional_part.isdigit():
+            return False
+        return True
 
 
 class MainEditorScreen(QWidget):
@@ -70,24 +136,20 @@ class MainEditorScreen(QWidget):
     def _build_cash_row(self) -> QWidget:
         cash_box = QWidget(self)
         cash_layout = QHBoxLayout(cash_box)
-        decimal_validator = build_decimal_validator(allow_empty=True, parent=cash_box)
 
         cash_layout.addWidget(QLabel(f"Cash value {BASE_CURRENCY_SUFFIX}:"))
-        self.cash_value_edit = QLineEdit()
+        self.cash_value_edit = _FormattedDecimalLineEdit(cash_box)
         self.cash_value_edit.setPlaceholderText("e.g. 1000")
-        self.cash_value_edit.setValidator(decimal_validator)
         cash_layout.addWidget(self.cash_value_edit)
 
         cash_layout.addWidget(QLabel(f"Minimal cash reserve {BASE_CURRENCY_SUFFIX}:"))
-        self.cash_reserve_edit = QLineEdit()
+        self.cash_reserve_edit = _FormattedDecimalLineEdit(cash_box)
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
-        self.cash_reserve_edit.setValidator(decimal_validator)
         cash_layout.addWidget(self.cash_reserve_edit)
 
         cash_layout.addWidget(QLabel(f"Future tax {BASE_CURRENCY_SUFFIX}:"))
-        self.future_tax_edit = QLineEdit()
+        self.future_tax_edit = _FormattedDecimalLineEdit(cash_box)
         self.future_tax_edit.setPlaceholderText("e.g. 0")
-        self.future_tax_edit.setValidator(decimal_validator)
         self.future_tax_edit.setText("0")
         cash_layout.addWidget(self.future_tax_edit)
 

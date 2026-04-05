@@ -25,6 +25,8 @@ from ui.shared.ui_utils import (
     get_item_exchange,
     get_item_kind,
     get_item_total_value,
+    parse_display_decimal,
+    parse_display_non_negative_integer,
     parse_value_cell,
     set_item_total_value,
 )
@@ -70,10 +72,7 @@ class MainWindowMetricsController:
     def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
         """Return one instrument row's total value in ILS from cached market data."""
         quantity_text = item.text(Col.QUANTITY.value).strip()
-        if quantity_text == "":
-            quantity = 0
-        else:
-            quantity = int(quantity_text)
+        quantity = parse_display_non_negative_integer(quantity_text)
         if quantity == 0:
             return D("0.00")
 
@@ -134,7 +133,7 @@ class MainWindowMetricsController:
 
     def update_future_tax_visual_state(self) -> None:
         """Apply warning color when future tax is positive, clear style otherwise."""
-        future_tax = parse_value_cell(self._host.future_tax_edit.text())
+        future_tax = parse_display_decimal(self._host.future_tax_edit.text())
         if future_tax > 0:
             self._host.future_tax_edit.setStyleSheet("color: #b00020;")
         else:
@@ -143,9 +142,9 @@ class MainWindowMetricsController:
     def update_investable_balance_visual_state(self) -> None:
         """Recompute investable balance text and color by minimum-investable threshold."""
         host = self._host
-        cash_value = parse_value_cell(host.cash_value_edit.text())
-        cash_reserve = parse_value_cell(host.cash_reserve_edit.text())
-        future_tax = parse_value_cell(host.future_tax_edit.text())
+        cash_value = parse_display_decimal(host.cash_value_edit.text())
+        cash_reserve = parse_display_decimal(host.cash_reserve_edit.text())
+        future_tax = parse_display_decimal(host.future_tax_edit.text())
         investable_balance = cash_value - cash_reserve - future_tax
         if investable_balance < 0:
             investable_balance = D("0")
@@ -226,7 +225,7 @@ class MainWindowMetricsController:
 
         snapshot = MetricsSnapshot(
             groups=tuple(groups),
-            cash_value_text=host.cash_value_edit.text(),
-            future_tax_text=host.future_tax_edit.text(),
+            cash_value_text=str(parse_display_decimal(host.cash_value_edit.text())),
+            future_tax_text=str(parse_display_decimal(host.future_tax_edit.text())),
         )
         return snapshot, item_by_key
