@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
 import uuid
 
@@ -335,7 +335,7 @@ def fmt_decimal_grouped(value: D, *, places: int | None = None, trim_trailing_ze
     """Format a decimal with comma grouping and optional fixed/trimmed decimals."""
     quantized = value
     if places is not None:
-        quantized = value.quantize(D("1").scaleb(-places))
+        quantized = value.quantize(D("1").scaleb(-places), rounding=ROUND_HALF_UP)
     text = format(quantized, "f")
     if trim_trailing_zeros and "." in text:
         text = text.rstrip("0").rstrip(".")

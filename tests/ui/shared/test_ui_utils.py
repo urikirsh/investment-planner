@@ -10,6 +10,7 @@ from ui.shared.ui_utils import (
     FIXED_CELL_BG_COLOR,
     NON_INVESTABLE_BUCKET_ID,
     add_instrument_item_to_group,
+    fmt_decimal_grouped,
     get_item_total_value,
     get_item_exchange,
     is_item_cell_editable,
@@ -74,6 +75,10 @@ def test_parse_value_cell_rejects_invalid_comma_grouping() -> None:
 
 def test_parse_display_decimal_accepts_properly_grouped_decimal() -> None:
     assert parse_display_decimal("12,345.67") == Decimal("12345.67")
+
+
+def test_fmt_decimal_grouped_uses_round_half_up_for_fixed_places() -> None:
+    assert fmt_decimal_grouped(Decimal("1.005"), places=2) == "1.01"
 
 
 def test_parse_display_non_negative_integer_accepts_grouped_text() -> None:
