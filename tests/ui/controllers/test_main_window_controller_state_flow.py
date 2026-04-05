@@ -22,6 +22,7 @@ from portfolio_core.workflows import PlanStep
 import ui.controllers.main_window_metrics as metrics_mod
 import ui.main_window as main_window
 from ui.main_window import MainWindow
+from ui.shared.ui_types import Col
 from ui.ui_state import UnsavedChangesDecision
 
 D = Decimal
@@ -213,6 +214,37 @@ def test_load_portfolio_from_file_renders_refreshed_portfolio(
     window._load_portfolio_from_file(target)
 
     assert window.total_label.text() == "Total portfolio (ILS): 250.00"
+
+
+def test_refresh_data_formats_grouped_main_screen_amounts(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
+    window.cash_value_edit.setText("20000")
+    window.cash_reserve_edit.setText("5000")
+    window.future_tax_edit.setText("1234.56")
+    add_instrument_row(
+        tree=window.tree,
+        ticker="1234567",
+        exchange="TASE",
+        value="12345.67",
+    )
+    monkeypatch.setattr(
+        metrics_mod,
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: D("12345.67"),
+    )
+
+    window._refresh_data()
+
+    group = window.tree.topLevelItem(0)
+    assert group is not None
+    child = group.child(0)
+    assert child is not None
+    assert child.text(Col.TOT_VALUE.value) == "12,345.67"
+    assert window.investable_balance_label.text() == "Investable balance (ILS): 13,765.44"
+    assert window.total_label.text() == "Total portfolio (ILS): 31,111.11"
 
 
 def test_open_clicked_stays_on_current_screen_when_price_refresh_fails(

@@ -221,3 +221,25 @@ def test_planning_payload_includes_exchange_per_instrument(qapp) -> None:
     by_id_quantity = {i["id"]: i["quantity"] for i in built["instruments"]}
     assert by_id_quantity["i1"] == 17
     assert by_id_quantity["i2"] == 0
+
+
+def test_build_data_normalizes_grouped_total_value_text(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+
+    group = QTreeWidgetItem(screen.tree)
+    set_group_tree_item(group, "Group 1", "100", "g1")
+    add_instrument_item_to_group(group, "1234567", "ETF", 1, "100", "i1", "TASE")
+    child = group.child(0)
+    assert child is not None
+    child.setText(Col.TOT_VALUE.value, "12,345.67")
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=True,
+    )
+
+    assert built["instruments"][0]["value"] == "12345.67"

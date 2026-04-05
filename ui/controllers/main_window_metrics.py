@@ -21,6 +21,7 @@ from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_
 from ui.shared.ui_utils import (
     BASE_CURRENCY_SUFFIX,
     apply_drift_color,
+    fmt_decimal_grouped,
     get_item_exchange,
     get_item_kind,
     parse_value_cell,
@@ -64,7 +65,7 @@ class MainWindowMetricsController:
                 for _child_key, child in instrument_rows:
                     child.setText(
                         Col.TOT_VALUE.value,
-                        str(self._compute_instrument_total_value_ils(child)),
+                        fmt_decimal_grouped(self._compute_instrument_total_value_ils(child)),
                     )
 
     def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
@@ -102,7 +103,9 @@ class MainWindowMetricsController:
                 allow_partial=True,
             )
             total = self._compute_total_portfolio_amount(data)
-            host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
+            host.total_label.setText(
+                f"Total portfolio {BASE_CURRENCY_SUFFIX}: {fmt_decimal_grouped(total)}"
+            )
         except (InvalidOperation, KeyError, TypeError, ValueError):
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
@@ -113,7 +116,7 @@ class MainWindowMetricsController:
             metrics = compute_portfolio_metrics(snapshot)
 
             for key, total in metrics.top_total_by_key.items():
-                item_by_key[key].setText(Col.TOT_VALUE.value, str(total))
+                item_by_key[key].setText(Col.TOT_VALUE.value, fmt_decimal_grouped(total))
             for key, text in metrics.portfolio_pct_text_by_key.items():
                 item_by_key[key].setText(Col.PORTFOLIO_PCT.value, text)
             for key, text in metrics.strategy_pct_text_by_key.items():
@@ -148,7 +151,9 @@ class MainWindowMetricsController:
         if investable_balance < 0:
             investable_balance = D("0")
 
-        host.investable_balance_label.setText(f"Investable balance {BASE_CURRENCY_SUFFIX}: {investable_balance}")
+        host.investable_balance_label.setText(
+            f"Investable balance {BASE_CURRENCY_SUFFIX}: {fmt_decimal_grouped(investable_balance)}"
+        )
         if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
             host.investable_balance_label.setStyleSheet("color: #1b5e20;")
         else:

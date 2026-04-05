@@ -28,6 +28,7 @@ from ui.shared.ui_utils import (
     get_item_id,
     get_item_kind,
     new_id,
+    parse_value_cell,
     set_group_tree_item,
     set_item_meta,
 )
@@ -271,7 +272,7 @@ def build_portfolio_data_from_main_editor(
             instrument_name = ins.text(Col.NAME.value).strip()
             instrument_ticker = ins.text(Col.TICKER.value).strip()
             quantity = int(ins.text(Col.QUANTITY.value).strip() or "0")
-            total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
+            total_value = str(parse_value_cell(ins.text(Col.TOT_VALUE.value)))
 
             if is_non_investable_bucket:
                 instrument: InstrumentPayload = {

@@ -36,6 +36,26 @@ def test_show_current_plan_execution_step_prefills_buy_units_from_cached_price(
     assert host.screen_wizard.save_continue_btn.isEnabled() is True
 
 
+def test_show_current_plan_execution_step_formats_grouped_amounts(
+    monkeypatch: pytest.MonkeyPatch,
+    make_plan_step: Callable[..., PlanStep],
+    make_wizard_host: Callable[..., Any],
+) -> None:
+    host = make_wizard_host(steps=[make_plan_step(delta="12345.67")])
+    monkeypatch.setattr(
+        wizard_mod,
+        "resolve_cached_instrument_price_ils",
+        lambda **_kwargs: Decimal("1234.56"),
+    )
+
+    host._show_current_plan_execution_step()
+
+    assert host.screen_wizard.wiz_summary.value == (
+        "Planned: 12,345.67 ILS | Price: 1,234.56 ILS/unit | Recommended: 10 units"
+    )
+    assert host.wiz_result.value == "Total spend: 12,345.6 ILS | Leftover: 0.07 ILS"
+
+
 def test_show_current_plan_execution_step_prefills_sell_units_from_cached_price(
     monkeypatch: pytest.MonkeyPatch,
     make_plan_step: Callable[..., PlanStep],

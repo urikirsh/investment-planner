@@ -31,7 +31,7 @@ from ui.dialogs import show_error
 from ui.screens.wizard_screen import WizardScreen
 from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
-from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY
+from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, fmt_decimal_grouped
 from ui.ui_state import PlanningState, WizardState
 from ui.wizard_fx_coordinator import WizardFxCoordinator
 
@@ -200,7 +200,8 @@ class MainWindowPlanExecutionMixin:
         action_word = "cost" if self._current_step().planned_delta_money > 0 else "proceeds"
         return (
             f"Total {action_word} exceeds planned amount: "
-            f"{calc.spent} {DEFAULT_CURRENCY.value} > {calc.planned_money} {DEFAULT_CURRENCY.value}."
+            f"{self._format_decimal_for_display(calc.spent)} {DEFAULT_CURRENCY.value} > "
+            f"{self._format_decimal_for_display(calc.planned_money)} {DEFAULT_CURRENCY.value}."
         )
 
     def _current_step_cached_price_ils(self, step: PlanStep) -> D:
@@ -377,10 +378,7 @@ class MainWindowPlanExecutionMixin:
     def _format_decimal_for_display(value: D) -> str:
         """Format numeric display values with up to two decimal places."""
         quantized = value.quantize(_DISPLAY_PRICE_PRECISION, rounding=ROUND_HALF_UP)
-        normalized = format(quantized, "f")
-        if "." not in normalized:
-            return normalized
-        return normalized.rstrip("0").rstrip(".")
+        return fmt_decimal_grouped(quantized, trim_trailing_zeros=True)
 
     def _current_wizard_calculation_context(self) -> _WizardCalculationContext:
         """Return reusable current-step calculation/render context.

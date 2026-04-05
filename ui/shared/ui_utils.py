@@ -285,7 +285,7 @@ def parse_value_cell(txt: str) -> D:
     Returns ``0`` for empty/invalid input so live UI calculations can proceed;
     strict validation happens separately before save/planning.
     """
-    txt = (txt or "").strip()
+    txt = (txt or "").strip().replace(",", "")
     if not txt:
         return D("0")
     try:
@@ -293,6 +293,21 @@ def parse_value_cell(txt: str) -> D:
     except (InvalidOperation, ValueError):
         # If user typed garbage, treat as 0 for sums, validation will catch later
         return D("0")
+
+def fmt_decimal_grouped(value: D, *, places: int | None = None, trim_trailing_zeros: bool = False) -> str:
+    """Format a decimal with comma grouping and optional fixed/trimmed decimals."""
+    quantized = value
+    if places is not None:
+        quantized = value.quantize(D("1").scaleb(-places))
+    text = format(quantized, "f")
+    if trim_trailing_zeros and "." in text:
+        text = text.rstrip("0").rstrip(".")
+
+    integer_part, dot, fractional_part = text.partition(".")
+    grouped_integer = f"{int(integer_part):,}"
+    if not dot:
+        return grouped_integer
+    return f"{grouped_integer}.{fractional_part}"
 
 def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""
