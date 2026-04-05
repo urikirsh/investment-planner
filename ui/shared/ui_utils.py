@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import re
 import uuid
 
 from PySide6.QtCore import Qt
@@ -25,6 +26,7 @@ No business logic or persistence logic belongs in this module.
 """
 
 D = Decimal
+_GROUPED_DECIMAL_RE = re.compile(r"^[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$")
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
@@ -138,7 +140,7 @@ def get_item_total_value(item: QTreeWidgetItem) -> D:
             return D(raw_value)
         except (InvalidOperation, ValueError):
             pass
-    return parse_value_cell(item.text(Col.TOT_VALUE.value))
+    return parse_display_decimal(item.text(Col.TOT_VALUE.value))
 
 
 def get_item_exchange(item: QTreeWidgetItem) -> str:
@@ -303,13 +305,29 @@ def parse_value_cell(txt: str) -> D:
     Returns ``0`` for empty/invalid input so live UI calculations can proceed;
     strict validation happens separately before save/planning.
     """
-    txt = (txt or "").strip().replace(",", "")
+    txt = (txt or "").strip()
     if not txt:
+        return D("0")
+    if "," in txt:
         return D("0")
     try:
         return D(txt)
     except (InvalidOperation, ValueError):
         # If user typed garbage, treat as 0 for sums, validation will catch later
+        return D("0")
+
+
+def parse_display_decimal(txt: str) -> D:
+    """Parse a display-formatted decimal for internal recovery paths only."""
+    txt = (txt or "").strip()
+    if not txt:
+        return D("0")
+    if "," in txt and not _GROUPED_DECIMAL_RE.fullmatch(txt):
+        return D("0")
+    try:
+        return D(txt.replace(",", ""))
+    except (InvalidOperation, ValueError):
+        # If display text is corrupted, fail soft for internal recovery paths.
         return D("0")
 
 def fmt_decimal_grouped(value: D, *, places: int | None = None, trim_trailing_zeros: bool = False) -> str:

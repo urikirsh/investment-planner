@@ -244,3 +244,17 @@ def test_main_editor_quantity_delegate_rejects_non_digit_input() -> None:
 
     editor.setText("10")
     assert editor.hasAcceptableInput()
+
+
+def test_main_editor_cash_inputs_reject_commas_and_letters() -> None:
+    screen = MainEditorScreen()
+
+    for editor in (screen.cash_value_edit, screen.cash_reserve_edit, screen.future_tax_edit):
+        editor.setText("1,000")
+        assert not editor.hasAcceptableInput()
+
+        editor.setText("abc")
+        assert not editor.hasAcceptableInput()
+
+        editor.setText("1000.25")
+        assert editor.hasAcceptableInput()

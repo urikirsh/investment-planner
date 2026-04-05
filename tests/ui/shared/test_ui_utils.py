@@ -14,6 +14,8 @@ from ui.shared.ui_utils import (
     get_item_exchange,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
+    parse_display_decimal,
+    parse_value_cell,
     set_item_total_value,
     set_group_tree_item,
     validate_non_negative_integer_text,
@@ -58,6 +60,19 @@ def test_get_item_total_value_prefers_raw_metadata_over_visible_text() -> None:
     item.setText(Col.TOT_VALUE.value, "not a number")
 
     assert get_item_total_value(item) == Decimal("12345.67")
+
+
+def test_parse_value_cell_rejects_grouped_decimal_input() -> None:
+    assert parse_value_cell("12,345.67") == Decimal("0")
+
+
+def test_parse_value_cell_rejects_invalid_comma_grouping() -> None:
+    assert parse_value_cell("1,2,3") == Decimal("0")
+    assert parse_value_cell("12,34.5") == Decimal("0")
+
+
+def test_parse_display_decimal_accepts_properly_grouped_decimal() -> None:
+    assert parse_display_decimal("12,345.67") == Decimal("12345.67")
 
 
 def test_is_item_cell_editable_allows_investable_instrument_target_pct() -> None:
