@@ -63,7 +63,7 @@ from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_utils import (
     DEFAULT_EXCHANGE,
     exchange_choices,
-    normalize_and_validate_non_negative_integer_with_display_fallback,
+    normalize_and_validate_non_negative_integer_text,
 )
 from ui.ticker_lookup_coordinator import (
     TickerLookupCoordinator,
@@ -639,7 +639,7 @@ class AddInstrumentWizardDialog(QDialog):
         outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
-            units_text=self.units_edit.text(),
+            units_text=self.units_edit.raw_text(),
             is_non_investable_group=self._is_non_investable_group,
         )
         candidate_name = (
@@ -723,7 +723,7 @@ class AddInstrumentWizardDialog(QDialog):
     @staticmethod
     def _validate_units_input(units_text: str) -> _UnitsValidationResult:
         """Validate units as a required non-negative integer."""
-        _normalized_text, units, error = normalize_and_validate_non_negative_integer_with_display_fallback(
+        _normalized_text, units, error = normalize_and_validate_non_negative_integer_text(
             units_text,
             field_label="Units",
             required=True,
@@ -844,7 +844,7 @@ class AddInstrumentWizardDialog(QDialog):
             return True
         if not self._is_non_investable_group and self.target_pct_edit.text().strip():
             return True
-        if self.units_edit.text().strip():
+        if self.units_edit.raw_text().strip():
             return True
         return False
 

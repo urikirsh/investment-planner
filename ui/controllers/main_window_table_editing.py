@@ -13,10 +13,11 @@ from ui.dialogs import show_warning
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
 from ui.shared.ui_utils import (
     fmt_non_negative_integer_grouped,
+    get_item_quantity,
     get_item_kind,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
-    parse_display_non_negative_integer,
+    set_item_quantity,
 )
 
 
@@ -116,11 +117,10 @@ class MainWindowTableEditingController:
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
-        if "," in raw:
-            grouped_quantity = parse_display_non_negative_integer(raw)
-            if fmt_non_negative_integer_grouped(grouped_quantity) == raw:
-                return True
-        normalized_text, _parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
+        existing_quantity = get_item_quantity(item)
+        if raw == fmt_non_negative_integer_grouped(existing_quantity):
+            return True
+        _normalized_text, parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
             raw,
             field_label="Quantity",
             required=False,
@@ -129,10 +129,11 @@ class MainWindowTableEditingController:
         if error:
             self.warn_and_revert(item, col, raw, prev, error)
             return False
-        formatted_text = "0" if _parsed_quantity is None else fmt_non_negative_integer_grouped(_parsed_quantity)
-        if formatted_text != raw:
+        normalized_quantity = 0 if parsed_quantity is None else parsed_quantity
+        formatted_text = fmt_non_negative_integer_grouped(normalized_quantity)
+        if formatted_text != raw or existing_quantity != normalized_quantity:
             with suppress_item_changed(host):
-                item.setText(col, formatted_text)
+                set_item_quantity(item, normalized_quantity)
         return True
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:

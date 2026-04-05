@@ -22,7 +22,6 @@ from ui.shared.ui_utils import (
     fmt_non_negative_integer_grouped,
     get_decimal_line_edit_raw_text,
     set_decimal_line_edit_raw_text,
-    try_parse_grouped_non_negative_integer_display,
 )
 
 _RAW_INTEGER_TEXT_PROPERTY = "_raw_integer_text"
@@ -82,6 +81,10 @@ class _FormattedNumericLineEdit(QLineEdit):
         """Return the current raw numeric text."""
         raise NotImplementedError
 
+    def raw_text(self) -> str:
+        """Return the public raw numeric text used by callers outside edit mode."""
+        return self._get_raw_text()
+
     def _set_raw_text(self, text: str) -> None:
         """Store the current raw numeric text."""
         raise NotImplementedError
@@ -137,8 +140,6 @@ class FormattedIntegerLineEdit(_FormattedNumericLineEdit):
     def _format_raw_text(raw_text: str) -> str:
         if not raw_text:
             return ""
-        if try_parse_grouped_non_negative_integer_display(raw_text) is not None:
-            return raw_text
         if not raw_text.isdigit():
             return raw_text
         return fmt_non_negative_integer_grouped(int(raw_text))

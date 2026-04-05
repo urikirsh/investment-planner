@@ -23,7 +23,13 @@ from ui.portfolio_editor_adapter import (
 )
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import NON_INVESTABLE_BUCKET_ID, add_instrument_item_to_group, set_group_tree_item, set_item_total_value
+from ui.shared.ui_utils import (
+    NON_INVESTABLE_BUCKET_ID,
+    add_instrument_item_to_group,
+    get_item_quantity,
+    set_group_tree_item,
+    set_item_total_value,
+)
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
@@ -269,3 +275,26 @@ def test_build_data_uses_raw_cash_state_instead_of_grouped_display_text(qapp) ->
 
     assert screen.cash_value_edit.text() == "12,345.67"
     assert built["cash"] == {"value": "12345.67", "min_reserve": "500", "future_tax": "25"}
+
+
+def test_build_data_uses_raw_quantity_state_instead_of_grouped_display_text(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+
+    group = QTreeWidgetItem(screen.tree)
+    set_group_tree_item(group, "Group 1", "100", "g1")
+    add_instrument_item_to_group(group, "1234567", "ETF", 12345, "100", "i1", "TASE")
+    child = group.child(0)
+    assert child is not None
+    assert get_item_quantity(child) == 12345
+    child.setText(Col.QUANTITY.value, "not a number")
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=True,
+    )
+
+    assert built["instruments"][0]["quantity"] == 12345

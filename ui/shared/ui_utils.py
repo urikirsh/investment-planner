@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-import re
 import uuid
 
 from PySide6.QtCore import Qt
@@ -12,6 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.domain.models import Currency, Exchange
+from ui.shared.quantity_cell import QuantityCell
 from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
@@ -28,7 +28,6 @@ Business rules and persistence workflows stay outside this module.
 """
 
 D = Decimal
-_GROUPED_INTEGER_RE = re.compile(r"^\d{1,3}(?:,\d{3})+$")
 _RAW_DECIMAL_TEXT_PROPERTY = "_raw_decimal_text"
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
@@ -105,33 +104,6 @@ def normalize_and_validate_non_negative_integer_text(
     return effective_text, parsed_value, parse_error
 
 
-def try_parse_grouped_non_negative_integer_display(text: str) -> int | None:
-    """Return parsed integer for valid grouped display text, or ``None``."""
-    normalized = text.strip()
-    if not normalized or not _GROUPED_INTEGER_RE.fullmatch(normalized):
-        return None
-    return int(normalized.replace(",", ""))
-
-
-def normalize_and_validate_non_negative_integer_with_display_fallback(
-    text: str,
-    *,
-    field_label: str,
-    required: bool,
-    blank_normalized_text: str | None = None,
-) -> tuple[str, int | None, str]:
-    """Validate integer text, accepting grouped display text only as an internal fallback."""
-    normalized = text.strip()
-    grouped_value = try_parse_grouped_non_negative_integer_display(normalized)
-    if grouped_value is not None:
-        return normalized, grouped_value, ""
-    return normalize_and_validate_non_negative_integer_text(
-        text,
-        field_label=field_label,
-        required=required,
-        blank_normalized_text=blank_normalized_text,
-    )
-
 def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     """
     Attach semantic row metadata (kind/id) to a tree item.
@@ -164,6 +136,16 @@ def set_item_total_value(item: QTreeWidgetItem, value: D) -> None:
 def get_item_total_value(item: QTreeWidgetItem) -> D:
     """Return a row's raw total from typed item metadata, or ``0`` when missing."""
     return TotalValueCell.read(item)
+
+
+def set_item_quantity(item: QTreeWidgetItem, value: int) -> None:
+    """Store one row's quantity via the quantity-cell adapter."""
+    QuantityCell.write(item, value)
+
+
+def get_item_quantity(item: QTreeWidgetItem) -> int:
+    """Return a row's raw quantity from typed item metadata, or ``0`` when missing."""
+    return QuantityCell.read(item)
 
 
 def set_decimal_line_edit_raw_text(edit: QLineEdit, text: str | D | None) -> None:
@@ -315,10 +297,9 @@ def add_instrument_item_to_group(
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()
-    quantity_text = fmt_non_negative_integer_grouped(quantity)
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
-    item.setText(Col.QUANTITY.value, quantity_text)
+    set_item_quantity(item, quantity)
     set_item_total_value(item, D("0"))
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
@@ -382,18 +363,6 @@ def fmt_decimal_grouped(value: D, *, places: int | None = None, trim_trailing_ze
 def fmt_non_negative_integer_grouped(value: int) -> str:
     """Format a non-negative integer with comma grouping."""
     return f"{value:,}"
-
-
-def parse_display_non_negative_integer(text: str) -> int:
-    """Parse a grouped or plain non-negative integer from display text."""
-    normalized = text.strip()
-    if not normalized:
-        return 0
-    if "," in normalized and try_parse_grouped_non_negative_integer_display(normalized) is None:
-        return 0
-    if "," not in normalized and not normalized.isdigit():
-        return 0
-    return int(normalized.replace(",", ""))
 
 def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""

@@ -29,9 +29,9 @@ from ui.shared.ui_utils import (
     get_item_exchange,
     get_item_id,
     get_item_kind,
+    get_item_quantity,
     get_item_total_value,
     new_id,
-    parse_display_non_negative_integer,
     set_group_tree_item,
     set_item_meta,
     set_item_total_value,
@@ -277,7 +277,7 @@ def build_portfolio_data_from_main_editor(
 
             instrument_name = ins.text(Col.NAME.value).strip()
             instrument_ticker = ins.text(Col.TICKER.value).strip()
-            quantity = parse_display_non_negative_integer(ins.text(Col.QUANTITY.value))
+            quantity = get_item_quantity(ins)
             total_value = str(get_item_total_value(ins))
 
             if is_non_investable_bucket:

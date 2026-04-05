@@ -23,6 +23,7 @@ from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
+from ui.shared.ui_utils import set_item_quantity
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices, get_decimal_line_edit_raw_text
 
@@ -250,7 +251,7 @@ def test_main_editor_quantity_formats_with_grouping_after_edit_commit() -> None:
     screen = MainEditorScreen()
     group = screen.tree.invisibleRootItem()
     child = QTreeWidgetItem(group)
-    child.setText(Col.QUANTITY.value, "12,345")
+    set_item_quantity(child, 12345)
     delegate = screen.tree.itemDelegateForColumn(Col.QUANTITY.value)
     assert isinstance(delegate, NonNegativeIntegerInputDelegate)
 

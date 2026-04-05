@@ -324,7 +324,7 @@ def test_add_instrument_wizard_units_field_formats_with_grouping_after_editing_f
     assert dialog.units_edit.text() == "12,345"
 
 
-def test_add_instrument_wizard_validate_step_3_accepts_grouped_display_units() -> None:
+def test_add_instrument_wizard_validate_step_3_rejects_grouped_display_units() -> None:
     result = AddInstrumentWizardDialog._validate_step_3(
         name_text="ETF A",
         target_text="25",
@@ -332,10 +332,9 @@ def test_add_instrument_wizard_validate_step_3_accepts_grouped_display_units() -
         is_non_investable_group=False,
     )
 
-    assert result.is_valid is True
-    assert result.units_error == ""
-    assert result.payload is not None
-    assert result.payload.units == 12345
+    assert result.is_valid is False
+    assert result.units_error == "Units must be a non-negative integer."
+    assert result.payload is None
 
 
 def test_add_instrument_wizard_target_pct_field_rejects_non_decimal_input(

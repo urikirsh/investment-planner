@@ -5,6 +5,7 @@ from decimal import Decimal
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLineEdit, QTreeWidgetItem
 
+from ui.shared.quantity_cell import QuantityCell
 from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
@@ -14,17 +15,16 @@ from ui.shared.ui_utils import (
     fmt_decimal_grouped,
     get_decimal_line_edit_raw_text,
     get_decimal_line_edit_value,
+    get_item_quantity,
     get_item_total_value,
     get_item_exchange,
     is_item_cell_editable,
-    normalize_and_validate_non_negative_integer_with_display_fallback,
     normalize_and_validate_non_negative_integer_text,
-    parse_display_non_negative_integer,
     parse_value_cell,
     set_decimal_line_edit_raw_text,
+    set_item_quantity,
     set_item_total_value,
     set_group_tree_item,
-    try_parse_grouped_non_negative_integer_display,
     validate_non_negative_integer_text,
 )
 
@@ -92,6 +92,22 @@ def test_decimal_line_edit_helpers_use_stored_raw_value() -> None:
     assert get_decimal_line_edit_value(edit) == Decimal("12345.67")
 
 
+def test_set_item_quantity_updates_raw_value_and_display_text() -> None:
+    item = QTreeWidgetItem()
+
+    set_item_quantity(item, 12345)
+
+    assert get_item_quantity(item) == 12345
+    assert item.text(Col.QUANTITY.value) == "12,345"
+
+
+def test_quantity_cell_reads_zero_when_metadata_is_missing() -> None:
+    item = QTreeWidgetItem()
+    item.setText(Col.QUANTITY.value, "12,345")
+
+    assert QuantityCell.read(item) == 0
+
+
 def test_parse_value_cell_rejects_grouped_decimal_input() -> None:
     assert parse_value_cell("12,345.67") == Decimal("0")
 
@@ -104,26 +120,6 @@ def test_fmt_decimal_grouped_uses_round_half_up_for_fixed_places() -> None:
     assert fmt_decimal_grouped(Decimal("1.005"), places=2) == "1.01"
 
 
-def test_parse_display_non_negative_integer_accepts_grouped_text() -> None:
-    assert parse_display_non_negative_integer("12,345") == 12345
-
-
-def test_try_parse_grouped_non_negative_integer_display_rejects_plain_digits() -> None:
-    assert try_parse_grouped_non_negative_integer_display("12345") is None
-
-
-def test_normalize_and_validate_non_negative_integer_with_display_fallback_accepts_grouped_text() -> None:
-    normalized, value, error = normalize_and_validate_non_negative_integer_with_display_fallback(
-        "12,345",
-        field_label="Units",
-        required=True,
-    )
-
-    assert normalized == "12,345"
-    assert value == 12345
-    assert error == ""
-
-
 def test_add_instrument_item_formats_quantity_with_grouping() -> None:
     parent = QTreeWidgetItem()
     add_instrument_item_to_group(parent, "1234567", "Instrument", 12345, "100")
@@ -131,6 +127,7 @@ def test_add_instrument_item_formats_quantity_with_grouping() -> None:
     child = parent.child(0)
     assert child is not None
     assert child.text(Col.QUANTITY.value) == "12,345"
+    assert get_item_quantity(child) == 12345
 
 
 def test_is_item_cell_editable_allows_investable_instrument_target_pct() -> None:

@@ -26,8 +26,8 @@ from ui.shared.ui_utils import (
     get_decimal_line_edit_value,
     get_item_exchange,
     get_item_kind,
+    get_item_quantity,
     get_item_total_value,
-    parse_display_non_negative_integer,
     parse_value_cell,
     set_item_total_value,
 )
@@ -72,8 +72,7 @@ class MainWindowMetricsController:
 
     def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
         """Return one instrument row's total value in ILS from cached market data."""
-        quantity_text = item.text(Col.QUANTITY.value).strip()
-        quantity = parse_display_non_negative_integer(quantity_text)
+        quantity = get_item_quantity(item)
         if quantity == 0:
             return D("0.00")
 
