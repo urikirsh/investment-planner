@@ -50,6 +50,7 @@ def test_show_current_plan_execution_step_formats_grouped_amounts(
 
     host._show_current_plan_execution_step()
 
+    assert "Action: BUY 12,345.67 (ILS)" in host.screen_wizard.wiz_info.value
     assert host.screen_wizard.wiz_summary.value == (
         "Planned: 12,345.67 ILS | Price: 1,234.56 ILS/unit | Recommended: 10 units"
     )

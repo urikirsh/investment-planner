@@ -104,7 +104,9 @@ class MainWindowPlanExecutionMixin:
         total = len(self.planning_state.plan_steps)
 
         action, _ = self._wizard_step_direction_labels(s.planned_delta_money)
-        planned_amount_text = f"{abs(s.planned_delta_money)} {BASE_CURRENCY_SUFFIX}"
+        planned_amount_text = (
+            f"{fmt_decimal_grouped(abs(s.planned_delta_money), trim_trailing_zeros=True)} {BASE_CURRENCY_SUFFIX}"
+        )
         self.screen_wizard.set_step_context(
             step_index=idx,
             total_steps=total,

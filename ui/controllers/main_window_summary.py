@@ -51,7 +51,7 @@ class MainWindowSummaryController:
         for s in steps:
             action = "BUY" if s.planned_delta_money > 0 else "SELL"
             lines.append(
-                f"- {action} {fmt_decimal_grouped(abs(s.planned_delta_money))} "
+                f"- {action} {fmt_decimal_grouped(abs(s.planned_delta_money), trim_trailing_zeros=True)} "
                 f"in [{s.asset_group_name}] via [{s.instrument_name}]"
             )
         return lines
