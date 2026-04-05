@@ -335,6 +335,25 @@ def test_welcome_start_new_loads_default_and_enters_main(
     assert window.tree.topLevelItemCount() > 0
 
 
+def test_welcome_start_new_enters_main_without_fx_cache_for_ils_only_portfolio(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    stub_cached_prices_for_portfolio: Callable[[pytest.MonkeyPatch, MainWindow, Portfolio], None],
+) -> None:
+    _run_welcome_transition_immediately(monkeypatch, window)
+    monkeypatch.setattr(window._welcome_controller, "_start_startup_market_data_fetch", lambda: None)
+    window._on_welcome_start_new_clicked()
+    pending = window._welcome_controller._pending_startup_portfolio
+    assert pending is not None
+    assert window.session.cached_usd_ils_quote is None
+    stub_cached_prices_for_portfolio(monkeypatch, window, pending.portfolio)
+
+    window._welcome_controller._on_startup_market_data_fetch_finished(None, pending.portfolio, None)
+
+    assert window.stack.currentWidget() is window.screen_main
+    assert window.session.cached_usd_ils_quote is None
+
+
 def test_welcome_open_last_updates_total_label_from_refreshed_portfolio(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

@@ -13,6 +13,7 @@ from portfolio_core.app_metadata import get_app_version
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.fx_service import UsdIlsRateQuote
 from portfolio_core.io_json import load_portfolio_file
+from portfolio_core.workflows import portfolio_requires_usd_ils_rate
 from ui.controllers.protocols import MainWindowWelcomeHost
 from ui.controllers.startup_transition import (
     StartupTransitionCoordinator,
@@ -317,7 +318,10 @@ class MainWindowWelcomeController:
                 transition_error=self._build_startup_fetch_error_message(payload.error_text)
             )
 
-        if not self._cache_startup_quote_if_available(payload.quote):
+        if not self._cache_startup_quote_if_available(
+            quote=payload.quote,
+            refreshed_portfolio=payload.refreshed_portfolio,
+        ):
             decision = self._startup_transition_coordinator.complete_fetch(
                 error_message="Failed to fetch USD to ILS exchange rate."
             )
@@ -331,12 +335,19 @@ class MainWindowWelcomeController:
         self._commit_pending_startup_portfolio(payload.refreshed_portfolio)
         return _StartupFetchResolution(transition_error=None)
 
-    def _cache_startup_quote_if_available(self, quote: UsdIlsRateQuote | None) -> bool:
+    def _cache_startup_quote_if_available(
+        self,
+        *,
+        quote: UsdIlsRateQuote | None,
+        refreshed_portfolio: Portfolio,
+    ) -> bool:
         """Cache a fetched startup quote, or verify a session-cached quote already exists.
 
         Returns ``False`` only when neither the worker nor the session can
         provide a USD/ILS rate for the current startup transition.
         """
+        if not portfolio_requires_usd_ils_rate(refreshed_portfolio):
+            return True
         if quote is not None:
             self._host.session.cache_usd_ils_quote(
                 rate=quote.rate,
