@@ -19,16 +19,12 @@ navigation flow control. Those concerns stay in
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFocusEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -37,72 +33,15 @@ from PySide6.QtWidgets import (
 from ui.shared.decimal_input_delegate import (
     DecimalInputDelegate,
     NonNegativeIntegerInputDelegate,
-    build_decimal_validator,
 )
+from ui.shared.formatted_numeric_line_edit import FormattedDecimalLineEdit
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
     BASE_CURRENCY_SUFFIX,
     DEFAULT_CURRENCY,
     exchange_choices,
-    fmt_decimal_grouped,
-    get_decimal_line_edit_raw_text,
-    set_decimal_line_edit_raw_text,
 )
-
-
-class _FormattedDecimalLineEdit(QLineEdit):
-    """Line edit that shows grouped decimals when not actively being edited."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setValidator(build_decimal_validator(allow_empty=True, parent=self))
-        self._updating_display = False
-        set_decimal_line_edit_raw_text(self, "")
-        self.textChanged.connect(self._sync_raw_text_from_editor)
-        self.editingFinished.connect(self._format_for_display)
-
-    def setText(self, text: str | None) -> None:
-        """Render programmatic values using the non-editing display format."""
-        normalized = "" if text is None else text.strip()
-        set_decimal_line_edit_raw_text(self, normalized)
-        self._set_display_text(self._format_raw_text(normalized))
-
-    def focusInEvent(self, event: QFocusEvent) -> None:
-        """Strip grouping separators so the user edits a plain numeric value."""
-        self._set_display_text(get_decimal_line_edit_raw_text(self))
-        super().focusInEvent(event)
-
-    def focusOutEvent(self, event: QFocusEvent) -> None:
-        """Restore grouped display formatting after editing ends."""
-        self._format_for_display()
-        super().focusOutEvent(event)
-
-    def _set_display_text(self, text: str) -> None:
-        self._updating_display = True
-        try:
-            super().setText(text)
-        finally:
-            self._updating_display = False
-
-    def _sync_raw_text_from_editor(self, text: str) -> None:
-        """Track raw numeric text independently from grouped display rendering."""
-        if self._updating_display:
-            return
-        set_decimal_line_edit_raw_text(self, text.strip())
-
-    def _format_for_display(self) -> None:
-        """Apply grouped display formatting to the current field text."""
-        formatted = self._format_raw_text(get_decimal_line_edit_raw_text(self))
-        if formatted != self.text():
-            self._set_display_text(formatted)
-
-    @staticmethod
-    def _format_raw_text(raw_text: str) -> str:
-        if not raw_text:
-            return ""
-        value = Decimal(raw_text)
-        return fmt_decimal_grouped(value)
 
 
 class MainEditorScreen(QWidget):
@@ -136,17 +75,17 @@ class MainEditorScreen(QWidget):
         cash_layout = QHBoxLayout(cash_box)
 
         cash_layout.addWidget(QLabel(f"Cash value {BASE_CURRENCY_SUFFIX}:"))
-        self.cash_value_edit = _FormattedDecimalLineEdit(cash_box)
+        self.cash_value_edit = FormattedDecimalLineEdit(cash_box)
         self.cash_value_edit.setPlaceholderText("e.g. 1000")
         cash_layout.addWidget(self.cash_value_edit)
 
         cash_layout.addWidget(QLabel(f"Minimal cash reserve {BASE_CURRENCY_SUFFIX}:"))
-        self.cash_reserve_edit = _FormattedDecimalLineEdit(cash_box)
+        self.cash_reserve_edit = FormattedDecimalLineEdit(cash_box)
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
         cash_layout.addWidget(self.cash_reserve_edit)
 
         cash_layout.addWidget(QLabel(f"Future tax {BASE_CURRENCY_SUFFIX}:"))
-        self.future_tax_edit = _FormattedDecimalLineEdit(cash_box)
+        self.future_tax_edit = FormattedDecimalLineEdit(cash_box)
         self.future_tax_edit.setPlaceholderText("e.g. 0")
         self.future_tax_edit.setText("0")
         cash_layout.addWidget(self.future_tax_edit)
