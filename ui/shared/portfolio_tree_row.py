@@ -18,7 +18,7 @@ _DRIFT_POSITIVE_COLOR = "#1b5e20"
 
 
 class PortfolioTreeRow:
-    """Wrap one ``QTreeWidgetItem`` and expose managed portfolio-tree cells."""
+    """Wrap one ``QTreeWidgetItem`` and expose managed tree-cell reads, writes, and drift styling."""
 
     def __init__(self, item: QTreeWidgetItem) -> None:
         self._item = item
