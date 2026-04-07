@@ -20,7 +20,7 @@ controllers, including:
 - display formatting for decimals, percentages, and grouped integers
 - raw-value helpers for grouped numeric line edits
 - tree item metadata and tree-building helpers
-- styling/alignment utilities for portfolio tree rows
+- shared portfolio-tree styling constants plus styling/alignment utilities
 
 Business rules and persistence workflows stay outside this module.
 """
