@@ -76,12 +76,9 @@ class PortfolioTreeRow:
         """Return the row's drift cell text."""
         return self._item.text(Col.DRIFT_PP.value)
 
-    def set_drift_text(self, text: str) -> None:
-        """Set the row's drift cell text without changing drift coloring."""
+    def set_drift(self, text: str, drift_pp: Decimal) -> None:
+        """Set the row's drift text and matching foreground color together."""
         self._item.setText(Col.DRIFT_PP.value, text)
-
-    def apply_drift_color(self, drift_pp: Decimal) -> None:
-        """Apply drift foreground color for the row's drift column."""
         if drift_pp < 0:
             self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_DRIFT_NEGATIVE_COLOR)))
         elif drift_pp > 0:

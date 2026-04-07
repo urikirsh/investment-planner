@@ -116,12 +116,13 @@ class MainWindowMetricsController:
                 PortfolioTreeRow(item_by_key[key]).set_portfolio_pct_text(text)
             for key, text in metrics.strategy_pct_text_by_key.items():
                 PortfolioTreeRow(item_by_key[key]).set_strategy_pct_text(text)
-            for key, text in metrics.drift_text_by_key.items():
-                PortfolioTreeRow(item_by_key[key]).set_drift_text(text)
             for key, text in metrics.target_pct_text_overrides_by_key.items():
                 PortfolioTreeRow(item_by_key[key]).set_target_pct_text(text)
             for key, drift in metrics.drift_value_by_key.items():
-                PortfolioTreeRow(item_by_key[key]).apply_drift_color(drift)
+                PortfolioTreeRow(item_by_key[key]).set_drift(
+                    metrics.drift_text_by_key[key],
+                    drift,
+                )
 
     def normalize_future_tax_input(self) -> None:
         """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""
