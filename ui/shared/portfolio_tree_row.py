@@ -10,11 +10,9 @@ from PySide6.QtWidgets import QTreeWidgetItem
 from ui.shared.quantity_cell import QuantityCell
 from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import Col
+from ui.shared.ui_utils import DRIFT_NEGATIVE_COLOR, DRIFT_POSITIVE_COLOR, READONLY_TEXT_COLOR
 
 D = Decimal
-_READONLY_TEXT_COLOR = "#777777"
-_DRIFT_NEGATIVE_COLOR = "#d16a7a"
-_DRIFT_POSITIVE_COLOR = "#1b5e20"
 
 
 class PortfolioTreeRow:
@@ -80,8 +78,8 @@ class PortfolioTreeRow:
         """Set the row's drift text and matching foreground color together."""
         self._item.setText(Col.DRIFT_PP.value, text)
         if drift_pp < 0:
-            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_DRIFT_NEGATIVE_COLOR)))
+            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(DRIFT_NEGATIVE_COLOR)))
         elif drift_pp > 0:
-            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_DRIFT_POSITIVE_COLOR)))
+            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(DRIFT_POSITIVE_COLOR)))
         else:
-            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_READONLY_TEXT_COLOR)))
+            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(READONLY_TEXT_COLOR)))

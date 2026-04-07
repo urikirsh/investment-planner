@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.domain.models import Currency, Exchange
-from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
 """Shared UI helpers for formatting, lightweight widget state, and tree metadata.
@@ -34,6 +33,9 @@ DEFAULT_CURRENCY = Currency.ILS
 DEFAULT_EXCHANGE = Exchange.TASE
 BASE_CURRENCY_SUFFIX = f"({DEFAULT_CURRENCY.value})"
 FIXED_CELL_BG_COLOR = "#fff7e6"
+READONLY_TEXT_COLOR = "#777777"
+DRIFT_NEGATIVE_COLOR = "#d16a7a"
+DRIFT_POSITIVE_COLOR = "#1b5e20"
 
 
 def exchange_choices() -> tuple[str, ...]:
@@ -249,6 +251,8 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
         | Qt.ItemFlag.ItemIsDragEnabled
         | Qt.ItemFlag.ItemIsDropEnabled
     )
+    from ui.shared.portfolio_tree_row import PortfolioTreeRow
+
     gitem.setText(Col.TICKER.value, "")
     gitem.setText(Col.NAME.value, name)
     row = PortfolioTreeRow(gitem)
@@ -279,6 +283,8 @@ def add_instrument_item_to_group(
 ) \
         -> None:
     """Create an instrument child row with default computed-cell values."""
+    from ui.shared.portfolio_tree_row import PortfolioTreeRow
+
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()
@@ -368,7 +374,7 @@ def safe_pct(numer: D, denom: D) -> D | None:
 
 def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
-    item.setForeground(col, QBrush(QColor("#777777")))
+    item.setForeground(col, QBrush(QColor(READONLY_TEXT_COLOR)))
 
 
 def set_cell_fixed_look(item: QTreeWidgetItem, col: int) -> None:
