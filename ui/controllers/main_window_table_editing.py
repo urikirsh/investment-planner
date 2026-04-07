@@ -10,8 +10,10 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
 from ui.controllers.protocols import MainWindowTableEditingHost, suppress_item_changed
 from ui.dialogs import show_warning
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
 from ui.shared.ui_utils import (
+    fmt_non_negative_integer_grouped,
     get_item_kind,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
@@ -114,7 +116,11 @@ class MainWindowTableEditingController:
         host = self._host
         col = Col.QUANTITY.value
         raw, prev = self._read_edit_cell(item, col)
-        normalized_text, _parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
+        row = PortfolioTreeRow(item)
+        existing_quantity = row.quantity()
+        if raw == fmt_non_negative_integer_grouped(existing_quantity):
+            return True
+        _normalized_text, parsed_quantity, error = normalize_and_validate_non_negative_integer_text(
             raw,
             field_label="Quantity",
             required=False,
@@ -123,9 +129,11 @@ class MainWindowTableEditingController:
         if error:
             self.warn_and_revert(item, col, raw, prev, error)
             return False
-        if normalized_text != raw:
+        normalized_quantity = 0 if parsed_quantity is None else parsed_quantity
+        formatted_text = fmt_non_negative_integer_grouped(normalized_quantity)
+        if formatted_text != raw or existing_quantity != normalized_quantity:
             with suppress_item_changed(host):
-                item.setText(col, normalized_text)
+                row.set_quantity(normalized_quantity)
         return True
 
     def warn_and_revert(self, item: QTreeWidgetItem, col: int, bad: str, prev: str | None, msg: str) -> None:

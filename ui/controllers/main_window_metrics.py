@@ -16,11 +16,15 @@ from ui.portfolio_metrics import (
     MetricsSnapshot,
     compute_portfolio_metrics,
 )
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
 from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils
 from ui.shared.ui_utils import (
     BASE_CURRENCY_SUFFIX,
     apply_drift_color,
+    fmt_decimal_grouped,
+    get_decimal_line_edit_raw_text,
+    get_decimal_line_edit_value,
     get_item_exchange,
     get_item_kind,
     parse_value_cell,
@@ -62,18 +66,11 @@ class MainWindowMetricsController:
         with suppress_item_changed(self._host):
             for _top_key, _top, instrument_rows in self._iter_top_rows_with_instruments():
                 for _child_key, child in instrument_rows:
-                    child.setText(
-                        Col.TOT_VALUE.value,
-                        str(self._compute_instrument_total_value_ils(child)),
-                    )
+                    PortfolioTreeRow(child).set_total_value(self._compute_instrument_total_value_ils(child))
 
     def _compute_instrument_total_value_ils(self, item: QTreeWidgetItem) -> D:
         """Return one instrument row's total value in ILS from cached market data."""
-        quantity_text = item.text(Col.QUANTITY.value).strip()
-        if quantity_text == "":
-            quantity = 0
-        else:
-            quantity = int(quantity_text)
+        quantity = PortfolioTreeRow(item).quantity()
         if quantity == 0:
             return D("0.00")
 
@@ -102,7 +99,9 @@ class MainWindowMetricsController:
                 allow_partial=True,
             )
             total = self._compute_total_portfolio_amount(data)
-            host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: {total}")
+            host.total_label.setText(
+                f"Total portfolio {BASE_CURRENCY_SUFFIX}: {fmt_decimal_grouped(total)}"
+            )
         except (InvalidOperation, KeyError, TypeError, ValueError):
             host.total_label.setText(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
 
@@ -113,7 +112,7 @@ class MainWindowMetricsController:
             metrics = compute_portfolio_metrics(snapshot)
 
             for key, total in metrics.top_total_by_key.items():
-                item_by_key[key].setText(Col.TOT_VALUE.value, str(total))
+                PortfolioTreeRow(item_by_key[key]).set_total_value(total)
             for key, text in metrics.portfolio_pct_text_by_key.items():
                 item_by_key[key].setText(Col.PORTFOLIO_PCT.value, text)
             for key, text in metrics.strategy_pct_text_by_key.items():
@@ -127,12 +126,12 @@ class MainWindowMetricsController:
 
     def normalize_future_tax_input(self) -> None:
         """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""
-        if not self._host.future_tax_edit.text().strip():
+        if not get_decimal_line_edit_raw_text(self._host.future_tax_edit):
             self._host.future_tax_edit.setText("0")
 
     def update_future_tax_visual_state(self) -> None:
         """Apply warning color when future tax is positive, clear style otherwise."""
-        future_tax = parse_value_cell(self._host.future_tax_edit.text())
+        future_tax = get_decimal_line_edit_value(self._host.future_tax_edit)
         if future_tax > 0:
             self._host.future_tax_edit.setStyleSheet("color: #b00020;")
         else:
@@ -141,14 +140,16 @@ class MainWindowMetricsController:
     def update_investable_balance_visual_state(self) -> None:
         """Recompute investable balance text and color by minimum-investable threshold."""
         host = self._host
-        cash_value = parse_value_cell(host.cash_value_edit.text())
-        cash_reserve = parse_value_cell(host.cash_reserve_edit.text())
-        future_tax = parse_value_cell(host.future_tax_edit.text())
+        cash_value = get_decimal_line_edit_value(host.cash_value_edit)
+        cash_reserve = get_decimal_line_edit_value(host.cash_reserve_edit)
+        future_tax = get_decimal_line_edit_value(host.future_tax_edit)
         investable_balance = cash_value - cash_reserve - future_tax
         if investable_balance < 0:
             investable_balance = D("0")
 
-        host.investable_balance_label.setText(f"Investable balance {BASE_CURRENCY_SUFFIX}: {investable_balance}")
+        host.investable_balance_label.setText(
+            f"Investable balance {BASE_CURRENCY_SUFFIX}: {fmt_decimal_grouped(investable_balance)}"
+        )
         if investable_balance >= MIN_INVESTABLE_AMOUNT_ILS:
             host.investable_balance_label.setStyleSheet("color: #1b5e20;")
         else:
@@ -206,7 +207,7 @@ class MainWindowMetricsController:
                     MetricInstrumentRow(
                         key=child_key,
                         kind=get_item_kind(child),
-                        value_text=child.text(Col.TOT_VALUE.value),
+                        value=PortfolioTreeRow(child).total_value(),
                         target_pct_text=child.text(Col.TARGET_PCT.value),
                     )
                 )
@@ -222,7 +223,7 @@ class MainWindowMetricsController:
 
         snapshot = MetricsSnapshot(
             groups=tuple(groups),
-            cash_value_text=host.cash_value_edit.text(),
-            future_tax_text=host.future_tax_edit.text(),
+            cash_value_text=str(get_decimal_line_edit_value(host.cash_value_edit)),
+            future_tax_text=str(get_decimal_line_edit_value(host.future_tax_edit)),
         )
         return snapshot, item_by_key

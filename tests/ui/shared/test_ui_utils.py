@@ -1,16 +1,26 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTreeWidgetItem
+from decimal import Decimal
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLineEdit, QTreeWidgetItem
+
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
+from ui.shared.quantity_cell import QuantityCell
+from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
     FIXED_CELL_BG_COLOR,
     NON_INVESTABLE_BUCKET_ID,
     add_instrument_item_to_group,
+    fmt_decimal_grouped,
+    get_decimal_line_edit_raw_text,
+    get_decimal_line_edit_value,
     get_item_exchange,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
+    parse_value_cell,
+    set_decimal_line_edit_raw_text,
     set_group_tree_item,
     validate_non_negative_integer_text,
 )
@@ -37,6 +47,84 @@ def test_add_instrument_item_keeps_empty_ticker_without_implicit_fallback() -> N
     child = parent.child(0)
     assert child is not None
     assert child.text(Col.TICKER.value) == ""
+
+
+def test_set_item_total_value_updates_raw_value_and_display_text() -> None:
+    item = QTreeWidgetItem()
+
+    PortfolioTreeRow(item).set_total_value(Decimal("12345.67"))
+
+    assert PortfolioTreeRow(item).total_value() == Decimal("12345.67")
+    assert item.text(Col.TOT_VALUE.value) == "12,345.67"
+
+
+def test_total_value_cell_reads_zero_when_metadata_is_missing() -> None:
+    item = QTreeWidgetItem()
+    item.setText(Col.TOT_VALUE.value, "12,345.67")
+
+    assert TotalValueCell.read(item) == Decimal("0")
+
+
+def test_get_item_total_value_prefers_raw_metadata_over_visible_text() -> None:
+    item = QTreeWidgetItem()
+    PortfolioTreeRow(item).set_total_value(Decimal("12345.67"))
+    item.setText(Col.TOT_VALUE.value, "not a number")
+
+    assert PortfolioTreeRow(item).total_value() == Decimal("12345.67")
+
+
+def test_get_item_total_value_returns_zero_without_raw_metadata() -> None:
+    item = QTreeWidgetItem()
+    item.setText(Col.TOT_VALUE.value, "12,345.67")
+
+    assert PortfolioTreeRow(item).total_value() == Decimal("0")
+
+
+def test_decimal_line_edit_helpers_use_stored_raw_value() -> None:
+    edit = QLineEdit()
+    set_decimal_line_edit_raw_text(edit, "12345.67")
+    edit.setText("12,345.67")
+
+    assert get_decimal_line_edit_raw_text(edit) == "12345.67"
+    assert get_decimal_line_edit_value(edit) == Decimal("12345.67")
+
+
+def test_set_item_quantity_updates_raw_value_and_display_text() -> None:
+    item = QTreeWidgetItem()
+
+    PortfolioTreeRow(item).set_quantity(12345)
+
+    assert PortfolioTreeRow(item).quantity() == 12345
+    assert item.text(Col.QUANTITY.value) == "12,345"
+
+
+def test_quantity_cell_reads_zero_when_metadata_is_missing() -> None:
+    item = QTreeWidgetItem()
+    item.setText(Col.QUANTITY.value, "12,345")
+
+    assert QuantityCell.read(item) == 0
+
+
+def test_parse_value_cell_rejects_grouped_decimal_input() -> None:
+    assert parse_value_cell("12,345.67") == Decimal("0")
+
+
+def test_parse_value_cell_rejects_invalid_comma_grouping() -> None:
+    assert parse_value_cell("1,2,3") == Decimal("0")
+    assert parse_value_cell("12,34.5") == Decimal("0")
+
+def test_fmt_decimal_grouped_uses_round_half_up_for_fixed_places() -> None:
+    assert fmt_decimal_grouped(Decimal("1.005"), places=2) == "1.01"
+
+
+def test_add_instrument_item_formats_quantity_with_grouping() -> None:
+    parent = QTreeWidgetItem()
+    add_instrument_item_to_group(parent, "1234567", "Instrument", 12345, "100")
+
+    child = parent.child(0)
+    assert child is not None
+    assert child.text(Col.QUANTITY.value) == "12,345"
+    assert PortfolioTreeRow(child).quantity() == 12345
 
 
 def test_is_item_cell_editable_allows_investable_instrument_target_pct() -> None:

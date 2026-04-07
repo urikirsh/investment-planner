@@ -10,19 +10,26 @@ These tests validate adapter-level mapping behavior independently from
 - partial/strict mode handling for required cash fields
 """
 
+from decimal import Decimal
 from typing import Any
 
 import pytest
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.io_json import load_portfolio
+from tests.ui.conftest import assert_portfolio_tree_managed_cells_consistent
 from ui.portfolio_editor_adapter import (
     build_portfolio_data_from_main_editor,
     populate_main_editor_from_portfolio,
 )
 from ui.screens.main_editor_screen import MainEditorScreen
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import NON_INVESTABLE_BUCKET_ID, add_instrument_item_to_group, set_group_tree_item
+from ui.shared.ui_utils import (
+    NON_INVESTABLE_BUCKET_ID,
+    add_instrument_item_to_group,
+    set_group_tree_item,
+)
 
 NON_INVESTABLE_BUCKET_TITLE = "Non-investable holdings (excluded from strategy)"
 
@@ -106,6 +113,7 @@ def test_adapter_populate_and_build_round_trip(qapp) -> None:
     assert callback_calls == 1
     assert built == payload
     assert screen.tree.topLevelItemCount() == 3
+    assert_portfolio_tree_managed_cells_consistent(screen.tree)
 
 
 def test_build_data_partial_mode_defaults_empty_cash_fields(qapp) -> None:
@@ -221,3 +229,73 @@ def test_planning_payload_includes_exchange_per_instrument(qapp) -> None:
     by_id_quantity = {i["id"]: i["quantity"] for i in built["instruments"]}
     assert by_id_quantity["i1"] == 17
     assert by_id_quantity["i2"] == 0
+
+
+def test_build_data_normalizes_grouped_total_value_text(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+
+    group = QTreeWidgetItem(screen.tree)
+    set_group_tree_item(group, "Group 1", "100", "g1")
+    add_instrument_item_to_group(group, "1234567", "ETF", 1, "100", "i1", "TASE")
+    child = group.child(0)
+    assert child is not None
+    PortfolioTreeRow(child).set_total_value(Decimal("12345.67"))
+    child.setText(Col.TOT_VALUE.value, "12,345.67")
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=True,
+    )
+
+    assert built["instruments"][0]["value"] == "12345.67"
+
+
+def test_build_data_uses_raw_cash_state_instead_of_grouped_display_text(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+    screen.show()
+
+    screen.cash_value_edit.setText("12345.67")
+    screen.cash_reserve_edit.setText("500")
+    screen.future_tax_edit.setText("25")
+    screen.cash_value_edit.editingFinished.emit()
+    screen.cash_reserve_edit.editingFinished.emit()
+    screen.future_tax_edit.editingFinished.emit()
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=False,
+    )
+
+    assert screen.cash_value_edit.text() == "12,345.67"
+    assert built["cash"] == {"value": "12345.67", "min_reserve": "500", "future_tax": "25"}
+
+
+def test_build_data_uses_raw_quantity_state_instead_of_grouped_display_text(qapp) -> None:
+    _ = qapp
+    screen = MainEditorScreen()
+
+    group = QTreeWidgetItem(screen.tree)
+    set_group_tree_item(group, "Group 1", "100", "g1")
+    add_instrument_item_to_group(group, "1234567", "ETF", 12345, "100", "i1", "TASE")
+    child = group.child(0)
+    assert child is not None
+    assert PortfolioTreeRow(child).quantity() == 12345
+    child.setText(Col.QUANTITY.value, "not a number")
+
+    built = build_portfolio_data_from_main_editor(
+        tree=screen.tree,
+        cash_value_edit=screen.cash_value_edit,
+        cash_reserve_edit=screen.cash_reserve_edit,
+        future_tax_edit=screen.future_tax_edit,
+        allow_partial=True,
+    )
+
+    assert built["instruments"][0]["quantity"] == 12345

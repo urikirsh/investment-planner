@@ -16,14 +16,17 @@ Why this module exists
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Callable, NotRequired, TypedDict
 
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.domain.models import Portfolio
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col, RowKind
 from ui.shared.ui_utils import (
     add_instrument_item_to_group,
+    get_decimal_line_edit_raw_text,
     get_item_exchange,
     get_item_id,
     get_item_kind,
@@ -31,6 +34,8 @@ from ui.shared.ui_utils import (
     set_group_tree_item,
     set_item_meta,
 )
+
+D = Decimal
 
 
 class CashPayload(TypedDict):
@@ -154,7 +159,7 @@ def populate_main_editor_from_portfolio(
                 )
                 child = group_item.child(group_item.childCount() - 1)
                 if child is not None:
-                    child.setText(Col.TOT_VALUE.value, ins_row["value"])
+                    PortfolioTreeRow(child).set_total_value(D(ins_row["value"]))
 
         non_investable_bucket = QTreeWidgetItem(tree)
         set_group_tree_item(
@@ -176,7 +181,7 @@ def populate_main_editor_from_portfolio(
             )
             child = non_investable_bucket.child(non_investable_bucket.childCount() - 1)
             if child is not None:
-                child.setText(Col.TOT_VALUE.value, non_investable_row["value"])
+                PortfolioTreeRow(child).set_total_value(D(non_investable_row["value"]))
 
         tree.expandAll()
     finally:
@@ -227,9 +232,9 @@ def build_portfolio_data_from_main_editor(
       ticker format validation is enforced later by the save/planning validation layer.
     - Instrument `quantity` is emitted as `int` and normalized to `0` when empty.
     """
-    cash_value = cash_value_edit.text().strip()
-    cash_reserve = cash_reserve_edit.text().strip()
-    future_tax = future_tax_edit.text().strip()
+    cash_value = get_decimal_line_edit_raw_text(cash_value_edit)
+    cash_reserve = get_decimal_line_edit_raw_text(cash_reserve_edit)
+    future_tax = get_decimal_line_edit_raw_text(future_tax_edit)
 
     if not allow_partial and (not cash_value or not cash_reserve):
         raise ValueError("Cash value and reserve must be filled")
@@ -270,8 +275,9 @@ def build_portfolio_data_from_main_editor(
 
             instrument_name = ins.text(Col.NAME.value).strip()
             instrument_ticker = ins.text(Col.TICKER.value).strip()
-            quantity = int(ins.text(Col.QUANTITY.value).strip() or "0")
-            total_value = ins.text(Col.TOT_VALUE.value).strip() or "0"
+            row = PortfolioTreeRow(ins)
+            quantity = row.quantity()
+            total_value = str(row.total_value())
 
             if is_non_investable_bucket:
                 instrument: InstrumentPayload = {

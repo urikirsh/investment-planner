@@ -1,6 +1,9 @@
 from PySide6.QtCore import QPersistentModelIndex, QRegularExpression, QModelIndex, QObject
 from PySide6.QtGui import QRegularExpressionValidator
+from PySide6.QtCore import QAbstractItemModel
 from PySide6.QtWidgets import QLineEdit, QStyleOptionViewItem, QStyledItemDelegate, QWidget
+
+from ui.shared.quantity_cell import QuantityCell
 
 """
 decimal_input_delegate.py
@@ -85,3 +88,23 @@ class NonNegativeIntegerInputDelegate(_ValidatorInputDelegate):
             validator=build_non_negative_integer_validator(allow_empty=allow_empty, parent=parent),
             parent=parent,
         )
+
+    def setEditorData(self, editor: QWidget, index: QModelIndex | QPersistentModelIndex) -> None:
+        """Populate the editor with plain digits even if the cell displays grouping."""
+        if isinstance(editor, QLineEdit):
+            editor.setText(QuantityCell.read_raw_text_from_index(index))
+            return
+        super().setEditorData(editor, index)
+
+    def setModelData(
+        self,
+        editor: QWidget,
+        model: QAbstractItemModel,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        """Write grouped quantity text back to the model after editing."""
+        if isinstance(editor, QLineEdit):
+            text = editor.text().strip()
+            QuantityCell.write_model_data(model, index, 0 if text == "" else int(text))
+            return
+        super().setModelData(editor, model, index)

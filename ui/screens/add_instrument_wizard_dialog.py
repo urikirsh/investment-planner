@@ -58,6 +58,7 @@ from portfolio_core.market_data import (
 )
 from ui.dialogs import confirm_discard_changes, show_error_with_back
 from ui.shared.decimal_input_delegate import build_decimal_validator, build_non_negative_integer_validator
+from ui.shared.formatted_numeric_line_edit import FormattedIntegerLineEdit
 from ui.shared.loading_overlay import LoadingOverlay
 from ui.shared.ui_utils import (
     DEFAULT_EXCHANGE,
@@ -344,7 +345,7 @@ class AddInstrumentWizardDialog(QDialog):
         self.target_pct_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Strategy percentage:", self.target_pct_edit)
 
-        self.units_edit = QLineEdit(page)
+        self.units_edit = FormattedIntegerLineEdit(page)
         self.units_edit.setPlaceholderText("Non-negative integer")
         self.units_edit.textChanged.connect(self._update_step_3_validity)
         form.addRow("Units:", self.units_edit)
@@ -638,7 +639,7 @@ class AddInstrumentWizardDialog(QDialog):
         outcome = self._validate_step_3(
             name_text=self.name_edit.text(),
             target_text=self.target_pct_edit.text(),
-            units_text=self.units_edit.text(),
+            units_text=self.units_edit.raw_text(),
             is_non_investable_group=self._is_non_investable_group,
         )
         candidate_name = (
@@ -843,7 +844,7 @@ class AddInstrumentWizardDialog(QDialog):
             return True
         if not self._is_non_investable_group and self.target_pct_edit.text().strip():
             return True
-        if self.units_edit.text().strip():
+        if self.units_edit.raw_text().strip():
             return True
         return False
 

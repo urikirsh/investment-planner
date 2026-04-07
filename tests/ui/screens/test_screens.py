@@ -15,7 +15,7 @@ import tomllib
 import pytest
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import QModelIndex
-from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem
+from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem, QTreeWidgetItem
 from portfolio_core.domain.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -23,8 +23,9 @@ from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices
+from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices, get_decimal_line_edit_raw_text
 
 
 @pytest.fixture(autouse=True)
@@ -244,3 +245,53 @@ def test_main_editor_quantity_delegate_rejects_non_digit_input() -> None:
 
     editor.setText("10")
     assert editor.hasAcceptableInput()
+
+
+def test_main_editor_quantity_formats_with_grouping_after_edit_commit() -> None:
+    screen = MainEditorScreen()
+    group = screen.tree.invisibleRootItem()
+    child = QTreeWidgetItem(group)
+    PortfolioTreeRow(child).set_quantity(12345)
+    delegate = screen.tree.itemDelegateForColumn(Col.QUANTITY.value)
+    assert isinstance(delegate, NonNegativeIntegerInputDelegate)
+
+    editor = delegate.createEditor(screen.tree, QStyleOptionViewItem(), screen.tree.model().index(0, Col.QUANTITY.value))
+    assert isinstance(editor, QLineEdit)
+    delegate.setEditorData(editor, screen.tree.model().index(0, Col.QUANTITY.value))
+    assert editor.text() == "12345"
+
+    editor.setText("12345")
+    delegate.setModelData(editor, screen.tree.model(), screen.tree.model().index(0, Col.QUANTITY.value))
+    assert child.text(Col.QUANTITY.value) == "12,345"
+
+
+def test_main_editor_cash_inputs_reject_commas_and_letters() -> None:
+    screen = MainEditorScreen()
+    screen.show()
+
+    for editor in (screen.cash_value_edit, screen.cash_reserve_edit, screen.future_tax_edit):
+        editor.clear()
+        editor.insert("1,000")
+        assert "," not in editor.text()
+
+        editor.clear()
+        editor.insert("abc")
+        assert editor.text() == ""
+
+        editor.clear()
+        editor.insert("1000.25")
+        assert editor.hasAcceptableInput()
+
+
+def test_main_editor_cash_inputs_format_with_grouping_after_editing_finishes() -> None:
+    screen = MainEditorScreen()
+    screen.show()
+
+    screen.cash_value_edit.clear()
+    screen.cash_value_edit.insert("12345.67")
+    assert screen.cash_value_edit.text() == "12345.67"
+    screen.cash_value_edit.editingFinished.emit()
+
+    assert screen.cash_value_edit.text() == "12,345.67"
+    assert get_decimal_line_edit_raw_text(screen.cash_value_edit) == "12345.67"
+    assert screen.cash_value_edit.hasAcceptableInput() is False

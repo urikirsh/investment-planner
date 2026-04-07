@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from portfolio_core.market_data import TickerLookupFound
+from tests.ui.conftest import assert_portfolio_tree_managed_cells_consistent
 import ui.controllers.main_window_table_editing as table_editing
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.main_window import MainWindow
@@ -92,6 +93,23 @@ def test_item_changed_quantity_recomputes_total_value_from_cached_price(
 
     assert child.text(Col.TOT_VALUE.value) == "50.00"
     assert group.text(Col.TOT_VALUE.value) == "50.00"
+
+
+def test_item_changed_quantity_formats_grouped_display(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
+    monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
+    child = add_instrument_row(tree=window.tree, quantity=7)
+    child.setData(Col.QUANTITY.value, ROLE_PREV_TEXT, "7")
+    child.setText(Col.QUANTITY.value, "12345")
+
+    window._on_item_changed_guard_and_recalc(child, Col.QUANTITY.value)
+
+    assert child.text(Col.QUANTITY.value) == "12,345"
+    assert_portfolio_tree_managed_cells_consistent(window.tree)
 
 
 def test_item_double_clicked_restores_editable_flag_when_editing_raises(

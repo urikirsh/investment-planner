@@ -77,6 +77,7 @@ Startup/wizard market-data guards in this flow:
 - `ui/screens/main_editor_screen.py`
   - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
+  - uses shared formatted numeric line edits so cash fields keep raw numeric state while rendering grouped display text when idle
 - `ui/screens/add_instrument_wizard_dialog.py`
   - modal 3-step add-instrument flow used from screen 2
   - step 1: exchange choice
@@ -90,6 +91,7 @@ Startup/wizard market-data guards in this flow:
   - ticker-not-found, missing-price lookup results, ticker-lookup communication failures, and unexpected internal lookup failures are shown as Back-only modals and keep the flow on step 2
   - duplicate ticker/name submit paths keep defensive Back-only modals naming the existing location
   - return/cancel prompts for discard only when user has edited wizard input
+  - reuses the shared formatted integer line edit for grouped units display outside active editing
 - `ui/screens/summary_screen.py`
   - screen 3 presentation/layout (plan summary)
   - exposes summary text and navigation controls
@@ -110,9 +112,13 @@ Startup/wizard market-data guards in this flow:
   - `constants.py`: shared static UI constants used by multiple UI modules
     - cleanup timing knobs are defined here so wait policy stays centralized
   - `decimal_input_delegate.py`: numeric line-edit delegate for decimal-only input
+  - `formatted_numeric_line_edit.py`: shared base and concrete grouped-number `QLineEdit` widgets used by main-editor cash fields and wizard units input
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
+  - `portfolio_tree_row.py`: row-level API for managed numeric tree cells so callers update quantity/total values without touching raw item-data role details directly
+  - `quantity_cell.py`: encapsulates raw/display storage for the tree quantity column so editors, metrics, and save logic read raw units without reparsing grouped text
+  - `total_value_cell.py`: encapsulates raw/display storage for the tree total-value column so callers do not depend on Qt item-data role details directly
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
-  - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, and exchange/currency parsing
+  - `ui_utils.py`: shared UI helpers for row metadata, formatting, alignment, exchange/currency parsing, and thin adapters over shared cell/value helpers
   - `__init__.py`: re-export surface for common shared symbols
 - `ui/dialogs.py`
   - typed wrappers around common `QMessageBox`/`QFileDialog` interactions

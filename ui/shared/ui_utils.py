@@ -1,30 +1,33 @@
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import uuid
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QLineEdit,
     QTreeWidgetItem,
 )
 from PySide6.QtGui import QColor, QBrush
 
 from portfolio_core.domain.models import Currency, Exchange
+from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import ROLE_KIND, ROLE_ID, RowKind, Col
 
-"""
-ui_utils.py
+"""Shared UI helpers for formatting, lightweight widget state, and tree metadata.
 
-Reusable helper functions for the UI layer.
+This module contains small UI-facing helpers that are reused across screens and
+controllers, including:
+- display formatting for decimals, percentages, and grouped integers
+- raw-value helpers for grouped numeric line edits
+- tree item metadata and tree-building helpers
+- styling/alignment utilities for portfolio tree rows
 
-This module contains small, focused utilities used by UI components,
-such as styling helpers, formatting functions, and minor UI-related
-logic that does not belong in widget classes themselves.
-
-No business logic or persistence logic belongs in this module.
+Business rules and persistence workflows stay outside this module.
 """
 
 D = Decimal
+_RAW_DECIMAL_TEXT_PROPERTY = "_raw_decimal_text"
 
 NON_INVESTABLE_BUCKET_ID = "non_investable_bucket"
 DEFAULT_CURRENCY = Currency.ILS
@@ -56,6 +59,7 @@ def parse_exchange_code(raw: object) -> str | None:
 def currency_for_exchange(exchange_code: str) -> Currency:
     """Resolve currency for a validated exchange code."""
     return Exchange(exchange_code).currency
+
 
 def d_from_text(txt: str, field: str) -> D:
     """Parse a required Decimal from text and include field name in errors."""
@@ -99,6 +103,7 @@ def normalize_and_validate_non_negative_integer_text(
     )
     return effective_text, parsed_value, parse_error
 
+
 def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     """
     Attach semantic row metadata (kind/id) to a tree item.
@@ -109,6 +114,7 @@ def set_item_meta(item: QTreeWidgetItem, kind: RowKind, _id: str) -> None:
     item.setData(0, ROLE_KIND, kind)
     item.setData(0, ROLE_ID, _id)
 
+
 def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
     """
     Return stored row kind as typed enum.
@@ -118,9 +124,33 @@ def get_item_kind(item: QTreeWidgetItem) -> RowKind | None:
     """
     return RowKind.from_raw(item.data(0, ROLE_KIND))
 
+
 def get_item_id(item: QTreeWidgetItem) -> str:
     """Return stored internal id string, or empty string if missing."""
     return item.data(0, ROLE_ID) or ""
+
+
+def set_decimal_line_edit_raw_text(edit: QLineEdit, text: str | D | None) -> None:
+    """Store normalized raw decimal text for a grouped-display decimal line edit."""
+    normalized = "" if text is None else str(text).strip()
+    edit.setProperty(_RAW_DECIMAL_TEXT_PROPERTY, normalized)
+
+
+def get_decimal_line_edit_raw_text(edit: QLineEdit) -> str:
+    """Return stored raw decimal text from a grouped-display decimal line edit."""
+    raw = edit.property(_RAW_DECIMAL_TEXT_PROPERTY)
+    return raw if isinstance(raw, str) else ""
+
+
+def get_decimal_line_edit_value(edit: QLineEdit) -> D:
+    """Return one grouped-display decimal line edit's raw value, defaulting to ``0``."""
+    raw = get_decimal_line_edit_raw_text(edit)
+    if not raw:
+        return D("0")
+    try:
+        return D(raw)
+    except (InvalidOperation, ValueError):
+        return D("0")
 
 
 def get_item_exchange(item: QTreeWidgetItem) -> str:
@@ -160,6 +190,7 @@ def style_group_row(item: QTreeWidgetItem) -> None:
     ):
         set_cell_readonly_look(item, c)
 
+
 def style_instrument_row(item: QTreeWidgetItem) -> None:
     """Apply computed/fixed visual styling for instrument rows."""
     for c in (Col.TOT_VALUE.value, Col.PORTFOLIO_PCT.value, Col.STRATEGY_PCT.value, Col.DRIFT_PP.value):
@@ -167,6 +198,7 @@ def style_instrument_row(item: QTreeWidgetItem) -> None:
     for c in (Col.TICKER.value, Col.TOT_VALUE.value, Col.EXCHANGE.value):
         if not is_item_cell_editable(item, c):
             set_cell_fixed_look(item, c)
+
 
 def apply_row_alignment(item: QTreeWidgetItem) -> None:
     """Apply per-column alignment conventions for group/instrument rows."""
@@ -219,8 +251,9 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     )
     gitem.setText(Col.TICKER.value, "")
     gitem.setText(Col.NAME.value, name)
-    gitem.setText(Col.QUANTITY.value, "")
-    gitem.setText(Col.TOT_VALUE.value, "0")  # will be recalculated anyway
+    row = PortfolioTreeRow(gitem)
+    row.clear_quantity()
+    row.set_total_value(D("0"))  # will be recalculated anyway
     gitem.setText(Col.EXCHANGE.value, "")
     gitem.setText(Col.TARGET_PCT.value, str(target_pct))
 
@@ -249,11 +282,11 @@ def add_instrument_item_to_group(
     item = QTreeWidgetItem(gitem)
     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
     ticker_text = ticker.strip()
-    quantity_text = str(quantity)
+    row = PortfolioTreeRow(item)
     item.setText(Col.TICKER.value, ticker_text)
     item.setText(Col.NAME.value, name)
-    item.setText(Col.QUANTITY.value, quantity_text)
-    item.setText(Col.TOT_VALUE.value, "0")
+    row.set_quantity(quantity)
+    row.set_total_value(D("0"))
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
     item.setText(Col.TARGET_PCT.value, in_group_pct)
@@ -288,11 +321,35 @@ def parse_value_cell(txt: str) -> D:
     txt = (txt or "").strip()
     if not txt:
         return D("0")
+    if "," in txt:
+        return D("0")
     try:
         return D(txt)
     except (InvalidOperation, ValueError):
         # If user typed garbage, treat as 0 for sums, validation will catch later
         return D("0")
+
+
+def fmt_decimal_grouped(value: D, *, places: int | None = None, trim_trailing_zeros: bool = False) -> str:
+    """Format a decimal with comma grouping and optional fixed/trimmed decimals."""
+    quantized = value
+    if places is not None:
+        quantized = value.quantize(D("1").scaleb(-places), rounding=ROUND_HALF_UP)
+    text = format(quantized, "f")
+    if trim_trailing_zeros and "." in text:
+        text = text.rstrip("0").rstrip(".")
+
+    integer_part, dot, fractional_part = text.partition(".")
+    grouped_integer = f"{int(integer_part):,}"
+    if not dot:
+        return grouped_integer
+    return f"{grouped_integer}.{fractional_part}"
+
+
+def fmt_non_negative_integer_grouped(value: int) -> str:
+    """Format a non-negative integer with comma grouping."""
+    return f"{value:,}"
+
 
 def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""
@@ -308,6 +365,7 @@ def safe_pct(numer: D, denom: D) -> D | None:
     if denom == 0:
         return None
     return (numer * D("100")) / denom
+
 
 def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) -> None:
     """
@@ -326,6 +384,7 @@ def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) 
         # Neutral -> default
         set_cell_readonly_look(item, col_index)
 
+
 def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""
     item.setForeground(col, QBrush(QColor("#777777")))
@@ -334,6 +393,7 @@ def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
 def set_cell_fixed_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply subtle background tint for user-visible fixed cells."""
     item.setBackground(col, QBrush(QColor(FIXED_CELL_BG_COLOR)))
+
 
 def is_item_cell_editable(item: QTreeWidgetItem, col: int) -> bool:
     """Return whether an item's cell is editable, including parent-context rules."""

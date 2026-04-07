@@ -25,16 +25,23 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
+from ui.shared.decimal_input_delegate import (
+    DecimalInputDelegate,
+    NonNegativeIntegerInputDelegate,
+)
+from ui.shared.formatted_numeric_line_edit import FormattedDecimalLineEdit
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import BASE_CURRENCY_SUFFIX, DEFAULT_CURRENCY, exchange_choices
+from ui.shared.ui_utils import (
+    BASE_CURRENCY_SUFFIX,
+    DEFAULT_CURRENCY,
+    exchange_choices,
+)
 
 
 class MainEditorScreen(QWidget):
@@ -68,17 +75,17 @@ class MainEditorScreen(QWidget):
         cash_layout = QHBoxLayout(cash_box)
 
         cash_layout.addWidget(QLabel(f"Cash value {BASE_CURRENCY_SUFFIX}:"))
-        self.cash_value_edit = QLineEdit()
+        self.cash_value_edit = FormattedDecimalLineEdit(cash_box)
         self.cash_value_edit.setPlaceholderText("e.g. 1000")
         cash_layout.addWidget(self.cash_value_edit)
 
         cash_layout.addWidget(QLabel(f"Minimal cash reserve {BASE_CURRENCY_SUFFIX}:"))
-        self.cash_reserve_edit = QLineEdit()
+        self.cash_reserve_edit = FormattedDecimalLineEdit(cash_box)
         self.cash_reserve_edit.setPlaceholderText("e.g. 20000")
         cash_layout.addWidget(self.cash_reserve_edit)
 
         cash_layout.addWidget(QLabel(f"Future tax {BASE_CURRENCY_SUFFIX}:"))
-        self.future_tax_edit = QLineEdit()
+        self.future_tax_edit = FormattedDecimalLineEdit(cash_box)
         self.future_tax_edit.setPlaceholderText("e.g. 0")
         self.future_tax_edit.setText("0")
         cash_layout.addWidget(self.future_tax_edit)

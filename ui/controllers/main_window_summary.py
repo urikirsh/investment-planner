@@ -13,6 +13,7 @@ from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.workflows import PlanStep
 from ui.controllers.protocols import MainWindowSummaryHost
 from ui.screens.summary_screen import SummaryScreen
+from ui.shared.ui_utils import fmt_decimal_grouped
 
 D = Decimal
 
@@ -35,8 +36,8 @@ class MainWindowSummaryController:
             budget = D("0")
         return [
             f"Mode: {mode.value}",
-            f"Future tax (non-investable): {p.cash.future_tax}",
-            f"Invest budget (cash - minimal reserve - future tax): {budget}",
+            f"Future tax (non-investable): {fmt_decimal_grouped(p.cash.future_tax)}",
+            f"Invest budget (cash - minimal reserve - future tax): {fmt_decimal_grouped(budget)}",
             "",
         ]
 
@@ -49,7 +50,10 @@ class MainWindowSummaryController:
         lines = ["Planned actions (split per instrument by in-group target percentages):"]
         for s in steps:
             action = "BUY" if s.planned_delta_money > 0 else "SELL"
-            lines.append(f"- {action} {abs(s.planned_delta_money)} in [{s.asset_group_name}] via [{s.instrument_name}]")
+            lines.append(
+                f"- {action} {fmt_decimal_grouped(abs(s.planned_delta_money), places=2, trim_trailing_zeros=True)} "
+                f"in [{s.asset_group_name}] via [{s.instrument_name}]"
+            )
         return lines
 
     def init_screen(self) -> None:
