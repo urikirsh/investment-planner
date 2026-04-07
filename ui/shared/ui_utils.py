@@ -255,7 +255,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     row.clear_quantity()
     row.set_total_value(D("0"))  # will be recalculated anyway
     gitem.setText(Col.EXCHANGE.value, "")
-    gitem.setText(Col.TARGET_PCT.value, str(target_pct))
+    row.set_target_pct_text(str(target_pct))
 
     gid = id_str.strip() or new_id("grp")
 
@@ -289,7 +289,7 @@ def add_instrument_item_to_group(
     row.set_total_value(D("0"))
     exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
     item.setText(Col.EXCHANGE.value, exchange_value)
-    item.setText(Col.TARGET_PCT.value, in_group_pct)
+    row.set_target_pct_text(in_group_pct)
 
     iid = id_str.strip() or new_id("ins")
     set_item_meta(item, RowKind.INSTRUMENT, iid)
@@ -365,25 +365,6 @@ def safe_pct(numer: D, denom: D) -> D | None:
     if denom == 0:
         return None
     return (numer * D("100")) / denom
-
-
-def apply_drift_color(item: QTreeWidgetItem, col_index: int, drift_pp: Decimal) -> None:
-    """
-    Color-code drift (percentage points):
-    - Negative (under target): red
-    - Positive (over target): green
-    - Zero: default color
-    """
-    if drift_pp < 0:
-        # Underweight -> lighter red for contrast against dark bold text
-        item.setForeground(col_index, QBrush(QColor("#d16a7a")))
-    elif drift_pp > 0:
-        # Overweight -> green
-        item.setForeground(col_index, QBrush(QColor("#1b5e20")))
-    else:
-        # Neutral -> default
-        set_cell_readonly_look(item, col_index)
-
 
 def set_cell_readonly_look(item: QTreeWidgetItem, col: int) -> None:
     """Apply neutral read-only foreground color to a single cell."""

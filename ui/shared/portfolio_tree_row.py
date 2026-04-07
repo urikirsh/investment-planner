@@ -1,19 +1,24 @@
 from __future__ import annotations
 
-"""Row-level API for managed numeric cells in the portfolio tree."""
+"""Row-level API for managed portfolio-tree cell reads and writes."""
 
 from decimal import Decimal
 
+from PySide6.QtGui import QColor, QBrush
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from ui.shared.quantity_cell import QuantityCell
 from ui.shared.total_value_cell import TotalValueCell
+from ui.shared.ui_types import Col
 
 D = Decimal
+_READONLY_TEXT_COLOR = "#777777"
+_DRIFT_NEGATIVE_COLOR = "#d16a7a"
+_DRIFT_POSITIVE_COLOR = "#1b5e20"
 
 
 class PortfolioTreeRow:
-    """Wrap one ``QTreeWidgetItem`` and expose managed numeric cell accessors."""
+    """Wrap one ``QTreeWidgetItem`` and expose managed portfolio-tree cells."""
 
     def __init__(self, item: QTreeWidgetItem) -> None:
         self._item = item
@@ -42,3 +47,44 @@ class PortfolioTreeRow:
     def clear_quantity(self) -> None:
         """Clear quantity display for rows that do not own a quantity input."""
         QuantityCell.clear(self._item)
+
+    def target_pct_text(self) -> str:
+        """Return the row's target-percentage cell text."""
+        return self._item.text(Col.TARGET_PCT.value)
+
+    def set_target_pct_text(self, text: str) -> None:
+        """Set the row's target-percentage cell text."""
+        self._item.setText(Col.TARGET_PCT.value, text)
+
+    def portfolio_pct_text(self) -> str:
+        """Return the row's portfolio-percentage cell text."""
+        return self._item.text(Col.PORTFOLIO_PCT.value)
+
+    def set_portfolio_pct_text(self, text: str) -> None:
+        """Set the row's portfolio-percentage cell text."""
+        self._item.setText(Col.PORTFOLIO_PCT.value, text)
+
+    def strategy_pct_text(self) -> str:
+        """Return the row's strategy-percentage cell text."""
+        return self._item.text(Col.STRATEGY_PCT.value)
+
+    def set_strategy_pct_text(self, text: str) -> None:
+        """Set the row's strategy-percentage cell text."""
+        self._item.setText(Col.STRATEGY_PCT.value, text)
+
+    def drift_text(self) -> str:
+        """Return the row's drift cell text."""
+        return self._item.text(Col.DRIFT_PP.value)
+
+    def set_drift_text(self, text: str) -> None:
+        """Set the row's drift cell text without changing drift coloring."""
+        self._item.setText(Col.DRIFT_PP.value, text)
+
+    def apply_drift_color(self, drift_pp: Decimal) -> None:
+        """Apply drift foreground color for the row's drift column."""
+        if drift_pp < 0:
+            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_DRIFT_NEGATIVE_COLOR)))
+        elif drift_pp > 0:
+            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_DRIFT_POSITIVE_COLOR)))
+        else:
+            self._item.setForeground(Col.DRIFT_PP.value, QBrush(QColor(_READONLY_TEXT_COLOR)))

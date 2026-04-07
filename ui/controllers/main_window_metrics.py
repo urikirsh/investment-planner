@@ -21,7 +21,6 @@ from ui.shared.ui_types import Col
 from ui.shared.cached_instrument_pricing import resolve_cached_instrument_price_ils
 from ui.shared.ui_utils import (
     BASE_CURRENCY_SUFFIX,
-    apply_drift_color,
     fmt_decimal_grouped,
     get_decimal_line_edit_raw_text,
     get_decimal_line_edit_value,
@@ -114,15 +113,15 @@ class MainWindowMetricsController:
             for key, total in metrics.top_total_by_key.items():
                 PortfolioTreeRow(item_by_key[key]).set_total_value(total)
             for key, text in metrics.portfolio_pct_text_by_key.items():
-                item_by_key[key].setText(Col.PORTFOLIO_PCT.value, text)
+                PortfolioTreeRow(item_by_key[key]).set_portfolio_pct_text(text)
             for key, text in metrics.strategy_pct_text_by_key.items():
-                item_by_key[key].setText(Col.STRATEGY_PCT.value, text)
+                PortfolioTreeRow(item_by_key[key]).set_strategy_pct_text(text)
             for key, text in metrics.drift_text_by_key.items():
-                item_by_key[key].setText(Col.DRIFT_PP.value, text)
+                PortfolioTreeRow(item_by_key[key]).set_drift_text(text)
             for key, text in metrics.target_pct_text_overrides_by_key.items():
-                item_by_key[key].setText(Col.TARGET_PCT.value, text)
+                PortfolioTreeRow(item_by_key[key]).set_target_pct_text(text)
             for key, drift in metrics.drift_value_by_key.items():
-                apply_drift_color(item_by_key[key], Col.DRIFT_PP.value, drift)
+                PortfolioTreeRow(item_by_key[key]).apply_drift_color(drift)
 
     def normalize_future_tax_input(self) -> None:
         """Normalize blank future-tax input to ``0`` for downstream numeric parsing."""
@@ -208,7 +207,7 @@ class MainWindowMetricsController:
                         key=child_key,
                         kind=get_item_kind(child),
                         value=PortfolioTreeRow(child).total_value(),
-                        target_pct_text=child.text(Col.TARGET_PCT.value),
+                        target_pct_text=PortfolioTreeRow(child).target_pct_text(),
                     )
                 )
 
@@ -216,7 +215,7 @@ class MainWindowMetricsController:
                 MetricGroupRow(
                     key=top_key,
                     kind=top_kind,
-                    target_pct_text=top.text(Col.TARGET_PCT.value),
+                    target_pct_text=PortfolioTreeRow(top).target_pct_text(),
                     instruments=tuple(instruments),
                 )
             )
