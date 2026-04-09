@@ -81,6 +81,7 @@ The application never executes trades automatically. All actions are explicit an
   - after choosing a startup action that opens the main editor, a brief blocking transition overlay appears while startup tasks complete
   - startup refreshes portfolio prices before opening the main editor
 - Immediate validation with clear feedback for quantity/target percent edits
+- Target percentage cells render with a `%` suffix for consistency with Portfolio % and Strategy %
 - Future tax is highlighted in red when greater than zero
 - Main screen shows your live investable balance, with color feedback:
   - green when you have enough to invest

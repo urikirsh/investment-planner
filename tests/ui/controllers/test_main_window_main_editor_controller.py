@@ -74,7 +74,7 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.QUANTITY.value) == "12"
     assert child.text(Col.TOT_VALUE.value) == "5,102.04"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
-    assert child.text(Col.TARGET_PCT.value) == "25"
+    assert child.text(Col.TARGET_PCT.value) == "25.0%"
 
 
 def test_add_instrument_suppresses_item_changed_during_row_creation(

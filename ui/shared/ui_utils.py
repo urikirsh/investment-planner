@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import uuid
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSignalBlocker, Qt
 from PySide6.QtWidgets import (
     QLineEdit,
     QTreeWidgetItem,
@@ -245,31 +245,36 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     The row is marked as non-editable by default; editing is temporarily enabled
     by higher-level UI handlers when needed.
     """
-    gitem.setFlags(
-        gitem.flags()
-        | Qt.ItemFlag.ItemIsEditable
-        | Qt.ItemFlag.ItemIsDragEnabled
-        | Qt.ItemFlag.ItemIsDropEnabled
-    )
-    from ui.shared.portfolio_tree_row import PortfolioTreeRow
+    tree = gitem.treeWidget()
+    blocker = QSignalBlocker(tree) if tree is not None else None
+    try:
+        gitem.setFlags(
+            gitem.flags()
+            | Qt.ItemFlag.ItemIsEditable
+            | Qt.ItemFlag.ItemIsDragEnabled
+            | Qt.ItemFlag.ItemIsDropEnabled
+        )
+        from ui.shared.portfolio_tree_row import PortfolioTreeRow
 
-    gitem.setText(Col.TICKER.value, "")
-    gitem.setText(Col.NAME.value, name)
-    row = PortfolioTreeRow(gitem)
-    row.clear_quantity()
-    row.set_total_value(D("0"))  # will be recalculated anyway
-    gitem.setText(Col.EXCHANGE.value, "")
-    row.set_target_pct_text(str(target_pct))
+        gitem.setText(Col.TICKER.value, "")
+        gitem.setText(Col.NAME.value, name)
+        row = PortfolioTreeRow(gitem)
+        row.clear_quantity()
+        row.set_total_value(D("0"))  # will be recalculated anyway
+        gitem.setText(Col.EXCHANGE.value, "")
+        row.set_target_pct_text(str(target_pct))
 
-    gid = id_str.strip() or new_id("grp")
+        gid = id_str.strip() or new_id("grp")
 
-    row_kind = RowKind.NON_INVESTABLE_BUCKET if id_str == NON_INVESTABLE_BUCKET_ID else RowKind.GROUP
+        row_kind = RowKind.NON_INVESTABLE_BUCKET if id_str == NON_INVESTABLE_BUCKET_ID else RowKind.GROUP
 
-    set_item_meta(gitem, row_kind, gid)
-    disable_edits_to_row(gitem)
+        set_item_meta(gitem, row_kind, gid)
+        disable_edits_to_row(gitem)
 
-    apply_row_alignment(gitem)
-    style_group_row(gitem)
+        apply_row_alignment(gitem)
+        style_group_row(gitem)
+    finally:
+        del blocker
 
 
 def add_instrument_item_to_group(
@@ -285,29 +290,34 @@ def add_instrument_item_to_group(
     """Create an instrument child row with default computed-cell values."""
     from ui.shared.portfolio_tree_row import PortfolioTreeRow
 
-    item = QTreeWidgetItem(gitem)
-    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
-    ticker_text = ticker.strip()
-    row = PortfolioTreeRow(item)
-    item.setText(Col.TICKER.value, ticker_text)
-    item.setText(Col.NAME.value, name)
-    row.set_quantity(quantity)
-    row.set_total_value(D("0"))
-    exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
-    item.setText(Col.EXCHANGE.value, exchange_value)
-    row.set_target_pct_text(in_group_pct)
+    tree = gitem.treeWidget()
+    blocker = QSignalBlocker(tree) if tree is not None else None
+    try:
+        item = QTreeWidgetItem(gitem)
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
+        ticker_text = ticker.strip()
+        row = PortfolioTreeRow(item)
+        item.setText(Col.TICKER.value, ticker_text)
+        item.setText(Col.NAME.value, name)
+        row.set_quantity(quantity)
+        row.set_total_value(D("0"))
+        exchange_value = parse_exchange_code(exchange) or DEFAULT_EXCHANGE.value
+        item.setText(Col.EXCHANGE.value, exchange_value)
+        row.set_target_pct_text(in_group_pct)
 
-    iid = id_str.strip() or new_id("ins")
-    set_item_meta(item, RowKind.INSTRUMENT, iid)
+        iid = id_str.strip() or new_id("ins")
+        set_item_meta(item, RowKind.INSTRUMENT, iid)
 
-    apply_row_alignment(item)
+        apply_row_alignment(item)
 
-    flags = item.flags()
-    flags &= ~Qt.ItemFlag.ItemIsDropEnabled
-    item.setFlags(flags)
-    disable_edits_to_row(item)
+        flags = item.flags()
+        flags &= ~Qt.ItemFlag.ItemIsDropEnabled
+        item.setFlags(flags)
+        disable_edits_to_row(item)
 
-    style_instrument_row(item)
+        style_instrument_row(item)
+    finally:
+        del blocker
 
 
 def disable_edits_to_row(row: QTreeWidgetItem) -> None:
@@ -360,6 +370,25 @@ def fmt_non_negative_integer_grouped(value: int) -> str:
 def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""
     return f"{value:.1f}%"
+
+def strip_pct_suffix(text: str) -> str:
+    """Return percentage text without one trailing percent sign."""
+    stripped = text.strip()
+    if stripped.endswith("%"):
+        return stripped[:-1].strip()
+    return stripped
+
+
+def fmt_pct_text(text: str) -> str:
+    """Format raw numeric percentage text for display, preserving blanks."""
+    raw = strip_pct_suffix(text)
+    if not raw:
+        return ""
+    try:
+        return fmt_pct(D(raw))
+    except (InvalidOperation, ValueError):
+        return raw
+
 
 def fmt_pp(value: D) -> str:
     """Format a drift value in percentage points with sign for positives."""

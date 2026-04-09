@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from ui.shared.decimal_input_delegate import (
     DecimalInputDelegate,
     NonNegativeIntegerInputDelegate,
+    PercentInputDelegate,
 )
 from ui.shared.formatted_numeric_line_edit import FormattedDecimalLineEdit
 from ui.tree_widget import InvestmentTreeWidget
@@ -144,7 +145,7 @@ class MainEditorScreen(QWidget):
         tree.headerItem().setTextAlignment(Col.EXCHANGE.value, Qt.AlignmentFlag.AlignCenter)
         tree.setItemDelegateForColumn(
             Col.TARGET_PCT.value,
-            DecimalInputDelegate(allow_empty=False, parent=tree),
+            PercentInputDelegate(allow_empty=False, parent=tree),
         )
         tree.setItemDelegateForColumn(
             Col.QUANTITY.value,

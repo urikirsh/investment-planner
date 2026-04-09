@@ -14,6 +14,7 @@ from ui.shared.ui_utils import (
     NON_INVESTABLE_BUCKET_ID,
     add_instrument_item_to_group,
     fmt_decimal_grouped,
+    fmt_pct_text,
     get_decimal_line_edit_raw_text,
     get_decimal_line_edit_value,
     get_item_exchange,
@@ -96,6 +97,21 @@ def test_set_item_quantity_updates_raw_value_and_display_text() -> None:
 
     assert PortfolioTreeRow(item).quantity() == 12345
     assert item.text(Col.QUANTITY.value) == "12,345"
+
+
+def test_set_target_pct_text_updates_raw_value_and_display_text() -> None:
+    item = QTreeWidgetItem()
+
+    PortfolioTreeRow(item).set_target_pct_text("12.5")
+
+    assert PortfolioTreeRow(item).target_pct_text() == "12.5"
+    assert PortfolioTreeRow(item).target_pct_display_text() == "12.5%"
+
+
+def test_fmt_pct_text_formats_numeric_percentages_and_preserves_blank() -> None:
+    assert fmt_pct_text("12.5") == "12.5%"
+    assert fmt_pct_text("12.5%") == "12.5%"
+    assert fmt_pct_text("") == ""
 
 
 def test_quantity_cell_reads_zero_when_metadata_is_missing() -> None:

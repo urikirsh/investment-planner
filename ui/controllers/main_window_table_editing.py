@@ -17,6 +17,7 @@ from ui.shared.ui_utils import (
     get_item_kind,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
+    strip_pct_suffix,
 )
 
 
@@ -72,7 +73,7 @@ class MainWindowTableEditingController:
         """Parse numeric cell value, warning/reverting when parsing fails."""
         raw, prev = self._read_edit_cell(item, col)
         try:
-            return Decimal(raw)
+            return Decimal(strip_pct_suffix(raw))
         except Exception:
             self.warn_and_revert(item, col, raw, prev, f"{label} must be a number.")
             return None
@@ -87,6 +88,8 @@ class MainWindowTableEditingController:
             raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
+        with suppress_item_changed(self._host):
+            PortfolioTreeRow(item).set_target_pct_text(str(p))
         return True
 
     def validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
@@ -109,6 +112,8 @@ class MainWindowTableEditingController:
             raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
+        with suppress_item_changed(self._host):
+            PortfolioTreeRow(item).set_target_pct_text(str(p))
         return True
 
     def validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
