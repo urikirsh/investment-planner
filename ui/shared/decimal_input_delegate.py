@@ -4,7 +4,7 @@ from PySide6.QtCore import QAbstractItemModel
 from PySide6.QtWidgets import QLineEdit, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
 from ui.shared.quantity_cell import QuantityCell
-from ui.shared.ui_utils import strip_pct_suffix
+from ui.shared.target_percent_cell import TargetPercentCell
 
 """
 decimal_input_delegate.py
@@ -76,7 +76,7 @@ class PercentInputDelegate(DecimalInputDelegate):
 
     def setEditorData(self, editor: QWidget, index: QModelIndex | QPersistentModelIndex) -> None:
         if isinstance(editor, QLineEdit):
-            editor.setText(strip_pct_suffix(index.data() or ""))
+            editor.setText(TargetPercentCell.read_raw_text_from_index(index))
             return
         super().setEditorData(editor, index)
 

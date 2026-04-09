@@ -11,13 +11,13 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 from ui.controllers.protocols import MainWindowTableEditingHost, suppress_item_changed
 from ui.dialogs import show_warning
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
+from ui.shared.target_percent_cell import TargetPercentCell
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
 from ui.shared.ui_utils import (
     fmt_non_negative_integer_grouped,
     get_item_kind,
     is_item_cell_editable,
     normalize_and_validate_non_negative_integer_text,
-    strip_pct_suffix,
 )
 
 
@@ -73,7 +73,7 @@ class MainWindowTableEditingController:
         """Parse numeric cell value, warning/reverting when parsing fails."""
         raw, prev = self._read_edit_cell(item, col)
         try:
-            return Decimal(strip_pct_suffix(raw))
+            return TargetPercentCell.parse_decimal(raw)
         except Exception:
             self.warn_and_revert(item, col, raw, prev, f"{label} must be a number.")
             return None

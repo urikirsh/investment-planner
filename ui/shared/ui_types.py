@@ -24,7 +24,6 @@ D = Decimal
 ROLE_KIND = int(Qt.ItemDataRole.UserRole) + 1        # RowKind
 ROLE_ID = int(Qt.ItemDataRole.UserRole) + 2          # the internal id string
 ROLE_PREV_TEXT = int(Qt.ItemDataRole.UserRole) + 50  # previous text in cell (before edit)
-ROLE_TARGET_PCT_RAW = int(Qt.ItemDataRole.UserRole) + 51  # raw target percentage text
 
 class RowKind(StrEnum):
     """

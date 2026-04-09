@@ -8,14 +8,13 @@ from PySide6.QtGui import QColor, QBrush
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from ui.shared.quantity_cell import QuantityCell
+from ui.shared.target_percent_cell import TargetPercentCell
 from ui.shared.total_value_cell import TotalValueCell
-from ui.shared.ui_types import Col, ROLE_TARGET_PCT_RAW
+from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
     DRIFT_NEGATIVE_COLOR,
     DRIFT_POSITIVE_COLOR,
     READONLY_TEXT_COLOR,
-    fmt_pct_text,
-    strip_pct_suffix,
 )
 
 D = Decimal
@@ -54,20 +53,15 @@ class PortfolioTreeRow:
 
     def target_pct_text(self) -> str:
         """Return the row's raw target-percentage text without display suffix."""
-        raw = self._item.data(Col.TARGET_PCT.value, ROLE_TARGET_PCT_RAW)
-        if isinstance(raw, str):
-            return raw
-        return strip_pct_suffix(self._item.text(Col.TARGET_PCT.value))
+        return TargetPercentCell.read_raw_text(self._item)
 
     def target_pct_display_text(self) -> str:
         """Return the row's rendered target-percentage cell text."""
-        return self._item.text(Col.TARGET_PCT.value)
+        return TargetPercentCell.read_display_text(self._item)
 
     def set_target_pct_text(self, text: str) -> None:
         """Set the row's target-percentage cell text using formatted display text."""
-        raw = strip_pct_suffix(text)
-        self._item.setData(Col.TARGET_PCT.value, ROLE_TARGET_PCT_RAW, raw)
-        self._item.setText(Col.TARGET_PCT.value, fmt_pct_text(raw))
+        TargetPercentCell.write(self._item, text)
 
     def portfolio_pct_text(self) -> str:
         """Return the row's portfolio-percentage cell text."""

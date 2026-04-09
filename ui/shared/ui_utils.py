@@ -371,25 +371,6 @@ def fmt_pct(value: D) -> str:
     """Format a percentage value with one decimal place."""
     return f"{value:.1f}%"
 
-def strip_pct_suffix(text: str) -> str:
-    """Return percentage text without one trailing percent sign."""
-    stripped = text.strip()
-    if stripped.endswith("%"):
-        return stripped[:-1].strip()
-    return stripped
-
-
-def fmt_pct_text(text: str) -> str:
-    """Format raw numeric percentage text for display, preserving blanks."""
-    raw = strip_pct_suffix(text)
-    if not raw:
-        return ""
-    try:
-        return fmt_pct(D(raw))
-    except (InvalidOperation, ValueError):
-        return raw
-
-
 def fmt_pp(value: D) -> str:
     """Format a drift value in percentage points with sign for positives."""
     sign = "+" if value > 0 else ""
