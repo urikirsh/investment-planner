@@ -26,10 +26,9 @@ _ROLE_TARGET_PERCENT_RAW = int(Qt.ItemDataRole.UserRole) + 51
 class TargetPercentCell:
     """Encapsulate raw/display access for target-percentage cells.
 
-    The helper is intentionally tolerant when reading existing cells:
-    if raw metadata is missing, it falls back to parsing the visible text. That
-    keeps older items, partial test fixtures, and direct Qt writes readable
-    while steering all normal writes through the canonical raw/display path.
+    Raw metadata is the canonical source of truth for persistence, metrics, and
+    editor population. Callers should treat missing raw metadata as an invalid
+    or incomplete cell state rather than reparsing the visible text.
     """
 
     @staticmethod
@@ -47,11 +46,11 @@ class TargetPercentCell:
 
     @staticmethod
     def read_raw_text(item: QTreeWidgetItem) -> str:
-        """Return raw target-percent text, or derive it from display text when needed."""
+        """Return canonical raw target-percent text, or ``""`` when missing."""
         raw_value = item.data(Col.TARGET_PCT.value, _ROLE_TARGET_PERCENT_RAW)
         if isinstance(raw_value, str):
             return raw_value
-        return TargetPercentCell._strip_suffix(item.text(Col.TARGET_PCT.value))
+        return ""
 
     @staticmethod
     def read_display_text(item: QTreeWidgetItem) -> str:
@@ -69,9 +68,6 @@ class TargetPercentCell:
         raw_value = index.data(_ROLE_TARGET_PERCENT_RAW)
         if isinstance(raw_value, str):
             return raw_value
-        display_value = index.data(Qt.ItemDataRole.DisplayRole)
-        if isinstance(display_value, str):
-            return TargetPercentCell._strip_suffix(display_value)
         return ""
 
     @staticmethod
