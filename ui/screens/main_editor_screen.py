@@ -240,8 +240,9 @@ class MainEditorScreen(QWidget):
 
         self.refresh_market_data_btn = QPushButton("Refresh Market Data")
         self.refresh_market_data_btn.setToolTip(
-            "Force a fresh network refresh for portfolio prices and the USD/ILS rate.\n"
-            "If a live fetch fails, the app falls back to cached values and tells you what was reused.\n"
+            "Force a fresh network refresh for portfolio prices.\n"
+            "USD-priced instruments use the current session USD/ILS rate.\n"
+            "If a live price fetch fails, the app falls back to cached values and tells you what was reused.\n"
             "This updates the editor without saving the file."
         )
         actions_layout.addWidget(self.refresh_market_data_btn)

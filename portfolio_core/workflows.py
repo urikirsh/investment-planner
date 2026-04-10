@@ -300,24 +300,14 @@ def hard_refresh_portfolio_market_data(
     cached_usd_ils_quote: CachedUsdIlsQuote | None,
     lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> HardRefreshPortfolioMarketDataResult:
-    """Refresh portfolio market data from the network with cached fallback on failure."""
+    """Refresh portfolio prices from the network using the current session FX rate."""
     fallback_messages: list[str] = []
-    fresh_quote: UsdIlsRateQuote | None = None
     usd_ils_rate: Decimal | None = None
 
     if portfolio_requires_usd_ils_rate(portfolio):
-        try:
-            fresh_quote = fetch_latest_usd_ils_rate(timeout_seconds=lookup_timeout_seconds)
-            usd_ils_rate = fresh_quote.rate
-        except Exception as exc:
-            if cached_usd_ils_quote is None:
-                detail = str(exc).strip()
-                suffix = f": {detail}" if detail else ""
-                raise StartupPortfolioPriceRefreshError(f"Failed to fetch USD/ILS exchange rate{suffix}.") from exc
-            usd_ils_rate = cached_usd_ils_quote.rate
-            fallback_messages.append(
-                "USD/ILS refresh failed, so the app reused the cached session exchange rate."
-            )
+        if cached_usd_ils_quote is None:
+            raise StartupPortfolioPriceRefreshError("USD/ILS rate is unavailable for hard refresh.")
+        usd_ils_rate = cached_usd_ils_quote.rate
 
     refreshed_instruments = [
         _hard_refresh_instrument_market_value(
@@ -334,7 +324,7 @@ def hard_refresh_portfolio_market_data(
             asset_groups=portfolio.asset_groups,
             instruments=refreshed_instruments,
         ),
-        fresh_usd_ils_quote=fresh_quote,
+        fresh_usd_ils_quote=None,
         fallback_messages=tuple(fallback_messages),
     )
 
@@ -411,6 +401,8 @@ def _hard_refresh_instrument_market_value(
             missing_price_prefix="Fetched price is unavailable",
             missing_lookup_prefix="Failed to fetch instrument prices",
         )
+    except StartupPortfolioPriceRefreshError:
+        raise
     except Exception as exc:
         cached_result = get_cached_ticker_result_in_exchange(
             exchange=instrument.exchange,
