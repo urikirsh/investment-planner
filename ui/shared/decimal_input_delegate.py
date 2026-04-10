@@ -4,6 +4,7 @@ from PySide6.QtCore import QAbstractItemModel
 from PySide6.QtWidgets import QLineEdit, QStyleOptionViewItem, QStyledItemDelegate, QWidget
 
 from ui.shared.quantity_cell import QuantityCell
+from ui.shared.target_percent_cell import TargetPercentCell
 
 """
 decimal_input_delegate.py
@@ -68,6 +69,22 @@ class DecimalInputDelegate(_ValidatorInputDelegate):
         # Simple numeric syntax: digits with optional single dot and digits after it.
         # Allows "12", "12.3", "0.0". (No sign)
         super().__init__(validator=validator, parent=parent)
+
+
+class PercentInputDelegate(DecimalInputDelegate):
+    """Delegate that edits percentage cells as plain numeric text.
+
+    The view may render a trailing percent sign, but the editor is populated
+    from the target-percent cell's raw text so the existing decimal validator
+    continues to operate on unsuffixed numeric input.
+    """
+
+    def setEditorData(self, editor: QWidget, index: QModelIndex | QPersistentModelIndex) -> None:
+        """Populate the editor with raw target-percent text instead of display text."""
+        if isinstance(editor, QLineEdit):
+            editor.setText(TargetPercentCell.read_raw_text_from_index(index))
+            return
+        super().setEditorData(editor, index)
 
 
 def build_non_negative_integer_validator(

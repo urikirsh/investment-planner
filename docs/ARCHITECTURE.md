@@ -116,6 +116,7 @@ Startup/wizard market-data guards in this flow:
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `portfolio_tree_row.py`: row-level API for managed portfolio-tree cells so callers centralize quantity/total raw-value access plus managed target/portfolio/strategy/drift text writes and drift coloring
   - `quantity_cell.py`: encapsulates raw/display storage for the tree quantity column so editors, metrics, and save logic read raw units without reparsing grouped text
+  - `target_percent_cell.py`: encapsulates raw/display storage for the tree target-percent column so editors, validation, and persistence logic use one canonical representation
   - `total_value_cell.py`: encapsulates raw/display storage for the tree total-value column so callers do not depend on Qt item-data role details directly
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, shared tree styling constants, alignment, exchange/currency parsing, and thin adapters over shared cell/value helpers

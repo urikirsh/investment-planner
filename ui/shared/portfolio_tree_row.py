@@ -8,9 +8,14 @@ from PySide6.QtGui import QColor, QBrush
 from PySide6.QtWidgets import QTreeWidgetItem
 
 from ui.shared.quantity_cell import QuantityCell
+from ui.shared.target_percent_cell import TargetPercentCell
 from ui.shared.total_value_cell import TotalValueCell
 from ui.shared.ui_types import Col
-from ui.shared.ui_utils import DRIFT_NEGATIVE_COLOR, DRIFT_POSITIVE_COLOR, READONLY_TEXT_COLOR
+from ui.shared.ui_utils import (
+    DRIFT_NEGATIVE_COLOR,
+    DRIFT_POSITIVE_COLOR,
+    READONLY_TEXT_COLOR,
+)
 
 D = Decimal
 
@@ -46,13 +51,24 @@ class PortfolioTreeRow:
         """Clear quantity display for rows that do not own a quantity input."""
         QuantityCell.clear(self._item)
 
-    def target_pct_text(self) -> str:
-        """Return the row's target-percentage cell text."""
-        return self._item.text(Col.TARGET_PCT.value)
+    def target_pct_raw_text(self) -> str:
+        """Return the row's raw target-percentage text without display suffix.
+
+        This is the canonical value for metrics, validation, and persistence.
+        """
+        return TargetPercentCell.read_raw_text(self._item)
+
+    def target_pct_display_text(self) -> str:
+        """Return the row's rendered target-percentage cell text for the UI."""
+        return TargetPercentCell.read_display_text(self._item)
 
     def set_target_pct_text(self, text: str) -> None:
-        """Set the row's target-percentage cell text."""
-        self._item.setText(Col.TARGET_PCT.value, text)
+        """Set the target-percent cell from raw or display text.
+
+        The caller can pass plain numeric text or a value that already includes
+        ``%``; the helper normalizes storage and rendered text consistently.
+        """
+        TargetPercentCell.write(self._item, text)
 
     def portfolio_pct_text(self) -> str:
         """Return the row's portfolio-percentage cell text."""

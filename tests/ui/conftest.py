@@ -216,7 +216,7 @@ def assert_portfolio_tree_managed_cells_consistent(tree: QTreeWidget) -> None:
         else:
             assert item.text(Col.QUANTITY.value) == fmt_non_negative_integer_grouped(row.quantity())
         assert item.text(Col.TOT_VALUE.value) == fmt_decimal_grouped(row.total_value())
-        assert item.text(Col.TARGET_PCT.value) == row.target_pct_text()
+        assert item.text(Col.TARGET_PCT.value) == row.target_pct_display_text()
         assert item.text(Col.PORTFOLIO_PCT.value) == row.portfolio_pct_text()
         assert item.text(Col.STRATEGY_PCT.value) == row.strategy_pct_text()
         assert item.text(Col.DRIFT_PP.value) == row.drift_text()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLineEdit, QTreeWidgetItem
 
@@ -24,6 +25,11 @@ from ui.shared.ui_utils import (
     set_group_tree_item,
     validate_non_negative_integer_text,
 )
+
+
+@pytest.fixture(autouse=True)
+def _ensure_qapp(qapp: object) -> None:
+    _ = qapp
 
 
 def test_get_item_exchange_prefers_valid_visible_text() -> None:
@@ -98,6 +104,15 @@ def test_set_item_quantity_updates_raw_value_and_display_text() -> None:
     assert item.text(Col.QUANTITY.value) == "12,345"
 
 
+def test_set_target_pct_text_updates_raw_value_and_display_text() -> None:
+    item = QTreeWidgetItem()
+
+    PortfolioTreeRow(item).set_target_pct_text("12.5")
+
+    assert PortfolioTreeRow(item).target_pct_raw_text() == "12.5"
+    assert PortfolioTreeRow(item).target_pct_display_text() == "12.5%"
+
+
 def test_quantity_cell_reads_zero_when_metadata_is_missing() -> None:
     item = QTreeWidgetItem()
     item.setText(Col.QUANTITY.value, "12,345")
@@ -112,6 +127,7 @@ def test_parse_value_cell_rejects_grouped_decimal_input() -> None:
 def test_parse_value_cell_rejects_invalid_comma_grouping() -> None:
     assert parse_value_cell("1,2,3") == Decimal("0")
     assert parse_value_cell("12,34.5") == Decimal("0")
+
 
 def test_fmt_decimal_grouped_uses_round_half_up_for_fixed_places() -> None:
     assert fmt_decimal_grouped(Decimal("1.005"), places=2) == "1.01"

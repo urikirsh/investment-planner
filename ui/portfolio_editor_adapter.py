@@ -258,7 +258,7 @@ def build_portfolio_data_from_main_editor(
         group_id = get_item_id(group_item) or new_id("grp")
         group_name = group_item.text(Col.NAME.value).strip()
         group_row = PortfolioTreeRow(group_item)
-        target_pct = group_row.target_pct_text().strip() or "0"
+        target_pct = group_row.target_pct_raw_text().strip() or "0"
         is_non_investable_bucket = kind == RowKind.NON_INVESTABLE_BUCKET
 
         if not is_non_investable_bucket:
@@ -300,7 +300,7 @@ def build_portfolio_data_from_main_editor(
                     "value": total_value,
                     "exchange": get_item_exchange(ins),
                     "investable": True,
-                    "targetInGroupPercentage": row.target_pct_text().strip() or "0",
+                    "targetInGroupPercentage": row.target_pct_raw_text().strip() or "0",
                     "groupId": group_id,
                 }
 

@@ -22,7 +22,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate
+from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate, PercentInputDelegate
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import DEFAULT_CURRENCY, exchange_choices, get_decimal_line_edit_raw_text
@@ -49,7 +49,7 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert screen.tree.headerItem().text(Col.DRIFT_PP.value) == "Drift (pp)"
     assert screen.tree.columnWidth(Col.DRIFT_PP.value) == 78
 
-    assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), DecimalInputDelegate)
+    assert isinstance(screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value), PercentInputDelegate)
     assert isinstance(screen.tree.itemDelegateForColumn(Col.QUANTITY.value), NonNegativeIntegerInputDelegate)
 
     assert screen.add_group_btn.text() == "Add Asset Group"
@@ -263,6 +263,20 @@ def test_main_editor_quantity_formats_with_grouping_after_edit_commit() -> None:
     editor.setText("12345")
     delegate.setModelData(editor, screen.tree.model(), screen.tree.model().index(0, Col.QUANTITY.value))
     assert child.text(Col.QUANTITY.value) == "12,345"
+
+
+def test_main_editor_target_percent_delegate_edits_plain_numeric_text() -> None:
+    screen = MainEditorScreen()
+    group = screen.tree.invisibleRootItem()
+    child = QTreeWidgetItem(group)
+    PortfolioTreeRow(child).set_target_pct_text("12.5")
+    delegate = screen.tree.itemDelegateForColumn(Col.TARGET_PCT.value)
+    assert isinstance(delegate, PercentInputDelegate)
+
+    editor = delegate.createEditor(screen.tree, QStyleOptionViewItem(), screen.tree.model().index(0, Col.TARGET_PCT.value))
+    assert isinstance(editor, QLineEdit)
+    delegate.setEditorData(editor, screen.tree.model().index(0, Col.TARGET_PCT.value))
+    assert editor.text() == "12.5"
 
 
 def test_main_editor_cash_inputs_reject_commas_and_letters() -> None:

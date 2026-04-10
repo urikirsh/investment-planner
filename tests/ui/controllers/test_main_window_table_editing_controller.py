@@ -95,6 +95,22 @@ def test_item_changed_quantity_recomputes_total_value_from_cached_price(
     assert group.text(Col.TOT_VALUE.value) == "50.00"
 
 
+def test_item_changed_target_pct_formats_with_percent_suffix(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+    add_instrument_row: Callable[..., QTreeWidgetItem],
+) -> None:
+    monkeypatch.setattr(window, "_refresh_data", lambda: None)
+    monkeypatch.setattr(table_editing, "show_warning", lambda *_args: None)
+    child = add_instrument_row(tree=window.tree, target_in_group_pct="25")
+    child.setData(Col.TARGET_PCT.value, ROLE_PREV_TEXT, "25.0%")
+    child.setText(Col.TARGET_PCT.value, "25")
+
+    window._on_item_changed_guard_and_recalc(child, Col.TARGET_PCT.value)
+
+    assert child.text(Col.TARGET_PCT.value) == "25.0%"
+
+
 def test_item_changed_quantity_formats_grouped_display(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

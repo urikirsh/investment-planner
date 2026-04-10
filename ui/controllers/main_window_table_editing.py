@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 from ui.controllers.protocols import MainWindowTableEditingHost, suppress_item_changed
 from ui.dialogs import show_warning
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
+from ui.shared.target_percent_cell import TargetPercentCell
 from ui.shared.ui_types import Col, ROLE_PREV_TEXT, RowKind
 from ui.shared.ui_utils import (
     fmt_non_negative_integer_grouped,
@@ -72,7 +73,7 @@ class MainWindowTableEditingController:
         """Parse numeric cell value, warning/reverting when parsing fails."""
         raw, prev = self._read_edit_cell(item, col)
         try:
-            return Decimal(raw)
+            return TargetPercentCell.parse_decimal(raw)
         except Exception:
             self.warn_and_revert(item, col, raw, prev, f"{label} must be a number.")
             return None
@@ -87,6 +88,8 @@ class MainWindowTableEditingController:
             raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
+        with suppress_item_changed(self._host):
+            PortfolioTreeRow(item).set_target_pct_text(str(p))
         return True
 
     def validate_instrument_target_pct_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
@@ -109,6 +112,8 @@ class MainWindowTableEditingController:
             raw, prev = self._read_edit_cell(item, col)
             self.warn_and_revert(item, col, raw, prev, "Target % cannot exceed 100.")
             return False
+        with suppress_item_changed(self._host):
+            PortfolioTreeRow(item).set_target_pct_text(str(p))
         return True
 
     def validate_instrument_quantity_cell_or_revert(self, item: QTreeWidgetItem) -> bool:
