@@ -104,6 +104,15 @@ def test_set_item_quantity_updates_raw_value_and_display_text() -> None:
     assert item.text(Col.QUANTITY.value) == "12,345"
 
 
+def test_set_target_pct_text_updates_raw_value_and_display_text() -> None:
+    item = QTreeWidgetItem()
+
+    PortfolioTreeRow(item).set_target_pct_text("12.5")
+
+    assert PortfolioTreeRow(item).target_pct_raw_text() == "12.5"
+    assert PortfolioTreeRow(item).target_pct_display_text() == "12.5%"
+
+
 def test_quantity_cell_reads_zero_when_metadata_is_missing() -> None:
     item = QTreeWidgetItem()
     item.setText(Col.QUANTITY.value, "12,345")

@@ -51,7 +51,7 @@ class PortfolioTreeRow:
         """Clear quantity display for rows that do not own a quantity input."""
         QuantityCell.clear(self._item)
 
-    def target_pct_text(self) -> str:
+    def target_pct_raw_text(self) -> str:
         """Return the row's raw target-percentage text without display suffix."""
         return TargetPercentCell.read_raw_text(self._item)
 

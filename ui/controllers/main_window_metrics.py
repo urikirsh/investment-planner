@@ -208,7 +208,7 @@ class MainWindowMetricsController:
                         key=child_key,
                         kind=get_item_kind(child),
                         value=PortfolioTreeRow(child).total_value(),
-                        target_pct_text=PortfolioTreeRow(child).target_pct_text(),
+                        target_pct_text=PortfolioTreeRow(child).target_pct_raw_text(),
                     )
                 )
 
@@ -216,7 +216,7 @@ class MainWindowMetricsController:
                 MetricGroupRow(
                     key=top_key,
                     kind=top_kind,
-                    target_pct_text=PortfolioTreeRow(top).target_pct_text(),
+                    target_pct_text=PortfolioTreeRow(top).target_pct_raw_text(),
                     instruments=tuple(instruments),
                 )
             )
