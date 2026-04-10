@@ -257,6 +257,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     by higher-level UI handlers when needed.
     """
     def _mutate() -> None:
+        """Populate one group row without emitting tree signals mid-construction."""
         gitem.setFlags(
             gitem.flags()
             | Qt.ItemFlag.ItemIsEditable
@@ -300,6 +301,7 @@ def add_instrument_item_to_group(
     from ui.shared.portfolio_tree_row import PortfolioTreeRow
 
     def _mutate() -> None:
+        """Populate one instrument row without emitting tree signals mid-construction."""
         item = QTreeWidgetItem(gitem)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
         ticker_text = ticker.strip()
