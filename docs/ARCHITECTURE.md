@@ -120,6 +120,7 @@ Startup/wizard market-data guards in this flow:
   - `total_value_cell.py`: encapsulates raw/display storage for the tree total-value column so callers do not depend on Qt item-data role details directly
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, shared tree styling constants, alignment, exchange/currency parsing, and thin adapters over shared cell/value helpers
+  - `worker_thread_lifecycle.py`: shared `QThread` + GUI-thread relay lifecycle helper reused by startup and manual market-data refresh flows
   - `__init__.py`: re-export surface for common shared symbols
 - `ui/dialogs.py`
   - typed wrappers around common `QMessageBox`/`QFileDialog` interactions

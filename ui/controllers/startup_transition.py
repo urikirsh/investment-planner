@@ -2,10 +2,10 @@ from __future__ import annotations
 
 """Startup welcome-transition state machine and worker lifecycle helpers."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Final
 
-from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, QTimer, Signal, Slot
 from PySide6.QtWidgets import QWidget
 
 from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
@@ -18,6 +18,7 @@ from portfolio_core.workflows import (
     refresh_portfolio_prices_for_startup,
 )
 from ui.shared.constants import DEFAULT_CLEANUP_WAIT_MS
+from ui.shared.worker_thread_lifecycle import QtWorkerThreadLifecycle
 
 _STARTUP_TRANSITION_MIN_DELAY_MS: Final[int] = 1000
 
@@ -79,19 +80,6 @@ class StartupMarketDataWorker(QObject):
             self.finished.emit(None, None, str(exc))
 
 
-class StartupMarketDataResultRelay(QObject):
-    """GUI-thread relay for startup fetch completion results."""
-
-    def __init__(self, *, on_finished: Callable[[object, object, object], None], parent: QWidget) -> None:
-        super().__init__(parent)
-        self._on_finished = on_finished
-
-    @Slot(object, object, object)
-    def dispatch(self, quote_obj: object, portfolio_obj: object, error_obj: object) -> None:
-        """Forward worker results from the GUI thread to the controller callback."""
-        self._on_finished(quote_obj, portfolio_obj, error_obj)
-
-
 @dataclass
 class StartupMarketDataLifecycle:
     """Mutable holder for startup market-data worker/thread ownership.
@@ -101,9 +89,22 @@ class StartupMarketDataLifecycle:
     one place.
     """
 
-    thread: QThread | None = None
-    worker: StartupMarketDataWorker | None = None
-    result_relay: StartupMarketDataResultRelay | None = None
+    _lifecycle: QtWorkerThreadLifecycle = field(default_factory=QtWorkerThreadLifecycle)
+
+    @property
+    def thread(self) -> object | None:
+        """Return the owned worker thread for lifecycle callers and tests."""
+        return self._lifecycle.thread
+
+    @property
+    def worker(self) -> object | None:
+        """Return the owned worker object for lifecycle callers and tests."""
+        return self._lifecycle.worker
+
+    @property
+    def result_relay(self) -> object | None:
+        """Return the owned GUI-thread relay for lifecycle callers and tests."""
+        return self._lifecycle.result_relay
 
     def start(
         self,
@@ -115,24 +116,16 @@ class StartupMarketDataLifecycle:
         timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
     ) -> None:
         """Create, wire, and start the startup market-data worker thread."""
-        thread = QThread(parent)
         worker = StartupMarketDataWorker(
             portfolio=portfolio,
             cached_quote=cached_quote,
             timeout_seconds=timeout_seconds,
         )
-        result_relay = StartupMarketDataResultRelay(on_finished=on_finished, parent=parent)
-        self.thread = thread
-        self.worker = worker
-        self.result_relay = result_relay
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(result_relay.dispatch)
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self.clear)
-        thread.finished.connect(thread.deleteLater)
-        thread.start()
+        self._lifecycle.start(
+            parent=parent,
+            worker=worker,
+            on_finished=on_finished,
+        )
 
     def cancel(self, *, wait_timeout_ms: int = DEFAULT_CLEANUP_WAIT_MS) -> bool:
         """Stop and detach in-flight worker/thread, if any.
@@ -140,23 +133,11 @@ class StartupMarketDataLifecycle:
         Returns ``False`` only when the thread does not stop within the
         requested wait timeout.
         """
-        if self.thread is not None and self.thread.isRunning():
-            self.thread.quit()
-            if not self.thread.wait(wait_timeout_ms):
-                return False
-        if self.worker is not None:
-            try:
-                self.worker.deleteLater()
-            except RuntimeError:
-                pass
-        self.clear()
-        return True
+        return self._lifecycle.cancel(wait_timeout_ms=wait_timeout_ms, delete_worker_on_cancel=True)
 
     def clear(self) -> None:
         """Drop tracked thread/worker references after shutdown or completion."""
-        self.thread = None
-        self.worker = None
-        self.result_relay = None
+        self._lifecycle.clear()
 
 
 @dataclass

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from typing import cast
 
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
 
 from portfolio_core.domain.models import Exchange, Portfolio
@@ -26,6 +26,7 @@ from ui.controllers.protocols import MainWindowMainEditorHost, suppress_item_cha
 from ui.dialogs import show_warning
 from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor
 from ui.shared.loading_overlay import LoadingOverlay
+from ui.shared.worker_thread_lifecycle import QtWorkerThreadLifecycle
 from ui.shared.ui_types import Col
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, AddInstrumentWizardResult
@@ -63,25 +64,11 @@ class _ManualMarketDataRefreshWorker(QObject):
             self.finished.emit(None, str(exc))
 
 
-class _ManualMarketDataRefreshResultRelay(QObject):
-    """Forward manual refresh results back onto the GUI thread."""
-
-    def __init__(self, *, on_finished: Callable[[object, object], None], parent: QWidget) -> None:
-        super().__init__(parent)
-        self._on_finished = on_finished
-
-    @Slot(object, object)
-    def dispatch(self, result_obj: object, error_obj: object) -> None:
-        self._on_finished(result_obj, error_obj)
-
-
 class _ManualMarketDataRefreshLifecycle:
     """Own worker/thread lifecycle for manual hard-refresh requests."""
 
     def __init__(self) -> None:
-        self.thread: QThread | None = None
-        self.worker: _ManualMarketDataRefreshWorker | None = None
-        self.result_relay: _ManualMarketDataRefreshResultRelay | None = None
+        self._lifecycle = QtWorkerThreadLifecycle()
 
     def start(
         self,
@@ -91,36 +78,21 @@ class _ManualMarketDataRefreshLifecycle:
         cached_usd_ils_quote: CachedUsdIlsQuote | None,
         on_finished: Callable[[object, object], None],
     ) -> None:
-        thread = QThread(parent)
         worker = _ManualMarketDataRefreshWorker(
             portfolio=portfolio,
             cached_usd_ils_quote=cached_usd_ils_quote,
         )
-        result_relay = _ManualMarketDataRefreshResultRelay(on_finished=on_finished, parent=parent)
-        self.thread = thread
-        self.worker = worker
-        self.result_relay = result_relay
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(result_relay.dispatch)
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self.clear)
-        thread.finished.connect(thread.deleteLater)
-        thread.start()
+        self._lifecycle.start(
+            parent=parent,
+            worker=worker,
+            on_finished=on_finished,
+        )
 
     def cancel(self, *, wait_timeout_ms: int) -> bool:
-        if self.thread is not None and self.thread.isRunning():
-            self.thread.quit()
-            if not self.thread.wait(wait_timeout_ms):
-                return False
-        self.clear()
-        return True
+        return self._lifecycle.cancel(wait_timeout_ms=wait_timeout_ms)
 
     def clear(self) -> None:
-        self.thread = None
-        self.worker = None
-        self.result_relay = None
+        self._lifecycle.clear()
 
 
 class MainWindowMainEditorController:
