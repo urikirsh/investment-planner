@@ -128,6 +128,16 @@ class HardRefreshPortfolioMarketDataResult:
     fallback_messages: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class _InstrumentLookupResolution:
+    """Resolved lookup payload plus error/fallback messaging for one instrument."""
+
+    lookup_result: TickerLookupFound | object
+    missing_price_prefix: str
+    missing_lookup_prefix: str
+    fallback_message: str | None = None
+
+
 def parse_portfolio_data(data: Mapping[str, Any]) -> Portfolio:
     """
     Parse raw JSON-like payload into a `Portfolio`.
@@ -335,13 +345,46 @@ def _refresh_instrument_market_value(
     usd_ils_rate: Decimal | None,
     lookup_timeout_seconds: float,
 ) -> Instrument:
-    """Return one instrument with its market value recalculated in ILS.
+    """Return one instrument with its market value recalculated in ILS."""
+    resolution = _resolve_startup_instrument_lookup(
+        instrument,
+        lookup_timeout_seconds=lookup_timeout_seconds,
+    )
+    return _instrument_with_resolved_market_value(
+        instrument,
+        resolution=resolution,
+        usd_ils_rate=usd_ils_rate,
+    )
 
-    The returned instrument preserves all source fields except ``value``, which
-    is replaced with the latest fetched total value for the tracked quantity.
-    USD-priced instruments require ``usd_ils_rate``; ILS-priced instruments do
-    not consult it.
-    """
+
+def _hard_refresh_instrument_market_value(
+    instrument: Instrument,
+    *,
+    usd_ils_rate: Decimal | None,
+    lookup_timeout_seconds: float,
+    fallback_messages: list[str],
+) -> Instrument:
+    """Return one instrument refreshed from network, or from cache when network fails."""
+    resolution = _resolve_hard_refresh_instrument_lookup(
+        instrument,
+        lookup_timeout_seconds=lookup_timeout_seconds,
+    )
+    refreshed = _instrument_with_resolved_market_value(
+        instrument,
+        resolution=resolution,
+        usd_ils_rate=usd_ils_rate,
+    )
+    if resolution.fallback_message is not None:
+        fallback_messages.append(resolution.fallback_message)
+    return refreshed
+
+
+def _resolve_startup_instrument_lookup(
+    instrument: Instrument,
+    *,
+    lookup_timeout_seconds: float,
+) -> _InstrumentLookupResolution:
+    """Resolve the startup lookup source for one instrument."""
     try:
         lookup_result = lookup_ticker_in_exchange(
             exchange=instrument.exchange,
@@ -355,49 +398,27 @@ def _refresh_instrument_market_value(
             f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker}){suffix}."
         ) from exc
 
-    if not isinstance(lookup_result, TickerLookupFound):
-        raise StartupPortfolioPriceRefreshError(
-            f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
-        )
-
-    last_traded_price = lookup_result.metadata.last_traded_price
-    if last_traded_price is None:
-        raise StartupPortfolioPriceRefreshError(
-            f"Fetched price is unavailable for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
-        )
-
-    instrument_value = last_traded_price * D(instrument.quantity)
-    if instrument.exchange.currency is Currency.USD:
-        if usd_ils_rate is None:
-            raise StartupPortfolioPriceRefreshError(
-                f"USD/ILS rate is unavailable for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
-            )
-        instrument_value *= usd_ils_rate
-
-    return replace(
-        instrument,
-        value=instrument_value.quantize(_TABLE_VALUE_PRECISION),
+    return _InstrumentLookupResolution(
+        lookup_result=lookup_result,
+        missing_price_prefix="Fetched price is unavailable",
+        missing_lookup_prefix="Failed to fetch instrument prices",
     )
 
 
-def _hard_refresh_instrument_market_value(
+def _resolve_hard_refresh_instrument_lookup(
     instrument: Instrument,
     *,
-    usd_ils_rate: Decimal | None,
     lookup_timeout_seconds: float,
-    fallback_messages: list[str],
-) -> Instrument:
-    """Return one instrument refreshed from network, or from cache when network fails."""
+) -> _InstrumentLookupResolution:
+    """Resolve the hard-refresh lookup source for one instrument."""
     try:
         lookup_result = force_lookup_ticker_in_exchange(
             exchange=instrument.exchange,
             ticker=instrument.ticker,
             timeout_seconds=lookup_timeout_seconds,
         )
-        return _instrument_with_refreshed_value(
-            instrument,
+        return _InstrumentLookupResolution(
             lookup_result=lookup_result,
-            usd_ils_rate=usd_ils_rate,
             missing_price_prefix="Fetched price is unavailable",
             missing_lookup_prefix="Failed to fetch instrument prices",
         )
@@ -409,21 +430,15 @@ def _hard_refresh_instrument_market_value(
             ticker=instrument.ticker,
         )
         if cached_result is not None:
-            try:
-                refreshed = _instrument_with_refreshed_value(
-                    instrument,
-                    lookup_result=cached_result,
-                    usd_ils_rate=usd_ils_rate,
-                    missing_price_prefix="Cached price is unavailable",
-                    missing_lookup_prefix="Cached price is unavailable",
-                )
-            except StartupPortfolioPriceRefreshError:
-                pass
-            else:
-                fallback_messages.append(
+            return _InstrumentLookupResolution(
+                lookup_result=cached_result,
+                missing_price_prefix="Cached price is unavailable",
+                missing_lookup_prefix="Cached price is unavailable",
+                fallback_message=(
                     f"{instrument.name}: live price refresh failed, so the app reused the cached market price."
-                )
-                return refreshed
+                ),
+            )
+
         detail = str(exc).strip()
         suffix = f": {detail}" if detail else ""
         raise StartupPortfolioPriceRefreshError(
@@ -431,24 +446,23 @@ def _hard_refresh_instrument_market_value(
         ) from exc
 
 
-def _instrument_with_refreshed_value(
+def _instrument_with_resolved_market_value(
     instrument: Instrument,
     *,
-    lookup_result: TickerLookupFound | object,
+    resolution: _InstrumentLookupResolution,
     usd_ils_rate: Decimal | None,
-    missing_price_prefix: str,
-    missing_lookup_prefix: str,
 ) -> Instrument:
-    """Build one refreshed instrument value from a resolved lookup result."""
+    """Build one refreshed instrument value from an already resolved lookup source."""
+    lookup_result = resolution.lookup_result
     if not isinstance(lookup_result, TickerLookupFound):
         raise StartupPortfolioPriceRefreshError(
-            f"{missing_lookup_prefix} for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+            f"{resolution.missing_lookup_prefix} for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
         )
 
     last_traded_price = lookup_result.metadata.last_traded_price
     if last_traded_price is None:
         raise StartupPortfolioPriceRefreshError(
-            f"{missing_price_prefix} for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+            f"{resolution.missing_price_prefix} for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
         )
 
     instrument_value = last_traded_price * D(instrument.quantity)
