@@ -238,6 +238,14 @@ class MainEditorScreen(QWidget):
         self.quit_btn = QPushButton("Quit")
         actions_layout.addWidget(self.quit_btn)
 
+        self.refresh_market_data_btn = QPushButton("Refresh Market Data")
+        self.refresh_market_data_btn.setToolTip(
+            "Force a fresh network refresh for portfolio prices and the USD/ILS rate.\n"
+            "If a live fetch fails, the app falls back to cached values and tells you what was reused.\n"
+            "This updates the editor without saving the file."
+        )
+        actions_layout.addWidget(self.refresh_market_data_btn)
+
         self.invest_btn = QPushButton("Invest")
         actions_layout.addWidget(self.invest_btn)
 

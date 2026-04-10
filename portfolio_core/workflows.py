@@ -6,19 +6,24 @@ from pathlib import Path
 from typing import Any, List, Mapping
 
 from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
-from portfolio_core.fx_service import fetch_latest_usd_ils_rate
+from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
 from portfolio_core.planning.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio, load_portfolio_file
 from portfolio_core.domain.models import AssetGroupPlanRow, Currency, Exchange, Instrument, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
-from portfolio_core.market_data import TickerLookupFound, lookup_ticker_in_exchange
+from portfolio_core.market_data import (
+    TickerLookupFound,
+    force_lookup_ticker_in_exchange,
+    get_cached_ticker_result_in_exchange,
+    lookup_ticker_in_exchange,
+)
 from portfolio_core.planning.planning import (
     compute_invest_budget,
     map_asset_group_deltas_to_instruments,
     plan_invest_no_sell,
     plan_rebalance,
 )
-from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
+from portfolio_core.session.portfolio_session import CachedUsdIlsQuote, PortfolioSession, build_default_portfolio
 from portfolio_core.domain.validation import validate_portfolio
 
 """
@@ -112,6 +117,15 @@ class PlanBuildResult:
     rows: List[AssetGroupPlanRow]
     steps: List[PlanStep]
     mode: PlanningMode
+
+
+@dataclass(frozen=True)
+class HardRefreshPortfolioMarketDataResult:
+    """Outcome of a network-first portfolio market-data refresh."""
+
+    portfolio: Portfolio
+    fresh_usd_ils_quote: UsdIlsRateQuote | None
+    fallback_messages: tuple[str, ...]
 
 
 def parse_portfolio_data(data: Mapping[str, Any]) -> Portfolio:
@@ -280,6 +294,51 @@ def refresh_portfolio_prices_for_startup(
     )
 
 
+def hard_refresh_portfolio_market_data(
+    portfolio: Portfolio,
+    *,
+    cached_usd_ils_quote: CachedUsdIlsQuote | None,
+    lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
+) -> HardRefreshPortfolioMarketDataResult:
+    """Refresh portfolio market data from the network with cached fallback on failure."""
+    fallback_messages: list[str] = []
+    fresh_quote: UsdIlsRateQuote | None = None
+    usd_ils_rate: Decimal | None = None
+
+    if portfolio_requires_usd_ils_rate(portfolio):
+        try:
+            fresh_quote = fetch_latest_usd_ils_rate(timeout_seconds=lookup_timeout_seconds)
+            usd_ils_rate = fresh_quote.rate
+        except Exception as exc:
+            if cached_usd_ils_quote is None:
+                detail = str(exc).strip()
+                suffix = f": {detail}" if detail else ""
+                raise StartupPortfolioPriceRefreshError(f"Failed to fetch USD/ILS exchange rate{suffix}.") from exc
+            usd_ils_rate = cached_usd_ils_quote.rate
+            fallback_messages.append(
+                "USD/ILS refresh failed, so the app reused the cached session exchange rate."
+            )
+
+    refreshed_instruments = [
+        _hard_refresh_instrument_market_value(
+            instrument,
+            usd_ils_rate=usd_ils_rate,
+            lookup_timeout_seconds=lookup_timeout_seconds,
+            fallback_messages=fallback_messages,
+        )
+        for instrument in portfolio.instruments
+    ]
+    return HardRefreshPortfolioMarketDataResult(
+        portfolio=Portfolio(
+            cash=portfolio.cash,
+            asset_groups=portfolio.asset_groups,
+            instruments=refreshed_instruments,
+        ),
+        fresh_usd_ils_quote=fresh_quote,
+        fallback_messages=tuple(fallback_messages),
+    )
+
+
 def _refresh_instrument_market_value(
     instrument: Instrument,
     *,
@@ -315,6 +374,89 @@ def _refresh_instrument_market_value(
     if last_traded_price is None:
         raise StartupPortfolioPriceRefreshError(
             f"Fetched price is unavailable for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+        )
+
+    instrument_value = last_traded_price * D(instrument.quantity)
+    if instrument.exchange.currency is Currency.USD:
+        if usd_ils_rate is None:
+            raise StartupPortfolioPriceRefreshError(
+                f"USD/ILS rate is unavailable for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+            )
+        instrument_value *= usd_ils_rate
+
+    return replace(
+        instrument,
+        value=instrument_value.quantize(_TABLE_VALUE_PRECISION),
+    )
+
+
+def _hard_refresh_instrument_market_value(
+    instrument: Instrument,
+    *,
+    usd_ils_rate: Decimal | None,
+    lookup_timeout_seconds: float,
+    fallback_messages: list[str],
+) -> Instrument:
+    """Return one instrument refreshed from network, or from cache when network fails."""
+    try:
+        lookup_result = force_lookup_ticker_in_exchange(
+            exchange=instrument.exchange,
+            ticker=instrument.ticker,
+            timeout_seconds=lookup_timeout_seconds,
+        )
+        return _instrument_with_refreshed_value(
+            instrument,
+            lookup_result=lookup_result,
+            usd_ils_rate=usd_ils_rate,
+            missing_price_prefix="Fetched price is unavailable",
+            missing_lookup_prefix="Failed to fetch instrument prices",
+        )
+    except Exception as exc:
+        cached_result = get_cached_ticker_result_in_exchange(
+            exchange=instrument.exchange,
+            ticker=instrument.ticker,
+        )
+        if cached_result is not None:
+            try:
+                refreshed = _instrument_with_refreshed_value(
+                    instrument,
+                    lookup_result=cached_result,
+                    usd_ils_rate=usd_ils_rate,
+                    missing_price_prefix="Cached price is unavailable",
+                    missing_lookup_prefix="Cached price is unavailable",
+                )
+            except StartupPortfolioPriceRefreshError:
+                pass
+            else:
+                fallback_messages.append(
+                    f"{instrument.name}: live price refresh failed, so the app reused the cached market price."
+                )
+                return refreshed
+        detail = str(exc).strip()
+        suffix = f": {detail}" if detail else ""
+        raise StartupPortfolioPriceRefreshError(
+            f"Failed to fetch instrument prices for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker}){suffix}."
+        ) from exc
+
+
+def _instrument_with_refreshed_value(
+    instrument: Instrument,
+    *,
+    lookup_result: TickerLookupFound | object,
+    usd_ils_rate: Decimal | None,
+    missing_price_prefix: str,
+    missing_lookup_prefix: str,
+) -> Instrument:
+    """Build one refreshed instrument value from a resolved lookup result."""
+    if not isinstance(lookup_result, TickerLookupFound):
+        raise StartupPortfolioPriceRefreshError(
+            f"{missing_lookup_prefix} for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
+        )
+
+    last_traded_price = lookup_result.metadata.last_traded_price
+    if last_traded_price is None:
+        raise StartupPortfolioPriceRefreshError(
+            f"{missing_price_prefix} for '{instrument.name}' ({instrument.exchange.value}:{instrument.ticker})."
         )
 
     instrument_value = last_traded_price * D(instrument.quantity)

@@ -91,6 +91,18 @@ def test_main_editor_save_button_signal_triggers_save_flow(
     assert calls == [{"show_success": True}]
 
 
+def test_main_editor_refresh_market_data_button_signal_triggers_refresh_flow(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[bool] = []
+    monkeypatch.setattr(window, "_on_refresh_market_data_clicked", lambda: calls.append(True))
+
+    window.screen_main.refresh_market_data_btn.click()
+
+    assert calls == [True]
+    assert "USD/ILS" in window.screen_main.refresh_market_data_btn.toolTip()
+
+
 def test_main_editor_save_as_button_signal_triggers_save_as_flow(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:

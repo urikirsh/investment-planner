@@ -78,6 +78,7 @@ class MainWindowMainEditorHost(Protocol):
     _non_investable_bucket_title: str
 
     # widgets
+    stack: QStackedWidget
     tree: QTreeWidget
     cash_value_edit: QLineEdit
     cash_reserve_edit: QLineEdit
@@ -95,6 +96,8 @@ class MainWindowMainEditorHost(Protocol):
 
     def _on_new_clicked(self) -> None: ...
 
+    def _on_refresh_market_data_clicked(self) -> None: ...
+
     def _normalize_future_tax_input(self) -> None: ...
 
     def _refresh_data(self) -> None: ...
@@ -108,6 +111,10 @@ class MainWindowMainEditorHost(Protocol):
     def _run_planning(self, mode: PlanningMode) -> None: ...
 
     def _confirm_continue_with_unsaved_changes(self, action_text: str) -> bool: ...
+
+    def _show_info(self, title: str, message: str) -> None: ...
+
+    def _show_error(self, title: str, message: str) -> None: ...
 
 
 class MainWindowTableEditingHost(Protocol):

@@ -9,12 +9,14 @@ from portfolio_core.market_data.models import (
 )
 from portfolio_core.market_data.lookup_service import (
     MarketDataService,
+    force_lookup_ticker_in_exchange,
     get_cached_ticker_result_in_exchange,
     lookup_ticker_in_exchange,
 )
 
 __all__ = [
     "MarketDataService",
+    "force_lookup_ticker_in_exchange",
     "TickerLookupCommunicationError",
     "TickerLookupFound",
     "TickerLookupMetadata",

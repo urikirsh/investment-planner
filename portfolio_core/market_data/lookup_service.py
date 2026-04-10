@@ -96,6 +96,11 @@ class _LookupCacheStore:
         with self._lock:
             return self._cache.get(key)
 
+    def set_cached(self, *, key: _LookupCacheKey, result: TickerLookupResult) -> None:
+        """Store `result` for `key` after a successful fresh lookup."""
+        with self._lock:
+            self._cache[key] = result
+
     def clear_for_tests(self) -> None:
         """Reset cache state for deterministic tests."""
         with self._lock:
@@ -177,6 +182,26 @@ class MarketDataService:
             result_loader=runtime.provider.lookup_ticker,
         )
 
+    def force_lookup_ticker_in_exchange(
+        self,
+        *,
+        exchange: Exchange,
+        ticker: str,
+        timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
+    ) -> TickerLookupResult:
+        """Bypass cache for one network lookup and overwrite cache on success."""
+        runtime = self._runtime_by_exchange.get(exchange)
+        if runtime is None:
+            return TickerLookupNotFound()
+        cache_key = self._build_lookup_cache_key(exchange=exchange, ticker=ticker)
+        if cache_key is None:
+            return TickerLookupNotFound()
+        if not runtime.pre_validate(cache_key.canonical_ticker):
+            return TickerLookupNotFound()
+        result = runtime.provider.lookup_ticker(cache_key.canonical_ticker, timeout_seconds)
+        self._lookup_store.set_cached(key=cache_key, result=result)
+        return result
+
     def get_cached_ticker_in_exchange(
         self,
         *,
@@ -205,6 +230,20 @@ def lookup_ticker_in_exchange(
 ) -> TickerLookupResult:
     """Route ticker lookup through the default app-level market-data service."""
     return _default_market_data_service.lookup_ticker_in_exchange(
+        exchange=exchange,
+        ticker=ticker,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def force_lookup_ticker_in_exchange(
+    *,
+    exchange: Exchange,
+    ticker: str,
+    timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
+) -> TickerLookupResult:
+    """Route ticker lookup through the default service without using cached results."""
+    return _default_market_data_service.force_lookup_ticker_in_exchange(
         exchange=exchange,
         ticker=ticker,
         timeout_seconds=timeout_seconds,

@@ -139,6 +139,13 @@ class MainWindow(MainWindowPlanExecutionMixin, MainWindowActionsMixin, QMainWind
             show_cleanup_in_progress(self)
             event.ignore()
             return False
+        main_refresh_stopped = self._main_editor_controller.cancel_pending_market_data_refresh(
+            wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS
+        )
+        if not main_refresh_stopped:
+            show_cleanup_in_progress(self)
+            event.ignore()
+            return False
         wizard_stopped = self._cancel_wizard_fx_fetch(wait_timeout_ms=CLOSE_EVENT_CLEANUP_WAIT_MS)
         if not wizard_stopped:
             show_cleanup_in_progress(self)
@@ -289,6 +296,9 @@ class MainWindow(MainWindowPlanExecutionMixin, MainWindowActionsMixin, QMainWind
 
     def _on_main_refresh_requested(self, *_args: object) -> None:
         self._main_editor_controller.on_refresh_requested(*_args)
+
+    def _on_refresh_market_data_clicked(self) -> None:
+        self._main_editor_controller.on_refresh_market_data_clicked()
 
     def _on_invest_clicked(self) -> None:
         self._main_editor_controller.on_invest_clicked()

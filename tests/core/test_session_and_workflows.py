@@ -17,12 +17,14 @@ from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.session.portfolio_document import PortfolioDocument
 from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.workflows import (
+    HardRefreshPortfolioMarketDataResult,
     InsufficientQuantityForSellError,
     PlanStep,
     StartupPortfolioPriceRefreshError,
     apply_wizard_step,
     build_plan_for_current_document,
     create_new_default_document,
+    hard_refresh_portfolio_market_data,
     load_document,
     refresh_portfolio_prices_for_startup,
     save_document_from_data,
@@ -728,3 +730,118 @@ def test_refresh_portfolio_prices_for_startup_converts_successful_nyse_lookup_to
     )
 
     assert refreshed.instruments[0].value == D("108.80")
+
+
+def test_hard_refresh_portfolio_market_data_uses_cached_fx_when_live_fx_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default.json", config_path=tmp_path / "config.json")
+    cached_quote = session.cache_usd_ils_quote(
+        rate=D("3.50"),
+        effective_date=date.fromisoformat("2026-04-09"),
+        used_last_published=True,
+    )
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "NYSE Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "TETH",
+                    "name": "NYSE ETF",
+                    "quantity": 2,
+                    "value": "0.00",
+                    "exchange": "NYSE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+
+    monkeypatch.setattr(
+        "portfolio_core.workflows.fetch_latest_usd_ils_rate",
+        lambda **_kwargs: (_ for _ in ()).throw(ValueError("BOI timeout")),
+    )
+    monkeypatch.setattr(
+        "portfolio_core.workflows.force_lookup_ticker_in_exchange",
+        lambda **_kwargs: TickerLookupFound(
+            metadata=TickerLookupMetadata(
+                exchange=Exchange.NYSE,
+                canonical_ticker="TETH",
+                display_name="NYSE ETF",
+                last_traded_price=D("10.00"),
+                currency="USD",
+            )
+        ),
+    )
+
+    result = hard_refresh_portfolio_market_data(
+        portfolio,
+        cached_usd_ils_quote=cached_quote,
+        lookup_timeout_seconds=5.0,
+    )
+
+    assert result.fresh_usd_ils_quote is None
+    assert result.fallback_messages == (
+        "USD/ILS refresh failed, so the app reused the cached session exchange rate.",
+    )
+    assert result.portfolio.instruments[0].value == D("70.00")
+
+
+def test_hard_refresh_portfolio_market_data_uses_cached_price_when_live_price_fetch_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    session = PortfolioSession(default_json_path=tmp_path / "default.json", config_path=tmp_path / "config.json")
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "Group", "targetPercentage": "100"}],
+            "instruments": [
+                {
+                    "id": "i1",
+                    "ticker": "1159094",
+                    "name": "TASE ETF",
+                    "quantity": 2,
+                    "value": "0.00",
+                    "exchange": "TASE",
+                    "investable": True,
+                    "groupId": "g1",
+                    "targetInGroupPercentage": "100",
+                }
+            ],
+        }
+    )
+    cached_result = TickerLookupFound(
+        metadata=TickerLookupMetadata(
+            exchange=Exchange.TASE,
+            canonical_ticker="1159094",
+            display_name="TASE ETF",
+            last_traded_price=D("12.34"),
+            currency="ILS",
+        )
+    )
+
+    monkeypatch.setattr(
+        "portfolio_core.workflows.force_lookup_ticker_in_exchange",
+        lambda **_kwargs: (_ for _ in ()).throw(TickerLookupCommunicationError("TASE timeout")),
+    )
+    monkeypatch.setattr(
+        "portfolio_core.workflows.get_cached_ticker_result_in_exchange",
+        lambda **_kwargs: cached_result,
+    )
+
+    result = hard_refresh_portfolio_market_data(
+        portfolio,
+        cached_usd_ils_quote=session.cached_usd_ils_quote,
+        lookup_timeout_seconds=5.0,
+    )
+
+    assert result.fallback_messages == (
+        "TASE ETF: live price refresh failed, so the app reused the cached market price.",
+    )
+    assert result.portfolio.instruments[0].value == D("24.68")

@@ -86,6 +86,8 @@ The application never executes trades automatically. All actions are explicit an
   - green when you have enough to invest
   - gray when you do not
 - Main editor includes:
+  - `Refresh Market Data` forces a live network refresh for portfolio prices and the USD/ILS rate, then updates the editor without saving
+  - if a live market-data fetch fails, the refresh falls back to cached values and tells you exactly what was reused
   - `Add Instrument` opens a guided flow with exchange-aware ticker validation and required non-negative integer units input
   - the add flow blocks duplicate `(exchange, ticker)` combinations already present in the portfolio
   - instrument name must be unique in the portfolio before `Add` is enabled
