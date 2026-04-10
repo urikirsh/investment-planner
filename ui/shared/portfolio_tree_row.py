@@ -52,15 +52,22 @@ class PortfolioTreeRow:
         QuantityCell.clear(self._item)
 
     def target_pct_raw_text(self) -> str:
-        """Return the row's raw target-percentage text without display suffix."""
+        """Return the row's raw target-percentage text without display suffix.
+
+        This is the canonical value for metrics, validation, and persistence.
+        """
         return TargetPercentCell.read_raw_text(self._item)
 
     def target_pct_display_text(self) -> str:
-        """Return the row's rendered target-percentage cell text."""
+        """Return the row's rendered target-percentage cell text for the UI."""
         return TargetPercentCell.read_display_text(self._item)
 
     def set_target_pct_text(self, text: str) -> None:
-        """Set the row's target-percentage cell text using formatted display text."""
+        """Set the target-percent cell from raw or display text.
+
+        The caller can pass plain numeric text or a value that already includes
+        ``%``; the helper normalizes storage and rendered text consistently.
+        """
         TargetPercentCell.write(self._item, text)
 
     def portfolio_pct_text(self) -> str:

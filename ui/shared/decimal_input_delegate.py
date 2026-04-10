@@ -72,9 +72,15 @@ class DecimalInputDelegate(_ValidatorInputDelegate):
 
 
 class PercentInputDelegate(DecimalInputDelegate):
-    """Delegate that edits percentage cells as plain numeric text."""
+    """Delegate that edits percentage cells as plain numeric text.
+
+    The view may render a trailing percent sign, but the editor is populated
+    from the target-percent cell's raw text so the existing decimal validator
+    continues to operate on unsuffixed numeric input.
+    """
 
     def setEditorData(self, editor: QWidget, index: QModelIndex | QPersistentModelIndex) -> None:
+        """Populate the editor with raw target-percent text instead of display text."""
         if isinstance(editor, QLineEdit):
             editor.setText(TargetPercentCell.read_raw_text_from_index(index))
             return
