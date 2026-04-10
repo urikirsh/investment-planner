@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from collections.abc import Callable
 import uuid
 
 from PySide6.QtCore import QSignalBlocker, Qt
@@ -235,6 +236,16 @@ def apply_row_alignment(item: QTreeWidgetItem) -> None:
     )
 
 
+def _run_tree_mutation_without_signals(item: QTreeWidgetItem, mutation: Callable[[], None]) -> None:
+    """Run one tree-item mutation block without emitting tree widget signals."""
+    tree = item.treeWidget()
+    blocker = QSignalBlocker(tree) if tree is not None else None
+    try:
+        mutation()
+    finally:
+        del blocker
+
+
 def set_group_tree_item(gitem: QTreeWidgetItem,
                          name: str,
                          target_pct: Decimal | int | str,
@@ -245,9 +256,7 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
     The row is marked as non-editable by default; editing is temporarily enabled
     by higher-level UI handlers when needed.
     """
-    tree = gitem.treeWidget()
-    blocker = QSignalBlocker(tree) if tree is not None else None
-    try:
+    def _mutate() -> None:
         gitem.setFlags(
             gitem.flags()
             | Qt.ItemFlag.ItemIsEditable
@@ -273,8 +282,8 @@ def set_group_tree_item(gitem: QTreeWidgetItem,
 
         apply_row_alignment(gitem)
         style_group_row(gitem)
-    finally:
-        del blocker
+
+    _run_tree_mutation_without_signals(gitem, _mutate)
 
 
 def add_instrument_item_to_group(
@@ -290,9 +299,7 @@ def add_instrument_item_to_group(
     """Create an instrument child row with default computed-cell values."""
     from ui.shared.portfolio_tree_row import PortfolioTreeRow
 
-    tree = gitem.treeWidget()
-    blocker = QSignalBlocker(tree) if tree is not None else None
-    try:
+    def _mutate() -> None:
         item = QTreeWidgetItem(gitem)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsDragEnabled)
         ticker_text = ticker.strip()
@@ -316,8 +323,8 @@ def add_instrument_item_to_group(
         disable_edits_to_row(item)
 
         style_instrument_row(item)
-    finally:
-        del blocker
+
+    _run_tree_mutation_without_signals(gitem, _mutate)
 
 
 def disable_edits_to_row(row: QTreeWidgetItem) -> None:
