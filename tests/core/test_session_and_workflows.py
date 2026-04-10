@@ -17,7 +17,6 @@ from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.session.portfolio_document import PortfolioDocument
 from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.workflows import (
-    HardRefreshPortfolioMarketDataResult,
     InsufficientQuantityForSellError,
     PlanStep,
     StartupPortfolioPriceRefreshError,
@@ -790,7 +789,6 @@ def test_hard_refresh_portfolio_market_data_uses_cached_session_fx_without_fetch
         lookup_timeout_seconds=5.0,
     )
 
-    assert result.fresh_usd_ils_quote is None
     assert result.fallback_messages == ()
     assert fx_fetch_attempts == []
     assert result.portfolio.instruments[0].value == D("70.00")

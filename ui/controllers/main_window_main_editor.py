@@ -390,13 +390,6 @@ class MainWindowMainEditorController:
             self._host._show_error("Market data refresh failed", message)
             return
 
-        fresh_quote = result_obj.fresh_usd_ils_quote
-        if fresh_quote is not None:
-            self._host.session.cache_usd_ils_quote(
-                rate=fresh_quote.rate,
-                effective_date=fresh_quote.effective_date,
-                used_last_published=fresh_quote.used_last_published,
-            )
         self._host.session.document.set_current(result_obj.portfolio)
         self._host._render_main_editor_from_portfolio(result_obj.portfolio, switch_to_main=False)
         if result_obj.fallback_messages:

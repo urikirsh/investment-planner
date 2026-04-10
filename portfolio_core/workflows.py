@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, List, Mapping
 
 from portfolio_core.constants import DEFAULT_MARKET_DATA_TIMEOUT_SECONDS
-from portfolio_core.fx_service import UsdIlsRateQuote, fetch_latest_usd_ils_rate
+from portfolio_core.fx_service import fetch_latest_usd_ils_rate
 from portfolio_core.planning.calc_stock_units import commit_buy, commit_sell
 from portfolio_core.io_json import load_portfolio, load_portfolio_file
 from portfolio_core.domain.models import AssetGroupPlanRow, Currency, Exchange, Instrument, Portfolio
@@ -124,7 +124,6 @@ class HardRefreshPortfolioMarketDataResult:
     """Outcome of a network-first portfolio market-data refresh."""
 
     portfolio: Portfolio
-    fresh_usd_ils_quote: UsdIlsRateQuote | None
     fallback_messages: tuple[str, ...]
 
 
@@ -334,7 +333,6 @@ def hard_refresh_portfolio_market_data(
             asset_groups=portfolio.asset_groups,
             instruments=refreshed_instruments,
         ),
-        fresh_usd_ils_quote=None,
         fallback_messages=tuple(fallback_messages),
     )
 

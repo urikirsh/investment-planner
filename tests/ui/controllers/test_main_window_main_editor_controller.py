@@ -332,7 +332,6 @@ def test_refresh_market_data_finished_rerenders_and_shows_fallback_info(
 
     result = HardRefreshPortfolioMarketDataResult(
         portfolio=refreshed,
-        fresh_usd_ils_quote=None,
         fallback_messages=("USD/ILS refresh failed, so the app reused the cached session exchange rate.",),
     )
     window._main_editor_controller._on_market_data_refresh_finished(
