@@ -100,7 +100,7 @@ def test_main_editor_refresh_market_data_button_signal_triggers_refresh_flow(
     window.screen_main.refresh_market_data_btn.click()
 
     assert calls == [True]
-    assert "USD/ILS" in window.screen_main.refresh_market_data_btn.toolTip()
+    assert window.screen_main.refresh_market_data_btn.toolTip() == "Fetch the latest portfolio prices without saving."
 
 
 def test_main_editor_save_as_button_signal_triggers_save_as_flow(
