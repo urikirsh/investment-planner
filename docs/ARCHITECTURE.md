@@ -245,7 +245,7 @@ Startup/wizard market-data guards in this flow:
   - shared core-level constants used by market-data services and startup/open document workflows
 - `portfolio_core/fx_service.py`
   - Bank of Israel USD/ILS fetch boundary and response parsing
-  - normalizes BOI payload into a typed quote object used by wizard flow
+  - normalizes BOI payload into a typed quote object cached in session for USD-priced flows
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation

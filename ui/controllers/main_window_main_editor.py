@@ -343,7 +343,7 @@ class MainWindowMainEditorController:
         self._host._refresh_data()
 
     def on_refresh_market_data_clicked(self) -> None:
-        """Refresh instrument prices and FX quote from the current editor state."""
+        """Refresh instrument prices from the current editor state."""
         try:
             portfolio = self._build_current_main_editor_portfolio()
         except Exception as exc:
