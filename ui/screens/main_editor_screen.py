@@ -281,11 +281,13 @@ class MainEditorScreen(QWidget):
         self.refresh_market_data_btn.setStyleSheet("padding: 6px 10px;")
         actions_layout.addWidget(self.refresh_market_data_btn)
 
-        self.rebalance_btn = QPushButton("Invest & Rebalance")
+        self.rebalance_btn = QPushButton("Rebalance Portfolio")
+        self.rebalance_btn.setToolTip("Adjust holdings, including sells, to restore targets.")
         self.rebalance_btn.setStyleSheet("padding: 6px 10px;")
         actions_layout.addWidget(self.rebalance_btn)
 
-        self.invest_btn = QPushButton("Invest")
+        self.invest_btn = QPushButton("Invest Cash")
+        self.invest_btn.setToolTip("Allocate available cash without selling holdings.")
         self.invest_btn.setStyleSheet(
             "QPushButton { background: #2f6fed; color: white; border: 1px solid #275dca; "
             "border-radius: 6px; padding: 6px 14px; font-weight: 600; }"

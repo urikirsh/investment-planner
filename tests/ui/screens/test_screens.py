@@ -64,8 +64,10 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert screen.delete_row_btn.text() == "Delete Selected"
     assert screen.total_label.text() == "Total portfolio (ILS): -"
     assert screen.refresh_market_data_btn.text() == "Refresh Market Data"
-    assert screen.invest_btn.text() == "Invest"
-    assert screen.rebalance_btn.text() == "Invest & Rebalance"
+    assert screen.invest_btn.text() == "Invest Cash"
+    assert screen.invest_btn.toolTip() == "Allocate available cash without selling holdings."
+    assert screen.rebalance_btn.text() == "Rebalance Portfolio"
+    assert screen.rebalance_btn.toolTip() == "Adjust holdings, including sells, to restore targets."
     actions_parent = screen.quit_btn.parentWidget()
     assert actions_parent is not None
     actions_layout = actions_parent.layout()
