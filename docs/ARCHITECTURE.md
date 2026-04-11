@@ -82,6 +82,7 @@ Startup/wizard market-data guards in this flow:
   - screen 2 presentation/layout (portfolio editor)
   - exposes tree/cash/action widgets for signal wiring
   - uses shared formatted numeric line edits so cash fields keep raw numeric state while rendering grouped display text when idle
+  - reuses shared footer button styles so workflow actions stay visually consistent with the execution wizard
 - `ui/screens/add_instrument_wizard_dialog.py`
   - modal 3-step add-instrument flow used from screen 2
   - step 1: exchange choice
@@ -107,11 +108,13 @@ Startup/wizard market-data guards in this flow:
   - exposes units input, inline validation, calculation feedback, and step action controls
   - action layout keeps app-level `Quit` separated from right-aligned step navigation actions (`Exit Wizard`, `Skip Step`)
   - primary commit action (`Save and continue`) is colocated with the result row (`Units/Spent/Leftover`) for higher focus
+  - reuses shared footer button styles so secondary navigation and the primary commit action match the main editor
   - `Save and continue` is disabled by default and only enabled after the active units value is valid for the planned step amount
   - centered units row and centered result row are width-aligned with a minimum 11-character input width guard
   - row-width syncing is responsive: widths are clamped to available space and revert to natural sizing on narrow windows
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
+  - `button_styles.py`: shared Qt stylesheet helpers for primary and secondary action buttons reused by the main editor and wizard screens
   - `cached_instrument_pricing.py`: shared cached-price resolution helper that reads the market-data lookup cache and converts per-unit prices to ILS
   - `constants.py`: shared static UI constants used by multiple UI modules
     - cleanup timing knobs are defined here so wait policy stays centralized

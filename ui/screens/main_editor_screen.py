@@ -36,6 +36,7 @@ from ui.shared.decimal_input_delegate import (
     NonNegativeIntegerInputDelegate,
     PercentInputDelegate,
 )
+from ui.shared.button_styles import primary_action_button_style, secondary_action_button_style
 from ui.shared.formatted_numeric_line_edit import FormattedDecimalLineEdit
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
@@ -278,22 +279,16 @@ class MainEditorScreen(QWidget):
         self.refresh_market_data_btn.setToolTip(
             "Fetch the latest portfolio prices without saving."
         )
-        self.refresh_market_data_btn.setStyleSheet("padding: 6px 10px;")
+        self.refresh_market_data_btn.setStyleSheet(secondary_action_button_style())
         actions_layout.addWidget(self.refresh_market_data_btn)
 
         self.rebalance_btn = QPushButton("Rebalance Portfolio")
         self.rebalance_btn.setToolTip("Adjust holdings, including sells, to restore targets.")
-        self.rebalance_btn.setStyleSheet("padding: 6px 10px;")
+        self.rebalance_btn.setStyleSheet(secondary_action_button_style())
         actions_layout.addWidget(self.rebalance_btn)
 
         self.invest_btn = QPushButton("Invest Cash")
         self.invest_btn.setToolTip("Allocate available cash without selling holdings.")
-        self.invest_btn.setStyleSheet(
-            "QPushButton { background: #2f6fed; color: white; border: 1px solid #275dca; "
-            "border-radius: 6px; padding: 6px 14px; font-weight: 600; }"
-            "QPushButton:hover { background: #285fcc; }"
-            "QPushButton:pressed { background: #214ea8; }"
-            "QPushButton:disabled { background: #9eb7ea; border-color: #9eb7ea; color: #eef3ff; }"
-        )
+        self.invest_btn.setStyleSheet(primary_action_button_style())
         actions_layout.addWidget(self.invest_btn)
         return actions

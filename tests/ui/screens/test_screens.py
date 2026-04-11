@@ -22,6 +22,7 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.button_styles import primary_action_button_style, secondary_action_button_style
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate, PercentInputDelegate
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
@@ -75,7 +76,9 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert actions_layout.indexOf(screen.quit_btn) < actions_layout.indexOf(screen.refresh_market_data_btn)
     assert actions_layout.indexOf(screen.refresh_market_data_btn) < actions_layout.indexOf(screen.rebalance_btn)
     assert actions_layout.indexOf(screen.rebalance_btn) < actions_layout.indexOf(screen.invest_btn)
-    assert "background: #2f6fed" in screen.invest_btn.styleSheet()
+    assert screen.refresh_market_data_btn.styleSheet() == secondary_action_button_style()
+    assert screen.rebalance_btn.styleSheet() == secondary_action_button_style()
+    assert screen.invest_btn.styleSheet() == primary_action_button_style()
 
 
 def test_welcome_screen_builds_expected_controls() -> None:
@@ -191,8 +194,10 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert screen.back_to_portfolio_btn.text() == "Exit Wizard"
     assert screen.save_continue_btn.text() == "Save and continue"
     assert not screen.save_continue_btn.isEnabled()
-    assert "font-size: 15px" in screen.save_continue_btn.styleSheet()
     assert screen.continue_without_save_btn.text() == "Skip Step"
+    assert screen.back_to_portfolio_btn.styleSheet() == secondary_action_button_style()
+    assert screen.continue_without_save_btn.styleSheet() == secondary_action_button_style()
+    assert screen.save_continue_btn.styleSheet() == primary_action_button_style()
     assert screen.save_continue_btn.parentWidget() is screen.wiz_result.parentWidget()
     btns_parent = screen.quit_btn.parentWidget()
     assert btns_parent is not None
