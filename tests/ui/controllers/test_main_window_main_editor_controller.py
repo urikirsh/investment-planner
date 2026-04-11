@@ -105,6 +105,55 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TARGET_PCT.value) == "25.0%"
 
 
+def test_add_instrument_fetches_and_caches_fx_for_first_nyse_instrument(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Equity", "100", "grp_equity")
+    window.tree.setCurrentItem(group)
+    seen_sessions: list[object] = []
+
+    class _FakeWizard:
+        def __init__(self, **kwargs: object) -> None:
+            _ = kwargs
+            self.result_data = SimpleNamespace(
+                exchange=Exchange.NYSE,
+                ticker="AB12",
+                name="World ETF",
+                last_traded_price=Decimal("10.123"),
+                target_in_group_pct="25",
+                units=12,
+            )
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+    def fake_get_or_fetch_session_usd_ils_rate(session: object) -> Decimal:
+        seen_sessions.append(session)
+        window.session.cache_usd_ils_quote(
+            rate=Decimal("3.5"),
+            effective_date=date.fromisoformat("2026-03-25"),
+            used_last_published=False,
+        )
+        return Decimal("3.5")
+
+    def fake_resolve_cached_instrument_price_ils(**kwargs: object) -> Decimal:
+        assert kwargs["usd_ils_rate"] == Decimal("3.5")
+        return Decimal("425.17")
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+    monkeypatch.setattr(controller_mod, "get_or_fetch_session_usd_ils_rate", fake_get_or_fetch_session_usd_ils_rate)
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", fake_resolve_cached_instrument_price_ils)
+
+    window._main_editor_controller.add_instrument()
+
+    assert seen_sessions == [window.session]
+    assert window.session.cached_usd_ils_quote is not None
+    assert group.childCount() == 1
+
+
 def test_add_instrument_suppresses_item_changed_during_row_creation(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

@@ -8,7 +8,7 @@ from typing import cast
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
 
-from portfolio_core.domain.models import Exchange, Portfolio
+from portfolio_core.domain.models import Currency, Exchange, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.domain.ticker_rules import (
     ExchangeTickerKey,
@@ -19,6 +19,7 @@ from portfolio_core.workflows import (
     HardRefreshFallback,
     HardRefreshPortfolioMarketDataResult,
     create_new_default_document,
+    get_or_fetch_session_usd_ils_rate,
     hard_refresh_portfolio_market_data,
     parse_portfolio_data,
 )
@@ -297,6 +298,8 @@ class MainWindowMainEditorController:
         )
         if result is None:
             return
+        if not self._ensure_exchange_rate_ready_for_new_instrument(result.exchange):
+            return
 
         in_group_pct = default_in_group_pct if result.target_in_group_pct is None else str(result.target_in_group_pct)
         with suppress_item_changed(host):
@@ -310,6 +313,19 @@ class MainWindowMainEditorController:
             )
         host.tree.expandAll()
         host._refresh_data()
+
+    def _ensure_exchange_rate_ready_for_new_instrument(self, exchange: Exchange) -> bool:
+        """Ensure session FX cache exists before adding the first USD-priced instrument."""
+        if exchange.currency is not Currency.USD:
+            return True
+        if self._host.session.cached_usd_ils_quote is not None:
+            return True
+        try:
+            _ = get_or_fetch_session_usd_ils_rate(self._host.session)
+        except Exception as exc:
+            self._host._show_error("Add instrument failed", str(exc))
+            return False
+        return True
 
     def delete_selected_row(self) -> None:
         """Delete selected group/instrument row unless it is the protected bucket."""
