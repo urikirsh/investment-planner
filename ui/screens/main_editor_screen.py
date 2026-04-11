@@ -26,12 +26,13 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
+    QSizePolicy,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
 from ui.shared.decimal_input_delegate import (
-    DecimalInputDelegate,
     NonNegativeIntegerInputDelegate,
     PercentInputDelegate,
 )
@@ -59,11 +60,13 @@ class MainEditorScreen(QWidget):
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setSpacing(12)
 
         title = QLabel("Insert data here")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
 
+        layout.addWidget(self._build_file_toolbar())
         layout.addWidget(self._build_cash_row())
         self.tree = self._build_tree()
         layout.addWidget(self.tree, 1)
@@ -71,9 +74,36 @@ class MainEditorScreen(QWidget):
         layout.addWidget(self._build_totals_row())
         layout.addWidget(self._build_actions_row())
 
+    def _build_file_toolbar(self) -> QToolBar:
+        toolbar = QToolBar("File actions", self)
+        toolbar.setMovable(False)
+        toolbar.setFloatable(False)
+        toolbar.setIconSize(toolbar.iconSize())
+        toolbar.setStyleSheet(
+            "QToolBar { background: #f5f7fa; border: 1px solid #d8dde6; border-radius: 6px; spacing: 6px; padding: 4px; }"
+        )
+
+        self.new_btn = QPushButton("New")
+        toolbar.addWidget(self.new_btn)
+
+        self.open_btn = QPushButton("Open")
+        toolbar.addWidget(self.open_btn)
+
+        self.save_btn = QPushButton("Save")
+        toolbar.addWidget(self.save_btn)
+
+        self.save_as_btn = QPushButton("Save As")
+        toolbar.addWidget(self.save_as_btn)
+
+        spacer = QWidget(self)
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+        return toolbar
+
     def _build_cash_row(self) -> QWidget:
         cash_box = QWidget(self)
         cash_layout = QHBoxLayout(cash_box)
+        cash_layout.setContentsMargins(0, 0, 0, 0)
 
         cash_layout.addWidget(QLabel(f"Cash value {BASE_CURRENCY_SUFFIX}:"))
         self.cash_value_edit = FormattedDecimalLineEdit(cash_box)
@@ -210,6 +240,7 @@ class MainEditorScreen(QWidget):
     def _build_controls_row(self) -> QWidget:
         controls = QWidget(self)
         controls_layout = QHBoxLayout(controls)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
 
         self.add_group_btn = QPushButton("Add Asset Group")
         controls_layout.addWidget(self.add_group_btn)
@@ -226,6 +257,7 @@ class MainEditorScreen(QWidget):
     def _build_totals_row(self) -> QWidget:
         totals = QWidget(self)
         totals_layout = QHBoxLayout(totals)
+        totals_layout.setContentsMargins(0, 0, 0, 0)
         self.total_label = QLabel(f"Total portfolio {BASE_CURRENCY_SUFFIX}: -")
         totals_layout.addWidget(self.total_label)
         totals_layout.addStretch(1)
@@ -234,33 +266,32 @@ class MainEditorScreen(QWidget):
     def _build_actions_row(self) -> QWidget:
         actions = QWidget(self)
         actions_layout = QHBoxLayout(actions)
+        actions_layout.setContentsMargins(0, 0, 0, 0)
+        actions_layout.setSpacing(8)
 
         self.quit_btn = QPushButton("Quit")
         actions_layout.addWidget(self.quit_btn)
+
+        actions_layout.addStretch(1)
 
         self.refresh_market_data_btn = QPushButton("Refresh Market Data")
         self.refresh_market_data_btn.setToolTip(
             "Fetch the latest portfolio prices without saving."
         )
+        self.refresh_market_data_btn.setStyleSheet("padding: 6px 10px;")
         actions_layout.addWidget(self.refresh_market_data_btn)
 
-        self.invest_btn = QPushButton("Invest")
-        actions_layout.addWidget(self.invest_btn)
-
         self.rebalance_btn = QPushButton("Invest & Rebalance")
+        self.rebalance_btn.setStyleSheet("padding: 6px 10px;")
         actions_layout.addWidget(self.rebalance_btn)
 
-        self.save_btn = QPushButton("Save")
-        actions_layout.addWidget(self.save_btn)
-
-        self.save_as_btn = QPushButton("Save As")
-        actions_layout.addWidget(self.save_as_btn)
-
-        self.open_btn = QPushButton("Open")
-        actions_layout.addWidget(self.open_btn)
-
-        self.new_btn = QPushButton("New")
-        actions_layout.addWidget(self.new_btn)
-
-        actions_layout.addStretch(1)
+        self.invest_btn = QPushButton("Invest")
+        self.invest_btn.setStyleSheet(
+            "QPushButton { background: #2f6fed; color: white; border: 1px solid #275dca; "
+            "border-radius: 6px; padding: 6px 14px; font-weight: 600; }"
+            "QPushButton:hover { background: #285fcc; }"
+            "QPushButton:pressed { background: #214ea8; }"
+            "QPushButton:disabled { background: #9eb7ea; border-color: #9eb7ea; color: #eef3ff; }"
+        )
+        actions_layout.addWidget(self.invest_btn)
         return actions

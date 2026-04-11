@@ -15,7 +15,7 @@ import tomllib
 import pytest
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import QModelIndex
-from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem, QTreeWidgetItem
+from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem, QToolBar, QTreeWidgetItem
 from portfolio_core.domain.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.screens.main_editor_screen import MainEditorScreen
@@ -35,6 +35,13 @@ def _ensure_qapp(qapp: object) -> None:
 
 def test_main_editor_screen_builds_expected_controls() -> None:
     screen = MainEditorScreen()
+
+    toolbar = screen.findChild(QToolBar)
+    assert toolbar is not None
+    assert screen.new_btn.text() == "New"
+    assert screen.open_btn.text() == "Open"
+    assert screen.save_btn.text() == "Save"
+    assert screen.save_as_btn.text() == "Save As"
 
     assert screen.cash_value_edit.placeholderText() == "e.g. 1000"
     assert screen.cash_reserve_edit.placeholderText() == "e.g. 20000"
@@ -56,7 +63,17 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert screen.add_instrument_btn.text() == "Add Instrument"
     assert screen.delete_row_btn.text() == "Delete Selected"
     assert screen.total_label.text() == "Total portfolio (ILS): -"
+    assert screen.refresh_market_data_btn.text() == "Refresh Market Data"
+    assert screen.invest_btn.text() == "Invest"
     assert screen.rebalance_btn.text() == "Invest & Rebalance"
+    actions_parent = screen.quit_btn.parentWidget()
+    assert actions_parent is not None
+    actions_layout = actions_parent.layout()
+    assert actions_layout is not None
+    assert actions_layout.indexOf(screen.quit_btn) < actions_layout.indexOf(screen.refresh_market_data_btn)
+    assert actions_layout.indexOf(screen.refresh_market_data_btn) < actions_layout.indexOf(screen.rebalance_btn)
+    assert actions_layout.indexOf(screen.rebalance_btn) < actions_layout.indexOf(screen.invest_btn)
+    assert "background: #2f6fed" in screen.invest_btn.styleSheet()
 
 
 def test_welcome_screen_builds_expected_controls() -> None:
