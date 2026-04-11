@@ -16,6 +16,7 @@ from portfolio_core.domain.ticker_rules import (
     build_exchange_ticker_key,
 )
 from portfolio_core.workflows import (
+    HardRefreshFallback,
     HardRefreshPortfolioMarketDataResult,
     create_new_default_document,
     hard_refresh_portfolio_market_data,
@@ -131,6 +132,14 @@ class MainWindowMainEditorController:
             allow_partial=False,
         )
         return parse_portfolio_data(data)
+
+    @staticmethod
+    def _format_market_data_refresh_fallbacks(fallbacks: tuple[HardRefreshFallback, ...]) -> str:
+        """Render structured refresh fallbacks into user-facing info text."""
+        return "\n".join(
+            f"{fallback.instrument_name}: live price refresh failed, so the app reused the cached market price."
+            for fallback in fallbacks
+        )
 
     @staticmethod
     def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
@@ -364,10 +373,10 @@ class MainWindowMainEditorController:
 
         self._host.session.document.set_current(result_obj.portfolio)
         self._host._render_main_editor_from_portfolio(result_obj.portfolio, switch_to_main=False)
-        if result_obj.fallback_messages:
+        if result_obj.fallbacks:
             self._host._show_info(
                 "Market data refresh used cached fallback",
-                "\n".join(result_obj.fallback_messages),
+                self._format_market_data_refresh_fallbacks(result_obj.fallbacks),
             )
 
     def cancel_pending_market_data_refresh(self, *, wait_timeout_ms: int = 1_500) -> bool:

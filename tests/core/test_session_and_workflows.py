@@ -17,6 +17,7 @@ from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.session.portfolio_document import PortfolioDocument
 from portfolio_core.session.portfolio_session import PortfolioSession, build_default_portfolio
 from portfolio_core.workflows import (
+    HardRefreshFallback,
     InsufficientQuantityForSellError,
     PlanStep,
     StartupPortfolioPriceRefreshError,
@@ -789,7 +790,7 @@ def test_hard_refresh_portfolio_market_data_uses_cached_session_fx_without_fetch
         lookup_timeout_seconds=5.0,
     )
 
-    assert result.fallback_messages == ()
+    assert result.fallbacks == ()
     assert fx_fetch_attempts == []
     assert result.portfolio.instruments[0].value == D("70.00")
 
@@ -843,8 +844,11 @@ def test_hard_refresh_portfolio_market_data_uses_cached_price_when_live_price_fe
         lookup_timeout_seconds=5.0,
     )
 
-    assert result.fallback_messages == (
-        "TASE ETF: live price refresh failed, so the app reused the cached market price.",
+    assert result.fallbacks == (
+        HardRefreshFallback(
+            instrument_id="i1",
+            instrument_name="TASE ETF",
+        ),
     )
     assert result.portfolio.instruments[0].value == D("24.68")
 

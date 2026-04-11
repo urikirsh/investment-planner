@@ -11,7 +11,7 @@ import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.domain.models import Exchange
 from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
 from portfolio_core.io_json import load_portfolio
-from portfolio_core.workflows import HardRefreshPortfolioMarketDataResult
+from portfolio_core.workflows import HardRefreshFallback, HardRefreshPortfolioMarketDataResult
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.controllers.protocols import suppress_item_changed
 from ui.main_window import MainWindow
@@ -332,7 +332,12 @@ def test_refresh_market_data_finished_rerenders_and_shows_fallback_info(
 
     result = HardRefreshPortfolioMarketDataResult(
         portfolio=refreshed,
-        fallback_messages=("USD/ILS refresh failed, so the app reused the cached session exchange rate.",),
+        fallbacks=(
+            HardRefreshFallback(
+                instrument_id="i1",
+                instrument_name="TASE ETF",
+            ),
+        ),
     )
     window._main_editor_controller._on_market_data_refresh_finished(
         result,
@@ -346,6 +351,6 @@ def test_refresh_market_data_finished_rerenders_and_shows_fallback_info(
     assert info_calls == [
         (
             "Market data refresh used cached fallback",
-            "USD/ILS refresh failed, so the app reused the cached session exchange rate.",
+            "TASE ETF: live price refresh failed, so the app reused the cached market price.",
         )
     ]

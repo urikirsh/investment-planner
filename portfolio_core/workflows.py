@@ -124,7 +124,15 @@ class HardRefreshPortfolioMarketDataResult:
     """Outcome of a network-first portfolio market-data refresh."""
 
     portfolio: Portfolio
-    fallback_messages: tuple[str, ...]
+    fallbacks: tuple["HardRefreshFallback", ...]
+
+
+@dataclass(frozen=True)
+class HardRefreshFallback:
+    """Structured fallback outcome for one instrument during hard refresh."""
+
+    instrument_id: str
+    instrument_name: str
 
 
 @dataclass(frozen=True)
@@ -134,7 +142,7 @@ class _InstrumentLookupResolution:
     lookup_result: TickerLookupFound | object
     missing_price_prefix: str
     missing_lookup_prefix: str
-    fallback_message: str | None = None
+    fallback: HardRefreshFallback | None = None
 
 
 def parse_portfolio_data(data: Mapping[str, Any]) -> Portfolio:
@@ -310,7 +318,7 @@ def hard_refresh_portfolio_market_data(
     lookup_timeout_seconds: float = DEFAULT_MARKET_DATA_TIMEOUT_SECONDS,
 ) -> HardRefreshPortfolioMarketDataResult:
     """Refresh portfolio prices from the network using the current session FX rate."""
-    fallback_messages: list[str] = []
+    fallbacks: list[HardRefreshFallback] = []
     usd_ils_rate: Decimal | None = None
 
     if portfolio_requires_usd_ils_rate(portfolio):
@@ -323,7 +331,7 @@ def hard_refresh_portfolio_market_data(
             instrument,
             usd_ils_rate=usd_ils_rate,
             lookup_timeout_seconds=lookup_timeout_seconds,
-            fallback_messages=fallback_messages,
+            fallbacks=fallbacks,
         )
         for instrument in portfolio.instruments
     ]
@@ -333,7 +341,7 @@ def hard_refresh_portfolio_market_data(
             asset_groups=portfolio.asset_groups,
             instruments=refreshed_instruments,
         ),
-        fallback_messages=tuple(fallback_messages),
+        fallbacks=tuple(fallbacks),
     )
 
 
@@ -360,7 +368,7 @@ def _hard_refresh_instrument_market_value(
     *,
     usd_ils_rate: Decimal | None,
     lookup_timeout_seconds: float,
-    fallback_messages: list[str],
+    fallbacks: list[HardRefreshFallback],
 ) -> Instrument:
     """Return one instrument refreshed from network, or from cache when network fails."""
     resolution = _resolve_hard_refresh_instrument_lookup(
@@ -372,8 +380,8 @@ def _hard_refresh_instrument_market_value(
         resolution=resolution,
         usd_ils_rate=usd_ils_rate,
     )
-    if resolution.fallback_message is not None:
-        fallback_messages.append(resolution.fallback_message)
+    if resolution.fallback is not None:
+        fallbacks.append(resolution.fallback)
     return refreshed
 
 
@@ -432,8 +440,9 @@ def _resolve_hard_refresh_instrument_lookup(
                 lookup_result=cached_result,
                 missing_price_prefix="Cached price is unavailable",
                 missing_lookup_prefix="Cached price is unavailable",
-                fallback_message=(
-                    f"{instrument.name}: live price refresh failed, so the app reused the cached market price."
+                fallback=HardRefreshFallback(
+                    instrument_id=instrument.id,
+                    instrument_name=instrument.name,
                 ),
             )
 
