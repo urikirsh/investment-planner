@@ -11,6 +11,7 @@ import ui.controllers.main_window_main_editor as controller_mod
 from portfolio_core.domain.models import Exchange
 from portfolio_core.domain.ticker_rules import ExchangeTickerLocationIndex, build_exchange_ticker_key
 from portfolio_core.io_json import load_portfolio
+from portfolio_core.workflows import HardRefreshFallback, HardRefreshPortfolioMarketDataResult
 import ui.controllers.main_window_metrics as metrics_mod
 from ui.controllers.protocols import suppress_item_changed
 from ui.main_window import MainWindow
@@ -21,15 +22,42 @@ from ui.shared.ui_utils import add_instrument_item_to_group, set_group_tree_item
 class _FakeOverlay:
     def __init__(self, parent: object) -> None:
         _ = parent
+        self.status_text = ""
+        self.shown = False
 
     def show_overlay(self) -> None:
-        return None
+        self.shown = True
 
     def hide_overlay(self) -> None:
-        return None
+        self.shown = False
 
     def deleteLater(self) -> None:
         return None
+
+    def set_status_text(self, text: str) -> None:
+        self.status_text = text
+
+
+class _FakeMarketDataRefreshLifecycle:
+    def __init__(self) -> None:
+        self.cancel_calls: list[int] = []
+        self.start_calls: list[dict[str, object]] = []
+
+    def start(self, **kwargs: object) -> None:
+        self.start_calls.append(kwargs)
+
+    def cancel(self, *, wait_timeout_ms: int) -> bool:
+        self.cancel_calls.append(wait_timeout_ms)
+        return True
+
+
+def _make_fake_overlay_factory(overlays: list[_FakeOverlay]):
+    def _factory(parent: object) -> _FakeOverlay:
+        overlay = _FakeOverlay(parent)
+        overlays.append(overlay)
+        return overlay
+
+    return _factory
 
 
 def test_add_instrument_creates_row_from_wizard_result(
@@ -248,3 +276,81 @@ def test_load_default_document_uses_refreshed_default_portfolio(
     assert rendered == [(refreshed, False)]
     assert updated_file_context == [True]
     assert window.session.current_file_path is None
+
+
+def test_refresh_market_data_uses_current_editor_state_and_starts_worker(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    portfolio = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "Group", "targetPercentage": "100"}],
+            "instruments": [],
+        }
+    )
+    fake_lifecycle = _FakeMarketDataRefreshLifecycle()
+    overlays: list[_FakeOverlay] = []
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _make_fake_overlay_factory(overlays))
+    monkeypatch.setattr(window._main_editor_controller, "_market_data_refresh", fake_lifecycle)
+    monkeypatch.setattr(window._main_editor_controller, "_build_current_main_editor_portfolio", lambda: portfolio)
+
+    window._main_editor_controller.on_refresh_market_data_clicked()
+
+    assert fake_lifecycle.cancel_calls == [1500]
+    assert fake_lifecycle.start_calls[0]["portfolio"] is portfolio
+    assert fake_lifecycle.start_calls[0]["cached_usd_ils_quote"] is window.session.cached_usd_ils_quote
+    assert overlays[0].status_text == "Refreshing market data..."
+    assert overlays[0].shown is True
+    assert window.stack.isEnabled() is False
+
+
+def test_refresh_market_data_finished_rerenders_and_shows_fallback_info(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    refreshed = load_portfolio(
+        {
+            "cash": {"value": "100", "min_reserve": "0", "future_tax": "0"},
+            "groups": [{"id": "g1", "name": "Group", "targetPercentage": "100"}],
+            "instruments": [],
+        }
+    )
+    overlays: list[_FakeOverlay] = []
+    rendered: list[tuple[object, bool]] = []
+    info_calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _make_fake_overlay_factory(overlays))
+    monkeypatch.setattr(
+        MainWindow,
+        "_render_main_editor_from_portfolio",
+        lambda self, portfolio, *, switch_to_main: rendered.append((portfolio, switch_to_main)),
+    )
+    monkeypatch.setattr(window, "_show_info", lambda title, message: info_calls.append((title, message)))
+    window._main_editor_controller._show_market_data_refresh_overlay()
+
+    result = HardRefreshPortfolioMarketDataResult(
+        portfolio=refreshed,
+        fallbacks=(
+            HardRefreshFallback(
+                instrument_id="i1",
+                instrument_name="TASE ETF",
+            ),
+        ),
+    )
+    window._main_editor_controller._on_market_data_refresh_finished(
+        result,
+        None,
+    )
+
+    assert overlays[0].shown is False
+    assert window.stack.isEnabled() is True
+    assert window.session.document.current_portfolio == refreshed
+    assert rendered == [(refreshed, False)]
+    assert info_calls == [
+        (
+            "Market data refresh used cached fallback",
+            "TASE ETF: live price refresh failed, so the app reused the cached market price.",
+        )
+    ]

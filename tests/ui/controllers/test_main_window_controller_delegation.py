@@ -37,6 +37,7 @@ def test_main_window_wrapper_methods_delegate_to_composed_controllers(
         ("_main_editor_controller", "add_instrument", "_add_instrument", (), {}),
         ("_main_editor_controller", "delete_selected_row", "_delete_selected_row", (), {}),
         ("_main_editor_controller", "on_refresh_requested", "_on_main_refresh_requested", ("x",), {}),
+        ("_main_editor_controller", "on_refresh_market_data_clicked", "_on_refresh_market_data_clicked", (), {}),
         ("_main_editor_controller", "on_invest_clicked", "_on_invest_clicked", (), {}),
         ("_main_editor_controller", "on_rebalance_clicked", "_on_rebalance_clicked", (), {}),
         ("_summary_controller", "summary_next", "_summary_next", (), {}),

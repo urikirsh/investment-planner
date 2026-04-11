@@ -238,6 +238,12 @@ class MainEditorScreen(QWidget):
         self.quit_btn = QPushButton("Quit")
         actions_layout.addWidget(self.quit_btn)
 
+        self.refresh_market_data_btn = QPushButton("Refresh Market Data")
+        self.refresh_market_data_btn.setToolTip(
+            "Fetch the latest portfolio prices without saving."
+        )
+        actions_layout.addWidget(self.refresh_market_data_btn)
+
         self.invest_btn = QPushButton("Invest")
         actions_layout.addWidget(self.invest_btn)
 

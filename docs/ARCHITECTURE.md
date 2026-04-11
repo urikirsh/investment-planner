@@ -36,6 +36,9 @@ Main user flow:
 Startup/wizard market-data guards in this flow:
 - Welcome->main transition includes async startup market-data refresh with a minimum 1-second loading overlay.
 - Startup fetches USD/ILS only when the staged portfolio contains a USD-priced instrument and the session cache is empty.
+- Main-editor `Refresh Market Data` performs a network-first price refresh while the main stack is blocked.
+- Manual refresh reuses the current session USD/ILS quote for USD-priced instruments; it does not fetch BOI again.
+- When a live instrument price refresh fails, manual refresh falls back to the cached lookup result for that instrument and reports the fallback to the user.
 - Wizard runs reuse startup-cached USD/ILS data from in-memory session cache.
 - Wizard flow never performs USD/ILS network fetches.
 - Window close cancels any active startup market-data fetch before teardown.
@@ -61,6 +64,7 @@ Startup/wizard market-data guards in this flow:
   - startup worker fetches USD/ILS lazily and may complete successfully with no quote for ILS-only portfolios
 - `ui/controllers/main_window_main_editor.py`
   - `MainWindowMainEditorController`: editor wiring and direct row-level add/delete/new-document actions
+  - owns the manual `Refresh Market Data` flow, including blocking overlay behavior and GUI-thread result application
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
   - controller keeps add flow orchestration-focused by running wizard execution (overlay + accept/result checks) in a dedicated helper
   - add flow builds case-insensitive portfolio-wide name locations and exchange+ticker locations so duplicate keys are blocked before row creation
@@ -120,6 +124,7 @@ Startup/wizard market-data guards in this flow:
   - `total_value_cell.py`: encapsulates raw/display storage for the tree total-value column so callers do not depend on Qt item-data role details directly
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics
   - `ui_utils.py`: shared UI helpers for row metadata, formatting, shared tree styling constants, alignment, exchange/currency parsing, and thin adapters over shared cell/value helpers
+  - `worker_thread_lifecycle.py`: shared `QThread` + GUI-thread relay lifecycle helper reused by startup and manual market-data refresh flows
   - `__init__.py`: re-export surface for common shared symbols
 - `ui/dialogs.py`
   - typed wrappers around common `QMessageBox`/`QFileDialog` interactions
@@ -193,6 +198,7 @@ Startup/wizard market-data guards in this flow:
 - `portfolio_core/market_data/lookup_service.py`
   - routes lookups by exchange and owns NYSE/TASE cache policy
   - cache entries store the full typed lookup result, including fetched price metadata
+  - exposes both cache-aware lookup and network-forced lookup entry points; forced lookups overwrite the cached entry on success
   - also exposes a cache-read path used by the wizard when it must not trigger a fresh fetch
 - `portfolio_core/market_data/transport.py`
   - defines the HTTP transport seam used by providers
@@ -239,7 +245,7 @@ Startup/wizard market-data guards in this flow:
   - shared core-level constants used by market-data services and startup/open document workflows
 - `portfolio_core/fx_service.py`
   - Bank of Israel USD/ILS fetch boundary and response parsing
-  - normalizes BOI payload into a typed quote object used by wizard flow
+  - normalizes BOI payload into a typed quote object cached in session for USD-priced flows
 - `portfolio_core/io_json.py`
   - JSON parsing/serialization boundary for `Portfolio`
   - handles structural parsing and decimal conversion, but not strategy validation
@@ -248,6 +254,7 @@ Startup/wizard market-data guards in this flow:
   - application workflow orchestration between UI and domain services
   - parses/validates/syncs/saves document data
   - startup/open workflows fetch and cache USD/ILS only when the portfolio being refreshed contains USD-priced instruments
+  - manual refresh runs network-first instrument price refresh with per-instrument cached fallback and uses the current session USD/ILS quote when needed
   - builds plan results and applies wizard steps with persistence behavior
 
 ## Test map

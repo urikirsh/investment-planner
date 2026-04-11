@@ -2,22 +2,32 @@ from __future__ import annotations
 
 """Main-editor screen setup and row-level editing actions."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import cast
 
+from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
 
-from portfolio_core.domain.models import Exchange
+from portfolio_core.domain.models import Exchange, Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
 from portfolio_core.domain.ticker_rules import (
     ExchangeTickerKey,
     ExchangeTickerLocationIndex,
     build_exchange_ticker_key,
 )
-from portfolio_core.workflows import create_new_default_document
+from portfolio_core.workflows import (
+    HardRefreshFallback,
+    HardRefreshPortfolioMarketDataResult,
+    create_new_default_document,
+    hard_refresh_portfolio_market_data,
+    parse_portfolio_data,
+)
+from portfolio_core.session.portfolio_session import CachedUsdIlsQuote
 from ui.controllers.protocols import MainWindowMainEditorHost, suppress_item_changed
 from ui.dialogs import show_warning
+from ui.portfolio_editor_adapter import build_portfolio_data_from_main_editor
 from ui.shared.loading_overlay import LoadingOverlay
+from ui.shared.worker_thread_lifecycle import QtWorkerThreadLifecycle
 from ui.shared.ui_types import Col
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.add_instrument_wizard_dialog import AddInstrumentWizardDialog, AddInstrumentWizardResult
@@ -25,15 +35,111 @@ from ui.shared.ui_types import RowKind
 from ui.shared.ui_utils import add_instrument_item_to_group, get_item_kind, set_group_tree_item
 
 
+class _ManualMarketDataRefreshWorker(QObject):
+    """Background worker for main-screen hard market-data refresh."""
+
+    finished = Signal(object, object)  # (HardRefreshPortfolioMarketDataResult | None, error_text | None)
+
+    def __init__(
+        self,
+        *,
+        portfolio: Portfolio,
+        cached_usd_ils_quote: CachedUsdIlsQuote | None,
+        timeout_seconds: float = 8.0,
+    ) -> None:
+        super().__init__()
+        self._portfolio = portfolio
+        self._cached_usd_ils_quote = cached_usd_ils_quote
+        self._timeout_seconds = timeout_seconds
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            result = hard_refresh_portfolio_market_data(
+                self._portfolio,
+                cached_usd_ils_quote=self._cached_usd_ils_quote,
+                lookup_timeout_seconds=self._timeout_seconds,
+            )
+            self.finished.emit(result, None)
+        except Exception as exc:
+            self.finished.emit(None, str(exc))
+
+
+class _ManualMarketDataRefreshLifecycle:
+    """Own worker/thread lifecycle for manual hard-refresh requests."""
+
+    def __init__(self) -> None:
+        self._lifecycle = QtWorkerThreadLifecycle()
+
+    def start(
+        self,
+        *,
+        parent: QWidget,
+        portfolio: Portfolio,
+        cached_usd_ils_quote: CachedUsdIlsQuote | None,
+        on_finished: Callable[[object, object], None],
+    ) -> None:
+        worker = _ManualMarketDataRefreshWorker(
+            portfolio=portfolio,
+            cached_usd_ils_quote=cached_usd_ils_quote,
+        )
+        self._lifecycle.start(
+            parent=parent,
+            worker=worker,
+            on_finished=on_finished,
+        )
+
+    def cancel(self, *, wait_timeout_ms: int) -> bool:
+        return self._lifecycle.cancel(wait_timeout_ms=wait_timeout_ms)
+
+    def clear(self) -> None:
+        self._lifecycle.clear()
+
+
 class MainWindowMainEditorController:
     """Controller for main-editor screen wiring and direct row actions."""
 
     def __init__(self, host: MainWindowMainEditorHost) -> None:
         self._host = host
+        self._market_data_refresh = _ManualMarketDataRefreshLifecycle()
+        self._market_data_refresh_overlay: LoadingOverlay | None = None
 
     def _host_widget(self) -> QWidget:
         """Return host cast to QWidget for dialog parenting/screen construction."""
         return cast(QWidget, self._host)
+
+    def _show_market_data_refresh_overlay(self) -> None:
+        """Block main-window interaction while a manual market-data refresh runs."""
+        if self._market_data_refresh_overlay is None:
+            self._market_data_refresh_overlay = LoadingOverlay(self._host.stack)
+        self._market_data_refresh_overlay.set_status_text("Refreshing market data...")
+        self._host.stack.setEnabled(False)
+        self._market_data_refresh_overlay.show_overlay()
+
+    def _hide_market_data_refresh_overlay(self) -> None:
+        """Restore interaction after a manual market-data refresh completes."""
+        if self._market_data_refresh_overlay is not None:
+            self._market_data_refresh_overlay.hide_overlay()
+        self._host.stack.setEnabled(True)
+
+    def _build_current_main_editor_portfolio(self) -> Portfolio:
+        """Parse the current main-editor state into a portfolio for refresh."""
+        data = build_portfolio_data_from_main_editor(
+            tree=self._host.tree,
+            cash_value_edit=self._host.cash_value_edit,
+            cash_reserve_edit=self._host.cash_reserve_edit,
+            future_tax_edit=self._host.future_tax_edit,
+            allow_partial=False,
+        )
+        return parse_portfolio_data(data)
+
+    @staticmethod
+    def _format_market_data_refresh_fallbacks(fallbacks: tuple[HardRefreshFallback, ...]) -> str:
+        """Render structured refresh fallbacks into user-facing info text."""
+        return "\n".join(
+            f"{fallback.instrument_name}: live price refresh failed, so the app reused the cached market price."
+            for fallback in fallbacks
+        )
 
     @staticmethod
     def _determine_default_in_group_pct(parent: QTreeWidgetItem) -> str:
@@ -152,6 +258,7 @@ class MainWindowMainEditorController:
         host.screen_main.add_instrument_btn.clicked.connect(self.add_instrument)
         host.screen_main.delete_row_btn.clicked.connect(self.delete_selected_row)
         host.screen_main.quit_btn.clicked.connect(self.on_quit_clicked)
+        host.screen_main.refresh_market_data_btn.clicked.connect(host._on_refresh_market_data_clicked)
         host.screen_main.invest_btn.clicked.connect(self.on_invest_clicked)
         host.screen_main.rebalance_btn.clicked.connect(self.on_rebalance_clicked)
         host.screen_main.save_btn.clicked.connect(host._on_save_clicked)
@@ -234,6 +341,50 @@ class MainWindowMainEditorController:
     def on_refresh_requested(self, *_args: object) -> None:
         """Single dispatcher for main-screen refresh requests from signals."""
         self._host._refresh_data()
+
+    def on_refresh_market_data_clicked(self) -> None:
+        """Refresh instrument prices from the current editor state."""
+        try:
+            portfolio = self._build_current_main_editor_portfolio()
+        except Exception as exc:
+            self._host._show_error("Market data refresh failed", str(exc))
+            return
+
+        if not self.cancel_pending_market_data_refresh():
+            self._host._show_error("Please wait", "Still finishing the previous market data refresh.")
+            return
+
+        self._show_market_data_refresh_overlay()
+        self._market_data_refresh.start(
+            parent=self._host_widget(),
+            portfolio=portfolio,
+            cached_usd_ils_quote=self._host.session.cached_usd_ils_quote,
+            on_finished=self._on_market_data_refresh_finished,
+        )
+
+    def _on_market_data_refresh_finished(self, result_obj: object, error_obj: object) -> None:
+        """Apply one manual market-data refresh result back into the editor session."""
+        self._hide_market_data_refresh_overlay()
+        error_text = error_obj if isinstance(error_obj, str) else ""
+        if error_text or not isinstance(result_obj, HardRefreshPortfolioMarketDataResult):
+            message = error_text or "Failed to refresh market data."
+            self._host._show_error("Market data refresh failed", message)
+            return
+
+        self._host.session.document.set_current(result_obj.portfolio)
+        self._host._render_main_editor_from_portfolio(result_obj.portfolio, switch_to_main=False)
+        if result_obj.fallbacks:
+            self._host._show_info(
+                "Market data refresh used cached fallback",
+                self._format_market_data_refresh_fallbacks(result_obj.fallbacks),
+            )
+
+    def cancel_pending_market_data_refresh(self, *, wait_timeout_ms: int = 1_500) -> bool:
+        """Stop and detach an in-flight manual market-data refresh, if any."""
+        stopped = self._market_data_refresh.cancel(wait_timeout_ms=wait_timeout_ms)
+        if stopped:
+            self._hide_market_data_refresh_overlay()
+        return stopped
 
     def on_invest_clicked(self) -> None:
         """Start invest planning from current main-editor state."""

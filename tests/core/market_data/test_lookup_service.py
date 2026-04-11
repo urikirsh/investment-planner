@@ -14,6 +14,7 @@ from portfolio_core.market_data import (
     TickerLookupCommunicationError,
     TickerLookupFound,
     TickerLookupNotFound,
+    force_lookup_ticker_in_exchange,
     get_cached_ticker_result_in_exchange,
     lookup_ticker_in_exchange,
 )
@@ -617,6 +618,34 @@ def test_get_cached_ticker_result_in_exchange_returns_cached_result_without_refe
     assert isinstance(loaded, TickerLookupFound)
     assert cached == loaded
     assert calls["count"] == 2
+
+
+def test_force_lookup_ticker_in_exchange_bypasses_cache_and_overwrites_cached_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"count": 0}
+    payloads_by_url = {
+        _STOOQ_AAPL_URL: _build_stooq_quote_payload(close="210.50"),
+        _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+    }
+    _install_default_lookup_service_with_url_payloads(
+        monkeypatch,
+        payloads_by_url=payloads_by_url,
+        calls=calls,
+    )
+
+    first = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+    payloads_by_url[_STOOQ_AAPL_URL] = _build_stooq_quote_payload(close="211.75")
+    second = force_lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+    cached = get_cached_ticker_result_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
+
+    assert isinstance(first, TickerLookupFound)
+    assert isinstance(second, TickerLookupFound)
+    assert isinstance(cached, TickerLookupFound)
+    assert first.metadata.last_traded_price == Decimal("210.50")
+    assert second.metadata.last_traded_price == Decimal("211.75")
+    assert cached.metadata.last_traded_price == Decimal("211.75")
+    assert calls["count"] == 4
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
