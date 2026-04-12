@@ -52,15 +52,7 @@ class SummaryScreen(QWidget):
         layout.addWidget(subtitle)
 
     def _build_plan_overview_card(self) -> QWidget:
-        card = QWidget(self)
-        card.setStyleSheet(neutral_card_style())
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(6)
-
-        heading = QLabel("Plan Overview")
-        heading.setStyleSheet("font-size: 15px; font-weight: 600; color: #34495e;")
-        layout.addWidget(heading)
+        card, layout = self._build_card("Plan Overview", spacing=6)
 
         self.planning_action_label = QLabel("Planning action: -")
         self.planning_action_label.setStyleSheet("font-size: 15px;")
@@ -72,15 +64,7 @@ class SummaryScreen(QWidget):
         return card
 
     def _build_planned_actions_card(self) -> QWidget:
-        card = QWidget(self)
-        card.setStyleSheet(neutral_card_style())
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(8)
-
-        heading = QLabel("Planned Actions")
-        heading.setStyleSheet("font-size: 15px; font-weight: 600; color: #34495e;")
-        layout.addWidget(heading)
+        card, layout = self._build_card("Planned Actions", spacing=8)
 
         self.planned_actions_label = QLabel("No actions required.")
         self.planned_actions_label.setWordWrap(True)
@@ -88,6 +72,19 @@ class SummaryScreen(QWidget):
         layout.addWidget(self.planned_actions_label)
         layout.addStretch(1)
         return card
+
+    def _build_card(self, title: str, *, spacing: int) -> tuple[QWidget, QVBoxLayout]:
+        """Build a standard summary card shell and return its widget/layout."""
+        card = QWidget(self)
+        card.setStyleSheet(neutral_card_style())
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(spacing)
+
+        heading = QLabel(title)
+        heading.setStyleSheet("font-size: 15px; font-weight: 600; color: #34495e;")
+        layout.addWidget(heading)
+        return card, layout
 
     def _build_bottom_actions(self) -> QWidget:
         btns = QWidget(self)
