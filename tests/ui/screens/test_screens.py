@@ -183,10 +183,22 @@ def test_main_editor_screen_sets_header_tooltips() -> None:
 def test_summary_screen_builds_expected_controls() -> None:
     screen = SummaryScreen()
 
-    assert screen.summary_text.isReadOnly()
     assert screen.quit_btn.text() == "Quit"
     assert screen.back_btn.text() == "Back"
-    assert screen.next_btn.text() == "Next"
+    assert screen.start_execution_btn.text() == "Start Execution"
+    assert screen.planning_action_label.text() == "Planning action: -"
+    assert screen.available_to_allocate_label.text() == "Available to allocate: -"
+    assert screen.planned_actions_label.text() == "No actions required."
+    assert screen.back_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.back_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
+    assert screen.start_execution_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
+    assert screen.start_execution_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
+    btns_parent = screen.quit_btn.parentWidget()
+    assert btns_parent is not None
+    btns_layout = btns_parent.layout()
+    assert btns_layout is not None
+    assert btns_layout.indexOf(screen.quit_btn) < btns_layout.indexOf(screen.back_btn)
+    assert btns_layout.indexOf(screen.back_btn) < btns_layout.indexOf(screen.start_execution_btn)
 
 
 def test_wizard_screen_builds_expected_controls() -> None:

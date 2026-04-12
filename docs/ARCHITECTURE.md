@@ -75,7 +75,7 @@ Startup/wizard market-data guards in this flow:
 - `ui/controllers/main_window_metrics.py`
   - `MainWindowMetricsController`: derived totals/percentages/drift refresh and visual state updates
 - `ui/controllers/main_window_summary.py`
-  - `MainWindowSummaryController`: summary setup and summary->wizard/main navigation behavior
+  - `MainWindowSummaryController`: summary setup, structured plan-review rendering, and summary->wizard/main navigation behavior
 - `ui/controllers/protocols.py`
   - protocol contracts for controller-host dependencies
   - keeps controller object composition statically typed without MRO coupling
@@ -101,7 +101,12 @@ Startup/wizard market-data guards in this flow:
   - reuses the shared formatted integer line edit for grouped units display outside active editing
 - `ui/screens/summary_screen.py`
   - screen 3 presentation/layout (plan summary)
-  - exposes summary text and navigation controls
+  - renders a structured plan-review layout with overview and planned-actions cards
+  - overview card shows planning action text aligned with the main-editor button wording plus the available-to-allocate amount
+  - planned-actions card shows numbered BUY/SELL lines with explicit `ILS` amounts and an inline empty state when no steps are required
+  - exposes footer workflow actions plus simple setters for summary content
+  - reuses shared footer button styles and neutral card surfaces so screen 3 stays visually aligned with the wizard flow
+  - footer uses wizard-sized `Back` and `Start Execution` actions while keeping app-level `Quit` separate on the left
 - `ui/screens/welcome_screen.py`
   - screen 1 presentation/layout (startup welcome)
   - exposes startup actions plus remembered-path status display
