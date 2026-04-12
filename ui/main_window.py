@@ -14,7 +14,7 @@ from typing import Callable, List
 
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QStackedWidget, QTextEdit, QTreeWidget, QTreeWidgetItem
+from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QStackedWidget, QTreeWidget, QTreeWidgetItem
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
@@ -65,7 +65,6 @@ class MainWindow(MainWindowPlanExecutionMixin, MainWindowActionsMixin, QMainWind
     screen_main: MainEditorScreen
     screen_summary: SummaryScreen
     screen_wizard: WizardScreen
-    summary_text: QTextEdit
     tree: QTreeWidget
     cash_value_edit: QLineEdit
     cash_reserve_edit: QLineEdit

@@ -152,9 +152,11 @@ def test_summary_next_button_signal_returns_to_main_when_no_steps(window: MainWi
     window.planning_state.plan_steps = []
     window.stack.setCurrentWidget(window.screen_summary)
 
-    window.screen_summary.next_btn.click()
+    window.screen_summary.start_execution_btn.click()
 
     assert window.stack.currentWidget() is window.screen_main
+
+
 def test_wizard_units_text_changed_signal_runs_calculation_flow(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,

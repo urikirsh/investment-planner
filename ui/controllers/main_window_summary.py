@@ -29,51 +29,53 @@ class MainWindowSummaryController:
         return cast(QWidget, self._host)
 
     @staticmethod
-    def _build_summary_header_lines(p: Portfolio, mode: PlanningMode) -> list[str]:
-        """Build fixed summary header lines from portfolio cash and selected mode."""
+    def _planning_action_label(mode: PlanningMode) -> str:
+        """Return summary wording aligned with the main-editor planning buttons."""
+        if mode == PlanningMode.REBALANCE:
+            return "Rebalance Portfolio"
+        return "Invest Cash"
+
+    @staticmethod
+    def _available_to_allocate_text(p: Portfolio) -> str:
+        """Return the formatted summary budget label value."""
         budget = p.cash.value - p.cash.min_reserve - p.cash.future_tax
         if budget < 0:
             budget = D("0")
-        return [
-            f"Mode: {mode.value}",
-            f"Future tax (non-investable): {fmt_decimal_grouped(p.cash.future_tax)}",
-            f"Invest budget (cash - minimal reserve - future tax): {fmt_decimal_grouped(budget)}",
-            "",
-        ]
+        return f"{fmt_decimal_grouped(budget)} ILS"
 
     @staticmethod
-    def _build_summary_action_lines(steps: Sequence[PlanStep]) -> list[str]:
-        """Build human-readable action lines from computed plan steps."""
+    def _build_planned_actions_text(steps: Sequence[PlanStep]) -> str:
+        """Build human-readable planned-action lines from computed plan steps."""
         if not steps:
-            return ["No actions required."]
+            return "No actions required."
 
-        lines = ["Planned actions (split per instrument by in-group target percentages):"]
-        for s in steps:
+        lines: list[str] = []
+        for index, s in enumerate(steps, start=1):
             action = "BUY" if s.planned_delta_money > 0 else "SELL"
             lines.append(
-                f"- {action} {fmt_decimal_grouped(abs(s.planned_delta_money), places=2, trim_trailing_zeros=True)} "
+                f"{index}. {action} {fmt_decimal_grouped(abs(s.planned_delta_money), places=2, trim_trailing_zeros=True)} ILS "
                 f"in [{s.asset_group_name}] via [{s.instrument_name}]"
             )
-        return lines
+        return "\n".join(lines)
 
     def init_screen(self) -> None:
         """Create summary screen and connect navigation actions."""
         host = self._host
         host.screen_summary = SummaryScreen(self._host_widget())
-        host.summary_text = host.screen_summary.summary_text
         host.screen_summary.quit_btn.clicked.connect(host._quit_app)
         host.screen_summary.back_btn.clicked.connect(self.summary_back)
-        host.screen_summary.next_btn.clicked.connect(self.summary_next)
+        host.screen_summary.start_execution_btn.clicked.connect(self.summary_next)
 
     def populate_summary(self, p: Portfolio, steps: Sequence[PlanStep], mode: PlanningMode) -> None:
-        """Render summary text block for the current plan result."""
-        lines = self._build_summary_header_lines(p, mode)
-        lines.extend(self._build_summary_action_lines(steps))
-        if mode == PlanningMode.REBALANCE:
-            lines.append("")
-            lines.append("Note: SELL steps follow per-instrument in-group targets.")
-
-        self._host.summary_text.setText("\n".join(lines))
+        """Render the current plan result in the summary screen cards."""
+        host = self._host
+        host.screen_summary.set_plan_overview(
+            planning_action=self._planning_action_label(mode),
+            available_to_allocate=self._available_to_allocate_text(p),
+        )
+        host.screen_summary.set_planned_actions(
+            actions_text=self._build_planned_actions_text(steps)
+        )
 
     def summary_next(self) -> None:
         """Advance from summary to wizard (or back to main when no steps)."""

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Protocol
 
-from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTextEdit, QTreeWidget, QWidget
+from PySide6.QtWidgets import QLabel, QLineEdit, QStackedWidget, QTreeWidget, QWidget
 
 from portfolio_core.domain.models import Portfolio
 from portfolio_core.domain.planning_types import PlanningMode
@@ -154,7 +154,6 @@ class MainWindowSummaryHost(Protocol):
     screen_main: MainEditorScreen
     screen_wizard: WizardScreen
     screen_summary: SummaryScreen
-    summary_text: QTextEdit
 
     # callbacks
     def _quit_app(self) -> None: ...

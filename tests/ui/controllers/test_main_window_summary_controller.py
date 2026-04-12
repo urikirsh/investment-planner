@@ -8,7 +8,12 @@ from portfolio_core.workflows import PlanStep
 from ui.controllers.main_window_summary import MainWindowSummaryController
 
 
-def test_build_summary_header_lines_formats_grouped_values() -> None:
+def test_planning_action_label_matches_main_editor_button_wording() -> None:
+    assert MainWindowSummaryController._planning_action_label(PlanningMode.INVEST) == "Invest Cash"
+    assert MainWindowSummaryController._planning_action_label(PlanningMode.REBALANCE) == "Rebalance Portfolio"
+
+
+def test_available_to_allocate_text_formats_grouped_values() -> None:
     portfolio = load_portfolio(
         {
             "cash": {"value": "20000", "min_reserve": "5000", "future_tax": "12345.67"},
@@ -17,17 +22,12 @@ def test_build_summary_header_lines_formats_grouped_values() -> None:
         }
     )
 
-    lines = MainWindowSummaryController._build_summary_header_lines(portfolio, PlanningMode.INVEST)
+    text = MainWindowSummaryController._available_to_allocate_text(portfolio)
 
-    assert lines == [
-        "Mode: invest",
-        "Future tax (non-investable): 12,345.67",
-        "Invest budget (cash - minimal reserve - future tax): 2,654.33",
-        "",
-    ]
+    assert text == "2,654.33 ILS"
 
 
-def test_build_summary_action_lines_formats_grouped_trade_amounts(
+def test_build_planned_actions_text_formats_grouped_trade_amounts(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
     steps = [
@@ -38,15 +38,12 @@ def test_build_summary_action_lines_formats_grouped_trade_amounts(
         )
     ]
 
-    lines = MainWindowSummaryController._build_summary_action_lines(steps)
+    text = MainWindowSummaryController._build_planned_actions_text(steps)
 
-    assert lines == [
-        "Planned actions (split per instrument by in-group target percentages):",
-        "- BUY 12,345.67 in [Equity] via [World ETF]",
-    ]
+    assert text == "1. BUY 12,345.67 ILS in [Equity] via [World ETF]"
 
 
-def test_build_summary_action_lines_trim_trailing_zeros_for_display(
+def test_build_planned_actions_text_trim_trailing_zeros_for_display(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
     steps = [
@@ -57,15 +54,12 @@ def test_build_summary_action_lines_trim_trailing_zeros_for_display(
         )
     ]
 
-    lines = MainWindowSummaryController._build_summary_action_lines(steps)
+    text = MainWindowSummaryController._build_planned_actions_text(steps)
 
-    assert lines == [
-        "Planned actions (split per instrument by in-group target percentages):",
-        "- BUY 12,345 in [Equity] via [World ETF]",
-    ]
+    assert text == "1. BUY 12,345 ILS in [Equity] via [World ETF]"
 
 
-def test_build_summary_action_lines_limits_display_to_two_decimals(
+def test_build_planned_actions_text_limits_display_to_two_decimals(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
     steps = [
@@ -76,9 +70,6 @@ def test_build_summary_action_lines_limits_display_to_two_decimals(
         )
     ]
 
-    lines = MainWindowSummaryController._build_summary_action_lines(steps)
+    text = MainWindowSummaryController._build_planned_actions_text(steps)
 
-    assert lines == [
-        "Planned actions (split per instrument by in-group target percentages):",
-        "- BUY 12,345.68 in [Equity] via [World ETF]",
-    ]
+    assert text == "1. BUY 12,345.68 ILS in [Equity] via [World ETF]"
