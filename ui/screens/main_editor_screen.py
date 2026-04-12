@@ -36,7 +36,7 @@ from ui.shared.decimal_input_delegate import (
     NonNegativeIntegerInputDelegate,
     PercentInputDelegate,
 )
-from ui.shared.button_styles import primary_action_button_style, secondary_action_button_style
+from ui.shared.button_styles import apply_primary_action_button_style, apply_secondary_action_button_style
 from ui.shared.formatted_numeric_line_edit import FormattedDecimalLineEdit
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
@@ -271,17 +271,17 @@ class MainEditorScreen(QWidget):
         self.refresh_market_data_btn.setToolTip(
             "Fetch the latest portfolio prices without saving."
         )
-        self.refresh_market_data_btn.setStyleSheet(secondary_action_button_style())
+        apply_secondary_action_button_style(self.refresh_market_data_btn)
         layout.addWidget(self.refresh_market_data_btn)
 
         self.rebalance_btn = QPushButton("Rebalance Portfolio")
         self.rebalance_btn.setToolTip("Adjust holdings, including sells, to restore targets.")
-        self.rebalance_btn.setStyleSheet(secondary_action_button_style())
+        apply_secondary_action_button_style(self.rebalance_btn)
         layout.addWidget(self.rebalance_btn)
 
         self.invest_btn = QPushButton("Invest Cash")
         self.invest_btn.setToolTip("Allocate available cash without selling holdings.")
-        self.invest_btn.setStyleSheet(primary_action_button_style())
+        apply_primary_action_button_style(self.invest_btn)
         layout.addWidget(self.invest_btn)
 
     def _build_actions_row(self) -> QWidget:

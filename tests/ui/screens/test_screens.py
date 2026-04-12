@@ -22,7 +22,11 @@ from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
-from ui.shared.button_styles import primary_action_button_style, secondary_action_button_style
+from ui.shared.button_styles import (
+    BUTTON_STYLE_ROLE_PROPERTY,
+    PRIMARY_BUTTON_STYLE_ROLE,
+    SECONDARY_BUTTON_STYLE_ROLE,
+)
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate, PercentInputDelegate
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
@@ -76,9 +80,9 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert actions_layout.indexOf(screen.quit_btn) < actions_layout.indexOf(screen.refresh_market_data_btn)
     assert actions_layout.indexOf(screen.refresh_market_data_btn) < actions_layout.indexOf(screen.rebalance_btn)
     assert actions_layout.indexOf(screen.rebalance_btn) < actions_layout.indexOf(screen.invest_btn)
-    assert screen.refresh_market_data_btn.styleSheet() == secondary_action_button_style()
-    assert screen.rebalance_btn.styleSheet() == secondary_action_button_style()
-    assert screen.invest_btn.styleSheet() == primary_action_button_style()
+    assert screen.refresh_market_data_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.rebalance_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.invest_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
 
 
 def test_welcome_screen_builds_expected_controls() -> None:
@@ -99,9 +103,10 @@ def test_welcome_screen_builds_expected_controls() -> None:
     assert screen.load_different_btn.minimumHeight() == 36
     assert screen.start_new_btn.minimumHeight() == 36
     assert screen.quit_btn.minimumHeight() == 36
-    assert screen.open_last_btn.styleSheet() == primary_action_button_style()
-    assert screen.load_different_btn.styleSheet() == secondary_action_button_style()
-    assert screen.start_new_btn.styleSheet() == secondary_action_button_style()
+    assert screen.open_last_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
+    assert screen.load_different_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.start_new_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.quit_btn.property(BUTTON_STYLE_ROLE_PROPERTY) is None
     assert screen.quit_btn.styleSheet() == ""
     layout = screen.layout()
     assert layout is not None
@@ -203,9 +208,9 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert screen.save_continue_btn.text() == "Save and continue"
     assert not screen.save_continue_btn.isEnabled()
     assert screen.continue_without_save_btn.text() == "Skip Step"
-    assert screen.back_to_portfolio_btn.styleSheet() == secondary_action_button_style()
-    assert screen.continue_without_save_btn.styleSheet() == secondary_action_button_style()
-    assert screen.save_continue_btn.styleSheet() == primary_action_button_style()
+    assert screen.back_to_portfolio_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.continue_without_save_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.save_continue_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
     assert screen.save_continue_btn.parentWidget() is screen.wiz_result.parentWidget()
     btns_parent = screen.quit_btn.parentWidget()
     assert btns_parent is not None
