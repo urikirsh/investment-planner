@@ -64,11 +64,11 @@ class MainEditorScreen(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
+        layout.addWidget(self._build_file_toolbar())
+
         title = QLabel("Insert data here")
         title.setStyleSheet("font-size: 18px; font-weight: 600;")
         layout.addWidget(title)
-
-        layout.addWidget(self._build_file_toolbar())
         layout.addWidget(self._build_cash_row())
         self.tree = self._build_tree()
         layout.addWidget(self.tree, 1)
