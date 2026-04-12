@@ -84,22 +84,20 @@ class MainEditorScreen(QWidget):
             "QToolBar { background: #f5f7fa; border: 1px solid #d8dde6; border-radius: 6px; spacing: 6px; padding: 4px; }"
         )
 
-        self.new_btn = QPushButton("New")
-        toolbar.addWidget(self.new_btn)
-
-        self.open_btn = QPushButton("Open")
-        toolbar.addWidget(self.open_btn)
-
-        self.save_btn = QPushButton("Save")
-        toolbar.addWidget(self.save_btn)
-
-        self.save_as_btn = QPushButton("Save As")
-        toolbar.addWidget(self.save_as_btn)
+        self.new_btn = self._add_toolbar_button(toolbar, "New")
+        self.open_btn = self._add_toolbar_button(toolbar, "Open")
+        self.save_btn = self._add_toolbar_button(toolbar, "Save")
+        self.save_as_btn = self._add_toolbar_button(toolbar, "Save As")
 
         spacer = QWidget(self)
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         toolbar.addWidget(spacer)
         return toolbar
+
+    def _add_toolbar_button(self, toolbar: QToolBar, text: str) -> QPushButton:
+        button = QPushButton(text)
+        toolbar.addWidget(button)
+        return button
 
     def _build_cash_row(self) -> QWidget:
         cash_box = QWidget(self)
