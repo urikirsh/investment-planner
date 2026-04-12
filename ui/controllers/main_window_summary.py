@@ -44,19 +44,22 @@ class MainWindowSummaryController:
         return f"{fmt_decimal_grouped(budget)} ILS"
 
     @staticmethod
+    def _format_planned_action(step: PlanStep, *, index: int) -> str:
+        """Build one human-readable planned-action line for the summary screen."""
+        action = "BUY" if step.planned_delta_money > 0 else "SELL"
+        amount = fmt_decimal_grouped(abs(step.planned_delta_money), places=2, trim_trailing_zeros=True)
+        return f"{index}. {action} {amount} ILS in [{step.asset_group_name}] via [{step.instrument_name}]"
+
+    @staticmethod
     def _build_planned_actions_text(steps: Sequence[PlanStep]) -> str:
         """Build human-readable planned-action lines from computed plan steps."""
         if not steps:
             return "No actions required."
 
-        lines: list[str] = []
-        for index, s in enumerate(steps, start=1):
-            action = "BUY" if s.planned_delta_money > 0 else "SELL"
-            lines.append(
-                f"{index}. {action} {fmt_decimal_grouped(abs(s.planned_delta_money), places=2, trim_trailing_zeros=True)} ILS "
-                f"in [{s.asset_group_name}] via [{s.instrument_name}]"
-            )
-        return "\n".join(lines)
+        return "\n".join(
+            MainWindowSummaryController._format_planned_action(step, index=index)
+            for index, step in enumerate(steps, start=1)
+        )
 
     def init_screen(self) -> None:
         """Create summary screen and connect navigation actions."""

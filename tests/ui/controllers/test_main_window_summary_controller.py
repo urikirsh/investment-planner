@@ -27,49 +27,59 @@ def test_available_to_allocate_text_formats_grouped_values() -> None:
     assert text == "2,654.33 ILS"
 
 
-def test_build_planned_actions_text_formats_grouped_trade_amounts(
+def test_format_planned_action_formats_grouped_trade_amounts(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
-    steps = [
-        make_plan_step(
-            delta="12345.67",
-            group_name="Equity",
-            instrument_name="World ETF",
-        )
-    ]
+    step = make_plan_step(
+        delta="12345.67",
+        group_name="Equity",
+        instrument_name="World ETF",
+    )
 
-    text = MainWindowSummaryController._build_planned_actions_text(steps)
+    text = MainWindowSummaryController._format_planned_action(step, index=1)
 
     assert text == "1. BUY 12,345.67 ILS in [Equity] via [World ETF]"
 
 
-def test_build_planned_actions_text_trim_trailing_zeros_for_display(
+def test_format_planned_action_trim_trailing_zeros_for_display(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
-    steps = [
-        make_plan_step(
-            delta="12345.00",
-            group_name="Equity",
-            instrument_name="World ETF",
-        )
-    ]
+    step = make_plan_step(
+        delta="12345.00",
+        group_name="Equity",
+        instrument_name="World ETF",
+    )
 
-    text = MainWindowSummaryController._build_planned_actions_text(steps)
+    text = MainWindowSummaryController._format_planned_action(step, index=1)
 
     assert text == "1. BUY 12,345 ILS in [Equity] via [World ETF]"
 
 
-def test_build_planned_actions_text_limits_display_to_two_decimals(
+def test_format_planned_action_limits_display_to_two_decimals(
+    make_plan_step: Callable[..., PlanStep],
+) -> None:
+    step = make_plan_step(
+        delta="12345.6789",
+        group_name="Equity",
+        instrument_name="World ETF",
+    )
+
+    text = MainWindowSummaryController._format_planned_action(step, index=1)
+
+    assert text == "1. BUY 12,345.68 ILS in [Equity] via [World ETF]"
+
+
+def test_build_planned_actions_text_joins_multiple_formatted_lines(
     make_plan_step: Callable[..., PlanStep],
 ) -> None:
     steps = [
-        make_plan_step(
-            delta="12345.6789",
-            group_name="Equity",
-            instrument_name="World ETF",
-        )
+        make_plan_step(delta="12345.67", group_name="Equity", instrument_name="World ETF"),
+        make_plan_step(delta="-5000", group_name="Bonds", instrument_name="Bond ETF"),
     ]
 
     text = MainWindowSummaryController._build_planned_actions_text(steps)
 
-    assert text == "1. BUY 12,345.68 ILS in [Equity] via [World ETF]"
+    assert text == (
+        "1. BUY 12,345.67 ILS in [Equity] via [World ETF]\n"
+        "2. SELL 5,000 ILS in [Bonds] via [Bond ETF]"
+    )
