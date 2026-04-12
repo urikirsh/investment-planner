@@ -95,6 +95,14 @@ def test_welcome_screen_builds_expected_controls() -> None:
     assert screen.load_different_btn.text() == "Load Portfolio..."
     assert screen.start_new_btn.text() == "Start New File"
     assert screen.quit_btn.text() == "Quit"
+    assert screen.open_last_btn.minimumHeight() == 36
+    assert screen.load_different_btn.minimumHeight() == 36
+    assert screen.start_new_btn.minimumHeight() == 36
+    assert screen.quit_btn.minimumHeight() == 36
+    assert screen.open_last_btn.styleSheet() == primary_action_button_style()
+    assert screen.load_different_btn.styleSheet() == secondary_action_button_style()
+    assert screen.start_new_btn.styleSheet() == secondary_action_button_style()
+    assert screen.quit_btn.styleSheet() == ""
     layout = screen.layout()
     assert layout is not None
     assert layout.indexOf(screen.last_path_label) == layout.indexOf(screen.open_last_btn) + 1

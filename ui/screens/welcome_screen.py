@@ -5,6 +5,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
+from ui.shared.button_styles import primary_action_button_style, secondary_action_button_style
+
 
 class WelcomeScreen(QWidget):
     """Startup screen with file-entry actions."""
@@ -33,6 +35,7 @@ class WelcomeScreen(QWidget):
 
         self.open_last_btn = QPushButton("Open Last Portfolio")
         self.open_last_btn.setMinimumHeight(36)
+        self.open_last_btn.setStyleSheet(primary_action_button_style())
         layout.addWidget(self.open_last_btn)
 
         self.last_path_label = QLabel("No recent portfolio")
@@ -42,7 +45,9 @@ class WelcomeScreen(QWidget):
         layout.addWidget(self.last_path_label)
 
         self.load_different_btn = QPushButton("Load Portfolio...")
+        self.load_different_btn.setStyleSheet(secondary_action_button_style())
         self.start_new_btn = QPushButton("Start New File")
+        self.start_new_btn.setStyleSheet(secondary_action_button_style())
         self.quit_btn = QPushButton("Quit")
         for button in (self.load_different_btn, self.start_new_btn, self.quit_btn):
             button.setMinimumHeight(36)
