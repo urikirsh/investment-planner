@@ -11,7 +11,11 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from ui.shared.button_styles import apply_primary_action_button_style, apply_secondary_action_button_style
+from ui.shared.button_styles import (
+    REGULAR_BUTTON_STYLE_SIZE,
+    apply_primary_action_button_style,
+    apply_secondary_action_button_style,
+)
 from ui.shared.surface_styles import neutral_card_style
 
 
@@ -97,11 +101,11 @@ class SummaryScreen(QWidget):
         btns_layout.addStretch(1)
 
         self.back_btn = QPushButton("Back")
-        apply_secondary_action_button_style(self.back_btn)
+        apply_secondary_action_button_style(self.back_btn, size=REGULAR_BUTTON_STYLE_SIZE)
         btns_layout.addWidget(self.back_btn)
 
         self.start_execution_btn = QPushButton("Start Execution")
-        apply_primary_action_button_style(self.start_execution_btn)
+        apply_primary_action_button_style(self.start_execution_btn, size=REGULAR_BUTTON_STYLE_SIZE)
         btns_layout.addWidget(self.start_execution_btn)
         return btns
 

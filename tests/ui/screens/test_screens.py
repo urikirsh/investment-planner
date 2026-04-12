@@ -190,9 +190,9 @@ def test_summary_screen_builds_expected_controls() -> None:
     assert screen.available_to_allocate_label.text() == "Available to allocate: -"
     assert screen.planned_actions_label.text() == "No actions required."
     assert screen.back_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
-    assert screen.back_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.back_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
     assert screen.start_execution_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
-    assert screen.start_execution_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.start_execution_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
     btns_parent = screen.quit_btn.parentWidget()
     assert btns_parent is not None
     btns_layout = btns_parent.layout()
