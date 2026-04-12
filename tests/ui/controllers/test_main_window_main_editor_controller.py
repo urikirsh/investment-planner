@@ -60,6 +60,33 @@ def _make_fake_overlay_factory(overlays: list[_FakeOverlay]):
     return _factory
 
 
+def _make_accepted_fake_wizard(
+    *,
+    exchange: Exchange,
+    ticker: str,
+    name: str,
+    last_traded_price: Decimal,
+    target_in_group_pct: str,
+    units: int,
+):
+    class _FakeWizard:
+        def __init__(self, **kwargs: object) -> None:
+            _ = kwargs
+            self.result_data = SimpleNamespace(
+                exchange=exchange,
+                ticker=ticker,
+                name=name,
+                last_traded_price=last_traded_price,
+                target_in_group_pct=target_in_group_pct,
+                units=units,
+            )
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+    return _FakeWizard
+
+
 def test_add_instrument_creates_row_from_wizard_result(
     window: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
@@ -72,24 +99,17 @@ def test_add_instrument_creates_row_from_wizard_result(
     group = QTreeWidgetItem(window.tree)
     set_group_tree_item(group, "Equity", "100", "grp_equity")
     window.tree.setCurrentItem(group)
-
-    class _FakeWizard:
-        def __init__(self, **kwargs: object) -> None:
-            _ = kwargs
-            self.result_data = SimpleNamespace(
-                exchange=Exchange.NYSE,
-                ticker="AB12",
-                name="World ETF",
-                last_traded_price=Decimal("10.123"),
-                target_in_group_pct="25",
-                units=12,
-            )
-
-        def exec(self) -> QDialog.DialogCode:
-            return QDialog.DialogCode.Accepted
+    fake_wizard = _make_accepted_fake_wizard(
+        exchange=Exchange.NYSE,
+        ticker="AB12",
+        name="World ETF",
+        last_traded_price=Decimal("10.123"),
+        target_in_group_pct="25",
+        units=12,
+    )
 
     monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
-    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", _FakeWizard)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", fake_wizard)
     monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", lambda **_kwargs: Decimal("425.17"))
 
     window._main_editor_controller.add_instrument()
@@ -103,6 +123,79 @@ def test_add_instrument_creates_row_from_wizard_result(
     assert child.text(Col.TOT_VALUE.value) == "5,102.04"
     assert child.text(Col.EXCHANGE.value) == "NYSE"
     assert child.text(Col.TARGET_PCT.value) == "25.0%"
+
+
+def test_add_instrument_fetches_and_caches_fx_for_first_nyse_instrument(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Equity", "100", "grp_equity")
+    window.tree.setCurrentItem(group)
+    seen_sessions: list[object] = []
+    fake_wizard = _make_accepted_fake_wizard(
+        exchange=Exchange.NYSE,
+        ticker="AB12",
+        name="World ETF",
+        last_traded_price=Decimal("10.123"),
+        target_in_group_pct="25",
+        units=12,
+    )
+
+    def fake_get_or_fetch_session_usd_ils_rate(session: object) -> Decimal:
+        seen_sessions.append(session)
+        window.session.cache_usd_ils_quote(
+            rate=Decimal("3.5"),
+            effective_date=date.fromisoformat("2026-03-25"),
+            used_last_published=False,
+        )
+        return Decimal("3.5")
+
+    def fake_resolve_cached_instrument_price_ils(**kwargs: object) -> Decimal:
+        assert kwargs["usd_ils_rate"] == Decimal("3.5")
+        return Decimal("425.17")
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", fake_wizard)
+    monkeypatch.setattr(controller_mod, "get_or_fetch_session_usd_ils_rate", fake_get_or_fetch_session_usd_ils_rate)
+    monkeypatch.setattr(metrics_mod, "resolve_cached_instrument_price_ils", fake_resolve_cached_instrument_price_ils)
+
+    window._main_editor_controller.add_instrument()
+
+    assert seen_sessions == [window.session]
+    assert window.session.cached_usd_ils_quote is not None
+    assert group.childCount() == 1
+
+
+def test_add_instrument_shows_error_when_first_nyse_fx_fetch_fails(
+    window: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    group = QTreeWidgetItem(window.tree)
+    set_group_tree_item(group, "Equity", "100", "grp_equity")
+    window.tree.setCurrentItem(group)
+    errors: list[tuple[str, str]] = []
+    fake_wizard = _make_accepted_fake_wizard(
+        exchange=Exchange.NYSE,
+        ticker="AB12",
+        name="World ETF",
+        last_traded_price=Decimal("10.123"),
+        target_in_group_pct="25",
+        units=12,
+    )
+
+    def fake_get_or_fetch_session_usd_ils_rate(_session: object) -> Decimal:
+        raise RuntimeError("FX lookup failed")
+
+    monkeypatch.setattr(controller_mod, "LoadingOverlay", _FakeOverlay)
+    monkeypatch.setattr(controller_mod, "AddInstrumentWizardDialog", fake_wizard)
+    monkeypatch.setattr(controller_mod, "get_or_fetch_session_usd_ils_rate", fake_get_or_fetch_session_usd_ils_rate)
+    monkeypatch.setattr(window, "_show_error", lambda title, message: errors.append((title, message)))
+
+    window._main_editor_controller.add_instrument()
+
+    assert group.childCount() == 0
+    assert errors == [("Add instrument failed", "FX lookup failed")]
 
 
 def test_add_instrument_suppresses_item_changed_during_row_creation(

@@ -15,13 +15,21 @@ import tomllib
 import pytest
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import QModelIndex
-from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem, QTreeWidgetItem
+from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox, QStyleOptionViewItem, QToolBar, QTreeWidgetItem
 from portfolio_core.domain.models import Exchange
 from portfolio_core.app_metadata import get_app_version
 from ui.screens.main_editor_screen import MainEditorScreen
 from ui.screens.summary_screen import SummaryScreen
 from ui.screens.welcome_screen import WelcomeScreen
 from ui.screens.wizard_screen import WizardScreen
+from ui.shared.button_styles import (
+    BUTTON_STYLE_SIZE_PROPERTY,
+    BUTTON_STYLE_ROLE_PROPERTY,
+    COMPACT_BUTTON_STYLE_SIZE,
+    PRIMARY_BUTTON_STYLE_ROLE,
+    REGULAR_BUTTON_STYLE_SIZE,
+    SECONDARY_BUTTON_STYLE_ROLE,
+)
 from ui.shared.decimal_input_delegate import DecimalInputDelegate, NonNegativeIntegerInputDelegate, PercentInputDelegate
 from ui.shared.portfolio_tree_row import PortfolioTreeRow
 from ui.shared.ui_types import Col
@@ -35,6 +43,13 @@ def _ensure_qapp(qapp: object) -> None:
 
 def test_main_editor_screen_builds_expected_controls() -> None:
     screen = MainEditorScreen()
+
+    toolbar = screen.findChild(QToolBar)
+    assert toolbar is not None
+    assert screen.new_btn.text() == "New"
+    assert screen.open_btn.text() == "Open"
+    assert screen.save_btn.text() == "Save"
+    assert screen.save_as_btn.text() == "Save As"
 
     assert screen.cash_value_edit.placeholderText() == "e.g. 1000"
     assert screen.cash_reserve_edit.placeholderText() == "e.g. 20000"
@@ -56,7 +71,24 @@ def test_main_editor_screen_builds_expected_controls() -> None:
     assert screen.add_instrument_btn.text() == "Add Instrument"
     assert screen.delete_row_btn.text() == "Delete Selected"
     assert screen.total_label.text() == "Total portfolio (ILS): -"
-    assert screen.rebalance_btn.text() == "Invest & Rebalance"
+    assert screen.refresh_market_data_btn.text() == "Refresh Market Data"
+    assert screen.invest_btn.text() == "Invest Cash"
+    assert screen.invest_btn.toolTip() == "Allocate available cash without selling holdings."
+    assert screen.rebalance_btn.text() == "Rebalance Portfolio"
+    assert screen.rebalance_btn.toolTip() == "Adjust holdings, including sells, to restore targets."
+    actions_parent = screen.quit_btn.parentWidget()
+    assert actions_parent is not None
+    actions_layout = actions_parent.layout()
+    assert actions_layout is not None
+    assert actions_layout.indexOf(screen.quit_btn) < actions_layout.indexOf(screen.refresh_market_data_btn)
+    assert actions_layout.indexOf(screen.refresh_market_data_btn) < actions_layout.indexOf(screen.rebalance_btn)
+    assert actions_layout.indexOf(screen.rebalance_btn) < actions_layout.indexOf(screen.invest_btn)
+    assert screen.refresh_market_data_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.refresh_market_data_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.rebalance_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.rebalance_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.invest_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
+    assert screen.invest_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
 
 
 def test_welcome_screen_builds_expected_controls() -> None:
@@ -73,6 +105,18 @@ def test_welcome_screen_builds_expected_controls() -> None:
     assert screen.load_different_btn.text() == "Load Portfolio..."
     assert screen.start_new_btn.text() == "Start New File"
     assert screen.quit_btn.text() == "Quit"
+    assert screen.open_last_btn.minimumHeight() == 36
+    assert screen.load_different_btn.minimumHeight() == 36
+    assert screen.start_new_btn.minimumHeight() == 36
+    assert screen.quit_btn.minimumHeight() == 36
+    assert screen.open_last_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
+    assert screen.open_last_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.load_different_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.load_different_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.start_new_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.start_new_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
+    assert screen.quit_btn.property(BUTTON_STYLE_ROLE_PROPERTY) is None
+    assert screen.quit_btn.property(BUTTON_STYLE_SIZE_PROPERTY) is None
     layout = screen.layout()
     assert layout is not None
     assert layout.indexOf(screen.last_path_label) == layout.indexOf(screen.open_last_btn) + 1
@@ -151,10 +195,8 @@ def test_wizard_screen_builds_expected_controls() -> None:
     labels = [label.text() for label in screen.findChildren(QLabel)]
     assert "Execute Plan Step" in labels
     assert "Step -/-" in labels
-    assert "font-size: 15px" in screen.step_progress.styleSheet()
     assert screen.wiz_info.text() == "-"
     assert screen.wiz_info.wordWrap()
-    assert "font-size: 15px" in screen.wiz_info.styleSheet()
     assert screen.units_label.text() == "Units bought:"
     assert isinstance(screen.units_edit, QSpinBox)
     assert screen.units_edit.minimum() == 0
@@ -162,18 +204,19 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert screen.units_edit.singleStep() == 1
     assert screen.wiz_summary.text() == "Planned: - ILS | Price: - ILS/unit | Recommended: - units"
     assert not screen.wiz_summary.wordWrap()
-    assert "font-size: 15px" in screen.wiz_summary.styleSheet()
-    assert "font-size: 15px" in screen.units_label.styleSheet()
-    assert "font-size: 15px" in screen.units_edit.styleSheet()
     assert screen.wiz_result.text() == "Total spend/proceeds: - ILS | Leftover: - ILS"
     assert not screen.wiz_result.wordWrap()
-    assert "font-size: 15px" in screen.wiz_result.styleSheet()
     assert screen.quit_btn.text() == "Quit"
     assert screen.back_to_portfolio_btn.text() == "Exit Wizard"
     assert screen.save_continue_btn.text() == "Save and continue"
     assert not screen.save_continue_btn.isEnabled()
-    assert "font-size: 15px" in screen.save_continue_btn.styleSheet()
     assert screen.continue_without_save_btn.text() == "Skip Step"
+    assert screen.back_to_portfolio_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.back_to_portfolio_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
+    assert screen.continue_without_save_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == SECONDARY_BUTTON_STYLE_ROLE
+    assert screen.continue_without_save_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
+    assert screen.save_continue_btn.property(BUTTON_STYLE_ROLE_PROPERTY) == PRIMARY_BUTTON_STYLE_ROLE
+    assert screen.save_continue_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == REGULAR_BUTTON_STYLE_SIZE
     assert screen.save_continue_btn.parentWidget() is screen.wiz_result.parentWidget()
     btns_parent = screen.quit_btn.parentWidget()
     assert btns_parent is not None
@@ -185,9 +228,13 @@ def test_wizard_screen_builds_expected_controls() -> None:
     summary_row_parent = screen.wiz_summary.parentWidget()
     units_row_parent = screen.units_label.parentWidget()
     result_row_parent = screen.wiz_result.parentWidget()
+    info_card_parent = screen.step_progress.parentWidget()
     assert summary_row_parent is not None
     assert units_row_parent is not None
     assert result_row_parent is not None
+    assert info_card_parent is not None
+    assert screen.step_progress.parentWidget() is info_card_parent
+    assert screen.wiz_info.parentWidget() is info_card_parent
     assert summary_row_parent.width() == result_row_parent.width()
     assert units_row_parent.width() == result_row_parent.width()
     min_input_width = QFontMetrics(screen.units_edit.font()).horizontalAdvance("0" * 11) + 24
