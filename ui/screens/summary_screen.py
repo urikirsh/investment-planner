@@ -23,6 +23,12 @@ class SummaryScreen(QWidget):
     """
     Summary UI (screen 3).
 
+    The screen keeps a compact workflow layout:
+    - title/subtitle header
+    - overview card for planning action and available-to-allocate amount
+    - planned-actions card for numbered BUY/SELL lines
+    - footer with left-aligned app exit and right-aligned workflow navigation
+
     Exposes controls and simple render helpers so the coordinator can wire
     behavior without owning layout construction details.
     """
@@ -32,6 +38,7 @@ class SummaryScreen(QWidget):
         self._build()
 
     def _build(self) -> None:
+        """Compose the full summary screen from header, cards, and footer actions."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
@@ -42,6 +49,7 @@ class SummaryScreen(QWidget):
         layout.addWidget(self._build_bottom_actions())
 
     def _build_header(self, layout: QVBoxLayout) -> None:
+        """Add the title and explanatory subtitle shown above the summary cards."""
         title = QLabel("Summary")
         title.setStyleSheet("font-size: 20px; font-weight: 600;")
         layout.addWidget(title)
@@ -52,6 +60,7 @@ class SummaryScreen(QWidget):
         layout.addWidget(subtitle)
 
     def _build_plan_overview_card(self) -> QWidget:
+        """Build the overview card that displays planning mode wording and budget text."""
         card, layout = self._build_card("Plan Overview", spacing=6)
 
         self.planning_action_label = QLabel("Planning action: -")
@@ -64,6 +73,7 @@ class SummaryScreen(QWidget):
         return card
 
     def _build_planned_actions_card(self) -> QWidget:
+        """Build the card that displays numbered plan-step lines or the empty state."""
         card, layout = self._build_card("Planned Actions", spacing=8)
 
         self.planned_actions_label = QLabel("No actions required.")
@@ -87,6 +97,7 @@ class SummaryScreen(QWidget):
         return card, layout
 
     def _build_bottom_actions(self) -> QWidget:
+        """Build the footer action row aligned to the wizard-screen navigation pattern."""
         btns = QWidget(self)
         btns_layout = QHBoxLayout(btns)
         btns_layout.setContentsMargins(0, 0, 0, 0)
@@ -107,10 +118,10 @@ class SummaryScreen(QWidget):
         return btns
 
     def set_plan_overview(self, *, planning_action: str, available_to_allocate: str) -> None:
-        """Render the summary overview card."""
+        """Render the overview card using already formatted user-facing label values."""
         self.planning_action_label.setText(f"Planning action: {planning_action}")
         self.available_to_allocate_label.setText(f"Available to allocate: {available_to_allocate}")
 
     def set_planned_actions(self, *, actions_text: str) -> None:
-        """Render the planned-actions card body."""
+        """Render numbered planned-action lines or the summary empty-state message."""
         self.planned_actions_label.setText(actions_text)

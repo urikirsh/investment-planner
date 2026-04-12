@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Summary-screen setup and summary-to-wizard navigation behavior."""
+"""Summary-screen setup, structured plan-review rendering, and navigation behavior."""
 
 from collections.abc import Sequence
 from decimal import Decimal
@@ -19,7 +19,13 @@ D = Decimal
 
 
 class MainWindowSummaryController:
-    """Controller containing summary-screen wiring and render behavior."""
+    """Controller containing summary-screen wiring and plan-review render behavior.
+
+    The controller owns user-facing summary wording for:
+    - planning action labels aligned with the main-editor button text
+    - available-to-allocate budget text shown in the overview card
+    - numbered BUY/SELL action lines shown in the planned-actions card
+    """
 
     def __init__(self, host: MainWindowSummaryHost) -> None:
         self._host = host
@@ -62,7 +68,7 @@ class MainWindowSummaryController:
         )
 
     def init_screen(self) -> None:
-        """Create summary screen and connect navigation actions."""
+        """Create the summary screen and connect its workflow footer actions."""
         host = self._host
         host.screen_summary = SummaryScreen(self._host_widget())
         host.screen_summary.quit_btn.clicked.connect(host._quit_app)
@@ -70,7 +76,18 @@ class MainWindowSummaryController:
         host.screen_summary.start_execution_btn.clicked.connect(self.summary_next)
 
     def populate_summary(self, p: Portfolio, steps: Sequence[PlanStep], mode: PlanningMode) -> None:
-        """Render the current plan result in the summary screen cards."""
+        """Render the current plan result in the summary screen cards.
+
+        Parameters
+        ----------
+        p:
+            Portfolio snapshot used for budget/available-to-allocate display.
+        steps:
+            Computed plan steps rendered as numbered BUY/SELL lines.
+        mode:
+            Planning mode used to choose the summary action wording shown in the
+            overview card.
+        """
         host = self._host
         host.screen_summary.set_plan_overview(
             planning_action=self._planning_action_label(mode),

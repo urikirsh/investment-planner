@@ -102,8 +102,11 @@ Startup/wizard market-data guards in this flow:
 - `ui/screens/summary_screen.py`
   - screen 3 presentation/layout (plan summary)
   - renders a structured plan-review layout with overview and planned-actions cards
+  - overview card shows planning action text aligned with the main-editor button wording plus the available-to-allocate amount
+  - planned-actions card shows numbered BUY/SELL lines with explicit `ILS` amounts and an inline empty state when no steps are required
   - exposes footer workflow actions plus simple setters for summary content
   - reuses shared footer button styles and neutral card surfaces so screen 3 stays visually aligned with the wizard flow
+  - footer uses wizard-sized `Back` and `Start Execution` actions while keeping app-level `Quit` separate on the left
 - `ui/screens/welcome_screen.py`
   - screen 1 presentation/layout (startup welcome)
   - exposes startup actions plus remembered-path status display
