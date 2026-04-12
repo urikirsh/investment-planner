@@ -29,7 +29,11 @@ from portfolio_core.domain.models import Exchange
 from PySide6.QtGui import QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QSpinBox, QVBoxLayout, QWidget
 
-from ui.shared.button_styles import apply_primary_action_button_style, apply_secondary_action_button_style
+from ui.shared.button_styles import (
+    REGULAR_BUTTON_STYLE_SIZE,
+    apply_primary_action_button_style,
+    apply_secondary_action_button_style,
+)
 
 
 DEFAULT_UNITS_LABEL = "Units bought:"
@@ -184,7 +188,7 @@ class WizardScreen(QWidget):
         result_focus_layout.addWidget(self.wiz_result)
 
         self.save_continue_btn = QPushButton("Save and continue")
-        apply_primary_action_button_style(self.save_continue_btn)
+        apply_primary_action_button_style(self.save_continue_btn, size=REGULAR_BUTTON_STYLE_SIZE)
         self.save_continue_btn.setEnabled(False)
         result_focus_layout.addWidget(self.save_continue_btn)
         return result_row
@@ -225,11 +229,11 @@ class WizardScreen(QWidget):
         btns_layout.addStretch(1)
 
         self.back_to_portfolio_btn = QPushButton("Exit Wizard")
-        apply_secondary_action_button_style(self.back_to_portfolio_btn)
+        apply_secondary_action_button_style(self.back_to_portfolio_btn, size=REGULAR_BUTTON_STYLE_SIZE)
         btns_layout.addWidget(self.back_to_portfolio_btn)
 
         self.continue_without_save_btn = QPushButton("Skip Step")
-        apply_secondary_action_button_style(self.continue_without_save_btn)
+        apply_secondary_action_button_style(self.continue_without_save_btn, size=REGULAR_BUTTON_STYLE_SIZE)
         btns_layout.addWidget(self.continue_without_save_btn)
         return btns
 
