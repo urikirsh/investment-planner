@@ -83,6 +83,7 @@ Startup/wizard market-data guards in this flow:
   - exposes tree/cash/action widgets for signal wiring
   - uses shared formatted numeric line edits so cash fields keep raw numeric state while rendering grouped display text when idle
   - reuses shared footer button styles so workflow actions stay visually consistent with the execution wizard
+  - reuses shared surface styles for the file toolbar card treatment
 - `ui/screens/add_instrument_wizard_dialog.py`
   - modal 3-step add-instrument flow used from screen 2
   - step 1: exchange choice
@@ -109,6 +110,7 @@ Startup/wizard market-data guards in this flow:
   - action layout keeps app-level `Quit` separated from right-aligned step navigation actions (`Exit Wizard`, `Skip Step`)
   - primary commit action (`Save and continue`) is colocated with the result row (`Units/Spent/Leftover`) for higher focus
   - reuses shared footer button styles so secondary navigation and the primary commit action match the main editor
+  - reuses shared surface styles for the info card and highlighted result summary
   - `Save and continue` is disabled by default and only enabled after the active units value is valid for the planned step amount
   - centered units row and centered result row are width-aligned with a minimum 11-character input width guard
   - row-width syncing is responsive: widths are clamped to available space and revert to natural sizing on narrow windows
@@ -123,6 +125,7 @@ Startup/wizard market-data guards in this flow:
   - `loading_overlay.py`: reusable blocking loading overlay with centered spinner + status label for timed/async UI transitions
   - `portfolio_tree_row.py`: row-level API for managed portfolio-tree cells so callers centralize quantity/total raw-value access plus managed target/portfolio/strategy/drift text writes and drift coloring
   - `quantity_cell.py`: encapsulates raw/display storage for the tree quantity column so editors, metrics, and save logic read raw units without reparsing grouped text
+  - `surface_styles.py`: shared Qt stylesheet helpers for neutral cards/toolbars and highlighted informational result surfaces
   - `target_percent_cell.py`: encapsulates raw/display storage for the tree target-percent column so editors, validation, and persistence logic use one canonical representation
   - `total_value_cell.py`: encapsulates raw/display storage for the tree total-value column so callers do not depend on Qt item-data role details directly
   - `ui_types.py`: shared enums and Qt item-data role ids for tree semantics

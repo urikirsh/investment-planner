@@ -38,6 +38,7 @@ from ui.shared.decimal_input_delegate import (
 )
 from ui.shared.button_styles import apply_primary_action_button_style, apply_secondary_action_button_style
 from ui.shared.formatted_numeric_line_edit import FormattedDecimalLineEdit
+from ui.shared.surface_styles import toolbar_surface_style
 from ui.tree_widget import InvestmentTreeWidget
 from ui.shared.ui_types import Col
 from ui.shared.ui_utils import (
@@ -80,9 +81,7 @@ class MainEditorScreen(QWidget):
         toolbar.setMovable(False)
         toolbar.setFloatable(False)
         toolbar.setIconSize(toolbar.iconSize())
-        toolbar.setStyleSheet(
-            "QToolBar { background: #f5f7fa; border: 1px solid #d8dde6; border-radius: 6px; spacing: 6px; padding: 4px; }"
-        )
+        toolbar.setStyleSheet(toolbar_surface_style())
 
         self.new_btn = self._add_toolbar_button(toolbar, "New")
         self.open_btn = self._add_toolbar_button(toolbar, "Open")

@@ -34,6 +34,7 @@ from ui.shared.button_styles import (
     apply_primary_action_button_style,
     apply_secondary_action_button_style,
 )
+from ui.shared.surface_styles import info_result_card_style, neutral_card_style
 
 
 DEFAULT_UNITS_LABEL = "Units bought:"
@@ -85,7 +86,7 @@ class WizardScreen(QWidget):
     def _build_info_card(self, layout: QVBoxLayout) -> None:
         """Add the step-progress/info card section."""
         info_card = QWidget(self)
-        info_card.setStyleSheet("background: #f5f7fa; border: 1px solid #d8dde6; border-radius: 6px;")
+        info_card.setStyleSheet(neutral_card_style())
         info_layout = QVBoxLayout(info_card)
         info_layout.setContentsMargins(10, 8, 10, 8)
         info_layout.setSpacing(6)
@@ -181,10 +182,7 @@ class WizardScreen(QWidget):
         )
         self.wiz_result = QLabel(DEFAULT_WIZARD_RESULT_TEXT)
         self.wiz_result.setWordWrap(False)
-        self.wiz_result.setStyleSheet(
-            "background: #f7fbff; border: 1px solid #d5e8ff; border-radius: 6px; "
-            "padding: 10px 12px; font-size: 15px; font-weight: 600;"
-        )
+        self.wiz_result.setStyleSheet(info_result_card_style())
         result_focus_layout.addWidget(self.wiz_result)
 
         self.save_continue_btn = QPushButton("Save and continue")
