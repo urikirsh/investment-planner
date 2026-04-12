@@ -44,8 +44,12 @@ def _ensure_qapp(qapp: object) -> None:
 def test_main_editor_screen_builds_expected_controls() -> None:
     screen = MainEditorScreen()
 
+    layout = screen.layout()
+    assert layout is not None
     toolbar = screen.findChild(QToolBar)
     assert toolbar is not None
+    title_label = next(label for label in screen.findChildren(QLabel) if label.text() == "Insert data here")
+    assert layout.indexOf(toolbar) < layout.indexOf(title_label)
     assert screen.new_btn.text() == "New"
     assert screen.open_btn.text() == "Open"
     assert screen.save_btn.text() == "Save"
