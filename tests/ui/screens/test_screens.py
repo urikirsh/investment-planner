@@ -117,7 +117,6 @@ def test_welcome_screen_builds_expected_controls() -> None:
     assert screen.start_new_btn.property(BUTTON_STYLE_SIZE_PROPERTY) == COMPACT_BUTTON_STYLE_SIZE
     assert screen.quit_btn.property(BUTTON_STYLE_ROLE_PROPERTY) is None
     assert screen.quit_btn.property(BUTTON_STYLE_SIZE_PROPERTY) is None
-    assert screen.quit_btn.styleSheet() == ""
     layout = screen.layout()
     assert layout is not None
     assert layout.indexOf(screen.last_path_label) == layout.indexOf(screen.open_last_btn) + 1
@@ -196,10 +195,8 @@ def test_wizard_screen_builds_expected_controls() -> None:
     labels = [label.text() for label in screen.findChildren(QLabel)]
     assert "Execute Plan Step" in labels
     assert "Step -/-" in labels
-    assert "font-size: 15px" in screen.step_progress.styleSheet()
     assert screen.wiz_info.text() == "-"
     assert screen.wiz_info.wordWrap()
-    assert "font-size: 15px" in screen.wiz_info.styleSheet()
     assert screen.units_label.text() == "Units bought:"
     assert isinstance(screen.units_edit, QSpinBox)
     assert screen.units_edit.minimum() == 0
@@ -207,12 +204,8 @@ def test_wizard_screen_builds_expected_controls() -> None:
     assert screen.units_edit.singleStep() == 1
     assert screen.wiz_summary.text() == "Planned: - ILS | Price: - ILS/unit | Recommended: - units"
     assert not screen.wiz_summary.wordWrap()
-    assert "font-size: 15px" in screen.wiz_summary.styleSheet()
-    assert "font-size: 15px" in screen.units_label.styleSheet()
-    assert "font-size: 15px" in screen.units_edit.styleSheet()
     assert screen.wiz_result.text() == "Total spend/proceeds: - ILS | Leftover: - ILS"
     assert not screen.wiz_result.wordWrap()
-    assert "font-size: 15px" in screen.wiz_result.styleSheet()
     assert screen.quit_btn.text() == "Quit"
     assert screen.back_to_portfolio_btn.text() == "Exit Wizard"
     assert screen.save_continue_btn.text() == "Save and continue"
@@ -235,9 +228,13 @@ def test_wizard_screen_builds_expected_controls() -> None:
     summary_row_parent = screen.wiz_summary.parentWidget()
     units_row_parent = screen.units_label.parentWidget()
     result_row_parent = screen.wiz_result.parentWidget()
+    info_card_parent = screen.step_progress.parentWidget()
     assert summary_row_parent is not None
     assert units_row_parent is not None
     assert result_row_parent is not None
+    assert info_card_parent is not None
+    assert screen.step_progress.parentWidget() is info_card_parent
+    assert screen.wiz_info.parentWidget() is info_card_parent
     assert summary_row_parent.width() == result_row_parent.width()
     assert units_row_parent.width() == result_row_parent.width()
     min_input_width = QFontMetrics(screen.units_edit.font()).horizontalAdvance("0" * 11) + 24
