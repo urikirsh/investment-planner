@@ -315,7 +315,13 @@ class MainWindowMainEditorController:
         host._refresh_data()
 
     def _ensure_exchange_rate_ready_for_new_instrument(self, exchange: Exchange) -> bool:
-        """Ensure session FX cache exists before adding the first USD-priced instrument."""
+        """Ensure session FX cache exists before adding the first USD-priced instrument.
+
+        The main editor computes totals in ILS, so adding the first USD-priced
+        instrument must either reuse a cached USD/ILS quote or fetch one before
+        the new row is committed into the tree. When the fetch fails, the add
+        flow is aborted and the user sees the underlying error.
+        """
         if exchange.currency is not Currency.USD:
             return True
         if self._host.session.cached_usd_ils_quote is not None:

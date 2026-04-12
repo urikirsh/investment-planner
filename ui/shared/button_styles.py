@@ -1,4 +1,13 @@
-"""Shared button styles reused across screen footers and primary actions."""
+"""Shared button styles reused across screen footers and primary actions.
+
+This module exposes two stable concepts that tests and screens can both rely on:
+- role: whether a button is the primary or a secondary workflow action
+- size: whether a button uses the compact editor/welcome sizing or the regular
+  wizard sizing
+
+Screens should prefer the `apply_*` helpers so the semantic Qt properties stay
+in sync with the stylesheet text applied to the widget.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +47,11 @@ def apply_primary_action_button_style(
     *,
     size: str = COMPACT_BUTTON_STYLE_SIZE,
 ) -> None:
-    """Mark and style a button as the primary workflow action."""
+    """Mark and style a button as the primary workflow action.
+
+    The helper also records the semantic role/size on the widget so tests can
+    assert hierarchy without depending on exact stylesheet strings.
+    """
     button.setProperty(BUTTON_STYLE_ROLE_PROPERTY, PRIMARY_BUTTON_STYLE_ROLE)
     button.setProperty(BUTTON_STYLE_SIZE_PROPERTY, size)
     button.setStyleSheet(primary_action_button_style(size=size))
@@ -49,7 +62,11 @@ def apply_secondary_action_button_style(
     *,
     size: str = COMPACT_BUTTON_STYLE_SIZE,
 ) -> None:
-    """Mark and style a button as a secondary workflow action."""
+    """Mark and style a button as a secondary workflow action.
+
+    The helper also records the semantic role/size on the widget so tests can
+    assert hierarchy without depending on exact stylesheet strings.
+    """
     button.setProperty(BUTTON_STYLE_ROLE_PROPERTY, SECONDARY_BUTTON_STYLE_ROLE)
     button.setProperty(BUTTON_STYLE_SIZE_PROPERTY, size)
     button.setStyleSheet(secondary_action_button_style(size=size))

@@ -68,6 +68,7 @@ Startup/wizard market-data guards in this flow:
   - `Add Instrument` opens a modal 3-step dialog and only mutates the tree on explicit wizard completion
   - controller keeps add flow orchestration-focused by running wizard execution (overlay + accept/result checks) in a dedicated helper
   - add flow builds case-insensitive portfolio-wide name locations and exchange+ticker locations so duplicate keys are blocked before row creation
+  - accepted USD-priced add-flow results lazily fetch/carry forward a session USD/ILS quote before row creation so the first USD instrument can be valued immediately in ILS
   - accepted add-flow results append a new instrument row, then the standard metrics refresh recomputes derived table values
 - `ui/controllers/main_window_table_editing.py`
   - `MainWindowTableEditingController`: tree item normalization and validation/revert behavior
@@ -116,7 +117,7 @@ Startup/wizard market-data guards in this flow:
   - row-width syncing is responsive: widths are clamped to available space and revert to natural sizing on narrow windows
 - `ui/shared/*`
   - package for cross-cutting UI primitives reused by screens/controllers/adapters
-  - `button_styles.py`: shared Qt stylesheet helpers for primary and secondary action buttons reused by the main editor and wizard screens
+  - `button_styles.py`: shared Qt stylesheet helpers for primary and secondary action buttons reused by the main editor, welcome screen, and wizard; records semantic role/size properties on buttons so tests can assert hierarchy without comparing raw CSS text
   - `cached_instrument_pricing.py`: shared cached-price resolution helper that reads the market-data lookup cache and converts per-unit prices to ILS
   - `constants.py`: shared static UI constants used by multiple UI modules
     - cleanup timing knobs are defined here so wait policy stays centralized
@@ -275,6 +276,7 @@ UI-focused tests:
 - `tests/ui/controllers/test_main_window_main_editor_controller.py`
   - focused add-instrument wizard integration tests for accept/cancel tree-mutation behavior
   - covers seeded table-value rounding for successful add flows
+  - covers both successful and failed lazy USD/ILS fetch behavior when adding the first USD-priced instrument
 - `tests/ui/controllers/test_main_window_controller_screen_signals.py`
   - focused screen-level signal wiring integration tests across welcome/main/summary/wizard flows
 - `tests/ui/controllers/test_main_window_controller_state_flow.py`
@@ -290,6 +292,7 @@ UI-focused tests:
   - covers the blocked step-2 path when lookup metadata is found but price is unavailable
 - `tests/ui/screens/test_screens.py`
   - structural tests for main screen modules (defaults, controls, static setup)
+  - screen action styling assertions use semantic button role/size properties where possible instead of comparing raw stylesheet strings
 - `tests/ui/shared/test_loading_overlay.py`
   - loading overlay structure/geometry behavior and visibility toggling
 - `tests/ui/shared/test_ui_utils.py`

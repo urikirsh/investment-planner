@@ -1,4 +1,9 @@
-"""Shared surface styles for toolbars, cards, and emphasized info panels."""
+"""Shared surface styles for toolbars, cards, and emphasized info panels.
+
+These helpers centralize the small set of card-like surfaces currently reused
+between the main editor and the execution wizard so visual polish changes do
+not require hunting through multiple screen modules.
+"""
 
 from __future__ import annotations
 
