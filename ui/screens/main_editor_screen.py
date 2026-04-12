@@ -264,31 +264,34 @@ class MainEditorScreen(QWidget):
         totals_layout.addStretch(1)
         return totals
 
-    def _build_actions_row(self) -> QWidget:
-        actions = QWidget(self)
-        actions_layout = QHBoxLayout(actions)
-        actions_layout.setContentsMargins(0, 0, 0, 0)
-        actions_layout.setSpacing(8)
-
+    def _populate_footer_left_actions(self, layout: QHBoxLayout) -> None:
         self.quit_btn = QPushButton("Quit")
-        actions_layout.addWidget(self.quit_btn)
+        layout.addWidget(self.quit_btn)
 
-        actions_layout.addStretch(1)
-
+    def _populate_footer_right_actions(self, layout: QHBoxLayout) -> None:
         self.refresh_market_data_btn = QPushButton("Refresh Market Data")
         self.refresh_market_data_btn.setToolTip(
             "Fetch the latest portfolio prices without saving."
         )
         self.refresh_market_data_btn.setStyleSheet(secondary_action_button_style())
-        actions_layout.addWidget(self.refresh_market_data_btn)
+        layout.addWidget(self.refresh_market_data_btn)
 
         self.rebalance_btn = QPushButton("Rebalance Portfolio")
         self.rebalance_btn.setToolTip("Adjust holdings, including sells, to restore targets.")
         self.rebalance_btn.setStyleSheet(secondary_action_button_style())
-        actions_layout.addWidget(self.rebalance_btn)
+        layout.addWidget(self.rebalance_btn)
 
         self.invest_btn = QPushButton("Invest Cash")
         self.invest_btn.setToolTip("Allocate available cash without selling holdings.")
         self.invest_btn.setStyleSheet(primary_action_button_style())
-        actions_layout.addWidget(self.invest_btn)
+        layout.addWidget(self.invest_btn)
+
+    def _build_actions_row(self) -> QWidget:
+        actions = QWidget(self)
+        actions_layout = QHBoxLayout(actions)
+        actions_layout.setContentsMargins(0, 0, 0, 0)
+        actions_layout.setSpacing(8)
+        self._populate_footer_left_actions(actions_layout)
+        actions_layout.addStretch(1)
+        self._populate_footer_right_actions(actions_layout)
         return actions
