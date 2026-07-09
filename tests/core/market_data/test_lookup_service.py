@@ -33,6 +33,43 @@ _TASE_URL = "https://api.tase.co.il/api/company/securitydata?securityId=1159094&
 _TASE_MUTUAL_FUND_URL = "https://maya.tase.co.il/api/v1/funds/mutual/5139910"
 
 
+class _FakeHttpClient:
+    """Deterministic market-data HTTP client for lookup service tests."""
+
+    def __init__(
+        self,
+        *,
+        payloads_by_url: Mapping[str, str] | None = None,
+        errors_by_url: Mapping[str, Exception] | None = None,
+        default_exception: Exception | None = None,
+        delay_seconds: float = 0.0,
+    ) -> None:
+        self._payloads_by_url = payloads_by_url or {}
+        self._errors_by_url = errors_by_url or {}
+        self._default_exception = default_exception
+        self._delay_seconds = delay_seconds
+        self.calls = 0
+
+    def fetch_text(
+        self,
+        *,
+        url: str,
+        headers: Mapping[str, str],  # noqa: ARG002
+        timeout_seconds: float,  # noqa: ARG002
+    ) -> str:
+        self.calls += 1
+        if self._delay_seconds > 0:
+            time.sleep(self._delay_seconds)
+        error = self._errors_by_url.get(url)
+        if error is not None:
+            raise error
+        if url in self._payloads_by_url:
+            return self._payloads_by_url[url]
+        if self._default_exception is not None:
+            raise self._default_exception
+        raise AssertionError(f"Unexpected URL requested: {url}")
+
+
 def _build_nasdaq_quote_payload(
     *,
     symbol: str = "AAPL",
@@ -96,25 +133,10 @@ def _install_default_lookup_service_with_url_payloads(
     monkeypatch: pytest.MonkeyPatch,
     *,
     payloads_by_url: Mapping[str, str],
-    calls: dict[str, int] | None = None,
     delay_seconds: float = 0.0,
 ) -> MarketDataService:
     """Install a default lookup service with deterministic URL-specific payload behavior."""
-
-    def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
-        if calls is not None:
-            calls["count"] += 1
-        if delay_seconds > 0:
-            time.sleep(delay_seconds)
-        if url in payloads_by_url:
-            return payloads_by_url[url]
-        raise AssertionError(f"Unexpected URL requested: {url}")
-
-    http_client = type(
-        "_StubHttpClient",
-        (),
-        {"fetch_text": staticmethod(_fetch_text_stub)},
-    )()
+    http_client = _FakeHttpClient(payloads_by_url=payloads_by_url, delay_seconds=delay_seconds)
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
         "portfolio_core.market_data.lookup_service._default_market_data_service",
@@ -123,21 +145,18 @@ def _install_default_lookup_service_with_url_payloads(
     return service
 
 
+def _fake_http_client(service: MarketDataService) -> _FakeHttpClient:
+    """Return the installed fake client for call-count assertions."""
+    return cast(_FakeHttpClient, service._http_client)
+
+
 def _install_default_lookup_service_with_failing_transport(
     monkeypatch: pytest.MonkeyPatch,
     *,
     exception: Exception,
 ) -> MarketDataService:
     """Install a default lookup service whose transport always raises."""
-
-    def _raise_fetch(*_args, **_kwargs) -> str:
-        raise exception
-
-    http_client = type(
-        "_FailingHttpClient",
-        (),
-        {"fetch_text": staticmethod(_raise_fetch)},
-    )()
+    http_client = _FakeHttpClient(default_exception=exception)
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
         "portfolio_core.market_data.lookup_service._default_market_data_service",
@@ -472,21 +491,14 @@ def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_web_pa
 def test_lookup_ticker_in_exchange_uses_yahoo_fallback_when_nasdaq_quote_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-
-    def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
-        calls["count"] += 1
-        if url == _NASDAQ_AAPL_STOCK_URL:
-            raise RuntimeError("nasdaq unavailable")
-        if url == _YAHOO_AAPL_URL:
-            return _build_yahoo_chart_payload(long_name="Apple Inc")
-        raise AssertionError(f"Unexpected URL requested: {url}")
-
-    http_client = type(
-        "_StubHttpClient",
-        (),
-        {"fetch_text": staticmethod(_fetch_text_stub)},
-    )()
+    http_client = _FakeHttpClient(
+        payloads_by_url={
+            _YAHOO_AAPL_URL: _build_yahoo_chart_payload(long_name="Apple Inc"),
+        },
+        errors_by_url={
+            _NASDAQ_AAPL_STOCK_URL: RuntimeError("nasdaq unavailable"),
+        },
+    )
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
         "portfolio_core.market_data.lookup_service._default_market_data_service",
@@ -498,7 +510,7 @@ def test_lookup_ticker_in_exchange_uses_yahoo_fallback_when_nasdaq_quote_fails(
     assert isinstance(result, TickerLookupFound)
     assert result.metadata.display_name == "Apple Inc"
     assert result.metadata.provider_data.get("source") == "yahoo_chart"
-    assert calls["count"] == 2
+    assert http_client.calls == 2
 
 
 def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_yahoo_name_is_missing(
@@ -553,28 +565,24 @@ def test_lookup_ticker_in_exchange_parses_nasdaq_quote_price_with_commas(
 def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             _NASDAQ_AAPL_STOCK_URL: _build_nasdaq_quote_payload(),
         },
-        calls=calls,
     )
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-    assert calls["count"] == 1
+    assert _fake_http_client(service).calls == 1
 
 
 def test_lookup_ticker_in_exchange_uses_tase_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={_TASE_URL: '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LastRate":123.45}'},
-        calls=calls,
     )
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -582,21 +590,19 @@ def test_lookup_ticker_in_exchange_uses_tase_per_ticker_cache_without_refetch(
 
     assert isinstance(result1, TickerLookupFound)
     assert isinstance(result2, TickerLookupFound)
-    assert calls["count"] == 1
+    assert _fake_http_client(service).calls == 1
 
 
 def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=312017&lang=1": (
                 '{"Id":312017,"Name":"SAMPLE","LastRate":100.0}'
             )
         },
-        calls=calls,
     )
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="0312017")
@@ -604,7 +610,7 @@ def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_
 
     assert isinstance(result1, TickerLookupFound)
     assert isinstance(result2, TickerLookupFound)
-    assert calls["count"] == 1
+    assert _fake_http_client(service).calls == 1
 
 
 @pytest.mark.parametrize(
@@ -645,13 +651,11 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_tic
 def test_get_cached_ticker_result_in_exchange_returns_cached_result_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             _NASDAQ_AAPL_STOCK_URL: _build_nasdaq_quote_payload(),
         },
-        calls=calls,
     )
 
     assert get_cached_ticker_result_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is None
@@ -660,20 +664,18 @@ def test_get_cached_ticker_result_in_exchange_returns_cached_result_without_refe
 
     assert isinstance(loaded, TickerLookupFound)
     assert cached == loaded
-    assert calls["count"] == 1
+    assert _fake_http_client(service).calls == 1
 
 
 def test_force_lookup_ticker_in_exchange_bypasses_cache_and_overwrites_cached_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
     payloads_by_url = {
         _NASDAQ_AAPL_STOCK_URL: _build_nasdaq_quote_payload(price="$210.50"),
     }
-    _install_default_lookup_service_with_url_payloads(
+    service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url=payloads_by_url,
-        calls=calls,
     )
 
     first = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
@@ -687,20 +689,18 @@ def test_force_lookup_ticker_in_exchange_bypasses_cache_and_overwrites_cached_va
     assert first.metadata.last_traded_price == Decimal("210.50")
     assert second.metadata.last_traded_price == Decimal("211.75")
     assert cached.metadata.last_traded_price == Decimal("211.75")
-    assert calls["count"] == 2
+    assert _fake_http_client(service).calls == 2
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
     barrier = Barrier(3)
-    _install_default_lookup_service_with_url_payloads(
+    service = _install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             _NASDAQ_AAPL_STOCK_URL: _build_nasdaq_quote_payload(),
         },
-        calls=calls,
         delay_seconds=0.05,
     )
 
@@ -720,4 +720,4 @@ def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
     t2.join()
 
     assert results == [True, True]
-    assert calls["count"] == 1
+    assert _fake_http_client(service).calls == 1
