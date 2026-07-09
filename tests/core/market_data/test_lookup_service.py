@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from decimal import Decimal
 from threading import Barrier, Thread
@@ -41,18 +42,18 @@ def _build_nasdaq_quote_payload(
     last_trade_timestamp: str = "Jul 9, 2026 4:00 PM ET",
 ) -> str:
     """Build minimal Nasdaq quote payload with parsable fields."""
-    return (
-        '{"data":{"symbol":"'
-        + symbol
-        + '","companyName":"'
-        + company_name
-        + '","exchange":"'
-        + exchange
-        + '","primaryData":{"lastSalePrice":"'
-        + price
-        + '","lastTradeTimestamp":"'
-        + last_trade_timestamp
-        + '"}}}'
+    return json.dumps(
+        {
+            "data": {
+                "symbol": symbol,
+                "companyName": company_name,
+                "exchange": exchange,
+                "primaryData": {
+                    "lastSalePrice": price,
+                    "lastTradeTimestamp": last_trade_timestamp,
+                },
+            }
+        }
     )
 
 
@@ -65,24 +66,30 @@ def _build_yahoo_chart_payload(
     exchange_name: str = "NMS",
 ) -> str:
     """Build minimal Yahoo chart payload with parsable metadata."""
-    return (
-        '{"chart":{"result":[{"meta":{"symbol":"'
-        + symbol
-        + '","longName":"'
-        + long_name
-        + '","regularMarketPrice":'
-        + price
-        + ',"currency":"'
-        + currency
-        + '","exchangeName":"'
-        + exchange_name
-        + '","regularMarketTime":1783540800}}],"error":null}}'
+    return json.dumps(
+        {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": symbol,
+                            "longName": long_name,
+                            "regularMarketPrice": price,
+                            "currency": currency,
+                            "exchangeName": exchange_name,
+                            "regularMarketTime": 1783540800,
+                        }
+                    }
+                ],
+                "error": None,
+            }
+        }
     )
 
 
 def _build_not_found_payload() -> str:
     """Build a public quote endpoint not-found payload."""
-    return '{"data":null,"message":null,"status":{"rCode":400}}'
+    return json.dumps({"data": None, "message": None, "status": {"rCode": 400}})
 
 
 def _install_default_lookup_service_with_url_payloads(
