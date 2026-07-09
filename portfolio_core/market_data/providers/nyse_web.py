@@ -30,11 +30,28 @@ _NASDAQ_ASSET_CLASSES = ("stocks", "etf")
 class _WebQuote:
     """Minimal quote payload normalized from a free NYSE web source."""
 
-    source: str
-    symbol: str
     display_name: str
     price: Decimal
     provider_data: Mapping[str, object]
+
+
+def _load_json_mapping(raw_text: str, *, source_name: str) -> Mapping[str, object]:
+    """Return a JSON object payload or raise a source-specific communication error."""
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise TickerLookupCommunicationError(f"{source_name} response is not valid JSON") from exc
+    if not isinstance(payload, Mapping):
+        raise TickerLookupCommunicationError(f"{source_name} response has an unexpected payload format")
+    return payload
+
+
+def _string_value(value: object) -> str | None:
+    """Return stripped text values, treating empty or non-text input as absent."""
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 
 class _NasdaqQuoteParser:
@@ -42,14 +59,14 @@ class _NasdaqQuoteParser:
 
     def parse_quote(self, raw_text: str, *, expected_symbol: str, asset_class: str) -> _WebQuote | None:
         """Parse one Nasdaq quote payload, returning ``None`` when Nasdaq reports no match."""
-        payload = self._load_json(raw_text)
+        payload = _load_json_mapping(raw_text, source_name="Nasdaq quote")
         data = payload.get("data")
         if data is None:
             return None
         if not isinstance(data, Mapping):
             raise TickerLookupCommunicationError("Nasdaq quote response has an unexpected payload format")
 
-        symbol = self._string_value(data.get("symbol"))
+        symbol = _string_value(data.get("symbol"))
         if symbol is None or symbol.upper() != expected_symbol.upper():
             return None
 
@@ -57,16 +74,14 @@ class _NasdaqQuoteParser:
         if not isinstance(primary_data, Mapping):
             raise TickerLookupCommunicationError("Nasdaq quote response has an unexpected primary data format")
 
-        raw_price = self._string_value(primary_data.get("lastSalePrice"))
+        raw_price = _string_value(primary_data.get("lastSalePrice"))
         price = self._parse_price(raw_price)
         if price is None:
             return None
 
-        display_name = self._string_value(data.get("companyName")) or expected_symbol
-        last_trade_timestamp = self._string_value(primary_data.get("lastTradeTimestamp"))
+        display_name = _string_value(data.get("companyName")) or expected_symbol
+        last_trade_timestamp = _string_value(primary_data.get("lastTradeTimestamp"))
         return _WebQuote(
-            source="nasdaq",
-            symbol=symbol.upper(),
             display_name=display_name,
             price=price,
             provider_data=MappingProxyType(
@@ -75,26 +90,11 @@ class _NasdaqQuoteParser:
                     "symbol": symbol.upper(),
                     "asset_class": asset_class,
                     "last_sale_price": str(price),
-                    "exchange": self._string_value(data.get("exchange")),
+                    "exchange": _string_value(data.get("exchange")),
                     "last_trade_timestamp": last_trade_timestamp,
                 }
             ),
         )
-
-    def _load_json(self, raw_text: str) -> Mapping[str, object]:
-        try:
-            payload = json.loads(raw_text)
-        except json.JSONDecodeError as exc:
-            raise TickerLookupCommunicationError("Nasdaq quote response is not valid JSON") from exc
-        if not isinstance(payload, Mapping):
-            raise TickerLookupCommunicationError("Nasdaq quote response has an unexpected payload format")
-        return payload
-
-    def _string_value(self, value: object) -> str | None:
-        if not isinstance(value, str):
-            return None
-        stripped = value.strip()
-        return stripped or None
 
     def _parse_price(self, raw_price: str | None) -> Decimal | None:
         if raw_price is None:
@@ -113,7 +113,7 @@ class _YahooChartQuoteParser:
 
     def parse_quote(self, raw_text: str, *, expected_symbol: str, yahoo_symbol: str) -> _WebQuote | None:
         """Parse one Yahoo chart payload, returning ``None`` when Yahoo reports no data."""
-        payload = self._load_json(raw_text)
+        payload = _load_json_mapping(raw_text, source_name="Yahoo chart")
         chart = payload.get("chart")
         if not isinstance(chart, Mapping):
             raise TickerLookupCommunicationError("Yahoo chart response has an unexpected payload format")
@@ -130,7 +130,7 @@ class _YahooChartQuoteParser:
         if not isinstance(meta, Mapping):
             raise TickerLookupCommunicationError("Yahoo chart response has an unexpected metadata format")
 
-        symbol = self._string_value(meta.get("symbol"))
+        symbol = _string_value(meta.get("symbol"))
         if symbol is None or symbol.upper() != yahoo_symbol.upper():
             return None
 
@@ -139,13 +139,11 @@ class _YahooChartQuoteParser:
             return None
 
         display_name = (
-            self._string_value(meta.get("longName"))
-            or self._string_value(meta.get("shortName"))
+            _string_value(meta.get("longName"))
+            or _string_value(meta.get("shortName"))
             or expected_symbol
         )
         return _WebQuote(
-            source="yahoo_chart",
-            symbol=symbol.upper(),
             display_name=display_name,
             price=price,
             provider_data=MappingProxyType(
@@ -154,27 +152,12 @@ class _YahooChartQuoteParser:
                     "symbol": symbol.upper(),
                     "yahoo_symbol": yahoo_symbol.upper(),
                     "regular_market_price": str(price),
-                    "currency": self._string_value(meta.get("currency")),
-                    "exchange_name": self._string_value(meta.get("exchangeName")),
+                    "currency": _string_value(meta.get("currency")),
+                    "exchange_name": _string_value(meta.get("exchangeName")),
                     "regular_market_time": meta.get("regularMarketTime"),
                 }
             ),
         )
-
-    def _load_json(self, raw_text: str) -> Mapping[str, object]:
-        try:
-            payload = json.loads(raw_text)
-        except json.JSONDecodeError as exc:
-            raise TickerLookupCommunicationError("Yahoo chart response is not valid JSON") from exc
-        if not isinstance(payload, Mapping):
-            raise TickerLookupCommunicationError("Yahoo chart response has an unexpected payload format")
-        return payload
-
-    def _string_value(self, value: object) -> str | None:
-        if not isinstance(value, str):
-            return None
-        stripped = value.strip()
-        return stripped or None
 
     def _parse_decimal_value(self, value: object) -> Decimal | None:
         if isinstance(value, bool) or value is None:
