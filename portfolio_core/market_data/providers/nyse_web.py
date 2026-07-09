@@ -280,11 +280,12 @@ class _NyseWebLookupProvider(_BaseHttpLookupProvider):
 
         Nasdaq is queried first across supported asset classes. If Nasdaq has
         no usable quote or fails with a communication error, Yahoo is queried as
-        a fallback. A found quote is returned immediately; clean no-data
-        responses from both sources produce ``TickerLookupNotFound``.
+        a fallback. A found quote is returned immediately. If no provider
+        returns a usable quote, the lookup returns ``TickerLookupNotFound``
+        unless every attempted provider fails with a communication error.
 
         Raises:
-            TickerLookupCommunicationError: If both providers fail due to
+            TickerLookupCommunicationError: If all attempted providers fail due to
             transport or parsing errors.
         """
         errors: list[str] = []
