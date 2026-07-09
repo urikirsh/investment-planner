@@ -322,7 +322,7 @@ UI-focused tests:
 
 Core/domain tests:
 - `tests/core/helpers.py`
-  - shared builders (`make_valid_data`, `make_portfolio`)
+  - shared builders (`make_valid_data`, `make_portfolio`) and market-data test helpers
 - `tests/core/market_data/test_lookup_service.py`
   - NYSE/TASE market-data lookup parsing/matching, cache behavior, and communication-failure behavior
 - `tests/core/test_budget.py`
