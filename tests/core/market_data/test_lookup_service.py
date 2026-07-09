@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from decimal import Decimal
 from threading import Barrier, Thread
@@ -22,55 +23,120 @@ from portfolio_core.market_data.lookup_service import _LookupCacheKey
 from portfolio_core.domain.ticker_rules import canonicalize_ticker_for_exchange
 
 
-_STOOQ_AAPL_URL = "https://stooq.com/q/l/?s=aapl.us"
-_STOOQ_AAPL_PAGE_URL = "https://stooq.com/q/?s=aapl.us"
-_STOOQ_BRKB_DOTTED_URL = "https://stooq.com/q/l/?s=brk.b.us"
-_STOOQ_BRKB_DASHED_URL = "https://stooq.com/q/l/?s=brk-b.us"
-_STOOQ_BRKB_PAGE_URL = "https://stooq.com/q/?s=brk-b.us"
+_NASDAQ_AAPL_STOCK_URL = "https://api.nasdaq.com/api/quote/AAPL/info?assetclass=stocks"
+_NASDAQ_AAPL_ETF_URL = "https://api.nasdaq.com/api/quote/AAPL/info?assetclass=etf"
+_NASDAQ_BRKB_STOCK_URL = "https://api.nasdaq.com/api/quote/BRK.B/info?assetclass=stocks"
+_NASDAQ_BRKB_ETF_URL = "https://api.nasdaq.com/api/quote/BRK.B/info?assetclass=etf"
+_YAHOO_AAPL_URL = "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=5d&interval=1d"
+_YAHOO_BRKB_URL = "https://query1.finance.yahoo.com/v8/finance/chart/BRK-B?range=5d&interval=1d"
 _TASE_URL = "https://api.tase.co.il/api/company/securitydata?securityId=1159094&lang=1"
 _TASE_MUTUAL_FUND_URL = "https://maya.tase.co.il/api/v1/funds/mutual/5139910"
 
 
-def _build_stooq_quote_payload(
+class FakeHttpClient:
+    """Deterministic market-data HTTP client for lookup service tests."""
+
+    def __init__(
+        self,
+        *,
+        payloads_by_url: Mapping[str, str] | None = None,
+        errors_by_url: Mapping[str, Exception] | None = None,
+        default_exception: Exception | None = None,
+        delay_seconds: float = 0.0,
+    ) -> None:
+        self._payloads_by_url = payloads_by_url or {}
+        self._errors_by_url = errors_by_url or {}
+        self._default_exception = default_exception
+        self._delay_seconds = delay_seconds
+        self.calls = 0
+
+    def fetch_text(
+        self,
+        *,
+        url: str,
+        headers: Mapping[str, str],  # noqa: ARG002
+        timeout_seconds: float,  # noqa: ARG002
+    ) -> str:
+        self.calls += 1
+        if self._delay_seconds > 0:
+            time.sleep(self._delay_seconds)
+        error = self._errors_by_url.get(url)
+        if error is not None:
+            raise error
+        if url in self._payloads_by_url:
+            return self._payloads_by_url[url]
+        if self._default_exception is not None:
+            raise self._default_exception
+        raise AssertionError(f"Unexpected URL requested: {url}")
+
+
+def build_nasdaq_quote_payload(
     *,
-    symbol: str = "AAPL.US",
-    date: str = "20260323",
-    quote_time: str = "204216",
-    close: str = "210.50",
-    volume: str = "18370971",
+    symbol: str = "AAPL",
+    company_name: str = "Apple Inc. Common Stock",
+    price: str = "$210.50",
+    exchange: str = "NASDAQ-GS",
+    last_trade_timestamp: str = "Jul 9, 2026 4:00 PM ET",
 ) -> str:
-    """Build minimal Stooq quote one-line payload with parsable fields."""
-    return f"{symbol},{date},{quote_time},209.00,212.00,208.00,{close},{volume},"
+    """Build minimal Nasdaq quote payload with parsable fields."""
+    return json.dumps(
+        {
+            "data": {
+                "symbol": symbol,
+                "companyName": company_name,
+                "exchange": exchange,
+                "primaryData": {
+                    "lastSalePrice": price,
+                    "lastTradeTimestamp": last_trade_timestamp,
+                },
+            }
+        }
+    )
 
 
-def _build_stooq_symbol_page_payload(*, symbol: str = "AAPL.US", company_name: str = "Apple Inc") -> str:
-    """Build minimal Stooq symbol page payload with title-based company name."""
-    return f"<html><head><title>{symbol} (+0.84%) - {company_name} - Stooq</title></head><body></body></html>"
+def build_yahoo_chart_payload(
+    *,
+    symbol: str = "AAPL",
+    long_name: str = "Apple Inc",
+    price: str = "210.50",
+    currency: str = "USD",
+    exchange_name: str = "NMS",
+) -> str:
+    """Build minimal Yahoo chart payload with parsable metadata."""
+    return json.dumps(
+        {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": symbol,
+                            "longName": long_name,
+                            "regularMarketPrice": price,
+                            "currency": currency,
+                            "exchangeName": exchange_name,
+                            "regularMarketTime": 1783540800,
+                        }
+                    }
+                ],
+                "error": None,
+            }
+        }
+    )
 
 
-def _install_default_lookup_service_with_url_payloads(
+def build_not_found_payload() -> str:
+    """Build a public quote endpoint not-found payload."""
+    return json.dumps({"data": None, "message": None, "status": {"rCode": 400}})
+
+
+def install_default_lookup_service_with_url_payloads(
     monkeypatch: pytest.MonkeyPatch,
     *,
     payloads_by_url: Mapping[str, str],
-    calls: dict[str, int] | None = None,
     delay_seconds: float = 0.0,
 ) -> MarketDataService:
     """Install a default lookup service with deterministic URL-specific payload behavior."""
-
-    def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
-        if calls is not None:
-            calls["count"] += 1
-        if delay_seconds > 0:
-            time.sleep(delay_seconds)
-        if url in payloads_by_url:
-            return payloads_by_url[url]
-        raise AssertionError(f"Unexpected URL requested: {url}")
-
-    http_client = type(
-        "_StubHttpClient",
-        (),
-        {"fetch_text": staticmethod(_fetch_text_stub)},
-    )()
+    http_client = FakeHttpClient(payloads_by_url=payloads_by_url, delay_seconds=delay_seconds)
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
         "portfolio_core.market_data.lookup_service._default_market_data_service",
@@ -79,21 +145,18 @@ def _install_default_lookup_service_with_url_payloads(
     return service
 
 
-def _install_default_lookup_service_with_failing_transport(
+def fake_http_client(service: MarketDataService) -> FakeHttpClient:
+    """Return the installed fake client for call-count assertions."""
+    return cast(FakeHttpClient, service._http_client)
+
+
+def install_default_lookup_service_with_failing_transport(
     monkeypatch: pytest.MonkeyPatch,
     *,
     exception: Exception,
 ) -> MarketDataService:
     """Install a default lookup service whose transport always raises."""
-
-    def _raise_fetch(*_args, **_kwargs) -> str:
-        raise exception
-
-    http_client = type(
-        "_FailingHttpClient",
-        (),
-        {"fetch_text": staticmethod(_raise_fetch)},
-    )()
+    http_client = FakeHttpClient(default_exception=exception)
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
         "portfolio_core.market_data.lookup_service._default_market_data_service",
@@ -103,23 +166,26 @@ def _install_default_lookup_service_with_failing_transport(
 
 
 def test_lookup_ticker_in_exchange_returns_true_for_nyse_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(),
         },
     )
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
 
 
-def test_lookup_ticker_in_exchange_returns_false_for_stooq_not_found_payload(
+def test_lookup_ticker_in_exchange_returns_false_for_web_not_found_payloads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_STOOQ_AAPL_URL: "AAPL.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D,N/D"},
+        payloads_by_url={
+            _NASDAQ_AAPL_STOCK_URL: build_not_found_payload(),
+            _NASDAQ_AAPL_ETF_URL: build_not_found_payload(),
+            _YAHOO_AAPL_URL: '{"chart":{"result":null,"error":{"code":"Not Found"}}}',
+        },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
@@ -127,15 +193,19 @@ def test_lookup_ticker_in_exchange_returns_false_for_stooq_not_found_payload(
     assert isinstance(result, TickerLookupNotFound)
 
 
-def test_lookup_ticker_in_exchange_tries_dashed_fallback_for_dot_ticker(
+def test_lookup_ticker_in_exchange_tries_yahoo_dashed_fallback_for_dot_ticker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_BRKB_DOTTED_URL: "BRK.B.US,N/D,N/D,N/D,N/D,N/D,N/D,N/D,N/D",
-            _STOOQ_BRKB_DASHED_URL: _build_stooq_quote_payload(symbol="BRK-B.US", close="482.06"),
-            _STOOQ_BRKB_PAGE_URL: _build_stooq_symbol_page_payload(symbol="BRK-B.US", company_name="Berkshire Hathaway Inc"),
+            _NASDAQ_BRKB_STOCK_URL: build_not_found_payload(),
+            _NASDAQ_BRKB_ETF_URL: build_not_found_payload(),
+            _YAHOO_BRKB_URL: build_yahoo_chart_payload(
+                symbol="BRK-B",
+                long_name="Berkshire Hathaway Inc",
+                price="482.06",
+            ),
         },
     )
 
@@ -143,7 +213,8 @@ def test_lookup_ticker_in_exchange_tries_dashed_fallback_for_dot_ticker(
 
     assert isinstance(result, TickerLookupFound)
     assert result.metadata.canonical_ticker == "BRK.B"
-    assert result.metadata.provider_data.get("stooq_symbol") == "BRK-B.US"
+    assert result.metadata.provider_data.get("source") == "yahoo_chart"
+    assert result.metadata.provider_data.get("yahoo_symbol") == "BRK-B"
     assert result.metadata.display_name == "Berkshire Hathaway Inc"
 
 
@@ -161,7 +232,7 @@ def test_lookup_ticker_in_exchange_rejects_malformed_canonical_input_without_tra
     exchange: Exchange,
     ticker: str,
 ) -> None:
-    _install_default_lookup_service_with_failing_transport(
+    install_default_lookup_service_with_failing_transport(
         monkeypatch,
         exception=AssertionError("Transport should not be called for malformed canonical ticker input"),
     )
@@ -178,7 +249,7 @@ def test_lookup_ticker_in_exchange_returns_name_for_existing_tase_symbol(
         '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LongName":"'
         '(ISHARES CORE MSCI EUROPE UCITS ETF EUR (ACC)","LastRate":123.45}'
     )
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={_TASE_URL: payload},
     )
@@ -197,7 +268,7 @@ def test_lookup_ticker_in_exchange_exposes_deeply_immutable_provider_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     payload = '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","Nested":{"levels":[{"k":"v"}]}}'
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             _TASE_URL: payload,
@@ -235,7 +306,7 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
         '"Name":"\\u05d0\\u05d9\\u05d9\\u05e9\\u05e8\\u05e1 \\u05d7\\u05d5\\u05e5",'
         '"LongName":"\\u05d0\\u05d9\\u05d9\\u05e9\\u05e8\\u05e1 \\u05d7\\u05d5\\u05e5"}'
     )
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=1234567&lang=1": payload,
@@ -252,7 +323,7 @@ def test_lookup_ticker_in_exchange_returns_found_with_empty_name_for_tase_withou
 def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=9999999&lang=1": "null",
@@ -268,7 +339,7 @@ def test_lookup_ticker_in_exchange_returns_not_found_for_missing_tase_symbol(
 def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_lookup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "null",
@@ -294,7 +365,7 @@ def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_lookup(
 def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_when_primary_has_no_price(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": '{"Id":5139910,"Name":"Bitcoin P&S"}',
@@ -312,7 +383,7 @@ def test_lookup_ticker_in_exchange_falls_back_to_tase_mutual_fund_when_primary_h
 def test_lookup_ticker_in_exchange_preserves_primary_tase_communication_error_when_mutual_fund_fallback_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "{invalid-json",
@@ -327,7 +398,7 @@ def test_lookup_ticker_in_exchange_preserves_primary_tase_communication_error_wh
 def test_lookup_ticker_in_exchange_raises_mutual_fund_communication_error_when_primary_is_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=5139910&lang=1": "null",
@@ -342,7 +413,7 @@ def test_lookup_ticker_in_exchange_raises_mutual_fund_communication_error_when_p
 def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_tase_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={_TASE_URL: "{invalid-json"},
     )
@@ -354,11 +425,10 @@ def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_tase_p
 def test_lookup_ticker_in_exchange_returns_metadata_for_existing_nyse_symbol(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(company_name="Apple Inc"),
         },
     )
 
@@ -371,18 +441,18 @@ def test_lookup_ticker_in_exchange_returns_metadata_for_existing_nyse_symbol(
     assert result.metadata.last_traded_price == Decimal("210.50")
     assert result.metadata.isin is None
     assert result.metadata.currency == "USD"
-    assert result.metadata.provider_data.get("source") == "stooq"
-    assert result.metadata.provider_data.get("stooq_symbol") == "AAPL.US"
-    assert result.metadata.provider_data.get("quote_symbol") == "AAPL.US"
-    assert result.metadata.provider_data.get("close") == "210.50"
-    assert result.metadata.provider_data.get("quote_date") == "20260323"
-    assert result.metadata.provider_data.get("quote_time_utc") == "204216"
+    assert result.metadata.provider_data.get("source") == "nasdaq"
+    assert result.metadata.provider_data.get("symbol") == "AAPL"
+    assert result.metadata.provider_data.get("asset_class") == "stocks"
+    assert result.metadata.provider_data.get("last_sale_price") == "210.50"
+    assert result.metadata.provider_data.get("exchange") == "NASDAQ-GS"
+    assert result.metadata.provider_data.get("last_trade_timestamp") == "Jul 9, 2026 4:00 PM ET"
 
 
 def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_failing_transport(
+    install_default_lookup_service_with_failing_transport(
         monkeypatch,
         exception=OSError("offline"),
     )
@@ -394,7 +464,7 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_url_failure(
 def test_lookup_ticker_in_exchange_raises_communication_error_on_custom_transport_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_failing_transport(
+    install_default_lookup_service_with_failing_transport(
         monkeypatch,
         exception=RuntimeError("custom transport failure"),
     )
@@ -403,36 +473,32 @@ def test_lookup_ticker_in_exchange_raises_communication_error_on_custom_transpor
         lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
 
 
-def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_stooq_payload(
+def test_lookup_ticker_in_exchange_raises_communication_error_for_invalid_web_payloads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_STOOQ_AAPL_URL: "broken"},
+        payloads_by_url={
+            _NASDAQ_AAPL_STOCK_URL: "broken",
+            _YAHOO_AAPL_URL: "broken",
+        },
     )
 
     with pytest.raises(TickerLookupCommunicationError):
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
-def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_page_fetch_fails(
+def test_lookup_ticker_in_exchange_uses_yahoo_fallback_when_nasdaq_quote_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-
-    def _fetch_text_stub(*, url: str, headers: Mapping[str, str], timeout_seconds: float) -> str:  # noqa: ARG001
-        calls["count"] += 1
-        if url == _STOOQ_AAPL_URL:
-            return _build_stooq_quote_payload()
-        if url == _STOOQ_AAPL_PAGE_URL:
-            raise RuntimeError("symbol page unavailable")
-        raise AssertionError(f"Unexpected URL requested: {url}")
-
-    http_client = type(
-        "_StubHttpClient",
-        (),
-        {"fetch_text": staticmethod(_fetch_text_stub)},
-    )()
+    http_client = FakeHttpClient(
+        payloads_by_url={
+            _YAHOO_AAPL_URL: build_yahoo_chart_payload(long_name="Apple Inc"),
+        },
+        errors_by_url={
+            _NASDAQ_AAPL_STOCK_URL: RuntimeError("nasdaq unavailable"),
+        },
+    )
     service = MarketDataService(http_client=http_client)
     monkeypatch.setattr(
         "portfolio_core.market_data.lookup_service._default_market_data_service",
@@ -442,30 +508,20 @@ def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_page_f
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
     assert isinstance(result, TickerLookupFound)
-    assert result.metadata.display_name == "AAPL"
-    assert calls["count"] == 2
+    assert result.metadata.display_name == "Apple Inc"
+    assert result.metadata.provider_data.get("source") == "yahoo_chart"
+    assert http_client.calls == 2
 
 
-@pytest.mark.parametrize(
-    "symbol_page_payload",
-    [
-        # Missing expected " - " separator
-        "<html><head><title>AAPL.US (+0.84%) Apple Inc - Stooq</title></head><body></body></html>",
-        # Empty title
-        "<html><head><title></title></head><body></body></html>",
-        # Title symbol does not match expected symbol
-        "<html><head><title>MSFT.US (+0.84%) - Microsoft Corp - Stooq</title></head><body></body></html>",
-    ],
-)
-def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_title_is_unexpected(
+def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_yahoo_name_is_missing(
     monkeypatch: pytest.MonkeyPatch,
-    symbol_page_payload: str,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: symbol_page_payload,
+            _NASDAQ_AAPL_STOCK_URL: build_not_found_payload(),
+            _NASDAQ_AAPL_ETF_URL: build_not_found_payload(),
+            _YAHOO_AAPL_URL: build_yahoo_chart_payload(long_name=""),
         },
     )
 
@@ -475,61 +531,58 @@ def test_lookup_ticker_in_exchange_uses_ticker_fallback_when_stooq_symbol_title_
     assert result.metadata.display_name == "AAPL"
 
 
-def test_lookup_ticker_in_exchange_raises_communication_error_for_stooq_quote_with_invalid_date(
+def test_lookup_ticker_in_exchange_raises_communication_error_for_nasdaq_quote_with_invalid_price(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
-        payloads_by_url={_STOOQ_AAPL_URL: "AAPL.US,2026-03-23,204216,209.00,212.00,208.00,210.50,18370971,"},
+        payloads_by_url={
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(price="$bad"),
+            _YAHOO_AAPL_URL: "broken",
+        },
     )
 
     with pytest.raises(TickerLookupCommunicationError):
         lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
 
-def test_lookup_ticker_in_exchange_parses_stooq_quote_csv_with_quoted_commas(
+def test_lookup_ticker_in_exchange_parses_nasdaq_quote_price_with_commas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_default_lookup_service_with_url_payloads(
+    install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: 'AAPL.US,20260323,204216,"209,00",212.00,208.00,210.50,18370971,',
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(price="$1,210.50"),
         },
     )
 
     result = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
     assert isinstance(result, TickerLookupFound)
-    assert result.metadata.provider_data.get("close") == "210.50"
+    assert result.metadata.last_traded_price == Decimal("1210.50")
 
 
 def test_lookup_ticker_in_exchange_uses_nyse_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(),
         },
-        calls=calls,
     )
 
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
     assert isinstance(lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL"), TickerLookupFound)
-    assert calls["count"] == 2
+    assert fake_http_client(service).calls == 1
 
 
 def test_lookup_ticker_in_exchange_uses_tase_per_ticker_cache_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={_TASE_URL: '{"Id":1159094,"Name":"ISH.FRF MSCIEUR","LastRate":123.45}'},
-        calls=calls,
     )
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="1159094")
@@ -537,21 +590,19 @@ def test_lookup_ticker_in_exchange_uses_tase_per_ticker_cache_without_refetch(
 
     assert isinstance(result1, TickerLookupFound)
     assert isinstance(result2, TickerLookupFound)
-    assert calls["count"] == 1
+    assert fake_http_client(service).calls == 1
 
 
 def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
             "https://api.tase.co.il/api/company/securitydata?securityId=312017&lang=1": (
                 '{"Id":312017,"Name":"SAMPLE","LastRate":100.0}'
             )
         },
-        calls=calls,
     )
 
     result1 = lookup_ticker_in_exchange(exchange=Exchange.TASE, ticker="0312017")
@@ -559,7 +610,7 @@ def test_lookup_ticker_in_exchange_normalizes_leading_zeros_for_tase_lookup_and_
 
     assert isinstance(result1, TickerLookupFound)
     assert isinstance(result2, TickerLookupFound)
-    assert calls["count"] == 1
+    assert fake_http_client(service).calls == 1
 
 
 @pytest.mark.parametrize(
@@ -580,11 +631,10 @@ def test_canonicalize_tase_security_number(raw_ticker: str, normalized: str) -> 
 def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_ticker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    service = _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(),
         },
     )
 
@@ -601,14 +651,11 @@ def test_lookup_ticker_in_exchange_caches_nyse_lookup_result_by_exchange_and_tic
 def test_get_cached_ticker_result_in_exchange_returns_cached_result_without_refetch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
-    _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(),
         },
-        calls=calls,
     )
 
     assert get_cached_ticker_result_in_exchange(exchange=Exchange.NYSE, ticker="AAPL") is None
@@ -617,25 +664,22 @@ def test_get_cached_ticker_result_in_exchange_returns_cached_result_without_refe
 
     assert isinstance(loaded, TickerLookupFound)
     assert cached == loaded
-    assert calls["count"] == 2
+    assert fake_http_client(service).calls == 1
 
 
 def test_force_lookup_ticker_in_exchange_bypasses_cache_and_overwrites_cached_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
     payloads_by_url = {
-        _STOOQ_AAPL_URL: _build_stooq_quote_payload(close="210.50"),
-        _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+        _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(price="$210.50"),
     }
-    _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url=payloads_by_url,
-        calls=calls,
     )
 
     first = lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
-    payloads_by_url[_STOOQ_AAPL_URL] = _build_stooq_quote_payload(close="211.75")
+    payloads_by_url[_NASDAQ_AAPL_STOCK_URL] = build_nasdaq_quote_payload(price="$211.75")
     second = force_lookup_ticker_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
     cached = get_cached_ticker_result_in_exchange(exchange=Exchange.NYSE, ticker="AAPL")
 
@@ -645,21 +689,18 @@ def test_force_lookup_ticker_in_exchange_bypasses_cache_and_overwrites_cached_va
     assert first.metadata.last_traded_price == Decimal("210.50")
     assert second.metadata.last_traded_price == Decimal("211.75")
     assert cached.metadata.last_traded_price == Decimal("211.75")
-    assert calls["count"] == 4
+    assert fake_http_client(service).calls == 2
 
 
 def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = {"count": 0}
     barrier = Barrier(3)
-    _install_default_lookup_service_with_url_payloads(
+    service = install_default_lookup_service_with_url_payloads(
         monkeypatch,
         payloads_by_url={
-            _STOOQ_AAPL_URL: _build_stooq_quote_payload(),
-            _STOOQ_AAPL_PAGE_URL: _build_stooq_symbol_page_payload(),
+            _NASDAQ_AAPL_STOCK_URL: build_nasdaq_quote_payload(),
         },
-        calls=calls,
         delay_seconds=0.05,
     )
 
@@ -679,4 +720,4 @@ def test_lookup_ticker_in_exchange_populates_nyse_cache_once_under_concurrency(
     t2.join()
 
     assert results == [True, True]
-    assert calls["count"] == 2
+    assert fake_http_client(service).calls == 1
