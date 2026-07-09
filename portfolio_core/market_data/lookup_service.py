@@ -22,7 +22,7 @@ from portfolio_core.market_data.models import (
     TickerLookupNotFound,
     TickerLookupResult,
 )
-from portfolio_core.market_data.providers.nyse_stooq import _NyseStooqLookupProvider
+from portfolio_core.market_data.providers.nyse_web import _NyseWebLookupProvider
 from portfolio_core.market_data.providers.tase_api import _TaseApiLookupProvider
 from portfolio_core.market_data.transport import TickerHttpClient, UrlopenTickerHttpClient
 
@@ -124,7 +124,7 @@ class MarketDataService:
         lookup_store: _LookupCacheStore | None = None,
     ) -> None:
         self._http_client = http_client or UrlopenTickerHttpClient()
-        self._nyse_provider = nyse_provider or _NyseStooqLookupProvider(
+        self._nyse_provider = nyse_provider or _NyseWebLookupProvider(
             http_client=self._http_client,
             request_headers=MappingProxyType(dict(_REQUEST_HEADERS)),
         )

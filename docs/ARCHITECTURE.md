@@ -216,9 +216,9 @@ Startup/wizard market-data guards in this flow:
   - defines the HTTP transport seam used by providers
 - `portfolio_core/market_data/providers/base.py`
   - provides shared HTTP transport error-normalization for provider implementations
-- `portfolio_core/market_data/providers/nyse_stooq.py`
-  - resolves NYSE via Stooq quote endpoint (`q/l`) plus symbol page title (`q/?s=`) for display names
-  - NYSE dotted symbols also try dashed Stooq fallback keys (for example `BRK.B` -> `brk-b.us`)
+- `portfolio_core/market_data/providers/nyse_web.py`
+  - resolves NYSE via free web quote endpoints, trying Nasdaq JSON first and Yahoo chart JSON as a fallback
+  - Yahoo fallback maps dotted symbols to dashed Yahoo keys (for example `BRK.B` -> `BRK-B`)
 - `portfolio_core/market_data/providers/tase_api.py`
   - resolves TASE via `api.tase.co.il` `company/securitydata`
   - normalizes quoted TASE price fields from agorot to ILS before populating lookup metadata
