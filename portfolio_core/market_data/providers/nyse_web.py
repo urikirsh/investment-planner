@@ -1,4 +1,4 @@
-"""NYSE ticker lookup provider backed by free web quote endpoints."""
+"""NYSE ticker lookup provider backed by unauthenticated web quote endpoints."""
 
 from __future__ import annotations
 
@@ -28,7 +28,12 @@ _NASDAQ_ASSET_CLASSES = ("stocks", "etf")
 
 @dataclass(frozen=True)
 class _WebQuote:
-    """Minimal quote payload normalized from a free NYSE web source."""
+    """Normalized quote details shared by Nasdaq and Yahoo parser results.
+
+    The provider consumes this internal shape to build the public
+    ``TickerLookupFound`` metadata without coupling source-specific parsing code
+    to service-level result construction.
+    """
 
     display_name: str
     price: Decimal
@@ -36,7 +41,19 @@ class _WebQuote:
 
 
 def _load_json_mapping(raw_text: str, *, source_name: str) -> Mapping[str, object]:
-    """Return a JSON object payload or raise a source-specific communication error."""
+    """Decode a provider JSON response and require an object root.
+
+    Args:
+        raw_text: Response body returned by the HTTP transport.
+        source_name: Human-readable provider label used in diagnostics.
+
+    Returns:
+        Parsed JSON mapping for provider-specific parsers.
+
+    Raises:
+        TickerLookupCommunicationError: If the response is not valid JSON or
+            does not decode to an object.
+    """
     try:
         payload = json.loads(raw_text)
     except json.JSONDecodeError as exc:
@@ -47,7 +64,12 @@ def _load_json_mapping(raw_text: str, *, source_name: str) -> Mapping[str, objec
 
 
 def _string_value(value: object) -> str | None:
-    """Return stripped text values, treating empty or non-text input as absent."""
+    """Normalize optional string fields from provider payloads.
+
+    Provider metadata frequently omits fields or returns blank strings for
+    unavailable values. This helper keeps that absence represented consistently
+    as ``None``.
+    """
     if not isinstance(value, str):
         return None
     stripped = value.strip()
@@ -55,10 +77,29 @@ def _string_value(value: object) -> str | None:
 
 
 class _NasdaqQuoteParser:
-    """Parser for Nasdaq public quote JSON responses."""
+    """Parser for Nasdaq public quote JSON responses.
+
+    Nasdaq reports missing symbols with a successful JSON response whose
+    ``data`` field is ``null``. The parser treats those as not-found outcomes,
+    while malformed payloads raise communication errors.
+    """
 
     def parse_quote(self, raw_text: str, *, expected_symbol: str, asset_class: str) -> _WebQuote | None:
-        """Parse one Nasdaq quote payload, returning ``None`` when Nasdaq reports no match."""
+        """Parse a Nasdaq quote response into normalized quote metadata.
+
+        Args:
+            raw_text: JSON response body from the Nasdaq quote endpoint.
+            expected_symbol: Canonical NYSE ticker requested by the app.
+            asset_class: Nasdaq asset-class route used for the request.
+
+        Returns:
+            ``_WebQuote`` when Nasdaq returns a matching symbol with a usable
+            last-sale price, otherwise ``None`` for clean no-data responses.
+
+        Raises:
+            TickerLookupCommunicationError: If Nasdaq returns malformed JSON,
+            an unexpected object shape, or an unparsable price.
+        """
         payload = _load_json_mapping(raw_text, source_name="Nasdaq quote")
         data = payload.get("data")
         if data is None:
@@ -97,6 +138,13 @@ class _NasdaqQuoteParser:
         )
 
     def _parse_price(self, raw_price: str | None) -> Decimal | None:
+        """Parse Nasdaq's display price into a Decimal quote amount.
+
+        Nasdaq currently formats prices as strings such as ``"$210.50"`` or
+        ``"$1,210.50"``. Missing and ``"N/A"`` prices are clean no-data
+        outcomes; syntactically invalid prices indicate a provider contract
+        change and raise a communication error.
+        """
         if raw_price is None:
             return None
         normalized = raw_price.strip().removeprefix("$").replace(",", "")
@@ -109,10 +157,31 @@ class _NasdaqQuoteParser:
 
 
 class _YahooChartQuoteParser:
-    """Parser for Yahoo Finance chart JSON responses."""
+    """Parser for Yahoo Finance chart JSON responses.
+
+    Yahoo chart responses expose price and display metadata under
+    ``chart.result[0].meta``. Explicit Yahoo errors and empty result arrays are
+    treated as no-data responses so the lookup provider can return not-found
+    when all sources agree there is no usable quote.
+    """
 
     def parse_quote(self, raw_text: str, *, expected_symbol: str, yahoo_symbol: str) -> _WebQuote | None:
-        """Parse one Yahoo chart payload, returning ``None`` when Yahoo reports no data."""
+        """Parse a Yahoo chart response into normalized quote metadata.
+
+        Args:
+            raw_text: JSON response body from the Yahoo chart endpoint.
+            expected_symbol: Canonical NYSE ticker requested by the app.
+            yahoo_symbol: Yahoo-specific ticker spelling used for the request.
+
+        Returns:
+            ``_WebQuote`` when Yahoo returns a matching symbol with a usable
+            regular-market price, otherwise ``None`` for clean no-data
+            responses.
+
+        Raises:
+            TickerLookupCommunicationError: If Yahoo returns malformed JSON,
+            an unexpected object shape, or an unparsable price.
+        """
         payload = _load_json_mapping(raw_text, source_name="Yahoo chart")
         chart = payload.get("chart")
         if not isinstance(chart, Mapping):
@@ -160,6 +229,12 @@ class _YahooChartQuoteParser:
         )
 
     def _parse_decimal_value(self, value: object) -> Decimal | None:
+        """Parse Yahoo's numeric price field into a Decimal quote amount.
+
+        Yahoo may return the market price as a JSON number or string. Missing
+        values are treated as clean no-data outcomes, while unsupported types or
+        invalid decimal text indicate a provider contract change.
+        """
         if isinstance(value, bool) or value is None:
             return None
         if not isinstance(value, (int, float, str)):
@@ -171,7 +246,13 @@ class _YahooChartQuoteParser:
 
 
 class _NyseWebLookupProvider(_BaseHttpLookupProvider):
-    """NYSE lookup provider backed by Nasdaq first, then Yahoo chart fallback."""
+    """NYSE lookup provider backed by Nasdaq first, then Yahoo chart fallback.
+
+    The app relies on this provider for free, no-key quote lookups. Nasdaq is
+    preferred because it returns display name and price in one endpoint; Yahoo
+    acts as a secondary source, including support for dashed class-share ticker
+    spellings.
+    """
 
     def __init__(
         self,
@@ -181,12 +262,31 @@ class _NyseWebLookupProvider(_BaseHttpLookupProvider):
         nasdaq_parser: _NasdaqQuoteParser | None = None,
         yahoo_parser: _YahooChartQuoteParser | None = None,
     ) -> None:
+        """Initialize provider dependencies and parser instances.
+
+        Args:
+            http_client: Transport used to fetch provider response bodies.
+            request_headers: Browser-like request headers shared by both web
+                endpoints.
+            nasdaq_parser: Optional parser override for tests.
+            yahoo_parser: Optional parser override for tests.
+        """
         super().__init__(http_client=http_client, request_headers=request_headers)
         self._nasdaq_parser = nasdaq_parser or _NasdaqQuoteParser()
         self._yahoo_parser = yahoo_parser or _YahooChartQuoteParser()
 
     def lookup_ticker(self, ticker: str, timeout_seconds: float) -> TickerLookupResult:
-        """Lookup one canonical NYSE ticker via free web quote sources."""
+        """Resolve one canonical NYSE ticker through the configured web sources.
+
+        Nasdaq is queried first across supported asset classes. If Nasdaq has
+        no usable quote or fails with a communication error, Yahoo is queried as
+        a fallback. A found quote is returned immediately; clean no-data
+        responses from both sources produce ``TickerLookupNotFound``.
+
+        Raises:
+            TickerLookupCommunicationError: If both providers fail due to
+            transport or parsing errors.
+        """
         errors: list[str] = []
 
         try:
@@ -212,7 +312,11 @@ class _NyseWebLookupProvider(_BaseHttpLookupProvider):
         return TickerLookupNotFound()
 
     def _lookup_nasdaq(self, *, ticker: str, timeout_seconds: float) -> _WebQuote | None:
-        """Return a Nasdaq quote for stock/ETF asset classes when available."""
+        """Fetch and parse Nasdaq quote data across supported asset classes.
+
+        Nasdaq separates stock and ETF quote routes. The provider tries each
+        route in order and returns the first matching quote with a usable price.
+        """
         encoded_symbol = quote(ticker.upper(), safe="")
         for asset_class in _NASDAQ_ASSET_CLASSES:
             quote_url = _NASDAQ_QUOTE_URL_TEMPLATE.format(
@@ -234,7 +338,11 @@ class _NyseWebLookupProvider(_BaseHttpLookupProvider):
         return None
 
     def _lookup_yahoo(self, *, ticker: str, timeout_seconds: float) -> _WebQuote | None:
-        """Return a Yahoo chart quote when available."""
+        """Fetch and parse Yahoo chart quote data for one canonical ticker.
+
+        The request uses Yahoo's symbol spelling, which differs from the app's
+        canonical NYSE spelling for dotted class-share tickers.
+        """
         yahoo_symbol = self._yahoo_symbol(ticker)
         quote_url = _YAHOO_CHART_URL_TEMPLATE.format(symbol=quote(yahoo_symbol, safe=""))
         payload = self._fetch_text_or_raise_communication_error(
@@ -249,11 +357,20 @@ class _NyseWebLookupProvider(_BaseHttpLookupProvider):
         )
 
     def _yahoo_symbol(self, ticker: str) -> str:
-        """Return Yahoo's US ticker spelling for the app's canonical ticker."""
+        """Return Yahoo's US ticker spelling for the app's canonical ticker.
+
+        Yahoo represents dotted class-share tickers with dashes, for example
+        ``BRK.B`` becomes ``BRK-B``.
+        """
         return ticker.replace(".", "-").upper()
 
     def _found_result(self, *, ticker: str, quote: _WebQuote) -> TickerLookupFound:
-        """Build public lookup metadata for a resolved web quote."""
+        """Build the public market-data result from a normalized web quote.
+
+        The resulting metadata preserves the app's canonical ticker while
+        carrying source-specific details in immutable ``provider_data`` for
+        diagnostics and tests.
+        """
         return TickerLookupFound(
             metadata=TickerLookupMetadata(
                 exchange=Exchange.NYSE,
